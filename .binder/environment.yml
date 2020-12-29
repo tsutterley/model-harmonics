@@ -1,0 +1,9 @@
+name: model-harmonics
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.6
+  - notebook
+  - pip
+  - pip:
+     - git+https://github.com/tsutterley/read-GRACE-harmonics.git
