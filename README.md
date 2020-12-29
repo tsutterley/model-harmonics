@@ -6,6 +6,8 @@ model-harmonics
 
 Python tools for obtaining and working with model synthetic spherical harmonic coefficients for comparing with data from the the NASA/DLR Gravity Recovery and Climate Experiment (GRACE) and the NASA/GFZ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
 
+These are extension routines for the set of [read-GRACE-harmonics](https://github.com/tsutterley/read-GRACE-harmonics) tools
+
 #### Resources
 - [NASA GRACE mission site](https://www.nasa.gov/mission_pages/Grace/index.html)
 - [NASA GRACE-FO mission site](https://www.nasa.gov/missions/grace-fo)

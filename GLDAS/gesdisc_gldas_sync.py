@@ -96,9 +96,8 @@ gldas_products['NOAH'] = 'GLDAS Noah model'
 gldas_products['VIC'] = 'GLDAS Variable Infiltration Capacity (VIC) model'
 
 #-- PURPOSE: sync local GLDAS files with GESDISC server
-def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, USER='', PASSWORD='',
-    SPATIAL='', TEMPORAL='', VERSION='', EARLY=False, LOG=False, LIST=False,
-    MODE=0o775, CLOBBER=False):
+def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
+    VERSION='', EARLY=False, LOG=False, LIST=False, MODE=0o775, CLOBBER=False):
 
     #-- check if directory exists and recursively create if not
     os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
@@ -348,19 +347,18 @@ def main():
     #-- get NASA Earthdata credentials
     if not args.user and not args.netrc:
         #-- check that NASA Earthdata credentials were entered
-        USER = builtins.input('Username for {0}: '.format(URS))
+        args.user = builtins.input('Username for {0}: '.format(URS))
         #-- enter password securely from command-line
-        PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(USER,URS))
+        PASSWORD=getpass.getpass('Password for {0}@{1}: '.format(args.user,URS))
     elif args.netrc:
-        USER,LOGIN,PASSWORD = netrc.netrc(args.netrc).authenticators(URS)
+        args.user,_,PASSWORD = netrc.netrc(args.netrc).authenticators(URS)
     else:
         #-- enter password securely from command-line
-        USER = args.user
-        PASSWORD = getpass.getpass('Password for {0}@{1}: '.format(USER,URS))
+        PASSWORD=getpass.getpass('Password for {0}@{1}: '.format(args.user,URS))
 
     #-- build a urllib opener for NASA GESDISC
     #-- Add the username and password for NASA Earthdata Login system
-    gravity_toolkit.utilities.build_opener(USER, PASSWORD,
+    gravity_toolkit.utilities.build_opener(args.user, PASSWORD,
         password_manager=True, authorization_header=False)
 
     #-- check internet connection before attempting to run program
@@ -371,8 +369,8 @@ def main():
             gesdisc_gldas_sync(args.directory, MODEL, args.year,
                 VERSION=args.version, EARLY=args.early,
                 SPATIAL=args.spacing, TEMPORAL=args.temporal,
-                USER=USER, PASSWORD=PASSWORD, LOG=args.log,
-                LIST=args.list, CLOBBER=args.clobber, MODE=args.mode)
+                LOG=args.log, LIST=args.list, CLOBBER=args.clobber,
+                MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':
