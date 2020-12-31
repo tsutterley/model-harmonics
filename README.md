@@ -32,10 +32,10 @@ and Regional Sea Level From Time‐Variable Gravity", *Earth and Space Science*,
 (2020). [doi:10.1029/2019EA000860](https://doi.org/10.1029/2019EA000860)
 
 #### Download
-The program homepage is:
-https://github.com/tsutterley/model-harmonics
-A zip archive of the latest version is available directly at:
-https://github.com/tsutterley/model-harmonics/archive/main.zip
+The program homepage is:  
+https://github.com/tsutterley/model-harmonics  
+A zip archive of the latest version is available directly at:  
+https://github.com/tsutterley/model-harmonics/archive/main.zip  
 
 #### Disclaimer
 This program is not sponsored or maintained by the Universities Space Research Association (USRA), the Center for Space Research at the University of Texas (UTCSR), the Jet Propulsion Laboratory (JPL), the German Research Centre for Geosciences (GeoForschungsZentrum, GFZ) or NASA.  It is provided here for your convenience but _with no guarantees whatsoever_.

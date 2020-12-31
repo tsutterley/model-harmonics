@@ -182,9 +182,8 @@ def main():
         default=os.getcwd(),
         help='Working data directory')
     #-- years to retrieve
-    YEARS = [Y for Y in range(2000,2018)]
     parser.add_argument('--year','-Y',
-        type=int, default=YEARS, nargs='+',
+        type=int, default=range(2000,2018), nargs='+',
         help='Model years to retrieve')
     #-- retrieve the model invariant parameters
     parser.add_argument('--invariant','-I',

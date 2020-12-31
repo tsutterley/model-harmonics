@@ -46,11 +46,19 @@ COMMAND LINE OPTIONS:
     --clobber: Overwrite existing data in transfer
 
 PYTHON DEPENDENCIES:
+    numpy: Scientific Computing Tools For Python
+        https://numpy.org
+        https://numpy.org/doc/stable/user/numpy-for-matlab-users.html
+    dateutil: powerful extensions to datetime
+        https://dateutil.readthedocs.io/en/stable/
     lxml: Pythonic XML and HTML processing library using libxml2/libxslt
-        http://lxml.de/
+        https://lxml.de/
         https://github.com/lxml/lxml
     future: Compatibility layer between Python 2 and Python 3
-        http://python-future.org/
+        https://python-future.org/
+
+PROGRAM DEPENDENCIES:
+    utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
     Updated 10/2020: use argparse to set command line parameters

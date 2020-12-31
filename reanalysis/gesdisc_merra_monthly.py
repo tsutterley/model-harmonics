@@ -20,11 +20,26 @@ CALLING SEQUENCE:
 
 COMMAND LINE OPTIONS:
     --help: list the command line options
-    -D X, --directory X: Full path to output directory
+    -D X, --directory X: Working data directory
     -U X, --user X: username for NASA Earthdata Login
     --log: output log of files downloaded
     -V, --verbose: Output information for each output file
     -M X, --mode X: Local permissions mode of the files created
+
+PYTHON DEPENDENCIES:
+    numpy: Scientific Computing Tools For Python
+        https://numpy.org
+        https://numpy.org/doc/stable/user/numpy-for-matlab-users.html
+    dateutil: powerful extensions to datetime
+        https://dateutil.readthedocs.io/en/stable/
+    lxml: Pythonic XML and HTML processing library using libxml2/libxslt
+        https://lxml.de/
+        https://github.com/lxml/lxml
+    future: Compatibility layer between Python 2 and Python 3
+        https://python-future.org/
+
+PROGRAM DEPENDENCIES:
+    utilities: download and management utilities for syncing files
 
 UPDATE HISTORY:
     Updated 12/2020: use argparse to set command line parameters
@@ -50,8 +65,10 @@ import numpy as np
 import gravity_toolkit.utilities
 
 #-- PURPOSE: sync local MERRA-2 files with GESDISC server
-def gesdisc_merra_monthly(links_list_file, DIRECTORY=None, LOG=False,
+def gesdisc_merra_monthly(base_dir, links_list_file, LOG=False,
     VERBOSE=False, MODE=None):
+    #-- full path to MERRA-2 directory
+    DIRECTORY = os.path.join(base_dir,'MERRA-2')
     #-- check if DIRECTORY exists and recursively create if not
     if (not os.access(os.path.join(DIRECTORY), os.F_OK)):
         os.makedirs(os.path.join(DIRECTORY), MODE)
@@ -314,8 +331,8 @@ def main():
     if gravity_toolkit.utilities.check_connection(HOST):
         #-- for each links list file from GESDISC
         for FILE in args.file:
-            gesdisc_merra_monthly(FILE, DIRECTORY=args.directory,
-                LOG=args.log, VERBOSE=args.verbose, MODE=args.mode)
+            gesdisc_merra_monthly(args.directory, FILE, LOG=args.log,
+                VERBOSE=args.verbose, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

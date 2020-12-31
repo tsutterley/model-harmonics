@@ -202,25 +202,20 @@ def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
     #-- output to file
     args = (MODEL, RANGE[0], RANGE[1], suffix[DATAFORM])
     FILE = 'ECCO_{0}_OBP_MEAN_{1:4d}-{2:4d}.{3}'.format(*args)
-    output_data(obp_mean,MODEL,DATAFORM=DATAFORM,
-        VERBOSE=VERBOSE,FILENAME=os.path.join(ddir,sd,FILE))
-    #-- change the permissions mode of the output file to MODE
-    os.chmod(os.path.join(ddir,sd,FILE),MODE)
-
-#-- PURPOSE: wrapper function for outputting data to file
-def output_data(data,MODEL,FILENAME=None,DATAFORM=None,VERBOSE=False):
     TITLE = 'Mean_Ocean_Bottom_Pressure_from_ECCO_{0}_Model'.format(MODEL)
     if (DATAFORM == 'ascii'):
         #-- ascii (.txt)
-        data.to_ascii(FILENAME,verbose=VERBOSE)
+        obp_mean.to_ascii(os.path.join(ddir,sd,FILE),verbose=VERBOSE)
     elif (DATAFORM == 'netCDF4'):
         #-- netcdf (.nc)
-        data.to_netCDF4(FILENAME, verbose=VERBOSE, UNITS='Pa',
-            LONGNAME='pressure_at_sea_floor', TITLE=TITLE)
+        obp_mean.to_netCDF4(os.path.join(ddir,sd,FILE), verbose=VERBOSE,
+            UNITS='Pa', LONGNAME='pressure_at_sea_floor', TITLE=TITLE)
     elif (DATAFORM == 'HDF5'):
         #-- HDF5 (.H5)
-        data.to_HDF5(FILENAME, verbose=VERBOSE, UNITS='Pa',
-            LONGNAME='pressure_at_sea_floor', TITLE=TITLE)
+        obp_mean.to_HDF5(os.path.join(ddir,sd,FILE), verbose=VERBOSE,
+            UNITS='Pa', LONGNAME='pressure_at_sea_floor', TITLE=TITLE)
+    #-- change the permissions mode of the output file to MODE
+    os.chmod(os.path.join(ddir,sd,FILE),MODE)
 
 #-- Main program that calls ecco_mean_version4()
 def main():

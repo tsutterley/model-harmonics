@@ -18,7 +18,8 @@ INPUTS:
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
     -Y X, --year X: Years to run
-    -L X, --lmax X: maximum spherical harmonic degree
+    -l X, --lmax X: maximum spherical harmonic degree
+    -m X, --mmax X: maximum spherical harmonic order
     -n X, --love X: Load Love numbers dataset
         0: Han and Wahr (1995) values from PREM
         1: Gegout (2005) values from PREM
@@ -48,6 +49,7 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     plm_holmes.py: computes fully-normalized associated Legendre polynomials
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
+    ref_ellipsoid.py: calculate reference parameters for common ellipsoids
     norm_gravity.py: calculates the normal gravity for locations on an ellipsoid
     gen_pressure_stokes.py: converts a pressure field into spherical harmonics
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
@@ -96,16 +98,22 @@ from gravity_toolkit.utilities import get_data_path
 from gravity_toolkit.plm_holmes import plm_holmes
 from gravity_toolkit.read_love_numbers import read_love_numbers
 from gravity_toolkit.gen_pressure_stokes import gen_pressure_stokes
+from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
 from geoid_toolkit.norm_gravity import norm_gravity
 
 #-- PURPOSE: convert monthly ECCO OBP data to spherical harmonics
-def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, LOVE_NUMBERS=0,
-    REFERENCE=None, DATAFORM=None, VERBOSE=False, MODE=0o775):
+def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
+    LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None, VERBOSE=False,
+    MODE=0o775):
     #-- input and output subdirectory
     input_sub = 'ECCO_{0}_AveRmvd_OBP'.format(MODEL)
     output_sub = 'ECCO_{0}_AveRmvd_OBP_CLM_L{1:d}'.format(MODEL,LMAX)
+    #-- upper bound of spherical harmonic orders (default = LMAX)
+    MMAX = np.copy(LMAX) if not MMAX else MMAX
+    #-- output string for both LMAX == MMAX and LMAX != MMAX cases
+    order_str = 'M{0:d}'.format(MMAX) if (MMAX != LMAX) else ''
     #-- output file format
-    output_file_format = 'ECCO_{0}_AveRmvd_OBP_CLM_L{1:d}_{2:03d}.{3}'
+    output_file_format = 'ECCO_{0}_AveRmvd_OBP_CLM_L{1:d}{2}_{3:03d}.{4}'
     #-- Creating subdirectory if it doesn't exist
     if (not os.access(os.path.join(ddir,output_sub), os.F_OK)):
         os.makedirs(os.path.join(ddir,output_sub),MODE)
@@ -143,13 +151,12 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, LOVE_NUMBERS=0,
     geoid_undulation,gridstep = ncdf_geoid(input_geoid_file, indices=indices)
     bathymetry = geoid_undulation - depth
 
-    #-- WGS84 ellipsoid parameters
-    #-- semimajor axis of the ellipsoid [m]
-    a_axis = 6378137.0
-    #-- flattening of the ellipsoid
-    flat = 1.0/298.257223563
-    #-- first numerical eccentricity
-    ecc1 = np.sqrt((2.0*flat - flat**2)*a_axis**2)/a_axis
+    #-- Earth Parameters
+    ellipsoid_params = ref_ellipsoid('WGS84')
+    #-- semimajor axis of ellipsoid [m]
+    a_axis = ellipsoid_params['a']
+    #--  first numerical eccentricity
+    ecc1 = ellipsoid_params['ecc1']
     #-- convert from geodetic latitude to geocentric latitude
     #-- geodetic latitude in radians
     latitude_geodetic_rad = np.pi*gridlat/180.0
@@ -203,12 +210,12 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, LOVE_NUMBERS=0,
         PG = obp_data.data/gamma_h
         #-- convert to spherical harmonics
         Ylms = gen_pressure_stokes(PG, R, glon, latitude_geocentric[:,0],
-            LMAX=LMAX, PLM=PLM, LOVE=LOVE)
+            LMAX=LMAX, MMAX=MMAX, PLM=PLM, LOVE=LOVE)
         obp_Ylms = gravity_toolkit.harmonics().from_dict(Ylms)
         obp_Ylms.time = np.copy(obp_data.time)
         obp_Ylms.month = 12*(year - 2002) + month
         #-- output spherical harmonic data file
-        args = (MODEL, LMAX, obp_Ylms.month, suffix[DATAFORM])
+        args = (MODEL, LMAX, order_str, obp_Ylms.month, suffix[DATAFORM])
         FILE = output_file_format.format(*args)
         #-- output data for month
         print(os.path.join(ddir,output_sub,FILE)) if VERBOSE else None
@@ -358,6 +365,9 @@ def main():
     parser.add_argument('--lmax','-l',
         type=int, default=60,
         help='Maximum spherical harmonic degree')
+    parser.add_argument('--mmax','-m',
+        type=int, default=None,
+        help='Maximum spherical harmonic order')
     #-- different treatments of the load Love numbers
     #-- 0: Han and Wahr (1995) values from PREM
     #-- 1: Gegout (2005) values from PREM
@@ -388,8 +398,9 @@ def main():
     for MODEL in args.model:
         #-- run program
         ecco_monthly_harmonics(args.directory, MODEL, args.year,
-            LMAX=args.lmax, LOVE_NUMBERS=args.love, REFERENCE=args.reference,
-            DATAFORM=args.format, VERBOSE=args.verbose, MODE=args.mode)
+            LMAX=args.lmax, MMAX=args.mmax, LOVE_NUMBERS=args.love,
+            REFERENCE=args.reference, DATAFORM=args.format,
+            VERBOSE=args.verbose, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':
