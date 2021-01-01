@@ -1,1 +1,3 @@
+cdsapi
+ecmwfapi
 read_GRACE_harmonics @ https://github.com/tsutterley/read-GRACE-harmonics/tarball/main
