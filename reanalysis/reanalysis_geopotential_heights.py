@@ -3,7 +3,7 @@ u"""
 reanalysis_geopotential_heights.py
 Written by Tyler Sutterley (12/2020)
 Reads temperature and specific humidity data to calculate geopotential height
-    fields at half levels from reanalysis
+    and pressure difference fields at half levels from reanalysis
 
 INPUTS:
     Reanalysis model to run
@@ -13,7 +13,7 @@ INPUTS:
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
-    -Y X, --year X: years to run separated by commas
+    -Y X, --year X: years to run
     -V, --verbose: Output information for each output file
     -M X, --mode X: Permission mode of directories and files
 
@@ -321,8 +321,8 @@ def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
         description="""Reads temperature and specific humidity data
-            to calculate geopotential height fields at half levels
-            from reanalysis
+            to calculate geopotential height and pressure difference
+            fields at half levels from reanalysis
             """
     )
     #-- command line parameters

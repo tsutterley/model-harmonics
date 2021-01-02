@@ -32,8 +32,8 @@ COMMAND LINE OPTIONS:
         ascii
         netcdf
         HDF5
-    -M X, --mode X: Permission mode of directories and files
     -V, --verbose: Output information for each output file
+    -M X, --mode X: Permission mode of directories and files
 
 PYTHON DEPENDENCIES:
     numpy: Scientific Computing Tools For Python

@@ -3,8 +3,8 @@ u"""
 gesdisc_gldas_sync.py
 Written by Tyler Sutterley (10/2020)
 
-This program syncs GLDAS monthly datafiles from the Goddard Earth Sciences Data
-    and Information Server Center
+Syncs GLDAS monthly datafiles from the Goddard Earth Sciences Data and
+    Information Server Center (GES DISC)
     http://ldas.gsfc.nasa.gov/gldas/
     http://disc.sci.gsfc.nasa.gov/hydrology/documentation
     https://hydro1.gesdisc.eosdis.nasa.gov/data/GLDAS_V1/README.GLDAS.pdf
@@ -22,28 +22,29 @@ CALLING SEQUENCE:
 
 INPUTS:
     CLM: GLDAS Common Land Model (CLM)
+    CLSM: GLDAS Catchment Land Surface Model (CLSM)
     MOS: GLDAS Mosaic model
     NOAH: GLDAS Noah model
     VIC: GLDAS Variable Infiltration Capacity (VIC) model
 
 COMMAND LINE OPTIONS:
     --help: list the command line options
-    -D X, --directory: working data directory
-    -Y X, --year X: years to sync separated by commas
+    -U X, --user X: username for NASA Earthdata Login
+    -N X, --netrc X: path to .netrc file for authentication
+    -D X, --directory X: working data directory
+    -Y X, --year X: years to sync
     -S X, --spacing X: spatial resolution of models to sync
         10: 1.0 degrees latitude/longitude
         025: 0.25 degrees latitude/longitude
     -T X, --temporal X: temporal resolution of models to sync
         M: Monthly
         3H: 3-hourly
-    -v X, --version X: GLDAS model version
-    -e, --early: GLDAS early products
-    -U X, --user X: username for NASA Earthdata Login
-    -N X, --netrc X: path to .netrc file for authentication
-    -M X, --mode X: permissions mode of the directories and files synced
+    -v X, --version X: GLDAS model version to sync
+    -e, --early: Sync GLDAS early products
     --log: output log of files downloaded
     --list: print files to be transferred, but do not execute transfer
     --clobber: Overwrite existing data in transfer
+    -M X, --mode X: permissions mode of the directories and files synced
 
 PYTHON DEPENDENCIES:
     numpy: Scientific Computing Tools For Python
@@ -296,6 +297,13 @@ def main():
     parser.add_argument('model',
         type=str, nargs='+', choices=gldas_products.keys(),
         help='GLDAS land surface model')
+    #-- NASA Earthdata credentials
+    parser.add_argument('--user','-U',
+        type=str, default='',
+        help='Username for NASA Earthdata Login')
+    parser.add_argument('--netrc','-N',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        help='Path to .netrc file for authentication')
     #-- working data directory
     parser.add_argument('--directory','-D',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
@@ -325,13 +333,6 @@ def main():
     parser.add_argument('--early','-e',
         default=False, action='store_true',
         help='Sync GLDAS early products')
-    #-- NASA Earthdata credentials
-    parser.add_argument('--user','-U',
-        type=str, default='',
-        help='Username for NASA Earthdata Login')
-    parser.add_argument('--netrc','-N',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        help='Path to .netrc file for authentication')
     #-- Output log file in form
     #-- NASA_GESDISC_GLDAS_sync_2002-04-01.log
     parser.add_argument('--log','-l',

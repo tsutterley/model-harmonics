@@ -16,7 +16,7 @@ Write credentials into the .cdsapirc configuration file
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
-    -Y X, --year X: Year to retrieve separated by commas
+    -Y X, --year X: Year to retrieve
     -I, --invariant: Retrieve the model invariant parameters
     -M X, --mode X: Permissions mode of the directories and files
 

@@ -15,7 +15,7 @@ COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
     -Y X, --year X: Years of model outputs to run
     --mean X: start and end year for mean
-    --redistribute: uniformly redistribute pressure over oceanic values
+    --redistribute: uniformly redistribute values over the ocean
     -l X, --lmax=X: maximum spherical harmonic degree
     -m X, --mmax=X: maximum spherical harmonic order
     -n X, --love X: Load Love numbers dataset

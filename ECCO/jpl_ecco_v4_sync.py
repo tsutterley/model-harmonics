@@ -36,7 +36,7 @@ COMMAND LINE OPTIONS:
     -U X, --user X: username for NASA Earthdata Login
     -N X, --netrc X: path to .netrc file for authentication
     -D X, --directory X: working data directory
-    -Y X, --year=X: Years to sync
+    -Y X, --year X: Years to sync
     -L, --list: print files to be transferred, but do not execute transfer
     -l, --log: output log of files downloaded
     -C, --clobber: Overwrite existing data in transfer

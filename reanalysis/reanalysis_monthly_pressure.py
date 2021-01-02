@@ -2,7 +2,7 @@
 u"""
 calculate_monthly_pressure.py
 Written by Tyler Sutterley (12/2020)
-Reads daily atmospheric pressure fields from reanalysis and outputs monthly mean
+Reads daily atmospheric pressure fields from reanalysis and outputs monthly averages
 
 INPUTS:
     Reanalysis model to run
@@ -10,7 +10,7 @@ INPUTS:
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
-    -Y X, --year X: years to run separated by commas
+    -Y X, --year X: years to run
     -V, --verbose: Output information for each output file
     -M X, --mode X: Permission mode of directories and files
 
@@ -156,7 +156,7 @@ def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
         description="""Reads daily atmospheric pressure fields
-            from reanalysis and outputs monthly means
+            from reanalysis and outputs monthly averages
             """
     )
     #-- command line parameters

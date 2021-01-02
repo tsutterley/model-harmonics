@@ -37,12 +37,12 @@ The mapped data available at this site is integrated total water content,
     Time-averaged grid from a set yearly range subtracted from individual grids.
 
 INPUTS:
-    GLDAS monthly datafiles
-    GLDAS mean grid from gldas_mean.py
-
-OUTPUTS:
-    total water content in ascii/netCDF4/HDF5 format
-    adding soil moisture and snow water eq
+    GLDAS land surface model
+        CLM: Common Land Model (CLM)
+        CLSM: Catchment Land Surface Model (CLSM)
+        MOS: Mosaic model
+        NOAH: Noah model
+        VIC: Variable Infiltration Capacity (VIC) model
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
@@ -313,8 +313,8 @@ def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
         description="""Reads GLDAS monthly datafiles to calculate
-            total water storage from soil moisture, snow water equivalent
-            and total canopy storage.
+            anomalies in total water storage from soil moisture,
+            snow water equivalent and total canopy storage
             """
     )
     #-- command line parameters

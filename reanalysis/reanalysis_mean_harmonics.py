@@ -3,7 +3,7 @@ u"""
 reanalysis_mean_harmonics.py
 Written by Tyler Sutterley (12/2020)
 Reads atmospheric geopotential heights fields from reanalysis and calculates
-    a mean set of spherical harmonics using a 3D geometry
+    a multi-annual mean set of spherical harmonics using a 3D geometry
 
 INPUTS:
     Reanalysis model to run
@@ -14,7 +14,7 @@ INPUTS:
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
     --mean X: start and end year for mean
-    --redistribute: uniformly redistribute pressure over oceanic values
+    --redistribute: uniformly redistribute values over the ocean
     -l X, --lmax=X: maximum spherical harmonic degree
     -m X, --mmax=X: maximum spherical harmonic order
     -n X, --love X: Load Love numbers dataset
@@ -496,8 +496,8 @@ def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
         description="""Reads atmospheric geopotential heights
-            fields from reanalysis and calculates a mean set of
-            spherical harmonics using a 3D geometry
+            fields from reanalysis and calculates a multi-annual
+            mean set of spherical harmonics using a 3D geometry
             """
     )
     #-- command line parameters

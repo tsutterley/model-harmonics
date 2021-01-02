@@ -4,7 +4,7 @@ ecco_read_realtime.py
 Written by Tyler Sutterley (12/2020)
 
 Reads 12-hour ECCO ocean bottom pressure data from JPL
-Calculates monthly anomalies on a equirectangular grid
+Calculates monthly anomalies on an equirectangular grid
     https://ecco.jpl.nasa.gov/drive/files/NearRealTime/Readme
     https://ecco.jpl.nasa.gov/drive/files/NearRealTime/KalmanFilter/
     https://ecco.jpl.nasa.gov/drive/files/NearRealTime/Smoother/
@@ -19,7 +19,7 @@ INPUTS:
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: working data directory
-    -Y X, --year X: years to run separated by commas
+    -Y X, --year X: years to run
     -m X, --mean X: Year range for mean
     -F X, --format=X: input and output data format
         ascii
@@ -79,7 +79,7 @@ import gravity_toolkit.time
 import gravity_toolkit.spatial
 
 #-- PURPOSE: read ECCO ocean bottom pressure data and create monthly anomalies
-#-- on a equirectangular grid
+#-- on an equirectangular grid
 def ecco_read_realtime(ddir, MODEL, YEARS, RANGE=None, DATAFORM=None,
     VERBOSE=False, MODE=0o775):
 
@@ -296,7 +296,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="""Reads 12-hour ECCO ocean bottom pressure
             data from JPL and calculates monthly anomalies
-            on a equirectangular grid
+            on an equirectangular grid
             """
     )
     #-- command line parameters

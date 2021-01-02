@@ -2,7 +2,7 @@
 u"""
 noaa_cdc_ncep_ftp.py
 Written by Tyler Sutterley (12/2020)
-Syncs NOAA-DOE-2 surface reanalysis outputs with ftp server
+Syncs NOAA-DOE-2 surface reanalysis outputs with the NOAA CDC ftp server
     ftp://ftp.cdc.noaa.gov/Datasets/ncep.reanalysis2.dailyavgs/surface/
 
 CALLING SEQUENCE:
@@ -14,10 +14,8 @@ COMMAND LINE OPTIONS:
     -Y X, --year X: years to download
     --mask: Download land-sea mask file (land.nc)
     --invariant: Download invariant parameters file (hgt.sfc.nc)
-    -L, --list: print files to be transferred, but do not execute transfer
     -l, --log: output log of files downloaded
-    --clobber: Overwrite existing data in transfer
-    -M X, --mode X: Local permissions mode of the directories and files synced
+    -M X, --mode X: Permissions mode of the directories and files downloaded
 
 PYTHON DEPENDENCIES:
     numpy: Scientific Computing Tools For Python
@@ -49,7 +47,7 @@ import gravity_toolkit.utilities
 
 #-- PURPOSE: sync local NCEP-DOE-2 reanalysis files with NOAA CDC server
 def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
-    LOG=False, LIST=False, CLOBBER=False, MODE=None):
+    LOG=False, MODE=None):
 
     #-- directory setup
     DIRECTORY = os.path.join(base_dir,'NCEP-DOE-2')
@@ -136,10 +134,6 @@ def main():
     parser.add_argument('--log','-l',
         default=False, action='store_true',
         help='Output log file')
-    #-- sync options
-    parser.add_argument('--list','-L',
-        default=False, action='store_true',
-        help='Only print files that could be transferred')
     #-- permissions mode of the directories and files retrieved
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
@@ -149,8 +143,7 @@ def main():
     #-- run program for model
     if gravity_toolkit.utilities.check_ftp_connection('ftp.cdc.noaa.gov'):
         noaa_cdc_ncep_ftp(args.directory, YEAR=args.year, MASK=args.mask,
-            INVARIANT=args.invariant, LIST=args.list, LOG=args.log,
-            MODE=args.mode)
+            INVARIANT=args.invariant, LOG=args.log, MODE=args.mode)
     else:
         raise RuntimeError('Check internet connection')
 

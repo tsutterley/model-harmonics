@@ -3,6 +3,7 @@ model-harmonics
 
 [![Language](https://img.shields.io/badge/python-v3.7-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/tsutterley/model-harmonics/blob/main/LICENSE)
+[![Documentation Status](https://readthedocs.org/projects/model-harmonics/badge/?version=latest)](https://read-grace-harmonics.readthedocs.io/projects/model-harmonics/en/latest/?badge=latest)
 
 Python tools for obtaining and working with model synthetic spherical harmonic coefficients for comparing with data from the the NASA/DLR Gravity Recovery and Climate Experiment (GRACE) and the NASA/GFZ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
 
@@ -19,6 +20,8 @@ These are extension routines for the set of [read-GRACE-harmonics](https://githu
 
 #### Dependencies
 - [read-GRACE-harmonics: Python tools for working with GRACE/GRACE-FO data](https://github.com/tsutterley/read-GRACE-harmonics/)
+- [cdsapi: Python client libraries for the CDS Web API](https://pypi.org/project/cdsapi/)
+- [ecmwfapi: Python client libraries for the ECMWF Web API](https://software.ecmwf.int/wiki/display/WEBAPI/Web-API+Downloads)
 
 #### References
 I. Velicogna, Y. Mohajerani, G. A, F. Landerer, J. Mouginot, B. No&euml;l,

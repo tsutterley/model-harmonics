@@ -222,7 +222,7 @@ def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
         description="""Reads monthly ECCO ocean bottom pressure
-            data and calculates multi-annual means
+            data from Version 4 models and calculates multi-annual means
             """
     )
     #-- command line parameters

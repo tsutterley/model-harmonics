@@ -3,7 +3,7 @@ u"""
 gldas_monthly_harmonics.py
 Written by Tyler Sutterley (12/2020)
 
-Reads monthly GLDAS total water storage data and converts to
+Reads monthly GLDAS total water storage anomalies and converts to
     spherical harmonic coefficients
 
 Processes as described on the GRACE Tellus Website:
@@ -36,16 +36,15 @@ The mapped data available at this site is integrated total water content,
     Time-averaged grid from a set yearly range subtracted from individual grids.
 
 CALLING SEQUENCE:
-    python gldas_monthly_harmonics.py --lmax 60 --format netCDF4 --mode 0o775
+    python gldas_monthly_harmonics.py --lmax 60 --format netCDF4 NOAH
 
 INPUTS:
-    GLDAS monthly datafiles from read_gldas_monthly.py
-    GLDAS vegetation index from read_gldas_vegetation.py
-    GLDAS permafrost index from permafrost_gldas_mask.py
-    GLDAS Greenland, Svalbard and Iceland mask from arctic_gldas_landmask.py
-
-OUTPUTS:
-    spherical harmonics for total water content in ascii/netCDF4/HDF5 format
+    GLDAS land surface model
+        CLM: Common Land Model (CLM)
+        CLSM: Catchment Land Surface Model (CLSM)
+        MOS: Mosaic model
+        NOAH: Noah model
+        VIC: Variable Infiltration Capacity (VIC) model
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
@@ -54,7 +53,8 @@ COMMAND LINE OPTIONS:
         10: 1.0 degrees latitude/longitude
         025: 0.25 degrees latitude/longitude
     -v X, --version X: GLDAS model version
-    -L X, --lmax X: maximum spherical harmonic degree
+    -l X, --lmax X: maximum spherical harmonic degree
+    -m X, --mmax X: maximum spherical harmonic order
     -n X, --love X: Load Love numbers dataset
         0: Han and Wahr (1995) values from PREM
         1: Gegout (2005) values from PREM
@@ -84,6 +84,7 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     plm_holmes.py: computes fully-normalized associated Legendre polynomials
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
+    ref_ellipsoid.py: calculate reference parameters for common ellipsoids
     gen_stokes.py: converts a spatial field into a series of spherical harmonics
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
         destripe_harmonics.py: calculates the decorrelation (destriping) filter
@@ -103,7 +104,7 @@ PROGRAM DEPENDENCIES:
 UPDATE HISTORY:
     Updated 12/2020: added more love number options
         set spatial variables for both 025 and 10 cases
-        using utilities from time module
+        using utilities from time module. added maximum harmonic order option
     Updated 10/2020: use argparse to set command line parameters
     Updated 08/2020: flake8 compatible regular expression strings
         use utilities to define path to load love numbers file
@@ -133,6 +134,7 @@ from gravity_toolkit.plm_holmes import plm_holmes
 from gravity_toolkit.gen_stokes import gen_stokes
 from gravity_toolkit.time import convert_calendar_decimal
 from gravity_toolkit.utilities import get_data_path
+from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
 
 #-- GLDAS models
 gldas_products = {}
@@ -144,20 +146,23 @@ gldas_products['VIC'] = 'GLDAS Variable Infiltration Capacity (VIC) model'
 
 #-- PURPOSE: convert GLDAS terrestrial water storage data to spherical harmonics
 def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPATIAL=None, VERSION=None,
-    LMAX=0, LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None, VERBOSE=False,
-    MODE=0o775):
+    LMAX=0, MMAX=None, LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None,
+    VERBOSE=False, MODE=0o775):
     #-- Version flags
     V1,V2 = ('_V1','') if (VERSION == '1') else ('','.{0}'.format(VERSION))
     #-- subdirectory for model monthly products at spacing for version
     subdir = "GLDAS_{0}{1}_{2}{3}".format(MODEL,SPATIAL,'M',V2)
-    #-- output data file format
-    suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
-
-    #-- Creating subdirectory if it doesn't exist
+    #-- Creating output subdirectory if it doesn't exist
     args = (MODEL,SPATIAL,V1,LMAX)
     output_sub = 'GLDAS_{0}{1}{2}_TWC_CLM_L{3:d}'.format(*args)
     if (not os.access(os.path.join(ddir,output_sub), os.F_OK)):
         os.makedirs(os.path.join(ddir,output_sub),MODE)
+    #-- upper bound of spherical harmonic orders (default = LMAX)
+    MMAX = np.copy(LMAX) if not MMAX else MMAX
+    #-- output string for both LMAX == MMAX and LMAX != MMAX cases
+    order_str = 'M{0:d}'.format(MMAX) if (MMAX != LMAX) else ''
+    #-- output data file format
+    suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
 
     #-- parameters for each grid spacing
     if (SPATIAL == '025'):
@@ -208,13 +213,12 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPATIAL=None, VERSION=None,
     for invalid_keys in (1,5):
         combined_mask |= (permafrost_index == invalid_keys)
 
-    #-- WGS84 ellipsoid parameters
-    #-- semimajor axis of the ellipsoid [m]
-    a_axis = 6378137.0
-    #-- flattening of the ellipsoid
-    flat = 1.0/298.257223563
-    #-- first numerical eccentricity
-    ecc1 = np.sqrt((2.0*flat - flat**2)*a_axis**2)/a_axis
+    #-- Earth Parameters
+    ellipsoid_params = ref_ellipsoid('WGS84')
+    #-- semimajor axis of ellipsoid [m]
+    a_axis = ellipsoid_params['a']
+    #--  first numerical eccentricity
+    ecc1 = ellipsoid_params['ecc1']
     #-- convert from geodetic latitude to geocentric latitude
     #-- geodetic latitude in radians
     latitude_geodetic_rad = np.pi*gridlat/180.0
@@ -278,12 +282,12 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPATIAL=None, VERSION=None,
 
         #-- convert to spherical harmonics
         Ylms = gen_stokes(gldas_data.data, glon, latitude_geocentric[:,0],
-            LMAX=LMAX, PLM=PLM, LOVE=LOVE)
+            LMAX=LMAX, MMAX=MMAX, PLM=PLM, LOVE=LOVE)
         gldas_Ylms.clm = Ylms['clm'].copy()
         gldas_Ylms.slm = Ylms['slm'].copy()
         #-- output spherical harmonic data file
-        args = (MODEL, SPATIAL, LMAX, gldas_Ylms.month, suffix[DATAFORM])
-        FILE = 'GLDAS_{0}{1}_TWC_CLM_L{2:d}_{3:03d}.{4}'.format(*args)
+        args=(MODEL,SPATIAL,LMAX,order_str,gldas_Ylms.month,suffix[DATAFORM])
+        FILE='GLDAS_{0}{1}_TWC_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
         #-- output data for month
         print(os.path.join(ddir,output_sub,FILE)) if VERBOSE else None
         if (DATAFORM == 'ascii'):
@@ -307,10 +311,10 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPATIAL=None, VERSION=None,
     output_index_file = 'index.txt'
     fid2 = open(os.path.join(ddir,output_sub,output_index_file),'w')
     #-- find all available output files
-    args = (MODEL, SPATIAL, LMAX, suffix[DATAFORM])
-    output_regex = r'GLDAS_{0}{1}_TWC_CLM_L{2:d}_([-]?\d+).{3}'.format(*args)
+    args = (MODEL, SPATIAL, LMAX, order_str, suffix[DATAFORM])
+    output_regex=r'GLDAS_{0}{1}_TWC_CLM_L{2:d}{3}_([-]?\d+).{4}'.format(*args)
     #-- find all output ECCO OBP harmonic files (not just ones created in run)
-    output_files = [fi for fi in os.listdir(os.path.join(ddir,output_sub))
+    output_files=[fi for fi in os.listdir(os.path.join(ddir,output_sub))
         if re.match(output_regex,fi)]
     for fi in sorted(output_files):
         #-- full path to output file
@@ -428,8 +432,8 @@ def ncdf_mask_write(dinput, FILENAME=None, VERBOSE=False):
 def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
-        description="""Reads GLDAS total water storage data and
-            converts to spherical harmonic coefficients
+        description="""Reads monthly GLDAS total water storage anomalies
+            and converts to spherical harmonic coefficients
             """
     )
     #-- command line parameters
@@ -459,6 +463,9 @@ def main():
     parser.add_argument('--lmax','-l',
         type=int, default=60,
         help='Maximum spherical harmonic degree')
+    parser.add_argument('--mmax','-m',
+        type=int, default=None,
+        help='Maximum spherical harmonic order')
     #-- different treatments of the load Love numbers
     #-- 0: Han and Wahr (1995) values from PREM
     #-- 1: Gegout (2005) values from PREM
@@ -490,7 +497,7 @@ def main():
         #-- run program
         gldas_monthly_harmonics(args.directory, MODEL, args.year,
             VERSION=args.version, SPATIAL=args.spacing, LMAX=args.lmax,
-            LOVE_NUMBERS=args.love, REFERENCE=args.reference,
+            MMAX=args.mmax, LOVE_NUMBERS=args.love, REFERENCE=args.reference,
             DATAFORM=args.format, VERBOSE=args.verbose, MODE=args.mode)
 
 #-- run main program

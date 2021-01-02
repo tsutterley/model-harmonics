@@ -6,7 +6,6 @@ Written by Tyler Sutterley (12/2020)
 Reads GLDAS monthly datafiles from http://ldas.gsfc.nasa.gov/gldas/
 Adding Soil Moisture, snow water equivalent (SWE) and total canopy storage
 Calculates the time-averaged grid from a determined range of years
-This grid will be subtracted from the individual anomaly grids
 
 Processes as described on the GRACE Tellus Website:
     Data from the Noah 2.7.1 land hydrology model in the Global Land
@@ -37,11 +36,12 @@ The mapped data available at this site is integrated total water content,
                 1.0 - 2.0 m
 
 INPUTS:
-    GLDAS monthly netCDF4/GRIB datafiles
-
-OUTPUTS:
-    mean total water content over a set range in ascii/netCDF4/HDF5 format
-        adding soil moisture and snow water eq
+    GLDAS land surface model
+        CLM: Common Land Model (CLM)
+        CLSM: Catchment Land Surface Model (CLSM)
+        MOS: Mosaic model
+        NOAH: Noah model
+        VIC: Variable Infiltration Capacity (VIC) model
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
@@ -285,9 +285,9 @@ def subset_twc_read(FILENAME):
 def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
-        description="""Reads GLDAS monthly datafiles to calculate the mean
-            total water storage from soil moisture, snow water equivalent
-            and total canopy storage.
+        description="""Reads GLDAS monthly datafiles to calculate the
+            multi-annual mean total water storage from soil moisture,
+            snow water equivalent and total canopy storage
             """
     )
     #-- command line parameters

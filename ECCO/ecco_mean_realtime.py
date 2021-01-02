@@ -4,7 +4,7 @@ ecco_mean_realtime.py
 Written by Tyler Sutterley (12/2020)
 
 Reads 12-hour ECCO ocean bottom pressure data from JPL
-Calculates multi-annual means on a equirectangular grid
+Calculates multi-annual means on an equirectangular grid
     https://ecco.jpl.nasa.gov/drive/files/NearRealTime/Readme
     https://ecco.jpl.nasa.gov/drive/files/NearRealTime/KalmanFilter/
     https://ecco.jpl.nasa.gov/drive/files/NearRealTime/Smoother/
@@ -78,7 +78,7 @@ import gravity_toolkit.time
 import gravity_toolkit.spatial
 
 #-- PURPOSE: read ECCO ocean bottom pressure data and create multi-annual
-#-- means on a equirectangular grid
+#-- means on an equirectangular grid
 def ecco_mean_realtime(ddir, MODEL, RANGE=None, DATAFORM=None,
     VERBOSE=False, MODE=0o775):
 
@@ -266,7 +266,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="""Reads 12-hour ECCO ocean bottom pressure
             data from JPL and calculates multi-annual means
-            on a equirectangular grid
+            on an equirectangular grid
             """
     )
     #-- command line parameters

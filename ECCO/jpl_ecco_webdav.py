@@ -3,7 +3,7 @@ u"""
 jpl_ecco_webdav.py
 Written by Tyler Sutterley (12/2020)
 
-Retrieves and prints a user's JPL ECCO WebDAV credentials
+Retrieves and prints a user's JPL ECCO Drive WebDAV credentials
 
 https://wiki.earthdata.nasa.gov/display/EL/How+To+Access+Data+With+Python
 https://nsidc.org/support/faq/what-options-are-available-bulk-downloading-data-
@@ -13,17 +13,15 @@ http://www.voidspace.org.uk/python/articles/authentication.shtml#base64
 Register with NASA Earthdata Login system:
 https://urs.earthdata.nasa.gov
 
-Add JPL ECCO Drive OPS to NASA Earthdata Applications and get WebDAV Password
+Add ECCO Drive to NASA Earthdata Applications and get WebDAV Password
 https://ecco.jpl.nasa.gov/drive
 
 CALLING SEQUENCE:
-    jpl_ecco_webdav(<USER=<username>, PASSWORD=<password>)
-        or
     python jpl_ecco_webdav.py --user=<username>
-    where <username> and <password> are your NASA Earthdata credentials
+    where <username> is your NASA Earthdata credentials
 
 OUTPUTS:
-    JPL ECCO WebDAV credentials
+    JPL ECCO Drive WebDAV credentials
 
 COMMAND LINE OPTIONS:
     --help: list the command line options

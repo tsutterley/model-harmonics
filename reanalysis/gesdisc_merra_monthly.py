@@ -7,6 +7,7 @@ Downloads MERRA-2 products using a links list provided by the Goddard Earth
     Sciences Data and Information Server Center (GES DISC)
     https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/
     https://wiki.earthdata.nasa.gov/display/EL/How+To+Access+Data+With+Python
+Combines daily model level outputs into monthly averages
 
 Register with NASA Earthdata Login system:
     https://urs.earthdata.nasa.gov
@@ -15,14 +16,18 @@ Add "NASA GESDISC DATA ARCHIVE" to Earthdata Applications:
     https://urs.earthdata.nasa.gov/approve_app?client_id=e2WVk8Pw6weeLUKZYOxvTQ
 
 CALLING SEQUENCE:
-    python gesdisc_merra_sync.py --user=<username>
+    python gesdisc_merra_sync.py --user=<username> links_list_file
     where <username> is your NASA Earthdata username
+
+INPUTS:
+    links_list_file: GES DISC generated file listing files to download
 
 COMMAND LINE OPTIONS:
     --help: list the command line options
-    -D X, --directory X: Working data directory
     -U X, --user X: username for NASA Earthdata Login
-    --log: output log of files downloaded
+    -N X, --netrc X: path to .netrc file for authentication
+    -D X, --directory X: Working data directory
+    -l, --log: output log of files downloaded
     -V, --verbose: Output information for each output file
     -M X, --mode X: Local permissions mode of the files created
 
@@ -276,11 +281,6 @@ def main():
     parser.add_argument('file',
         type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='+',
         help='GESDISC links list file')
-    #-- working data directory
-    parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
-        help='Working data directory')
     #-- NASA Earthdata credentials
     parser.add_argument('--user','-U',
         type=str, default='',
@@ -288,6 +288,11 @@ def main():
     parser.add_argument('--netrc','-N',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         help='Path to .netrc file for authentication')
+    #-- working data directory
+    parser.add_argument('--directory','-D',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        default=os.getcwd(),
+        help='Working data directory')
     #-- Output log file in form
     #-- NASA_GESDISC_MERRA2_monthly_2002-04-01.log
     parser.add_argument('--log','-l',
