@@ -20,8 +20,9 @@ These are extension routines for the set of [read-GRACE-harmonics](https://githu
 
 #### Dependencies
 - [read-GRACE-harmonics: Python tools for working with GRACE/GRACE-FO data](https://github.com/tsutterley/read-GRACE-harmonics/)
+- [pygrib: Python interface for reading and writing GRIB data](https://pypi.python.org/pypi/pygrib)
 - [cdsapi: Python client libraries for the CDS Web API](https://pypi.org/project/cdsapi/)
-- [ecmwfapi: Python client libraries for the ECMWF Web API](https://software.ecmwf.int/wiki/display/WEBAPI/Web-API+Downloads)
+- [ecmwf-api-client: Python client libraries for the ECMWF Web API](https://software.ecmwf.int/wiki/display/WEBAPI/Web-API+Downloads)
 
 #### References
 I. Velicogna, Y. Mohajerani, G. A, F. Landerer, J. Mouginot, B. No&euml;l,

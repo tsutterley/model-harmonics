@@ -16,7 +16,7 @@ Add "NASA GESDISC DATA ARCHIVE" to Earthdata Applications:
     https://urs.earthdata.nasa.gov/approve_app?client_id=e2WVk8Pw6weeLUKZYOxvTQ
 
 CALLING SEQUENCE:
-    python gesdisc_merra_sync.py --user=<username> links_list_file
+    python gesdisc_merra_monthly.py --user=<username> links_list_file
     where <username> is your NASA Earthdata username
 
 INPUTS:
@@ -268,7 +268,7 @@ def ncdf_model_write(dinput, fill_value, VARNAME=None, TNAME=None, QNAME=None,
     #-- Closing the NetCDF file
     fileID.close()
 
-#-- Main program that calls gesdisc_gldas_sync()
+#-- Main program that calls gesdisc_merra_monthly()
 def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
