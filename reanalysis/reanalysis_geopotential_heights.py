@@ -35,7 +35,6 @@ UPDATE HISTORY:
 """
 from __future__ import print_function
 
-import sys
 import os
 import re
 import netCDF4
@@ -139,7 +138,7 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None,
     R_dry = 287.06
 
     #-- read each reanalysis pressure field for each year
-    regex_years = r'\d{4}' if (YEARS is None) else '|'.join(map(str,YEARS))
+    regex_years = r'\d{4}' if (YEAR is None) else '|'.join(map(str,YEAR))
     rx = re.compile(regex_pattern.format(regex_years), re.VERBOSE)
     input_files = [fi for fi in os.listdir(ddir) if rx.match(fi)]
     #-- for each reanalysis file

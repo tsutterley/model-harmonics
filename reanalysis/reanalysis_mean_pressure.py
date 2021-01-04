@@ -200,6 +200,7 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
     TITLE = 'Mean_Surface_Pressure_from_{0}_Model'.format(MODEL)
     #-- netcdf (.nc)
     p_mean.to_netCDF4(os.path.join(ddir,FILE), verbose=VERBOSE,
+        varname=VARNAME, timename=TIMENAME, lonname=LONNAME, latname=LATNAME,
         UNITS='Pa', LONGNAME='surface_pressure', TITLE=TITLE)
     #-- change the permissions mode of the output file to MODE
     os.chmod(os.path.join(ddir,FILE),MODE)

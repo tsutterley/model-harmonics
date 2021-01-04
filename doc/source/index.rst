@@ -44,6 +44,7 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
 
     user_guide/cds_reanalysis_retrieve.md
     user_guide/ecmwf_reanalysis_retrieve.md
+    user_guide/gesdisc_merra_download.md
     user_guide/gesdisc_merra_monthly.md
     user_guide/noaa_cdc_ncep_ftp.md
     user_guide/ucar_rda_cfsr_surface.md

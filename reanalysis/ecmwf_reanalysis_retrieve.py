@@ -19,7 +19,7 @@ COMMAND LINE OPTIONS:
     -M X, --mode X: Permissions mode of the directories and files
 
 PYTHON DEPENDENCIES:
-    ecmwfapi: Python client libraries for the ECMWF Web API
+    ecmwf-api-client: Python client libraries for the ECMWF Web API
         https://software.ecmwf.int/wiki/display/WEBAPI/Web-API+Downloads
 
 UPDATE HISTORY:

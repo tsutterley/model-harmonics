@@ -280,7 +280,7 @@ def reanalysis_monthly_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     #-- date file header information
     print('{0:8} {1:10}'.format('Month','Date'), file=fid1)
     #-- output file format for spherical harmonic data
-    output_file_format = '{0}_CLM_L{1:d}{2}_{0:03d}.{3}'
+    output_file_format = '{0}_CLM_L{1:d}{2}_{3:03d}.{4}'
 
     #-- for each reanalysis file
     for fi in input_files:

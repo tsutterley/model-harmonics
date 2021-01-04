@@ -43,6 +43,7 @@ These extension routines are dependent on:
 - [cartopy: Python package designed for geospatial data processing](https://scitools.org.uk/cartopy/docs/latest/)
 - [netCDF4: Python interface to the netCDF C library](https://unidata.github.io/netcdf4-python/)
 - [h5py: Python interface for Hierarchal Data Format 5 (HDF5)](https://www.h5py.org/)
+- [pygrib: Python interface for reading and writing GRIB data](https://pypi.python.org/pypi/pygrib)
 - [cdsapi: Python client libraries for the CDS Web API](https://pypi.org/project/cdsapi/)
-- [ecmwfapi: Python client libraries for the ECMWF Web API](https://software.ecmwf.int/wiki/display/WEBAPI/Web-API+Downloads)
+- [ecmwf-api-client: Python client libraries for the ECMWF Web API](https://software.ecmwf.int/wiki/display/WEBAPI/Web-API+Downloads)
 
