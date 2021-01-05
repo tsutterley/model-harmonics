@@ -244,6 +244,8 @@ def ncdf_model_write(dinput, fill_value, VARNAME=None, LONNAME=None,
     nc[VARNAME].product_description = 'Monthly Mean (4 per day) of Analyses'
     nc[VARNAME].level = 'Ground or water surface'
     nc[VARNAME].units = 'Pa'
+    #-- date created
+    fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
     #-- Output NetCDF structure information
     if VERBOSE:

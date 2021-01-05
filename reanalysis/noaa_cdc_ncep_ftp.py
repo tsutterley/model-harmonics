@@ -30,7 +30,7 @@ PYTHON DEPENDENCIES:
         https://python-future.org/
 
 PROGRAM DEPENDENCIES:
-    utilities: download and management utilities for syncing files
+    utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
     Updated 12/2020: using utilities module to list and retrieve from ftp

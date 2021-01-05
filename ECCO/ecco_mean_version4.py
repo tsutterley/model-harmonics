@@ -69,14 +69,13 @@ from __future__ import print_function
 
 import os
 import re
-import datetime
 import argparse
 import numpy as np
 import gravity_toolkit.spatial
 import gravity_toolkit.time
 from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
 
-#-- PURPOSE: read ECCO ocean bottom pressure data and calculate mean
+#-- PURPOSE: read ECCO V4 ocean bottom pressure data and calculate mean
 def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
     VERBOSE=False, MODE=0o775):
     #-- input and output subdirectories
@@ -124,7 +123,7 @@ def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
     #-- find input files
     input_files = [fi for fi in os.listdir(os.path.join(ddir,sd)) if rx1.match(fi)]
 
-    #-- output interpolated multi-annual mean
+    #-- output multi-annual mean
     obp_mean = gravity_toolkit.spatial(fill_value=fill_value)
     obp_mean.data = np.zeros((nlat,nlon),dtype=np.float)
     obp_mean.mask = np.zeros((nlat,nlon),dtype=np.bool)
@@ -222,7 +221,8 @@ def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
         description="""Reads monthly ECCO ocean bottom pressure
-            data from Version 4 models and calculates multi-annual means
+            data from Version 4 models and calculates multi-annual
+            means
             """
     )
     #-- command line parameters

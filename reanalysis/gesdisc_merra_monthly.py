@@ -44,7 +44,7 @@ PYTHON DEPENDENCIES:
         https://python-future.org/
 
 PROGRAM DEPENDENCIES:
-    utilities: download and management utilities for syncing files
+    utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
     Updated 12/2020: use argparse to set command line parameters
@@ -259,6 +259,8 @@ def ncdf_model_write(dinput, fill_value, VARNAME=None, TNAME=None, QNAME=None,
     #-- Defining attributes for surface pressure
     nc[VARNAME].long_name = 'Surface_Air_Pressure'
     nc[VARNAME].units = 'Pa'
+    #-- date created
+    fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
     #-- Output NetCDF structure information
     if VERBOSE:

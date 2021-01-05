@@ -10,8 +10,12 @@ https://ecco-group.org/user-guide-v4r4.htm
 GEBCO 2014/2020 Gridded bathymetry data:
 https://www.bodc.ac.uk/data/hosted_data_systems/gebco_gridded_bathymetry_data/
 
+INPUTS:
+    model_file: ECCO Version 4 Model File
+
 COMMAND LINE OPTIONS:
     -D X, --directory X: working data directory
+    -v X, --version X: GEBCO bathymetry version
     -M X, --mode X: Permission mode of directories and files
 
 PYTHON DEPENDENCIES:
@@ -125,7 +129,7 @@ def extend_array(input_array,count):
     temp[-count:] = input_array[-1] + step_size*np.arange(1,count+1)
     return temp
 
-#-- Main program that calls ecco_mean_version4()
+#-- Main program that calls ecco_v4_ocean_depth()
 def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
@@ -135,7 +139,7 @@ def main():
     )
     #-- command line parameters
     parser.add_argument('file',
-        type=str,
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
         help='ECCO Version 4 Model File')
     #-- working data directory
     parser.add_argument('--directory','-D',

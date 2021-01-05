@@ -21,11 +21,15 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
 
     user_guide/jpl_ecco_webdav.md
     user_guide/jpl_ecco_sync.md
+    user_guide/jpl_ecco_cube92_sync.md
     user_guide/jpl_ecco_v4_sync.md
     user_guide/ecco_mean_realtime.md
+    user_guide/ecco_mean_cube92.md
     user_guide/ecco_mean_version4.md
     user_guide/ecco_read_realtime.md
+    user_guide/ecco_read_cube92.md
     user_guide/ecco_read_version4.md
+    user_guide/ecco_cube92_ocean_depth.md
     user_guide/ecco_v4_ocean_depth.md
     user_guide/ecco_monthly_harmonics.md
 

@@ -42,7 +42,7 @@ PYTHON DEPENDENCIES:
         https://python-future.org/
 
 PROGRAM DEPENDENCIES:
-    utilities: download and management utilities for syncing files
+    utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
     Written 12/2020 for public release
