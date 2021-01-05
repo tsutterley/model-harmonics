@@ -11,6 +11,8 @@ INPUTS:
             https://ecco.jpl.nasa.gov/drive/files/NearRealTime/KalmanFilter/
         dr080i: RTS smoother analysis
             https://ecco.jpl.nasa.gov/drive/files/NearRealTime/Smoother/
+    ECCO2 Cube92 models
+        Cube92
     ECCO version 4 models
         V4r3: Version 4, Revision 3
         V4r4: Version 4, Revision 4
@@ -68,6 +70,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 01/2021: added Cube92 choice to input model types
     Updated 12/2020: use argparse to set command line parameters
         using spatial and harmonics modules for read/write operations
         added more love number options. using utilities from time module
@@ -131,6 +134,15 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
         input_geoid_file = os.path.join(ddir,'egm_2008.nc')
         #-- indices to read
         indices = np.arange(1,2*LAT_MAX+2).astype(np.int)
+    elif MODEL in ('Cube92',):
+        #-- grid step size
+        dlon,dlat = (0.25,0.25)
+        #-- grid extent
+        extent = [0.125,359.875,-89.875,89.875]
+        input_depth_file = os.path.join(ddir,'DEPTH.2020.1440x720.nc')
+        input_geoid_file = os.path.join(ddir,'EGM_2008.1440x720.nc')
+        #-- indices to read (all)
+        indices = Ellipsis
     elif MODEL in ('V4r3','V4r4'):
         #-- grid step size
         dlon,dlat = (0.5,0.5)
@@ -350,7 +362,7 @@ def main():
     parser.add_argument('model',
         metavar='MODEL', type=str, nargs='+',
         default=['kf080i','dr080i'],
-        choices=['kf080i','dr080i','V4r3','V4r4'],
+        choices=['kf080i','dr080i','Cube92','V4r3','V4r4'],
         help='ECCO Model')
     #-- working data directory
     parser.add_argument('--directory','-D',

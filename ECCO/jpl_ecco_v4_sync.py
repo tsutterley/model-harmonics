@@ -23,7 +23,7 @@ DATA DESCRIPTION:
     Model fields are available at monthly-day intervals
 
 CALLING SEQUENCE:
-    python jpl_ecco_v4_sync.py --year=2015,2016 --user <username> V4r4
+    python jpl_ecco_v4_sync.py --year 2015 2016 --user <username> V4r4
     where <username> is your NASA Earthdata username
 
 INPUTS:
@@ -56,7 +56,7 @@ PYTHON DEPENDENCIES:
         https://python-future.org/
 
 PROGRAM DEPENDENCIES:
-    utilities: download and management utilities for syncing files
+    utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
     Updated 12/2020 for public release.
@@ -235,7 +235,7 @@ def http_pull_file(fid, remote_file, remote_mtime, local_file, LIST, CLOBBER,
             os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
             os.chmod(local_file, MODE)
 
-#-- Main program that calls jpl_ecco_sync()
+#-- Main program that calls jpl_ecco_v4_sync()
 def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(

@@ -1,0 +1,245 @@
+#!/usr/bin/env python
+u"""
+jpl_ecco_cube92_sync.py
+Written by Tyler Sutterley (01/2021)
+
+Converts daily outputs of ECCO2 Cube92 Ocean Bottom Pressure from the
+    NASA JPL ECCO2 server into monthly averages
+https://ecco.jpl.nasa.gov/drive/files/ECCO2/cube92_latlon_quart_90S90N/readme.txt
+https://ecco.jpl.nasa.gov/drive/files/ECCO2/cube92_latlon_quart_90S90N/PHIBOT.nc/
+
+DATA DESCRIPTION:
+    ECCO2 Cube92 employs the MITgcm in a global domain incorporating a
+    Green's function approach.  Makes an optimal adjustment of model
+    parameters, initial conditions, and boundary conditions through a
+    series of sensitivity numerical simulations and minimization of
+    model/observation misfit.
+
+CALLING SEQUENCE:
+    python jpl_ecco_cube92_sync.py --year 2015 2016 --user <username>
+    where <username> is your NASA Earthdata username
+
+COMMAND LINE OPTIONS:
+    --help: list the command line options
+    -U X, --user X: username for NASA Earthdata Login
+    -N X, --netrc X: path to .netrc file for authentication
+    -D X, --directory X: working data directory
+    -Y X, --year X: Years to sync
+    -l, --log: output log of files downloaded
+    -V, --verbose: Output information for each output file
+    -M X, --mode X: Local permissions mode of the directories and files synced
+
+PYTHON DEPENDENCIES:
+    numpy: Scientific Computing Tools For Python
+        https://numpy.org
+        https://numpy.org/doc/stable/user/numpy-for-matlab-users.html
+    dateutil: powerful extensions to datetime
+        https://dateutil.readthedocs.io/en/stable/
+    lxml: Pythonic XML and HTML processing library using libxml2/libxslt
+        https://lxml.de/
+        https://github.com/lxml/lxml
+    netCDF4: Python interface to the netCDF C library
+         https://unidata.github.io/netcdf4-python/netCDF4/index.html
+    h5py: Python interface for Hierarchal Data Format 5 (HDF5)
+        https://h5py.org
+    future: Compatibility layer between Python 2 and Python 3
+        https://python-future.org/
+
+PROGRAM DEPENDENCIES:
+    time.py: utilities for calculating time operations
+    spatial.py: spatial data class for reading, writing and processing data
+        ncdf_read.py: reads input spatial data from netCDF4 files
+        hdf5_read.py: reads input spatial data from HDF5 files
+        ncdf_write.py: writes output spatial data to netCDF4
+        hdf5_write.py: writes output spatial data to HDF5
+    utilities.py: download and management utilities for syncing files
+
+UPDATE HISTORY:
+    Updated 01/2021 for public release.
+    Updated 10/2020: use argparse to set command line parameters
+    Updated 08/2020: flake8 compatible regular expression strings
+        moved urllib opener to utilities. add credential check
+        moved urllib directory listing to utilities
+    Updated 06/2020: increased timeout to 2 minutes
+    Updated 05/2020: simplified JPL ECCO Drive login
+        added netrc option for alternative authentication method
+    Updated 12/2019: convert last modified time in a function for format
+    Updated 09/2019: replacing ftp with https JPL ECCO Drive
+        added ssl context to urlopen headers
+        added checksum option to not overwrite existing data files
+    Written 06/2018
+"""
+from __future__ import print_function
+
+import sys
+import os
+import re
+import time
+import netrc
+import getpass
+import netCDF4
+import argparse
+import builtins
+import lxml.etree
+import numpy as np
+import gravity_toolkit.time
+import gravity_toolkit.spatial
+import gravity_toolkit.utilities
+
+#-- PURPOSE: sync ECCO2 Ocean Bottom Pressure data from JPL ECCO drive server
+#-- combines daily files to calculate monthly averages
+def jpl_ecco_cube92_sync(ddir, YEAR=None, LOG=False, VERBOSE=False, MODE=None):
+
+    #-- check if directory exists and recursively create if not
+    DIRECTORY = os.path.join(ddir, 'cube92_latlon_quart_90S90N')
+    os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
+
+    #-- remote subdirectory for Cube92 data on JPL ECCO data server
+    PATH = ['https://ecco.jpl.nasa.gov','drive','files','ECCO2',
+        'cube92_latlon_quart_90S90N','PHIBOT.nc']
+    #-- compile HTML parser for lxml
+    parser = lxml.etree.HTMLParser()
+
+    #-- create log file with list of synchronized files (or print to terminal)
+    if LOG:
+        #-- format: JPL_ECCO2_Cube92_OBP_sync_2002-04-01.log
+        today = time.strftime('%Y-%m-%d',time.localtime())
+        LOGFILE = 'JPL_ECCO2_Cube92_OBP_sync_{0}.log'.format(today)
+        fid1 = open(os.path.join(DIRECTORY,LOGFILE),'w')
+        print('ECCO2 Cube92 OBP Sync Log ({0})'.format(today), file=fid1)
+    else:
+        #-- standard output (terminal output)
+        fid1 = sys.stdout
+
+    #-- regular expression for grouping months from daily data
+    regex_pattern = 'PHIBOT\.(\d+)x(\d+)\.({0:4})({1:02d})(\d{{2}}).nc$'
+    #-- input and output variable names
+    VARNAME = 'PHIBOT'
+    LONNAME = 'LONGITUDE_T'
+    LATNAME = 'LATITUDE_T'
+    TIMENAME = 'TIME'
+    #-- output netCDF4 keyword arguments
+    kwargs = dict(varname=VARNAME, latname=LATNAME, lonname=LONNAME,
+        timename=TIMENAME, title="ECCO2 cube92 monthly average",
+        units='m^2/s^2', longname='Bottom_Pressure_(p/rho)_Anomaly',
+        time_units='days', time_longname='days since 1992-01-01')
+
+    #-- for each year
+    for YY in YEAR:
+        #-- days per month in the year
+        dpm = gravity_toolkit.time.calendar_days(YY)
+        #-- for each month
+        for MM in range(12):
+            #-- compile regular expression pattern for year and month
+            R1 = re.compile(regex_pattern.format(YY,MM+1), re.VERBOSE)
+            #-- read and parse request for files (find names and modified dates)
+            colnames,mtimes=gravity_toolkit.utilities.drive_list(PATH,
+                timeout=120,build=False,parser=parser,pattern=R1,sort=True)
+            #-- check if all files are available for the month
+            if (len(colnames) != dpm[MM]):
+                continue
+            #-- python list with daily data
+            daily = []
+            #-- for each file in the month
+            for remote_file,remote_mtime in zip(colnames,mtimes):
+                #-- extract dimension variables
+                dim1,dim2,Y,M,D = R1.findall(remote_file).pop()
+                #-- append path to add remote file
+                PATH.append(remote_file)
+                #-- Create and submit request to retrieve bytes
+                response = gravity_toolkit.utilities.from_drive(PATH,
+                    build=False, verbose=VERBOSE, fid=fid1, mode=MODE)
+                #-- open remote file with netCDF4
+                #-- remove singleton dimensions
+                dinput = gravity_toolkit.spatial().from_netCDF4(response,
+                    compression='bytes', latname=LATNAME, lonname=LONNAME,
+                    varname=VARNAME, timename=TIMENAME).squeeze()
+                #-- replace fill value with missing value attribute
+                dinput.fill_value = dinput.attributes['data']['missing_value']
+                dinput.update_mask()
+                #-- append to daily list
+                daily.append(dinput)
+                #-- revert path
+                PATH.remove(remote_file)
+            #-- calculate mean from totals
+            PHIBOT = gravity_toolkit.spatial().from_list(daily).mean()
+            #-- output to netCDF4 file
+            local_file = 'PHIBOT.{0}x{1}.{2}{3}.nc'.format(dim1,dim2,YY,MM)
+            PHIBOT.to_netCDF4(os.path.join(DIRECTORY,local_file),
+                date=True, verbose=VERBOSE, **kwargs)
+            #-- set permissions mode to MODE
+            os.chmod(os.path.join(DIRECTORY,local_file), MODE)
+
+    #-- close log file and set permissions level to MODE
+    if LOG:
+        fid1.close()
+        os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
+
+#-- Main program that calls jpl_ecco_cube92_sync()
+def main():
+    #-- Read the system arguments listed after the program
+    parser = argparse.ArgumentParser(
+        description="""Converts daily outputs of ECCO2 Cube92
+            Ocean Bottom Pressure from the NASA JPL ECCO2 server
+            into monthly averages
+            """
+    )
+    #-- command line parameters
+    #-- NASA Earthdata credentials
+    parser.add_argument('--user','-U',
+        type=str, default='',
+        help='Username for NASA Earthdata Login')
+    parser.add_argument('--netrc','-N',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        help='Path to .netrc file for authentication')
+    #-- working data directory
+    parser.add_argument('--directory','-D',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        default=os.getcwd(),
+        help='Working data directory')
+    #-- ECCO model years to sync
+    parser.add_argument('--year','-Y',
+        type=int, nargs='+', default=range(2000,2021),
+        help='Years to sync')
+    #-- Output log file in form
+    #-- JPL_ECCO2_Cube92_OBP_sync_2002-04-01.log
+    parser.add_argument('--log','-l',
+        default=False, action='store_true',
+        help='Output log file')
+    #-- print information about each output file
+    parser.add_argument('--verbose','-V',
+        default=False, action='store_true',
+        help='Verbose output of run')
+    #-- permissions mode of the directories and files synced (number in octal)
+    parser.add_argument('--mode','-M',
+        type=lambda x: int(x,base=8), default=0o775,
+        help='Permission mode of directories and files synced')
+    args = parser.parse_args()
+
+    #-- JPL ECCO drive hostname
+    HOST = 'ecco.jpl.nasa.gov'
+    #-- get NASA Earthdata and JPL ECCO drive credentials
+    if not args.user and not args.netrc:
+        #-- check that NASA Earthdata credentials were entered
+        args.user=builtins.input('Username for {0}: '.format(HOST))
+        #-- enter password securely from command-line
+        PASSWORD=getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
+    elif args.netrc:
+        args.user,LOGIN,PASSWORD=netrc.netrc(args.netrc).authenticators(HOST)
+    else:
+        #-- enter password securely from command-line
+        PASSWORD=getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
+
+    #-- build a urllib opener for JPL ECCO Drive
+    #-- Add the username and password for NASA Earthdata Login system
+    gravity_toolkit.utilities.build_opener(args.user,PASSWORD)
+
+    #-- check internet connection before attempting to run program
+    #-- check JPL ECCO Drive credentials before attempting to run program
+    if gravity_toolkit.utilities.check_credentials('https://{0}'.format(HOST)):
+        jpl_ecco_cube92_sync(args.directory, YEAR=args.year,
+            LOG=args.log, VERBOSE=args.verbose, MODE=args.mode)
+
+#-- run main program
+if __name__ == '__main__':
+    main()

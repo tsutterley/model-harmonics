@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_geopotential_heights.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (01/2021)
 Reads temperature and specific humidity data to calculate geopotential height
     and pressure difference fields at half levels from reanalysis
 
@@ -25,6 +25,7 @@ PYTHON DEPENDENCIES:
         https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 01/2021: read from netCDF4 file in slices to reduce memory load
     Updated 12/2020: using argparse to set command line options
     Updated 01/2020: outputs variables as 32-bit floats instead of 64-bit floats
         clear variables and iterate years to reduce required memory
@@ -143,45 +144,46 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None,
     input_files = [fi for fi in os.listdir(ddir) if rx.match(fi)]
     #-- for each reanalysis file
     for fi in sorted(input_files):
+        #-- read input temperature and specific humidity data
+        fid1 = netCDF4.Dataset(os.path.join(ddir,fi),'r')
+        #-- extract shape from temperature variable
+        ntime,nlevels,nlat,nlon = fid1.variables[TNAME].shape
+        #-- invalid value
+        fill_value = fid1.variables[TNAME]._FillValue
+        #-- save output variables into a python dictionary.
+        dinput = {}
+        dinput[ZNAME] = np.zeros((ntime,nlevels,nlat,nlon),dtype=np.float32)
+        dinput[DIFFNAME] = np.zeros((ntime,nlevels,nlat,nlon),dtype=np.float32)
+        #-- model levels in reverse order
+        dinput[LEVELNAME] = lev[::-1].copy()
+        #-- extract time and time units
+        dinput[TIMENAME] = np.copy(fid1.variables[TIMENAME][:])
+        TIME_UNITS = fid1.variables[TIMENAME].units
+        dinput[LONNAME] = lon.copy()
+        dinput[LATNAME] = lat.copy()
+
         if MODEL in ('MERRA-2'):
             #-- extract date from monthly files
             MOD,YEAR,MONTH = np.array(rx.findall(fi).pop(), dtype=np.float)
-            #-- output monthly file
+            #-- output monthly filename
             FILE = os.path.join(ddir,output_file_format.format(MOD,YEAR,MONTH))
-            #-- read input temperature and specific humidity data
-            with netCDF4.Dataset(os.path.join(ddir,fi),'r') as fileID:
-                temperature = np.copy(fileID.variables[TNAME][:])
-                specific_humidity = np.copy(fileID.variables[QNAME][:])
-                surface_pressure = np.copy(fileID.variables[VARNAME][:])
-                fill_value = fileID.variables[TNAME]._FillValue
-                input_time = np.copy(fileID.variables[TIMENAME][:])
-                #-- minutes since start of file
-                TIME_UNITS = fileID.variables[TIMENAME].units
+            #-- read surface pressure
+            surface_pressure = np.copy(fid1.variables[VARNAME][:])
         elif MODEL in ('ERA-Interim','ERA5'):
+            #-- extract year from file name
             YEAR, = np.array(rx.findall(fi),dtype=np.int)
-            #-- output yearly file
+            #-- output yearly filename
             FILE = os.path.join(ddir,output_file_format.format(YEAR))
-            #-- read input temperature and specific humidity data
-            with netCDF4.Dataset(os.path.join(ddir,fi),'r') as fid1:
-                temperature = np.copy(fid1.variables[TNAME][:])
-                specific_humidity = np.copy(fid1.variables[QNAME][:])
-                fill_value = fid1.variables[TNAME]._FillValue
-                input_time = np.copy(fid1.variables[TIMENAME][:])
-                #-- minutes since start of file
-                TIME_UNITS = fid1.variables[TIMENAME].units
             #-- read input surface pressure data
             pressure_file = input_pressure_file.format(YEAR)
             with netCDF4.Dataset(os.path.join(ddir,pressure_file),'r') as fid2:
                 surface_pressure = np.copy(fid2.variables[VARNAME][:])
-        #-- extract shape from temperature variabel
-        ntime,nlevels,nlat,nlon = np.shape(temperature)
-        #-- iterate over date variable
-        geopotential_levels=np.zeros((ntime,nlevels,nlat,nlon),dtype=np.float32)
-        pressure_difference=np.zeros((ntime,nlevels,nlat,nlon),dtype=np.float32)
-        for t,tm in enumerate(input_time):
+
+        #-- iterate over dates
+        for t in range(ntime):
             #-- temperature and specific humidity (reverse layers so bottom=0)
-            t_time = temperature[t,::-1,:,:]
-            q_time = specific_humidity[t,::-1,:,:]
+            t_time = fid1.variables[TNAME][t,::-1,:,:]
+            q_time = fid1.variables[QNAME][t,::-1,:,:]
             #-- calculate geopotential over model levels
             geopotential_height = np.empty((nlat,nlon),dtype=np.float32)
             #-- start with surface geopotential converted to units (m^2/s^2)
@@ -199,20 +201,12 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None,
                 #-- add level to geopotential_levels
                 geopotential_height[:,:] += R_dry*virtual_temp*np.log(Pnum/Pdom)
                 #-- save level to output variable and convert to output units
-                geopotential_levels[t,k,:,:] = geopotential_height/GRAVITY
+                dinput[ZNAME][t,k,:,:] = geopotential_height/GRAVITY
                 #-- calculate pressure difference between levels (at interfaces)
                 Plower = AI[k] + BI[k]*surface_pressure[t,:,:]
                 Pupper = AI[k+1] + BI[k+1]*surface_pressure[t,:,:]
-                pressure_difference[t,k,:,:] = Pupper - Plower
+                dinput[DIFFNAME][t,k,:,:] = Pupper - Plower
 
-        #-- save output variables into a python dictionary.
-        dinput = {}
-        dinput[ZNAME] = geopotential_levels.copy()
-        dinput[DIFFNAME] = pressure_difference.copy()
-        dinput[LEVELNAME] = lev[::-1].copy()
-        dinput[TIMENAME] = input_time.copy()
-        dinput[LONNAME] = lon.copy()
-        dinput[LATNAME] = lat.copy()
         #-- save to file
         ncdf_geopotential_write(dinput, fill_value, FILENAME=FILE, ZNAME=ZNAME,
             LEVELNAME=LEVELNAME, DIFFNAME=DIFFNAME, LONNAME=LONNAME,
@@ -222,6 +216,8 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None,
         os.chmod(FILE, MODE)
         #-- clear dinput dictionary variable
         dinput = None
+        #-- close the input netCDF4 file
+        fid1.close()
 
 #-- PURPOSE: Compute the Specific Humidity from parameters (Bolton 1980)
 #-- http://cires1.colorado.edu/~voemel/vp.html

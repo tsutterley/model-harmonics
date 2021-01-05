@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-ecmwf_reanalysis_retrieve.py (12/2020)
+ecmwf_reanalysis_retrieve.py (01/2021)
 Retrieves reanalysis netCDF4 datasets from the ECMWF Web API
 https://software.ecmwf.int/wiki/display/CKB/How+to+download+data+via+the+ECMWF+WebAPI
 https://software.ecmwf.int/wiki/display/WEBAPI/Access+ECMWF+Public+Datasets#AccessECMWFPublicDatasets-key
@@ -9,10 +9,20 @@ levtype: surface (sfc), pressure levels (levtype:pl), model levels (ml)
 type: an (analysis), fc (forecast)
 Available parameters: http://apps.ecmwf.int/codes/grib/param-db
 
+Get UID and API key from the ECMWF portal
+    Login: https://apps.ecmwf.int/auth/login/
+    Key Access: https://api.ecmwf.int/v1/key/
+Write credentials into the .ecmwfapirc configuration file
+Alternatively write as ECMWF_API_URL, ECMWF_API_KEY and ECMWF_API_EMAIL
+    environmental variables
+
 INPUTS:
     Reanalysis dataset to retrieve (ERA-Interim or ERA5)
 
 COMMAND LINE OPTIONS:
+    -U X, --api-url: ECMWF api url
+    -K X, --api-key: ECMWF api key
+    -E X, --api-email: ECMWF api email
     -D X, --directory X: Working data directory
     -Y X, --year X: Year to retrieve
     -I, --invariant: Retrieve the model invariant parameters
@@ -20,9 +30,11 @@ COMMAND LINE OPTIONS:
 
 PYTHON DEPENDENCIES:
     ecmwf-api-client: Python client libraries for the ECMWF Web API
+        https://pypi.org/project/ecmwf-api-client/
         https://software.ecmwf.int/wiki/display/WEBAPI/Web-API+Downloads
 
 UPDATE HISTORY:
+    Updated 01/2021: added command line options for ECMWF api credentials
     Updated 12/2020: using argparse to set parameters
     Updated 07/2018: close the server connection after completion of program
         added 2-metre temperature (T2m) field as output
@@ -37,9 +49,8 @@ import argparse
 from ecmwfapi import ECMWFDataServer
 
 #-- PURPOSE: retrieve ECMWF level data for a set of years
-def ecmwf_reanalysis_retrieve(base_dir, MODEL, YEAR, INVARIANT=True, MODE=0o775):
-    #-- open connection with ECMWF server
-    server = ECMWFDataServer()
+def ecmwf_reanalysis_retrieve(base_dir, server, MODEL, YEAR, INVARIANT=True,
+    MODE=0o775):
     #-- parameters for each dataset
     if (MODEL == 'ERA-Interim'):
         model_class = "ei"
@@ -160,9 +171,6 @@ def ecmwf_reanalysis_retrieve(base_dir, MODEL, YEAR, INVARIANT=True, MODE=0o775)
         #-- change the permissions mode to MODE
         os.chmod(os.path.join(ddir,output_invariant_file), MODE)
 
-    #-- close connection with ECMWF server
-    server = None
-
 #-- Main program that calls ecmwf_reanalysis_retrieve()
 def main():
     #-- Read the system arguments listed after the program
@@ -176,6 +184,16 @@ def main():
         type=str, nargs='+', metavar='MODEL',
         default=['ERA-Interim'], choices=['ERA-Interim','ERA5'],
         help='Reanalysis model to retrieve')
+    #-- ECMWF api credentials
+    parser.add_argument('--api-url','-U',
+        type=str, default=os.environ.get('ECMWF_API_URL'),
+        help='ECMWF api url')
+    parser.add_argument('--api-key','-K',
+        type=str, default=os.environ.get('ECMWF_API_KEY'),
+        help='ECMWF api key')
+    parser.add_argument('--api-email','-E',
+        type=str, default=os.environ.get('ECMWF_API_EMAIL'),
+        help='ECMWF api email')
     #-- working data directory
     parser.add_argument('--directory','-D',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
@@ -195,10 +213,15 @@ def main():
         help='Permission mode of directories and files retrieved')
     args = parser.parse_args()
 
+    #-- open connection with ECMWF server
+    server = ECMWFDataServer(url=args.api_url, key=args.api_key,
+        email=args.api_email)
     #-- run program for model
     for model in args.model:
-        ecmwf_reanalysis_retrieve(args.directory,model,args.year,
-            INVARIANT=args.invariant,MODE=args.mode)
+        ecmwf_reanalysis_retrieve(args.directory, server, model,
+            args.year, INVARIANT=args.invariant, MODE=args.mode)
+    #-- close connection with ECMWF server
+    server = None
 
 #-- run main program
 if __name__ == '__main__':

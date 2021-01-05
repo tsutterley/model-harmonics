@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-cds_reanalysis_retrieve.py (12/2020)
+cds_reanalysis_retrieve.py (01/2021)
 Retrieves ERA5 reanalysis netCDF4 datasets from the CDS Web API
 https://cds.climate.copernicus.eu/user/register
 https://cds.climate.copernicus.eu/cdsapp/#!/terms/licence-to-use-copernicus-products
@@ -13,8 +13,11 @@ Available parameters: http://apps.ecmwf.int/codes/grib/param-db
 Get UID and API key from the CDS portal
 https://cds.climate.copernicus.eu/user
 Write credentials into the .cdsapirc configuration file
+Alternatively write as CDSAPI_URL and CDSAPI_KEY environmental variables
 
 COMMAND LINE OPTIONS:
+    -U X, --api-url: CDS api url
+    -K X, --api-key: CDS api key
     -D X, --directory X: Working data directory
     -Y X, --year X: Year to retrieve
     -I, --invariant: Retrieve the model invariant parameters
@@ -25,6 +28,7 @@ PYTHON DEPENDENCIES:
         https://pypi.org/project/cdsapi/
 
 UPDATE HISTORY:
+    Updated 01/2021: added command line options for CDS api credentials
     Updated 12/2020: using argparse to set parameters
     Forked 01/2020 from ecmwf_reanalysis_retrieve.py
     Updated 07/2018: close the server connection after completion of program
@@ -40,9 +44,7 @@ import cdsapi
 import argparse
 
 #-- PURPOSE: retrieve ERA5 level data for a set of years from CDS server
-def cds_reanalysis_retrieve(base_dir, YEAR, INVARIANT=True, MODE=0o775):
-    #-- open connection with CDS server
-    server = cdsapi.Client()
+def cds_reanalysis_retrieve(base_dir, server, YEAR, INVARIANT=True, MODE=0o775):
     #-- parameters for ERA5 dataset
     MODEL = 'ERA5'
     model_class = "ea"
@@ -152,9 +154,6 @@ def cds_reanalysis_retrieve(base_dir, YEAR, INVARIANT=True, MODE=0o775):
         #-- change the permissions mode to MODE
         os.chmod(os.path.join(ddir,output_invariant_file), MODE)
 
-    #-- close connection with CDS server
-    server = None
-
 #-- Main program that calls cds_reanalysis_retrieve()
 def main():
     #-- Read the system arguments listed after the program
@@ -164,6 +163,13 @@ def main():
             """
     )
     #-- command line parameters
+    #-- CDS api credentials
+    parser.add_argument('--api-url','-U',
+        type=str, default=os.environ.get('CDSAPI_URL'),
+        help='CDS api url')
+    parser.add_argument('--api-key','-K',
+        type=str, default=os.environ.get('CDSAPI_KEY'),
+        help='CDS api key')
     #-- working data directory
     parser.add_argument('--directory','-D',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
@@ -183,9 +189,13 @@ def main():
         help='Permission mode of directories and files retrieved')
     args = parser.parse_args()
 
+    #-- open connection with CDS api server
+    server = cdsapi.Client(url=args.api_url, key=args.api_key)
     #-- run program for ERA5
-    cds_reanalysis_retrieve(args.directory,args.year,
-        INVARIANT=args.invariant,MODE=args.mode)
+    cds_reanalysis_retrieve(args.directory, server, args.year,
+        INVARIANT=args.invariant, MODE=args.mode)
+    #-- close connection with CDS api server
+    server = None
 
 #-- run main program
 if __name__ == '__main__':

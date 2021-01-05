@@ -3,7 +3,7 @@ u"""
 ecco_read_version4.py
 Written by Tyler Sutterley (12/2020)
 
-Calculates mean of ocean bottom pressure data from the ECCO ocean model
+Calculates monthly ocean bottom pressure anomalies from the ECCO ocean model
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
 https://ecco-group.org/products-ECCO-V4r4.htm
 https://ecco-group.org/user-guide-v4r4.htm
@@ -82,8 +82,9 @@ import gravity_toolkit.time
 import gravity_toolkit.spatial
 from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
 
-#-- PURPOSE: read ECCO ocean bottom pressure data and calculate anomalies
-def ecco_read_version4(ddir, MODEL, YEARS=None, RANGE=None,
+#-- PURPOSE: read ECCO2 V4 ocean bottom pressure data and calculate monthly
+#-- anomalies in absolute ocean bottom pressure
+def ecco_read_version4(ddir, MODEL, YEARS, RANGE=None,
     DATAFORM=None, VERBOSE=False, MODE=0o775):
     #-- input and output subdirectories
     sd1 = 'ECCO-{0}'.format(MODEL)
@@ -255,7 +256,8 @@ def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
         description="""Reads monthly ECCO ocean bottom pressure
-            data and calculates monthly anomalies
+            data from Version 4 models and calculates monthly
+            anomalies
             """
     )
     #-- command line parameters

@@ -71,12 +71,12 @@ PYTHON DEPENDENCIES:
         https://h5py.org
 
 PROGRAM DEPENDENCIES:
-    convert_calendar_decimal.py: converts calendar dates into decimal years
     spatial.py: spatial data class for reading, writing and processing data
         ncdf_read.py: reads input spatial data from netCDF4 files
         hdf5_read.py: reads input spatial data from HDF5 files
         ncdf_write.py: writes output spatial data to netCDF4
         hdf5_write.py: writes output spatial data to HDF5
+    time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
     Updated 12/2020: set spatial variables for both 025 and 10 cases

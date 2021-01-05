@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_mean_harmonics.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (01/2021)
 Reads atmospheric geopotential heights fields from reanalysis and calculates
     a multi-annual mean set of spherical harmonics using a 3D geometry
 
@@ -70,6 +70,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 01/2021: read from netCDF4 file in slices to reduce memory load
     Updated 12/2020: using argparse to set command line options
         using time module for operations and for extracting time units
     Updated 05/2020: use harmonics class for spherical harmonic operations
@@ -78,7 +79,6 @@ UPDATE HISTORY:
         iterate over Julian days to calculate harmonics for consistency
     Updated 10/2019: changing Y/N flags to True/False
     Updated 08/2019: adjust time scale variable for MERRA-2
-    Updated 09/2018: added common land-sea mask from create_common_masks.py
     Updated 07/2018: added parameters for ERA5
     Updated 05/2018: added uniform redistribution of oceanic values
     Updated 03/2018: simplified love number extrapolation if LMAX > 696
@@ -123,7 +123,6 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
         LONNAME = 'longitude'
         LATNAME = 'latitude'
         TIMENAME = 'time'
-        LEVELNAME = 'lvl'
         ELLIPSOID = 'WGS84'
         #-- land-sea mask variable name and value of oceanic points
         MASKNAME = 'lsm'
@@ -144,7 +143,6 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
         LONNAME = 'longitude'
         LATNAME = 'latitude'
         TIMENAME = 'time'
-        LEVELNAME = 'lvl'
         ELLIPSOID = 'WGS84'
         #-- land-sea mask variable name and value of oceanic points
         MASKNAME = 'lsm'
@@ -165,7 +163,6 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
         LONNAME = 'lon'
         LATNAME = 'lat'
         TIMENAME = 'time'
-        LEVELNAME = 'lev'
         ELLIPSOID = 'WGS84'
         #-- land-sea mask variable name and value of oceanic points
         MASKNAME = 'FROCEAN'
@@ -202,7 +199,6 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
     PLM,dPLM = plm_holmes(LMAX,np.cos(theta))
     #-- read geoid heights and grid step size
     geoid,gridstep = ncdf_geoid(os.path.join(ddir,input_geoid_file))
-    nlat,nlon = np.shape(geoid)
 
     #-- Earth Parameters
     ellipsoid_params = ref_ellipsoid(ELLIPSOID)
@@ -226,7 +222,6 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
     #-- get indices of land-sea mask if redistributing oceanic points
     if REDISTRIBUTE:
         ii,jj = ncdf_landmask(os.path.join(ddir,input_mask_file),MASKNAME,OCEAN)
-        # ii,jj = ncdf_landmask(os.path.join(ddir,common_mask_file),'mask',1)
         #-- calculate total area of oceanic points
         TOTAL_AREA = np.sum(AREA[ii,jj])
 
@@ -240,23 +235,22 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
     harmonics_list = []
     #-- for each reanalysis file
     for fi in input_files:
-        #-- read geopotential height data from calculate_geopotential_heights.py
-        with netCDF4.Dataset(os.path.join(ddir,fi),'r') as fileID:
-            geopotential = np.array(fileID.variables[ZNAME][:].copy())
-            pressure_difference = np.array(fileID.variables[DIFFNAME][:].copy())
-            nlevels, = fileID.variables[LEVELNAME][:].shape
-            #-- convert time to Modified Julian Days
-            delta_time=np.copy(fileID.variables[TIMENAME][:])
-            date_string=fileID.variables[TIMENAME].units
-            epoch,to_secs=gravity_toolkit.time.parse_date_string(date_string)
-            MJD=gravity_toolkit.time.convert_delta_time(delta_time*to_secs,
-                epoch1=epoch, epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0)
+        #-- read model level geopotential height data
+        fileID = netCDF4.Dataset(os.path.join(ddir,fi),'r')
+        #-- extract shape from geopotential variable
+        ntime,nlevels,nlat,nlon = fileID.variables[ZNAME].shape
+        #-- convert time to Modified Julian Days
+        delta_time = np.copy(fileID.variables[TIMENAME][:])
+        date_string = fileID.variables[TIMENAME].units
+        epoch,to_secs = gravity_toolkit.time.parse_date_string(date_string)
+        MJD = gravity_toolkit.time.convert_delta_time(delta_time*to_secs,
+            epoch1=epoch, epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0)
         #-- iterate over Julian days
         for t,JD in enumerate(MJD+2400000.5):
             #-- convert geopotential to geopotential height
-            GPH = np.squeeze(geopotential[t,:,:,:])/GRAVITY
+            GPH = np.squeeze(fileID.variables[ZNAME][t,:,:,:])/GRAVITY
             #-- extract pressure difference for month
-            PD = np.squeeze(pressure_difference[t,:,:,:])
+            PD = np.squeeze(fileID.variables[DIFFNAME][t,:,:,:])
             #-- if redistributing oceanic pressure values
             if REDISTRIBUTE:
                 for p in range(nlevels):
@@ -273,6 +267,8 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
             Ylms.month, = np.array([(YY - 2002)*12 + MM], dtype=np.int)
             #-- append to list of harmonics
             harmonics_list.append(Ylms)
+        #-- close the input netCDF4 file
+        fileID.close()
 
     #-- divide by the number of dates to calculate mean from totals
     mean_Ylms = gravity_toolkit.harmonics().from_list(harmonics_list).mean()

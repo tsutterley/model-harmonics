@@ -1,17 +1,16 @@
 #!/usr/bin/env python
 u"""
-ecco_v4_ocean_depth.py
-Written by Tyler Sutterley (12/2020)
+ecco_cube92_ocean_depth.py
+Written by Tyler Sutterley (01/2021)
 
-Interpolates GEBCO bathymetry to ECCO V4 ocean model grids
-https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
-https://ecco-group.org/user-guide-v4r4.htm
+Interpolates GEBCO bathymetry to ECCO2 Cube92 ocean model grids
+https://ecco.jpl.nasa.gov/drive/files/ECCO2/cube92_latlon_quart_90S90N/readme.txt
 
 GEBCO 2014/2020 Gridded bathymetry data:
 https://www.bodc.ac.uk/data/hosted_data_systems/gebco_gridded_bathymetry_data/
 
 INPUTS:
-    model_file: ECCO Version 4 Model File
+    ECCO2 Cube92 Model File
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: working data directory
@@ -28,9 +27,10 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
-    Updated 12/2020: use argparse to set command line parameters
+    Updated 01/2021: use argparse to set command line parameters
         using spatial module for read and write routines
-    Written 10/2018
+    Updated 06/2018: run with updated 2014 GEBCO gridded bathymetry data
+    Written 06/2018
 """
 from __future__ import print_function
 
@@ -40,8 +40,8 @@ import argparse
 import numpy as np
 import gravity_toolkit.spatial
 
-#-- PURPOSE: interpolate GEBCO bathymetry to ECCO V4 ocean model grids
-def ecco_v4_ocean_depth(ddir, model_file, VERSION='2014', MODE=0o775):
+#-- PURPOSE: interpolate GEBCO bathymetry to ECCO2 Cube92 ocean model grids
+def ecco_cube92_ocean_depth(ddir, model_file, VERSION='2014', MODE=0o775):
     #-- input bathymetry model parameters
     if (VERSION == '2014'):
         FILE = os.path.join(ddir,'GEBCO_2014_2D.zip')
@@ -53,28 +53,22 @@ def ecco_v4_ocean_depth(ddir, model_file, VERSION='2014', MODE=0o775):
     bathymetry.data = extend_matrix(bathymetry.data,1)
     bathymetry.lon = extend_array(bathymetry.lon,1)
     bathymetry.update_mask()
-
-    #-- input ECCO model parameters
-    rx = re.compile(r'PHIBOT([\.\_])(\d+)(_\d+)?.nc$',re.VERBOSE)
-    if rx.search(model_file).group(3):
-        VARNAME,LONNAME,LATNAME,TIMENAME = ('PHIBOT','i','j','time')
-    else:
-        VARNAME,LONNAME,LATNAME,TIMENAME = ('PHIBOT','i3','i2','tim')
     #-- bad value
     fill_value = 99999.0
+
+    #-- read ECCO2 Cube92 ocean model for valid points
     #-- read ECCO V4 ocean model for valid points
-    PHIBOT = gravity_toolkit.spatial(fill_value=np.nan).from_netCDF4(
-        model_file,latname=LATNAME,lonname=LONNAME,timename=TIMENAME,
-        varname=VARNAME).transpose(axes=(1,2,0)).index(0)
-    PHIBOT.replace_invalid(fill_value)
+    PHIBOT = gravity_toolkit.spatial().from_netCDF4(model_file,
+        latname='LATITUDE_T',lonname='LONGITUDE_T',timename='TIME',
+        varname='PHIBOT').transpose(axes=(1,2,0)).index(0)
 
     #-- indices of valid values
     ii,jj = np.nonzero(~PHIBOT.mask)
     #-- output dimensions and extents
-    nlat,nlon = (360,720)
-    extent = [-179.75,179.75,-89.75,89.75]
+    nlat,nlon = (720,1440)
+    extent = [0.125,359.875,-89.875,89.875]
     #-- grid spacing
-    dlon,dlat = (0.5,0.5)
+    dlon,dlat = (0.25,0.25)
 
     #-- create output data
     interp = gravity_toolkit.spatial(fill_value=fill_value)
@@ -83,11 +77,14 @@ def ecco_v4_ocean_depth(ddir, model_file, VERSION='2014', MODE=0o775):
     interp.lat = np.arange(extent[2],extent[3]+dlat,dlat)
     interp.data = np.zeros((nlat,nlon))
     interp.mask = np.ones((nlat,nlon),dtype=np.bool)
+    #-- convert from 0:360 to -180:180
+    gt180, = np.nonzero(PHIBOT.lon > 180.0)
+    PHIBOT.lon[gt180] -= 360.0
     #-- iterate over indices to find valid points
     for i,j in zip(ii,jj):
         #-- find bathymetry points
-        ilat, = np.nonzero(np.abs(interp.lat[i] - bathymetry.lat) <= 0.25)
-        ilon, = np.nonzero(np.abs(interp.lon[j] - bathymetry.lon) <= 0.25)
+        ilat, = np.nonzero(np.abs(interp.lat[i] - bathymetry.lat) <= 0.125)
+        ilon, = np.nonzero(np.abs(interp.lon[j] - bathymetry.lon) <= 0.125)
         data_point = bathymetry.data[ilat,ilon].squeeze()
         if np.count_nonzero(data_point < 0.0):
             valid_indices, = np.nonzero(data_point <= 0.0)
@@ -98,7 +95,7 @@ def ecco_v4_ocean_depth(ddir, model_file, VERSION='2014', MODE=0o775):
     interp.update_mask()
 
     #-- output netCDF4 dataset
-    bathymetry_file = 'DEPTH.{0}.720x360.nc'.format(VERSION)
+    bathymetry_file = 'DEPTH.{0}.1440x720.nc'.format(VERSION)
     TITLE = ('General Depth Chart of the Oceans, produced by the'
         'International Hydrographic Organization (IHO) and the United Nations '
         '(UNESCO) Intergovernmental Oceanographic Commission (IOC)')
@@ -119,28 +116,27 @@ def extend_matrix(input_matrix,count):
     temp[:,-count:] = input_matrix[:,0:count]
     return temp
 
-#-- wrapper function to linearly extend an array
-def extend_array(input_array,count):
+#-- wrapper function to extend an array
+def extend_array(input_array,step_size,count):
     n = len(input_array)
-    step_size = np.abs(input_array[1] - input_array[0])
     temp = np.zeros((n+2*count),dtype=input_array.dtype)
     temp[0:count] = input_array[0] - step_size*np.arange(count,0,-1)
     temp[count:-count] = input_array[:]
     temp[-count:] = input_array[-1] + step_size*np.arange(1,count+1)
     return temp
 
-#-- Main program that calls ecco_v4_ocean_depth()
+#-- Main program that calls ecco_cube92_ocean_depth()
 def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
-        description="""Interpolates GEBCO bathymetry to ECCO V4
+        description="""Interpolates GEBCO bathymetry to ECCO2 Cube92
             ocean model grids
             """
     )
     #-- command line parameters
     parser.add_argument('file',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        help='ECCO Version 4 Model File')
+        help='ECCO2 Cube92 Model File')
     #-- working data directory
     parser.add_argument('--directory','-D',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
@@ -157,7 +153,7 @@ def main():
     args = parser.parse_args()
 
     #-- run program
-    ecco_v4_ocean_depth(args.directory, args.file, VERSION=args.version,
+    ecco_cube92_ocean_depth(args.directory, args.file, VERSION=args.version,
         MODE=args.mode)
 
 #-- run main program

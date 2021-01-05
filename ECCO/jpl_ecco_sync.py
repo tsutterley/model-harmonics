@@ -33,7 +33,7 @@ DATA DESCRIPTION:
     Sea level and ocean bottom pressure are also available at 12-hour intervals.
 
 CALLING SEQUENCE:
-    python jpl_ecco_sync.py --year=2015,2016 --user <username> kf080i
+    python jpl_ecco_sync.py --year 2015 2016 --user <username> kf080i
     where <username> is your NASA Earthdata username
 
 INPUTS:
@@ -66,7 +66,7 @@ PYTHON DEPENDENCIES:
         https://python-future.org/
 
 PROGRAM DEPENDENCIES:
-    utilities: download and management utilities for syncing files
+    utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
     Updated 12/2020 for public release.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_atmospheric_harmonics.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (01/2021)
 Reads atmospheric geopotential heights fields from reanalysis and calculates
     sets of spherical harmonics using a 3D geometry
 
@@ -71,6 +71,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 01/2021: read from netCDF4 file in slices to reduce memory load
     Updated 12/2020: using argparse to set command line options
         using time module for operations and for extracting time units
     Updated 05/2020: use harmonics class for spherical harmonic operations
@@ -78,7 +79,6 @@ UPDATE HISTORY:
     Updated 01/2020: iterate over dates to calculate for incomplete files
     Updated 10/2019: changing Y/N flags to True/False
     Updated 08/2019: adjust time scale variable for MERRA-2
-    Updated 09/2018: added common land-sea mask from create_common_masks.py
     Updated 07/2018: added parameters for ERA5.  added find_new_files function
     Updated 05/2018: added uniform redistribution of oceanic values
     Updated 03/2018: simplified love number extrapolation if LMAX > 696
@@ -265,23 +265,22 @@ def reanalysis_atmospheric_harmonics(base_dir, MODEL, YEARS, RANGE=None,
 
     #-- read each reanalysis data file and convert to spherical harmonics
     for fi in input_files:
-        #-- read geopotential height data from calculate_geopotential_heights.py
-        with netCDF4.Dataset(os.path.join(ddir,fi),'r') as fileID:
-            geopotential = np.array(fileID.variables[ZNAME][:].copy())
-            pressure_difference = np.array(fileID.variables[DIFFNAME][:].copy())
-            nlevels, = fileID.variables[LEVELNAME][:].shape
-            #-- convert time to Modified Julian Days
-            delta_time=np.copy(fileID.variables[TIMENAME][:])
-            date_string=fileID.variables[TIMENAME].units
-            epoch,to_secs=gravity_toolkit.time.parse_date_string(date_string)
-            MJD=gravity_toolkit.time.convert_delta_time(delta_time*to_secs,
-                epoch1=epoch, epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0)
+        #-- read model level geopotential height data
+        fileID = netCDF4.Dataset(os.path.join(ddir,fi),'r')
+        #-- extract shape from geopotential variable
+        ntime,nlevels,nlat,nlon = fileID.variables[ZNAME].shape
+        #-- convert time to Modified Julian Days
+        delta_time = np.copy(fileID.variables[TIMENAME][:])
+        date_string = fileID.variables[TIMENAME].units
+        epoch,to_secs = gravity_toolkit.time.parse_date_string(date_string)
+        MJD = gravity_toolkit.time.convert_delta_time(delta_time*to_secs,
+            epoch1=epoch, epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0)
         #-- iterate over Julian days
         for t,JD in enumerate(MJD+2400000.5):
             #-- convert geopotential to geopotential height
-            GPH = np.squeeze(geopotential[t,:,:,:])/GRAVITY
+            GPH = np.squeeze(fileID.variables[ZNAME][t,:,:,:])/GRAVITY
             #-- extract pressure difference for month
-            PD = np.squeeze(pressure_difference[t,:,:,:])
+            PD = np.squeeze(fileID.variables[DIFFNAME][t,:,:,:])
             #-- if redistributing oceanic pressure values
             if REDISTRIBUTE:
                 for p in range(nlevels):
@@ -314,6 +313,8 @@ def reanalysis_atmospheric_harmonics(base_dir, MODEL, YEARS, RANGE=None,
                 Ylms.to_HDF5(os.path.join(ddir,output_sub,FILE))
             #-- set the permissions level of the output file to MODE
             os.chmod(os.path.join(ddir,output_sub,FILE), MODE)
+        #-- close the input netCDF4 file
+        fileID.close()
 
     #-- output file format for spherical harmonic data
     args = (MODEL.upper(),LMAX,order_str,suffix[DATAFORM])

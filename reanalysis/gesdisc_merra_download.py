@@ -43,7 +43,7 @@ PYTHON DEPENDENCIES:
         https://python-future.org/
 
 PROGRAM DEPENDENCIES:
-    utilities: download and management utilities for syncing files
+    utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
     Updated 01/2021: use argparse to set command line parameters
@@ -146,10 +146,6 @@ def main():
     parser.add_argument('--log','-l',
         default=False, action='store_true',
         help='Output log file')
-    #-- sync options
-    parser.add_argument('--list','-L',
-        default=False, action='store_true',
-        help='Only print files that could be transferred')
     #-- print information about each output file
     parser.add_argument('--verbose','-V',
         default=False, action='store_true',
