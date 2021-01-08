@@ -22,7 +22,7 @@ NOTES:
 COMMAND LINE OPTIONS:
     -D X, --directory X: working data directory
     -m X, --mean X: Year range for mean
-    -F X, --format=X: input and output data format
+    -F X, --format X: input and output data format
         ascii
         netcdf
         HDF5

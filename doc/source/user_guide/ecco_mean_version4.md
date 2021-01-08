@@ -18,7 +18,7 @@ python ecco_mean_version4.py --directory <path_to_directory> V4r3 V4r4
 #### Command Line Options
 - `-D X`, `--directory X`: working data directory
 - `-m X`, `--mean X`: Year range for mean
-- `-F X`, `--format=X`: input and output data format
+- `-F X`, `--format X`: input and output data format
     * `'ascii'`
     * `'netcdf'`
     * `'HDF5'`

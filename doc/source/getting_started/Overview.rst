@@ -204,4 +204,47 @@ Anomalies for each reanalysis are calculated relative to a multi-annual mean (su
         H -> T
     }
 
+SMB
+===
+
+Uses `MERRA-2 model outputs <https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/s>`_ from the NASA `Global Modeling and Assimilation Office (GMAO) <https://gmao.gsfc.nasa.gov/>`_.
+MERRA-2 `Vertically Integrated Diagnostics (M2TMNXINT) <https://disc.gsfc.nasa.gov/datasets/M2TMNXINT_5.12.4/summary>`_ and `Land Ice Surface Diagnostics (M2TMNXGLC) <https://disc.gsfc.nasa.gov/datasets/M2TMNXGLC_5.12.4/summary>`_ are downloaded using the `gesdisc_merra_sync.py <https://github.com/tsutterley/model-harmonics/blob/main/SMB/gesdisc_merra_sync.py>`_ program.
+Here, monthly surface mass balance (SMB) estimates are calculated by combining the MERRA-2 convective rain (PRECCU), large-scale rain (PRECLS), snow (PRECSN), evaporation (EVAP), and runoff over glaciated land (RUNOFF) variables.
+Monthly cumulative anomalies in surface mass balance are calculated by removing a multi-annual mean (typically 1980 |ndash| 1995).
+Before converting to spherical harmonics, the MERRA-2 surface mass balance estimates are masked to isolate regions of interest.
+Surface mass balance anomalies are converted to spherical harmonics following `Wahr et al. (1998) <https://doi.org/10.1029/98JB02844>`_ (Equation :eq:`7`).
+
+.. math::
+    :label: 7
+
+	\left\{\begin{matrix}\tilde{C}_{lm}(t) \\[-4pt] \tilde{S}_{lm}(t) \end{matrix} \right\} =
+	\frac{3}{4\pi a\rho_{e}}\frac{1+k_l}{2l+1}\int\sigma(\theta,\phi,t)~P_{lm}(\cos\theta)
+	\left\{\begin{matrix}\cos{m\phi} \\[-4pt] \sin{m\phi} \end{matrix} \right\}~d\Omega
+
+.. graphviz::
+    :caption: MERRA-2 Spherical Harmonics Framework
+    :align: center
+
+    digraph {
+        E [label="MERRA-2 Reanalysis\nModel Outputs" shape=box style="filled" color="darkorchid"]
+        L [label="Region Masks" shape=box style="filled" color="darkorchid"]
+        M [URL="https://github.com/tsutterley/model-harmonics/blob/main/SMB/merra_smb_mean.py"
+            label="Calculate Temporal Mean" shape=box style="filled" color="gray"]
+        R [URL="https://github.com/tsutterley/model-harmonics/blob/main/SMB/merra_smb_cumulative.py"
+            label="Calculate Cumulative Anomalies" shape=box style="filled" color="gray"]
+        H [URL="https://github.com/tsutterley/model-harmonics/blob/main/SMB/merra_smb_harmonics.py"
+            label="Calculate Spherical Harmonics" shape=box style="filled" color="gray"]
+        S [URL="https://github.com/tsutterley/read-GRACE-harmonics/blob/main/scripts/combine_harmonics.py"
+            label="Spatial Maps" shape=box style="filled" color="mediumseagreen"]
+        T [URL="https://github.com/tsutterley/read-GRACE-harmonics/blob/main/scripts/least_squares_mascon_timeseries.py"
+            label="Time Series" shape=box style="filled" color="mediumseagreen"]
+        E -> M
+        E -> R
+        M -> R
+        R -> H
+        L -> H
+        H -> S
+        H -> T
+    }
+
 .. |ndash|    unicode:: U+2013 .. EN DASH

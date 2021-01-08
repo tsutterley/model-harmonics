@@ -17,6 +17,12 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
 
 .. toctree::
     :maxdepth: 1
+    :caption: User Guide:
+
+    user_guide/utilities.rst
+
+.. toctree::
+    :maxdepth: 1
     :caption: ECCO:
 
     user_guide/jpl_ecco_webdav.md
@@ -61,3 +67,12 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     user_guide/reanalysis_monthly_harmonics.md
     user_guide/reanalysis_monthly_pressure.md
     user_guide/reanalysis_pressure_harmonics.md
+
+.. toctree::
+    :maxdepth: 1
+    :caption: SMB:
+
+    user_guide/gesdisc_merra_sync.md
+    user_guide/merra_smb_mean.md
+    user_guide/merra_smb_cumulative.md
+    user_guide/merra_smb_harmonics.md

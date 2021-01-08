@@ -1,13 +1,11 @@
 #!/usr/bin/env python
 u"""
-gesdisc_gldas_sync.py
+gesdisc_merra_sync.py
 Written by Tyler Sutterley (01/2021)
 
-Syncs GLDAS monthly datafiles from the Goddard Earth Sciences Data and
-    Information Server Center (GES DISC)
-    http://ldas.gsfc.nasa.gov/gldas/
-    http://disc.sci.gsfc.nasa.gov/hydrology/documentation
-    https://hydro1.gesdisc.eosdis.nasa.gov/data/GLDAS_V1/README.GLDAS.pdf
+Syncs MERRA-2 surface mass balance (SMB) related products from the Goddard
+    Earth Sciences Data and Information Server Center (GES DISC)
+    https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/
     https://wiki.earthdata.nasa.gov/display/EL/How+To+Access+Data+With+Python
 
 Register with NASA Earthdata Login system:
@@ -16,16 +14,17 @@ Register with NASA Earthdata Login system:
 Add "NASA GESDISC DATA ARCHIVE" to Earthdata Applications:
     https://urs.earthdata.nasa.gov/approve_app?client_id=e2WVk8Pw6weeLUKZYOxvTQ
 
-CALLING SEQUENCE:
-    python gesdisc_gldas_sync.py --user <username> CLSM NOAH VIC
-    where <username> is your NASA Earthdata username
+tavgM_2d_int (Vertically Integrated Diagnostics) collection:
+    PRECCU (convective rain)
+    PRECLS (large-scale rain)
+    PRECSN (snow)
+    and EVAP (evaporation)
+tavgM_2d_glc (Land Ice Surface Diagnostics) collection:
+    RUNOFF (runoff over glaciated land)
 
-INPUTS:
-    CLM: GLDAS Common Land Model (CLM)
-    CLSM: GLDAS Catchment Land Surface Model (CLSM)
-    MOS: GLDAS Mosaic model
-    NOAH: GLDAS Noah model
-    VIC: GLDAS Variable Infiltration Capacity (VIC) model
+CALLING SEQUENCE:
+    python gesdisc_merra_sync.py --user <username>
+    where <username> is your NASA Earthdata username
 
 COMMAND LINE OPTIONS:
     --help: list the command line options
@@ -33,14 +32,6 @@ COMMAND LINE OPTIONS:
     -N X, --netrc X: path to .netrc file for authentication
     -D X, --directory X: working data directory
     -Y X, --year X: years to sync
-    -S X, --spacing X: spatial resolution of models to sync
-        10: 1.0 degrees latitude/longitude
-        025: 0.25 degrees latitude/longitude
-    -T X, --temporal X: temporal resolution of models to sync
-        M: Monthly
-        3H: 3-hourly
-    -v X, --version X: GLDAS model version to sync
-    -e, --early: Sync GLDAS early products
     --log: output log of files downloaded
     --list: print files to be transferred, but do not execute transfer
     --clobber: Overwrite existing data in transfer
@@ -62,25 +53,19 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
-    Updated 01/2021: moved gesdisc_list to utilities module
-    Updated 10/2020: use argparse to set command line parameters
-    Updated 09/2020: using utilities program to build opener
-        use gesdisc_list command to list remote directories
-    Updated 08/2020: flake8 compatible regular expression strings
-    Updated 06/2020: added netrc option for alternative authentication method
-    Updated 04/2020: added option to download the GLDAS Early Products (EP)
+    Updated 01/2021: use argparse to set command line parameters
+        using utilities program to build opener and list remote files
     Updated 09/2019: added ssl context to urlopen headers
     Updated 06/2018: using python3 compatible octal, input and urllib
-    Updated 03/2018: added option --version to set the GLDAS model version
+    Updated 03/2018: --directory sets base directory similar to other programs
     Updated 08/2017: use raw_input() to enter NASA Earthdata credentials rather
         than exiting with error
-    Updated 05/2017: added options to change the spatial and temporal resolution
-        added exception if NASA Earthdata credentials weren't entered
+    Updated 05/2017: exception if NASA Earthdata credentials weren't entered
         using os.makedirs to recursively create directories
         using getpass to enter server password securely (remove --password)
     Updated 04/2017: using lxml to parse HTML for files and modification dates
         minor changes to check_connection function to parallel other programs
-    Written 02/2017
+    Written 11/2016
 """
 from __future__ import print_function
 
@@ -96,103 +81,56 @@ import builtins
 import posixpath
 import model_harmonics.utilities
 
-#-- GLDAS models
-gldas_products = {}
-gldas_products['CLM'] = 'GLDAS Common Land Model (CLM)'
-gldas_products['CLSM'] = 'GLDAS Catchment Land Surface Model (CLSM)'
-gldas_products['MOS'] = 'GLDAS Mosaic model'
-gldas_products['NOAH'] = 'GLDAS Noah model'
-gldas_products['VIC'] = 'GLDAS Variable Infiltration Capacity (VIC) model'
-
-#-- PURPOSE: sync local GLDAS files with GESDISC server
-def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
-    VERSION='', EARLY=False, LOG=False, LIST=False, MODE=0o775, CLOBBER=False):
+#-- PURPOSE: sync local MERRA-2 files with GESDISC server
+def gesdisc_merra_sync(DIRECTORY, YEARS, LOG=False, LIST=False, MODE=None,
+    CLOBBER=False):
 
     #-- check if directory exists and recursively create if not
     os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
     #-- create log file with list of synchronized files (or print to terminal)
     if LOG:
         #-- output to log file
-        #-- format: NASA_GESDISC_GLDAS_sync_2002-04-01.log
+        #-- format: NASA_GESDISC_MERRA2_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = 'NASA_GESDISC_GLDAS_{0}_sync_{1}.log'.format(MODEL,today)
+        LOGFILE = 'NASA_GESDISC_MERRA2_sync_{0}.log'.format(today)
         fid = open(os.path.join(DIRECTORY,LOGFILE),'w')
-        print('NASA GLDAS Sync Log ({0})'.format(today), file=fid)
+        print('NASA MERRA-2 Sync Log ({0})'.format(today), file=fid)
     else:
         #-- standard output (terminal output)
         fid = sys.stdout
 
-    #-- Version flags
-    V1,V2 = ('_V1','') if (VERSION == '1') else ('','.{0}'.format(VERSION))
-    EP = '_EP' if EARLY else ''
-    #-- GLDAS model remote base directory
-    HOST = ['https://hydro1.gesdisc.eosdis.nasa.gov','data','GLDAS{0}'.format(V1)]
+    #-- MERRA-2 data remote base directory
+    HOST = ['http://goldsmr4.gesdisc.eosdis.nasa.gov','data','MERRA2_MONTHLY']
 
     #-- compile regular expression operator for years to sync
     regex_pattern = '|'.join('{0:d}'.format(y) for y in YEARS)
     R1 = re.compile(r'({0})'.format(regex_pattern), re.VERBOSE)
+    #-- compile regular expression operator to find MERRA2 files
+    R2 = re.compile(r'MERRA2_(.*?).nc4(.xml)?', re.VERBOSE)
 
-    #-- print header text to log/standard output
-    print('GLDAS MODEL={0}'.format(gldas_products[MODEL]), file=fid)
-    print('RESOLUTION={0},{1}'.format(TEMPORAL,SPATIAL), file=fid)
-    print('VERSION={0}{1}'.format(VERSION,EP), file=fid)
-    #-- subdirectory for model on GESDISC server
-    REMOTE = "GLDAS_{0}{1}_{2}{3}{4}".format(MODEL,SPATIAL,TEMPORAL,EP,V2)
-    PRODUCT = "GLDAS_{0}{1}_{2}{3}".format(MODEL,SPATIAL,TEMPORAL,V2)
-
-    #-- open connection with GESDISC server at remote directory
-    #-- find remote yearly directories for MODEL
-    remote_years,mtimes = model_harmonics.utilities.gesdisc_list(
-        [*HOST,REMOTE],pattern=R1,sort=True)
-    #-- compile regular expression operator for model on GESDISC server
-    args = (MODEL,SPATIAL)
-    R2 = re.compile(r'GLDAS_{0}{1}_(.*?).(nc4|grb)(.xml)?$'.format(*args))
-    #-- if running monthly data
-    if (TEMPORAL == 'M'):
-        #-- for each yearly subdirectory
+    #-- for each MERRA-2 product to sync
+    for PRODUCT in ['M2TMNXINT.5.12.4','M2TMNXGLC.5.12.4']:
+        print('PRODUCT={0}'.format(PRODUCT), file=fid)
+        #-- open connection with GESDISC server at remote directory
+        #-- find remote yearly directories for PRODUCT
+        remote_years,mtimes = model_harmonics.utilities.gesdisc_list(
+            [*HOST,PRODUCT],pattern=R1,sort=True)
         for Y in remote_years:
             #-- check if local directory exists and recursively create if not
             if (not os.access(os.path.join(DIRECTORY,PRODUCT,Y), os.F_OK)):
                 os.makedirs(os.path.join(DIRECTORY,PRODUCT,Y), MODE)
             #-- open connection with GESDISC server at remote directory
             #-- read and parse request for files (names and modified dates)
-            #-- find remote files for MODEL and YEAR
-            files,mtimes = model_harmonics.utilities.gesdisc_list(
-                [*HOST,REMOTE,Y],pattern=R2,sort=True)
+            #-- find remote files for PRODUCT and YEAR
+            files,mtimes = model_harmonics.utilities.gesdisc_list([*HOST,
+                PRODUCT,Y],format='%d-%b-%Y %H:%M',pattern=R2,sort=True)
             for colname,remote_mtime in zip(files,mtimes):
                 #-- local and remote versions of the file
                 local_file = os.path.join(DIRECTORY,PRODUCT,Y,colname)
-                remote_file = posixpath.join(*HOST,REMOTE,Y,colname)
+                remote_file = posixpath.join(*HOST,PRODUCT,Y,colname)
                 #-- copy file from remote directory comparing modified dates
                 http_pull_file(fid, remote_file, remote_mtime, local_file,
                     LIST, CLOBBER, MODE)
-    #-- if running daily data
-    elif (TEMPORAL == '3H'):
-        #-- for each yearly subdirectory
-        for Y in remote_years:
-            #-- compile regular expression operator for days
-            R3 = re.compile(r'\d+',re.VERBOSE)
-            #-- open connection with GESDISC server at remote directory
-            #-- find remote daily directories for MODEL
-            remote_days,mtimes = model_harmonics.utilities.gesdisc_list(
-                [*HOST,REMOTE,Y],pattern=R3,sort=True)
-            #-- for each daily subdirectory
-            for D in remote_days:
-                #-- check if local directory exists and recursively create if not
-                if (not os.access(os.path.join(DIRECTORY,PRODUCT,Y,D),os.F_OK)):
-                    os.makedirs(os.path.join(DIRECTORY,PRODUCT,Y,D), MODE)
-                #-- open connection with GESDISC server at remote directory
-                #-- read and parse request for files (names and modified dates)
-                #-- find remote files for MODEL and YEAR
-                files,mtimes = model_harmonics.utilities.gesdisc_list(
-                    [*HOST,REMOTE,Y,D],pattern=R2,sort=True)
-                for colname,remote_mtime in zip(files,mtimes):
-                    #-- local and remote versions of the file
-                    local_file = os.path.join(DIRECTORY,PRODUCT,Y,D,colname)
-                    remote_file = posixpath.join(*HOST,REMOTE,Y,D,colname)
-                    #-- copy file from remote directory comparing modified dates
-                    http_pull_file(fid, remote_file, remote_mtime, local_file,
-                        LIST, CLOBBER, MODE)
 
     #-- close log file and set permissions level to MODE
     if LOG:
@@ -210,7 +148,8 @@ def http_pull_file(fid,remote_file,remote_mtime,local_file,LIST,CLOBBER,MODE):
         #-- check last modification time of local file
         local_mtime = os.stat(local_file).st_mtime
         #-- if remote file is newer: overwrite the local file
-        if (remote_mtime > local_mtime):
+        if (model_harmonics.utilities.even(remote_mtime) >
+            model_harmonics.utilities.even(local_mtime)):
             TEST = True
             OVERWRITE = ' (overwrite)'
     else:
@@ -237,18 +176,16 @@ def http_pull_file(fid,remote_file,remote_mtime,local_file,LIST,CLOBBER,MODE):
             os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
             os.chmod(local_file, MODE)
 
-#-- Main program that calls gesdisc_gldas_sync()
+#-- Main program that calls gesdisc_merra_sync()
 def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
-        description="""Syncs GLDAS monthly datafiles from the Goddard Earth
-            Sciences Data and Information Server Center (GES DISC)
+        description="""Syncs MERRA-2 surface mass balance (SMB) related
+            products from the Goddard Earth Sciences Data and Information
+            Server Center (GES DISC)
             """
     )
     #-- command line parameters
-    parser.add_argument('model',
-        type=str, nargs='+', choices=gldas_products.keys(),
-        help='GLDAS land surface model')
     #-- NASA Earthdata credentials
     parser.add_argument('--user','-U',
         type=str, default='',
@@ -263,30 +200,10 @@ def main():
         help='Working data directory')
     #-- years to download
     parser.add_argument('--year','-Y',
-        type=int, nargs='+', default=range(2000,2021),
+        type=int, nargs='+', default=range(1980,2021),
         help='Years of model outputs to sync')
-    #-- GLDAS model version
-    parser.add_argument('--version','-v',
-        type=str, default='2.1',
-        help='GLDAS model version')
-    #-- model spatial resolution
-    #-- 10: 1.0 degrees latitude/longitude
-    #-- 025: 0.25 degrees latitude/longitude
-    parser.add_argument('--spacing','-S',
-        type=str, default='10', choices=['10','025'],
-        help='Spatial resolution of models to sync')
-    #-- model temporal resolution
-    #-- M: Monthly data products
-    #-- 3H: 3-hourly data products
-    parser.add_argument('--temporal','-T',
-        type=str, default='M', choices=['M','3H'],
-        help='Temporal resolution of models to sync')
-    #-- GLDAS early products
-    parser.add_argument('--early','-e',
-        default=False, action='store_true',
-        help='Sync GLDAS early products')
     #-- Output log file in form
-    #-- NASA_GESDISC_GLDAS_sync_2002-04-01.log
+    #-- NASA_GESDISC_MERRA2_sync_2002-04-01.log
     parser.add_argument('--log','-l',
         default=False, action='store_true',
         help='Output log file')
@@ -323,15 +240,10 @@ def main():
         password_manager=True, authorization_header=False)
 
     #-- check internet connection before attempting to run program
-    HOST = posixpath.join('https://hydro1.gesdisc.eosdis.nasa.gov','data')
+    HOST = posixpath.join('http://goldsmr4.gesdisc.eosdis.nasa.gov','data')
     if model_harmonics.utilities.check_connection(HOST):
-        #-- for each GLDAS model
-        for MODEL in args.model:
-            gesdisc_gldas_sync(args.directory, MODEL, args.year,
-                VERSION=args.version, EARLY=args.early,
-                SPATIAL=args.spacing, TEMPORAL=args.temporal,
-                LOG=args.log, LIST=args.list, CLOBBER=args.clobber,
-                MODE=args.mode)
+        gesdisc_merra_sync(args.directory, args.year, LOG=args.log,
+            LIST=args.list, CLOBBER=args.clobber, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

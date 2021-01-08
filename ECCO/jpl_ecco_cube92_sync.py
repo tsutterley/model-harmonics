@@ -144,11 +144,10 @@ def jpl_ecco_cube92_sync(ddir, YEAR=None, LOG=False, VERBOSE=False, MODE=None):
             for remote_file,remote_mtime in zip(colnames,mtimes):
                 #-- extract dimension variables
                 dim1,dim2,Y,M,D = R1.findall(remote_file).pop()
-                #-- append path to add remote file
-                PATH.append(remote_file)
                 #-- Create and submit request to retrieve bytes
-                response = gravity_toolkit.utilities.from_drive(PATH,
-                    build=False, verbose=VERBOSE, fid=fid1, mode=MODE)
+                response = gravity_toolkit.utilities.from_drive(
+                    [*PATH,remote_file], build=False, verbose=VERBOSE,
+                    fid=fid1, mode=MODE)
                 #-- open remote file with netCDF4
                 #-- remove singleton dimensions
                 dinput = gravity_toolkit.spatial().from_netCDF4(response,
@@ -159,8 +158,6 @@ def jpl_ecco_cube92_sync(ddir, YEAR=None, LOG=False, VERBOSE=False, MODE=None):
                 dinput.update_mask()
                 #-- append to daily list
                 daily.append(dinput)
-                #-- revert path
-                PATH.remove(remote_file)
             #-- calculate mean from totals
             PHIBOT = gravity_toolkit.spatial().from_list(daily).mean()
             #-- output to netCDF4 file

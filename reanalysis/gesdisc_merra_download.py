@@ -15,7 +15,7 @@ Add "NASA GESDISC DATA ARCHIVE" to Earthdata Applications:
     https://urs.earthdata.nasa.gov/approve_app?client_id=e2WVk8Pw6weeLUKZYOxvTQ
 
 CALLING SEQUENCE:
-    python gesdisc_merra_download.py --user=<username> links_list_file
+    python gesdisc_merra_download.py --user <username> links_list_file
     where <username> is your NASA Earthdata username
 
 INPUTS:
