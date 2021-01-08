@@ -98,7 +98,7 @@ def ecco_mean_cube92(ddir, RANGE=None, DATAFORM=None, VERBOSE=False, MODE=0o775)
     b_axis = WGS84['b']
 
     #-- read depth data from ecco_cube92_ocean_depth.py
-    input_depth_file = os.path.join(ddir,'DEPTH.2020.720x360.nc')
+    input_depth_file = os.path.join(ddir,'DEPTH.2020.1440x720.nc')
     depth = gravity_toolkit.spatial().from_netCDF4(input_depth_file,
         varname='depth', date=False)
 
@@ -106,7 +106,7 @@ def ecco_mean_cube92(ddir, RANGE=None, DATAFORM=None, VERBOSE=False, MODE=0o775)
     year_regex = '|'.join('{0:d}'.format(y) for y in range(RANGE[0],RANGE[1]+1))
     rx1 = re.compile(r'PHIBOT\.(\d+)x(\d+)\.({0})(\d{{2}}).nc$'.format(year_regex))
     #-- find input files
-    input_files = [fi for fi in os.listdir(ddir) if rx1.match(fi)]
+    flist = sorted([f for f in os.listdir(os.path.join(ddir,sd)) if rx1.match(f)])
 
     #-- output multi-annual mean
     obp_mean = gravity_toolkit.spatial()
@@ -122,12 +122,12 @@ def ecco_mean_cube92(ddir, RANGE=None, DATAFORM=None, VERBOSE=False, MODE=0o775)
     #-- counter variable for dates
     count = 0.0
     #-- read each input file
-    for t,fi in enumerate(input_files):
+    for t,fi in enumerate(flist):
         #-- Open netCDF4 datafile for reading
         PHIBOT = gravity_toolkit.spatial().from_netCDF4(
             os.path.join(ddir,sd,fi),verbose=VERBOSE,
             latname=LATNAME,lonname=LONNAME,timename=TIMENAME,
-            varname=VARNAME).transpose(axes=(1,2,0))
+            varname=VARNAME)
         #-- time within netCDF files is days since 1992-01-01
         time_string = PHIBOT.attributes['time']['units']
         epoch1,to_secs = gravity_toolkit.time.parse_date_string(time_string)
@@ -146,8 +146,8 @@ def ecco_mean_cube92(ddir, RANGE=None, DATAFORM=None, VERBOSE=False, MODE=0o775)
         #-- convert from ocean bottom pressure anomalies to absolute
         obp = gravity_toolkit.spatial(spacing=[dlon,dlat],nlon=nlon,
             nlat=nlat,fill_value=PHIBOT.fill_value)
-        obp.data = depth.data*rhonil*gamma + PHIBOT.data[:,:,0]*rhonil
-        obp.mask = (depth.mask | PHIBOT.mask[:,:,0])
+        obp.data = depth.data*rhonil*gamma + PHIBOT.data*rhonil
+        obp.mask = (depth.mask | PHIBOT.mask)
         obp.update_mask()
 
         #-- global area average of each ocean bottom pressure map is removed

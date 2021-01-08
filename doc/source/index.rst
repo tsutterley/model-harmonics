@@ -19,6 +19,8 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     :maxdepth: 1
     :caption: User Guide:
 
+    user_guide/gen_atmosphere_stokes.md
+    user_guide/gen_pressure_stokes.md
     user_guide/utilities.rst
 
 .. toctree::

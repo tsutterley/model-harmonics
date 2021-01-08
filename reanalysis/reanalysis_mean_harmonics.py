@@ -47,6 +47,7 @@ PROGRAM DEPENDENCIES:
     plm_holmes.py: computes fully-normalized associated Legendre polynomials
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
     ref_ellipsoid.py: calculate reference parameters for common ellipsoids
+    gen_atmosphere_stokes.py: converts atmospheric fields to spherical harmonics
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
         destripe_harmonics.py: calculates the decorrelation (destriping) filter
             and filters the GRACE/GRACE-FO coefficients for striping errors
@@ -71,6 +72,7 @@ REFERENCES:
 
 UPDATE HISTORY:
     Updated 01/2021: read from netCDF4 file in slices to reduce memory load
+        separated gen_atmosphere_stokes to a separate function
     Updated 12/2020: using argparse to set command line options
         using time module for operations and for extracting time units
     Updated 05/2020: use harmonics class for spherical harmonic operations
@@ -98,6 +100,7 @@ import gravity_toolkit.harmonics
 from gravity_toolkit.read_love_numbers import read_love_numbers
 from gravity_toolkit.plm_holmes import plm_holmes
 from gravity_toolkit.utilities import get_data_path
+from model_harmonics.gen_atmosphere_stokes import gen_atmosphere_stokes
 from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
 
 #-- PURPOSE: read atmospheric surface pressure fields and convert to harmonics
@@ -357,135 +360,6 @@ def load_love_numbers(LMAX, LOVE_NUMBERS=0, REFERENCE='CF'):
         COLUMNS=columns, REFERENCE=REFERENCE, FORMAT='tuple')
     #-- return a tuple of load love numbers
     return (hl,kl,ll)
-
-#-- PURPOSE: calculates spherical harmonic fields from atmospheric pressure
-def gen_atmosphere_stokes(GPH, pressure, lon, lat, LMAX=0, MMAX=None,
-    ELLIPSOID=None, GEOID=None, PLM=None, LOVE=None, METHOD='BC05'):
-    #-- converting LMAX to integer
-    LMAX = np.int(LMAX)
-    #-- upper bound of spherical harmonic orders (default = LMAX)
-    MMAX = np.copy(LMAX) if not MMAX else MMAX
-
-    #-- number of pressure levels, longitudes and latitudes
-    nlevels,nlat,nlon = np.shape(GPH)
-    #-- grid step
-    dlon = np.abs(lon[1]-lon[0])
-    dlat = np.abs(lat[1]-lat[0])
-    #-- longitude degree spacing in radians
-    dphi = dlon*np.pi/180.0
-    #-- colatitude degree spacing in radians
-    dth = dlat*np.pi/180.0
-
-    #-- calculate longitudes and colatitudes in radians
-    phi = lon*np.pi/180.0
-    phi = np.squeeze(phi)[np.newaxis,:]
-    th = (90.0 - np.squeeze(lat))*np.pi/180.0
-    #-- calculate meshgrid from latitude and longitude
-    gridlon,gridlat = np.meshgrid(lon,lat)
-    gridphi = gridlon*np.pi/180.0
-    gridtheta = (90.0 - gridlat)*np.pi/180.0
-
-    #-- Earth Parameters
-    ellipsoid_params = ref_ellipsoid(ELLIPSOID)
-    #-- semimajor axis of ellipsoid [m]
-    a_axis = ellipsoid_params['a']
-    #-- ellipsoidal flattening
-    flat = ellipsoid_params['f']
-    #-- Average Radius of the Earth having the same volume [m]
-    rad_e = ellipsoid_params['rad_e']
-    #--  first numerical eccentricity
-    ecc1 = ellipsoid_params['ecc1']
-    #-- convert from geodetic latitude to geocentric latitude
-    #-- prime vertical radius of curvature
-    N = a_axis/np.sqrt(1.0 - ecc1**2.0*np.cos(gridtheta)**2.0)
-
-    #-- Coefficient for calculating Stokes coefficients from pressure field
-    #-- SH Degree dependent factors with indirect loading components
-    factors = gravity_toolkit.units(lmax=LMAX,a_axis=100.0*a_axis,flat=flat)
-    dfactor = factors.spatial(*LOVE).mmwe
-    #-- Multiplying sin(th) with differentials of theta and phi
-    #-- to calculate the integration factor at each latitude
-    int_fact = np.sin(th)*dphi*dth
-
-    #-- Calculating cos/sin of phi arrays
-    #-- output [m,phi]
-    m = np.arange(MMAX+1)
-    ccos = np.cos(np.dot(m[:, np.newaxis],phi))
-    ssin = np.sin(np.dot(m[:, np.newaxis],phi))
-
-    #-- Fully-normalized Legendre Polynomials were computed outside
-    #-- Multiplying by the units conversion factor (conv) to
-    #-- Multiplying by integration factors [sin(theta)*dtheta*dphi]
-    plm = np.zeros((LMAX+1,MMAX+1,nlat))
-    for j in range(0,nlat):
-        plm[:,m,j] = PLM[:,m,j]*int_fact[j]
-
-    #-- gravitational acceleration at the Earth's mean spherical surface
-    g0 = 9.80665
-    #-- gravitational acceleration at the equator and at mean sea level
-    ge = 9.780356
-    #-- gravitational acceleration at the mean sea level over gridtheta
-    gs = ge*(1.0+5.2885e-3*np.cos(gridtheta)**2-5.9e-6*np.cos(2.0*gridtheta)**2)
-    #-- calculate radii and gravity for each pressure level
-    R = np.zeros((nlevels,nlat,nlon))
-    gamma_h = np.zeros((nlevels,nlat,nlon))
-    for p in range(nlevels):
-        #-- orthometric height from List (1958)
-        #-- as described in Boy and Chao (2005)
-        orthometric = (1.0 - 0.002644*np.cos(2.0*gridtheta))*GPH[p,:,:] + \
-            (1.0 - 0.0089*np.cos(2.0*gridtheta))*(GPH[p,:,:]**2)/6.245e6
-        #-- calculate X, Y and Z from geodetic latitude and longitude
-        X = (N + GEOID + orthometric) * np.sin(gridtheta) * np.cos(gridphi)
-        Y = (N + GEOID + orthometric) * np.sin(gridtheta) * np.sin(gridphi)
-        Z = (N * (1.0 - ecc1**2.0) + GEOID + orthometric) * np.cos(gridtheta)
-        #-- calculate radius of levelZ
-        R[p,:,:] = np.sqrt(X**2.0 + Y**2.0 + Z**2.0)
-        #-- calculate normal gravity at each height above mean sea level
-        gamma_h[p,:,:] = gs*(1.0-2.0*(1.006803-0.06706*np.cos(gridtheta)**2)*
-            (orthometric/rad_e) + 3.0*(orthometric/rad_e)**2)
-
-    #-- Initializing preliminary spherical harmonic matrices
-    yclm = np.zeros((LMAX+1,MMAX+1))
-    yslm = np.zeros((LMAX+1,MMAX+1))
-    #-- Initializing output spherical harmonic matrices
-    Ylms = gravity_toolkit.harmonics(lmax=LMAX, mmax=MMAX)
-    Ylms.clm = np.zeros((LMAX+1,MMAX+1))
-    Ylms.slm = np.zeros((LMAX+1,MMAX+1))
-    for l in range(0,LMAX+1):#-- equivalent to 0:LMAX
-        mm = np.min([MMAX,l])#-- truncate to MMAX if specified (if l > MMAX)
-        m = np.arange(0,mm+1)#-- mm+1 elements between 0 and mm
-        #-- total pressure factor
-        pfactor = np.zeros((nlat,nlon))
-        #-- iterate over pressure levels
-        for p in range(nlevels):
-            #-- if using Swenson and Wahr (2002) or Boy and Chao (2005)
-            if (METHOD == 'SW02'):
-                #-- calculate pressure change/gravity ratio
-                PG = pressure[p,:,:]/g0
-                #-- add to pressure factor (pfactor) to integrate over levels
-                pfactor += PG*(rad_e/(rad_e-GPH[p,:,:])+(GEOID/rad_e))**(l+4)
-            elif (METHOD == 'BC05'):
-                #-- calculate pressure change/gravity ratio
-                PG = pressure[p,:,:]/gamma_h[p,:,:]
-                #-- add to pressure factor (pfactor) to integrate over levels
-                pfactor += PG*(R[p,:,:]/rad_e)**(l+2)
-        #-- Multiplying gridded data with sin/cos of m#phis
-        #-- This will sum through all phis in the dot product
-        #-- need to reform pfactor to lonXlat as is originally latXlon
-        #-- output [m,theta]
-        dcos = np.dot(ccos,-np.transpose(pfactor))
-        dsin = np.dot(ssin,-np.transpose(pfactor))
-        #-- Summing product of plms and data over all latitudes
-        #-- axis=1 signifies the direction of the summation (colatitude (th))
-        #-- ycos and ysin are the SH coefficients before normalizing
-        yclm[l,m] = np.sum(plm[l,m,:]*dcos[m,:], axis=1)
-        yslm[l,m] = np.sum(plm[l,m,:]*dsin[m,:], axis=1)
-        #-- Multiplying by coefficients to normalize
-        Ylms.clm[l,m] = dfactor[l]*yclm[l,m]
-        Ylms.slm[l,m] = dfactor[l]*yslm[l,m]
-
-    #-- return the harmonics object
-    return Ylms
 
 #-- Main program that calls reanalysis_mean_harmonics()
 def main():

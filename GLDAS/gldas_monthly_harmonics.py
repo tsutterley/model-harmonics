@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_monthly_harmonics.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (01/2021)
 
 Reads monthly GLDAS total water storage anomalies and converts to
     spherical harmonic coefficients
@@ -102,6 +102,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 01/2021: harmonics object output from gen_stokes.py
     Updated 12/2020: added more love number options
         set spatial variables for both 025 and 10 cases
         using utilities from time module. added maximum harmonic order option
@@ -248,12 +249,9 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPATIAL=None, VERSION=None,
 
     #-- for each input file
     for t,fi in enumerate(sorted(FILES)):
-        #-- create harmonics object
-        gldas_Ylms = harmonics(lmax=LMAX, mmax=LMAX)
         #-- extract year and month from file
         YY,MM = np.array(rx.findall(fi).pop(), dtype=np.float)
-        gldas_Ylms.time, = convert_calendar_decimal(YY,MM)
-        gldas_Ylms.month = np.int(12.0*(YY - 2002.0) + MM)
+
         #-- read data file for data format
         if (DATAFORM == 'ascii'):
             #-- ascii (.txt)
@@ -280,10 +278,13 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPATIAL=None, VERSION=None,
         gldas_data.replace_invalid(0.0, mask=combined_mask)
 
         #-- convert to spherical harmonics
-        Ylms = gen_stokes(gldas_data.data, glon, latitude_geocentric[:,0],
+        gldas_Ylms = gen_stokes(gldas_data.data, glon, latitude_geocentric[:,0],
             LMAX=LMAX, MMAX=MMAX, PLM=PLM, LOVE=LOVE)
-        gldas_Ylms.clm = Ylms['clm'].copy()
-        gldas_Ylms.slm = Ylms['slm'].copy()
+        #-- calculate date information
+        gldas_Ylms.time, = convert_calendar_decimal(YY,MM)
+        #-- calculate GRACE/GRACE-FO month
+        gldas_Ylms.month = np.int(12.0*(YY - 2002.0) + MM)
+
         #-- output spherical harmonic data file
         args=(MODEL,SPATIAL,LMAX,order_str,gldas_Ylms.month,suffix[DATAFORM])
         FILE='GLDAS_{0}{1}_TWC_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)

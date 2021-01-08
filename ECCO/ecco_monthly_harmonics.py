@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_monthly_harmonics.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (01/2021)
 Reads monthly ECCO ocean bottom pressure anomalies and converts to
     spherical harmonic coefficients
 
@@ -71,6 +71,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 01/2021: added Cube92 choice to input model types
+        outputs from gen_pressure_stokes are now harmonics objects
     Updated 12/2020: use argparse to set command line parameters
         using spatial and harmonics modules for read/write operations
         added more love number options. using utilities from time module
@@ -100,7 +101,7 @@ import gravity_toolkit.harmonics
 from gravity_toolkit.utilities import get_data_path
 from gravity_toolkit.plm_holmes import plm_holmes
 from gravity_toolkit.read_love_numbers import read_love_numbers
-from gravity_toolkit.gen_pressure_stokes import gen_pressure_stokes
+from model_harmonics.gen_pressure_stokes import gen_pressure_stokes
 from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
 from geoid_toolkit.norm_gravity import norm_gravity
 
@@ -188,7 +189,7 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     gamma_h,dgamma_dh = norm_gravity(latitude_geocentric,bathymetry,'WGS84')
 
     #-- read load love numbers
-    LOVE = load_love_numbers(LMAX, REFERENCE=REFERENCE)
+    LOVE = load_love_numbers(LMAX,LOVE_NUMBERS=LOVE_NUMBERS,REFERENCE=REFERENCE)
     #-- calculate Legendre polynomials
     PLM,dPLM = plm_holmes(LMAX,np.cos(theta[:,0]))
 
@@ -221,9 +222,8 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
         #-- calculate pressure/gravity ratio
         PG = obp_data.data/gamma_h
         #-- convert to spherical harmonics
-        Ylms = gen_pressure_stokes(PG, R, glon, latitude_geocentric[:,0],
+        obp_Ylms = gen_pressure_stokes(PG, R, glon, latitude_geocentric[:,0],
             LMAX=LMAX, MMAX=MMAX, PLM=PLM, LOVE=LOVE)
-        obp_Ylms = gravity_toolkit.harmonics().from_dict(Ylms)
         obp_Ylms.time = np.copy(obp_data.time)
         obp_Ylms.month = 12*(year - 2002) + month
         #-- output spherical harmonic data file

@@ -68,6 +68,7 @@ UPDATE HISTORY:
     Updated 01/2021: added more love number options
         set spatial variables for both 025 and 10 cases
         using utilities from time module. added maximum harmonic order option
+        harmonics object output from gen_stokes.py
     Updated 10/2020: use argparse to set command line parameters
     Updated 10/2019: changing Y/N flags to True/False
     Updated 08/2017: convert from geodetic coordinates to geocentric
@@ -100,7 +101,7 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     #-- setup subdirectories
     cumul_sub = '{0}.5.12.4.CUMUL.{1:d}.{2:d}'.format(PRODUCT,*RANGE)
     #-- Creating output subdirectory if it doesn't exist
-    prefix = '{0}.'.format(REGION) if REGION else ''
+    prefix = '{0}_'.format(REGION) if REGION else ''
     output_sub = '{0}{1}_5.12.4_CUMUL_CLM_L{2:d}'.format(prefix,PRODUCT,LMAX)
     if (not os.access(os.path.join(ddir,output_sub), os.F_OK)):
         os.makedirs(os.path.join(ddir,output_sub),MODE)
@@ -173,8 +174,6 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     for t,fi in enumerate(FILES):
         #-- extract parameters from input flux file
         MOD,Y1,M1 = rx.findall(fi).pop()
-        #-- create harmonics object
-        merra_Ylms = harmonics(lmax=LMAX, mmax=LMAX)
         #-- read data file for data format
         if (DATAFORM == 'ascii'):
             #-- ascii (.txt)
@@ -188,10 +187,6 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
             #-- HDF5 (.H5)
             merra_data = spatial().from_HDF5(os.path.join(ddir,cumul_sub,fi),
                 varname=PRODUCT, verbose=VERBOSE)
-        #-- copy date information
-        merra_Ylms.month = np.copy(merra_data.time)
-        #-- calculate GRACE/GRACE-FO month
-        merra_Ylms.month = np.int(12.0*(np.float(Y1) - 2002.0) + np.float(M1))
 
         #-- if reducing to a region of interest before converting to harmonics
         if MASK:
@@ -202,10 +197,12 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
             merra_data.replace_invalid(0.0)
 
         #-- convert to spherical harmonics from mm w.e.
-        Ylms = gen_stokes(merra_data.data, glon, latitude_geocentric[:,0],
+        merra_Ylms = gen_stokes(merra_data.data, glon, latitude_geocentric[:,0],
             LMAX=LMAX, MMAX=MMAX, UNITS=3, PLM=PLM, LOVE=LOVE)
-        merra_Ylms.clm = Ylms['clm'].copy()
-        merra_Ylms.slm = Ylms['slm'].copy()
+        #-- copy date information
+        merra_Ylms.month = np.copy(merra_data.time)
+        #-- calculate GRACE/GRACE-FO month
+        merra_Ylms.month = np.int(12.0*(np.float(Y1) - 2002.0) + np.float(M1))
         #-- output spherical harmonic data file
         args=(MOD,PRODUCT,LMAX,order_str,merra_Ylms.month,suffix[DATAFORM])
         FILE='MERRA2_{0}_tavgM_2d_{1}_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)

@@ -122,7 +122,8 @@ def jpl_ecco_cube92_sync(ddir, YEAR=None, LOG=False, VERBOSE=False, MODE=None):
     kwargs = dict(varname=VARNAME, latname=LATNAME, lonname=LONNAME,
         timename=TIMENAME, title="ECCO2 cube92 monthly average",
         units='m^2/s^2', longname='Bottom_Pressure_(p/rho)_Anomaly',
-        time_units='days', time_longname='days since 1992-01-01')
+        time_units='days since 1992-01-01 00:00:00',
+        time_longname='center time of averaging period')
 
     #-- for each year
     for YY in YEAR:
@@ -161,11 +162,11 @@ def jpl_ecco_cube92_sync(ddir, YEAR=None, LOG=False, VERBOSE=False, MODE=None):
             #-- calculate mean from totals
             PHIBOT = gravity_toolkit.spatial().from_list(daily).mean()
             #-- output to netCDF4 file
-            local_file = 'PHIBOT.{0}x{1}.{2}{3}.nc'.format(dim1,dim2,YY,MM)
-            PHIBOT.to_netCDF4(os.path.join(DIRECTORY,local_file),
+            FILE = 'PHIBOT.{0}x{1}.{2}{3:02d}.nc'.format(dim1,dim2,YY,MM+1)
+            PHIBOT.to_netCDF4(os.path.join(DIRECTORY,FILE),
                 date=True, verbose=VERBOSE, **kwargs)
             #-- set permissions mode to MODE
-            os.chmod(os.path.join(DIRECTORY,local_file), MODE)
+            os.chmod(os.path.join(DIRECTORY,FILE), MODE)
 
     #-- close log file and set permissions level to MODE
     if LOG:

@@ -81,21 +81,23 @@ def reanalysis_monthly_pressure(base_dir,MODEL,YEARS,VERBOSE=False,MODE=0o775):
             #-- read input data
             p = gravity_toolkit.spatial().from_netCDF4(os.path.join(ddir,fi),
                 varname=VARNAME, timename=TIMENAME, lonname=LONNAME,
-                latname=LATNAME).transpose(1,2,0)
+                latname=LATNAME).transpose(axes=(1,2,0))
             p.fill_value = p.attributes['data'][FILL_VALUE]
             TIME_UNITS = p.attributes['time']['units']
             TIME_LONGNAME = p.attributes['time']['long_name']
             #-- iterate over months
             for m in range(0,12):
                 #-- for each day in the month
-                indices = np.range(cumulative_days[m],cumulative_days[m+1])
+                indices = np.arange(cumulative_days[m],cumulative_days[m+1])
                 try:
                     p_mean.append(p.mean(indices=indices.astype(np.int)))
                 except:
                     break
+                else:
+                    p_mean[m].month = m + 1
 
         #-- mean pressure for each month
-        p_month = gravity_toolkit.spatial().from_list(p_mean).transpose(2,0,1)
+        p_month=gravity_toolkit.spatial().from_list(p_mean).transpose(axes=(2,0,1))
         #-- convert to python dictionary for output to netCDF4
         dinput = {}
         dinput[VARNAME] = p_month.to_masked_array()

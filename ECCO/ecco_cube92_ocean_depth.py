@@ -60,7 +60,7 @@ def ecco_cube92_ocean_depth(ddir, model_file, VERSION='2014', MODE=0o775):
     #-- read ECCO V4 ocean model for valid points
     PHIBOT = gravity_toolkit.spatial().from_netCDF4(model_file,
         latname='LATITUDE_T',lonname='LONGITUDE_T',timename='TIME',
-        varname='PHIBOT').transpose(axes=(1,2,0)).index(0)
+        varname='PHIBOT')
 
     #-- indices of valid values
     ii,jj = np.nonzero(~PHIBOT.mask)
@@ -83,8 +83,8 @@ def ecco_cube92_ocean_depth(ddir, model_file, VERSION='2014', MODE=0o775):
     #-- iterate over indices to find valid points
     for i,j in zip(ii,jj):
         #-- find bathymetry points
-        ilat, = np.nonzero(np.abs(interp.lat[i] - bathymetry.lat) <= 0.125)
-        ilon, = np.nonzero(np.abs(interp.lon[j] - bathymetry.lon) <= 0.125)
+        ilat, = np.nonzero(np.abs(PHIBOT.lat[i] - bathymetry.lat) <= 0.125)
+        ilon, = np.nonzero(np.abs(PHIBOT.lon[j] - bathymetry.lon) <= 0.125)
         data_point = bathymetry.data[ilat,ilon].squeeze()
         if np.count_nonzero(data_point < 0.0):
             valid_indices, = np.nonzero(data_point <= 0.0)
@@ -117,8 +117,9 @@ def extend_matrix(input_matrix,count):
     return temp
 
 #-- wrapper function to extend an array
-def extend_array(input_array,step_size,count):
+def extend_array(input_array,count):
     n = len(input_array)
+    step_size = np.abs(input_array[1] - input_array[0])
     temp = np.zeros((n+2*count),dtype=input_array.dtype)
     temp[0:count] = input_array[0] - step_size*np.arange(count,0,-1)
     temp[count:-count] = input_array[:]

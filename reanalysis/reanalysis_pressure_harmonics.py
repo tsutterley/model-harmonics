@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_pressure_harmonics.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (01/2021)
 Reads atmospheric surface pressure fields from reanalysis and calculates sets of
     spherical harmonics using a thin-layer 2D geometry with realistic earth
 
@@ -75,6 +75,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 01/2021: outputs from gen_pressure_stokes are now harmonics objects
     Updated 12/2020: using argparse to set command line options
         using time module for operations and for extracting time units
     Updated 05/2020: use harmonics class for spherical harmonic operations
@@ -83,7 +84,6 @@ UPDATE HISTORY:
     Updated 10/2019: changing Y/N flags to True/False
     Updated 09/2019: modified regular expression pattern for MERRA-2
     Updated 08/2019: added parameters for NCEP-CFSR, time scale for MERRA-2
-    Updated 09/2018: added common land-sea mask from create_common_masks.py
     Updated 07/2018: added parameters for ERA5.  added find_new_files function
     Updated 05/2018: added uniform redistribution of oceanic values
     Updated 03/2018: added portions to run different reanalysis model outputs
@@ -103,8 +103,8 @@ import gravity_toolkit.time
 import gravity_toolkit.harmonics
 from gravity_toolkit.read_love_numbers import read_love_numbers
 from gravity_toolkit.plm_holmes import plm_holmes
-from gravity_toolkit.gen_pressure_stokes import gen_pressure_stokes
 from gravity_toolkit.utilities import get_data_path
+from model_harmonics.gen_pressure_stokes import gen_pressure_stokes
 from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
 from geoid_toolkit.norm_gravity import norm_gravity
 
@@ -358,7 +358,6 @@ def reanalysis_pressure_harmonics(base_dir, MODEL, YEARS, RANGE=None,
             #-- calculate pressure harmonics from pressure/gravity ratio
             Ylms = gen_pressure_stokes(P/gamma_h, R, lon, lat,
                 LMAX=LMAX, MMAX=MMAX, PLM=PLM, LOVE=LOVE)
-            Ylms = gravity_toolkit.harmonics().from_dict(Ylms)
             #-- convert julian dates to calendar then to year-decimal
             YY,MM,DD,hh,mm,ss = gravity_toolkit.time.convert_julian(JD,
                 FORMAT='tuple')

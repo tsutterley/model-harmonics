@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_monthly_harmonics.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (01/2021)
 Reads atmospheric surface pressure fields from reanalysis and calculates sets of
     spherical harmonics using a thin-layer 2D spherical geometry
 
@@ -74,6 +74,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 01/2021: harmonics object output from gen_stokes.py
     Updated 12/2020: using argparse to set command line options
         using time module for operations and for extracting time units
     Updated 05/2020: use harmonics class for spherical harmonic operations
@@ -82,7 +83,6 @@ UPDATE HISTORY:
     Updated 10/2019: changing Y/N flags to True/False
     Updated 09/2019: modified regular expression pattern for MERRA-2
     Updated 08/2019: added parameters for NCEP-CFSR, time scale for MERRA-2
-    Updated 09/2018: added common land-sea mask from create_common_masks.py
     Updated 07/2018: added parameters for ERA5.  added find_new_files function
     Updated 05/2018: added uniform redistribution of oceanic values
     Updated 03/2018: added portions to run different reanalysis model outputs
@@ -119,7 +119,6 @@ def reanalysis_monthly_harmonics(base_dir, MODEL, YEARS, RANGE=None,
         input_mean_file = 'ERA-Interim-Mean-SP-{0:4d}-{1:4d}.nc'
         #-- input land-sea mask for ocean redistribution
         input_mask_file = 'ERA-Interim-Invariant-Parameters.nc'
-        common_mask_file = 'ERA-Interim-Landsea-Mask.nc'
         #-- regular expression pattern for finding files
         regex_pattern = r'ERA\-Interim\-Monthly\-SP\-({0})\.nc$'
         VARNAME = 'sp'
@@ -136,7 +135,6 @@ def reanalysis_monthly_harmonics(base_dir, MODEL, YEARS, RANGE=None,
         input_mean_file = 'ERA5-Mean-SP-{0:4d}-{1:4d}.nc'
         #-- input land-sea mask for ocean redistribution
         input_mask_file = 'ERA5-Invariant-Parameters.nc'
-        common_mask_file = 'ERA5-Landsea-Mask.nc'
         #-- regular expression pattern for finding files
         regex_pattern = r'ERA5\-Monthly\-SP\-({0})\.nc$'
         VARNAME = 'sp'
@@ -303,7 +301,6 @@ def reanalysis_monthly_harmonics(base_dir, MODEL, YEARS, RANGE=None,
             #-- calculate pressure harmonics from pressure/gravity ratio
             Ylms = gen_stokes(PG, lon, lat, LMAX=LMAX, MMAX=MMAX, UNITS=3,
                 PLM=PLM, LOVE=LOVE)
-            Ylms = gravity_toolkit.harmonics().from_dict(Ylms)
             #-- convert julian dates to calendar then to year-decimal
             YY,MM,DD,hh,mm,ss = gravity_toolkit.time.convert_julian(JD,
                 FORMAT='tuple')

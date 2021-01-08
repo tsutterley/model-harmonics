@@ -106,12 +106,12 @@ def ecco_read_cube92(ddir, YEARS, RANGE=None, DATAFORM=None, VERBOSE=False,
     b_axis = WGS84['b']
 
     #-- read depth data from ecco_cube92_ocean_depth.py
-    input_depth_file = os.path.join(ddir,'DEPTH.2020.720x360.nc')
+    input_depth_file = os.path.join(ddir,'DEPTH.2020.1440x720.nc')
     depth = gravity_toolkit.spatial().from_netCDF4(input_depth_file,
         varname='depth', date=False)
 
     #-- read mean data from ecco_mean_version4.py
-    args = ('Cube92', RANGE[0], RANGE[1], suffix[DATAFORM])
+    args = (RANGE[0], RANGE[1], suffix[DATAFORM])
     mean_file = 'ECCO_Cube92_OBP_MEAN_{0:4d}-{1:4d}.{2}'.format(*args)
     if (DATAFORM == 'ascii'):
         #-- ascii (.txt)
@@ -135,14 +135,16 @@ def ecco_read_cube92(ddir, YEARS, RANGE=None, DATAFORM=None, VERBOSE=False,
     year_regex = '|'.join('{0:d}'.format(y) for y in YEARS)
     rx1 = re.compile(r'PHIBOT\.(\d+)x(\d+)\.({0})(\d{{2}}).nc$'.format(year_regex))
     #-- find input files
-    flist = [fi for fi in os.listdir(ddir) if rx1.match(fi)]
+    flist = sorted([f for f in os.listdir(os.path.join(ddir,sd1)) if rx1.match(f)])
     #-- read each input file
     for t,fi in enumerate(flist):
+        #-- extract dimension variables
+        dim1,dim2,Y,M = rx1.findall(fi).pop()
         #-- Open netCDF4 datafile for reading
         PHIBOT = gravity_toolkit.spatial().from_netCDF4(
             os.path.join(ddir,sd1,fi),verbose=VERBOSE,
             latname=LATNAME,lonname=LONNAME,timename=TIMENAME,
-            varname=VARNAME).transpose(axes=(1,2,0))
+            varname=VARNAME)
         #-- time within netCDF files is days since 1992-01-01
         time_string = PHIBOT.attributes['time']['units']
         epoch1,to_secs = gravity_toolkit.time.parse_date_string(time_string)
@@ -150,8 +152,8 @@ def ecco_read_cube92(ddir, YEARS, RANGE=None, DATAFORM=None, VERBOSE=False,
         #-- convert from ocean bottom pressure anomalies to absolute
         obp = gravity_toolkit.spatial(spacing=[dlon,dlat],nlon=nlon,
             nlat=nlat,fill_value=PHIBOT.fill_value)
-        obp.data = depth.data*rhonil*gamma + PHIBOT.data[:,:,0]*rhonil
-        obp.mask = (depth.mask | PHIBOT.mask[:,:,0])
+        obp.data = depth.data*rhonil*gamma + PHIBOT.data*rhonil
+        obp.mask = (depth.mask | PHIBOT.mask)
         obp.update_mask()
 
         #-- will calculate and remove the area average of the model
@@ -204,8 +206,8 @@ def ecco_read_cube92(ddir, YEARS, RANGE=None, DATAFORM=None, VERBOSE=False,
         fid.write('{0:10.4f} {1:21.14e} {2:21.14e}\n'.format(*args))
 
         #-- Writing output ocean bottom pressure anomaly file
-        args = (YY, MM, suffix[DATAFORM])
-        FILE = 'ECCO_Cube92_AveRmvd_OBP_{0:4.0f}_{1:02.0f}.{2}'.format(*args)
+        args = (Y, M, suffix[DATAFORM])
+        FILE = 'ECCO_Cube92_AveRmvd_OBP_{0}_{1}.{2}'.format(*args)
         output_data(obp_anomaly,DATAFORM=DATAFORM,
             VERBOSE=VERBOSE,FILENAME=os.path.join(ddir,sd2,FILE))
         #-- change the permissions mode of the output file to MODE

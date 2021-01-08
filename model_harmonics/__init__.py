@@ -11,3 +11,5 @@ Follow-On (GRACE-FO) missions
 Documentation is available at https://model-harmonics.readthedocs.io
 """
 import model_harmonics.utilities
+from model_harmonics.gen_atmosphere_stokes import gen_atmosphere_stokes
+from model_harmonics.gen_pressure_stokes import gen_pressure_stokes
