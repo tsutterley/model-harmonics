@@ -17,7 +17,7 @@ Add ECCO Drive to NASA Earthdata Applications and get WebDAV Password
 https://ecco.jpl.nasa.gov/drive
 
 CALLING SEQUENCE:
-    python jpl_ecco_webdav.py --user=<username>
+    python jpl_ecco_webdav.py --user <username>
     where <username> is your NASA Earthdata credentials
 
 OUTPUTS:

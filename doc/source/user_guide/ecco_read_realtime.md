@@ -20,7 +20,7 @@ python ecco_read_realtime.py --directory <path_to_directory> kf080i dr080i
 - `-D X`, `--directory X`: working data directory
 - `-Y X`, `--year X`: Years to run
 - `-m X`, `--mean X`: Year range for mean
-- `-F X`, `--format=X`: input and output data format
+- `-F X`, `--format X`: input and output data format
     * `'ascii'`
     * `'netcdf'`
     * `'HDF5'`

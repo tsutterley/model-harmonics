@@ -18,7 +18,7 @@ Parameters for links list file:
     Ground or Water Surface
 
 CALLING SEQUENCE:
-    python ucar_rda_cfsr_surface.py --user=<username> links_list_file
+    python ucar_rda_cfsr_surface.py --user <username> links_list_file
 
 INPUTS:
     links_list_file: UCAR links list file (csh)

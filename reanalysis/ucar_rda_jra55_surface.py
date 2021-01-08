@@ -18,7 +18,7 @@ Parameters for links list file:
     Monthly Mean (4 per day) of Analyses
 
 CALLING SEQUENCE:
-    python ucar_rda_jra55_surface.py --user=<username> links_list_file
+    python ucar_rda_jra55_surface.py --user <username> links_list_file
 
 INPUTS:
     links_list_file: UCAR links list file (csh)

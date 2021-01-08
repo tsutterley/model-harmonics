@@ -13,7 +13,7 @@ python ecco_mean_cube92.py --directory <path_to_directory>
 #### Command Line Options
 - `-D X`, `--directory X`: working data directory
 - `-m X`, `--mean X`: Year range for mean
-- `-F X`, `--format=X`: input and output data format
+- `-F X`, `--format X`: input and output data format
     * `'ascii'`
     * `'netcdf'`
     * `'HDF5'`

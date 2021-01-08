@@ -261,7 +261,7 @@ def reanalysis_atmospheric_harmonics(base_dir, MODEL, YEARS, RANGE=None,
         mean_Ylms = gravity_toolkit.harmonics().from_HDF5(
             os.path.join(ddir,output_sub,mean_file))
     #-- truncating mean spherical harmonics to d/o LMAX/MMAX
-    mean_Ylms = mean_Ylms.truncate(lmax=LMAX,MMAX=MMAX)
+    mean_Ylms = mean_Ylms.truncate(lmax=LMAX,mmax=MMAX)
 
     #-- read each reanalysis data file and convert to spherical harmonics
     for fi in input_files:

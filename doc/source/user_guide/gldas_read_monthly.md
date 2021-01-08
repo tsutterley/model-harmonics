@@ -24,7 +24,7 @@ python gldas_read_monthly.py --directory <path_to_directory> --version 2.1 CLSM 
     * `'10'`: 1.0 degrees latitude/longitude
     * `'025'`: 0.25 degrees latitude/longitude
 - `-v X`, `--version X`: GLDAS model version to run
-- `-F X`, `--format=X`: input and output data format
+- `-F X`, `--format X`: input and output data format
     * `'ascii'`
     * `'netcdf'`
     * `'HDF5'`
