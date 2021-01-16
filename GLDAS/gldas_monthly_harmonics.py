@@ -146,15 +146,15 @@ gldas_products['NOAH'] = 'GLDAS Noah model'
 gldas_products['VIC'] = 'GLDAS Variable Infiltration Capacity (VIC) model'
 
 #-- PURPOSE: convert GLDAS terrestrial water storage data to spherical harmonics
-def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPATIAL=None, VERSION=None,
+def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
     LMAX=0, MMAX=None, LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None,
     VERBOSE=False, MODE=0o775):
     #-- Version flags
     V1,V2 = ('_V1','') if (VERSION == '1') else ('','.{0}'.format(VERSION))
     #-- subdirectory for model monthly products at spacing for version
-    subdir = "GLDAS_{0}{1}_{2}{3}".format(MODEL,SPATIAL,'M',V2)
+    subdir = "GLDAS_{0}{1}_{2}{3}".format(MODEL,SPACING,'M',V2)
     #-- Creating output subdirectory if it doesn't exist
-    args = (MODEL,SPATIAL,V1,LMAX)
+    args = (MODEL,SPACING,V1,LMAX)
     output_sub = 'GLDAS_{0}{1}{2}_TWC_CLM_L{3:d}'.format(*args)
     if (not os.access(os.path.join(ddir,output_sub), os.F_OK)):
         os.makedirs(os.path.join(ddir,output_sub),MODE)
@@ -166,22 +166,20 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPATIAL=None, VERSION=None,
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
 
     #-- parameters for each grid spacing
-    if (SPATIAL == '025'):
-        SPACING = 0.25
+    if (SPACING == '025'):
         nlon,nlat = (1440,600)
+        dlon,dlat = (0.25,0.25)
         extent = [-179.875,179.875,-59.875,89.875]
-        vegetation_file = 'modmodis_domveg20_{0:4.2f}.nc'.format(SPACING)
-        arctic_file = 'arcticmask_mod44w_{0:4.2f}.nc'.format(SPACING)
-        permafrost_file = 'permafrost_mod44w_{0:4.2f}.nc'.format(SPACING)
-        combined_file = 'combinedmask_mod44w_{0:4.2f}.nc'.format(SPACING)
-    elif (SPATIAL == '10'):
-        SPACING = 1.0
+    elif (SPACING == '10'):
         nlon,nlat = (360,150)
+        dlon,dlat = (1.0,1.0)
         extent = [-179.5,179.5,-59.5,89.5]
-        vegetation_file = 'modmodis_domveg20_{0:3.1f}.nc'.format(SPACING)
-        arctic_file = 'arcticmask_mod44w_{0:3.1f}.nc'.format(SPACING)
-        permafrost_file = 'permafrost_mod44w_{0:3.1f}.nc'.format(SPACING)
-        combined_file = 'combinedmask_mod44w_{0:3.1f}.nc'.format(SPACING)
+    #-- mask files for vegetation type, arctic regions, permafrost
+    vegetation_file = 'modmodis_domveg20_{0}.nc'.format(SPACING)
+    arctic_file = 'arcticmask_mod44w_{0}.nc'.format(SPACING)
+    permafrost_file = 'permafrost_mod44w_{0}.nc'.format(SPACING)
+    #-- output combined mask file
+    combined_file = 'combinedmask_mod44w_{0}.nc'.format(SPACING)
 
     #-- read vegetation index file from gldas_mask_vegetation.py
     with netCDF4.Dataset(os.path.join(ddir,vegetation_file),'r') as fileID:
@@ -204,6 +202,13 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPATIAL=None, VERSION=None,
     #-- create mask combining vegetation index, permafrost index and Arctic mask
     combined_mask = np.zeros((nlat,nlon),dtype=np.bool)
     combined_mask |= arctic_mask[:,:]
+    # 0: missing value
+    # 13: Urban and Built-Up
+    # 15: Snow and Ice
+    # 17: Ocean
+    # 18: Wooded Tundra
+    # 19: Mixed Tundra
+    # 20: Bare Ground Tundra
     for invalid_keys in (0,13,15,17,18,19,20):
         combined_mask |= (vegetation_index == invalid_keys)
     #-- 1: Continuous Permafrost
@@ -243,7 +248,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPATIAL=None, VERSION=None,
 
     #-- find input files from read_gldas_monthly.py
     regex_years = r'\d+' if (YEARS is None) else '|'.join(map(str,YEARS))
-    args = (MODEL, SPATIAL, regex_years, suffix[DATAFORM])
+    args = (MODEL, SPACING, regex_years, suffix[DATAFORM])
     rx = re.compile(r'GLDAS_{0}{1}_TWC_({2})_(\d+)\.{3}$'.format(*args))
     FILES = [fi for fi in os.listdir(os.path.join(ddir,subdir)) if rx.match(fi)]
 
@@ -255,7 +260,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPATIAL=None, VERSION=None,
         #-- read data file for data format
         if (DATAFORM == 'ascii'):
             #-- ascii (.txt)
-            gldas_data = spatial(spacing=[SPACING,SPACING],nlat=nlat,nlon=nlon,
+            gldas_data = spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
                 extent=extent).from_ascii(os.path.join(ddir,subdir,fi))
         elif (DATAFORM == 'netCDF4'):
             #-- netCDF4 (.nc)
@@ -286,7 +291,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPATIAL=None, VERSION=None,
         gldas_Ylms.month = np.int(12.0*(YY - 2002.0) + MM)
 
         #-- output spherical harmonic data file
-        args=(MODEL,SPATIAL,LMAX,order_str,gldas_Ylms.month,suffix[DATAFORM])
+        args=(MODEL,SPACING,LMAX,order_str,gldas_Ylms.month,suffix[DATAFORM])
         FILE='GLDAS_{0}{1}_TWC_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
         #-- output data for month
         print(os.path.join(ddir,output_sub,FILE)) if VERBOSE else None
@@ -303,7 +308,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPATIAL=None, VERSION=None,
         os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 
     #-- Output date ascii file
-    output_date_file = 'GLDAS_{0}{1}_TWC_DATES.txt'.format(MODEL,SPATIAL)
+    output_date_file = 'GLDAS_{0}{1}_TWC_DATES.txt'.format(MODEL,SPACING)
     fid1 = open(os.path.join(ddir,output_sub,output_date_file), 'w')
     #-- date file header information
     print('{0:8} {1:^6} {2:^5}'.format('Mid-date','GRACE','Month'), file=fid1)
@@ -311,7 +316,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPATIAL=None, VERSION=None,
     output_index_file = 'index.txt'
     fid2 = open(os.path.join(ddir,output_sub,output_index_file),'w')
     #-- find all available output files
-    args = (MODEL, SPATIAL, LMAX, order_str, suffix[DATAFORM])
+    args = (MODEL, SPACING, LMAX, order_str, suffix[DATAFORM])
     output_regex=r'GLDAS_{0}{1}_TWC_CLM_L{2:d}{3}_([-]?\d+).{4}'.format(*args)
     #-- find all output ECCO OBP harmonic files (not just ones created in run)
     output_files=[fi for fi in os.listdir(os.path.join(ddir,output_sub))
@@ -496,7 +501,7 @@ def main():
     for MODEL in args.model:
         #-- run program
         gldas_monthly_harmonics(args.directory, MODEL, args.year,
-            VERSION=args.version, SPATIAL=args.spacing, LMAX=args.lmax,
+            VERSION=args.version, SPACING=args.spacing, LMAX=args.lmax,
             MMAX=args.mmax, LOVE_NUMBERS=args.love, REFERENCE=args.reference,
             DATAFORM=args.format, VERBOSE=args.verbose, MODE=args.mode)
 

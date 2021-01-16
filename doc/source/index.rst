@@ -48,6 +48,9 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     user_guide/gesdisc_gldas_sync.md
     user_guide/gldas_mean_monthly.md
     user_guide/gldas_read_monthly.md
+    user_guide/gldas_mask_arctic.md
+    user_guide/gldas_mask_permafrost.md
+    user_guide/gldas_mask_vegetation.md
     user_guide/gldas_monthly_harmonics.md
 
 .. toctree::

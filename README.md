@@ -19,9 +19,13 @@ These are extension routines for the set of [read-GRACE-harmonics](https://githu
 - [GRACE at the GFZ Information System and Data Center](http://isdc.gfz-potsdam.de/grace-isdc/)
 
 #### Dependencies
+- [geoid-toolkit: Python utilities for calculating geoid heights from static gravity field coefficients](https://github.com/tsutterley/geoid-toolkit/)
 - [read-GRACE-harmonics: Python tools for working with GRACE/GRACE-FO data](https://github.com/tsutterley/read-GRACE-harmonics/)
 - [pygrib: Python interface for reading and writing GRIB data](https://pypi.python.org/pypi/pygrib)
 - [cdsapi: Python client libraries for the CDS Web API](https://pypi.org/project/cdsapi/)
+- [fiona: Python wrapper for vector data access functions from the OGR library](https://fiona.readthedocs.io/en/latest/manual.html)
+- [pyproj: Python interface to PROJ library](https://pypi.org/project/pyproj/)
+- [shapely: PostGIS-ish operations outside a database context for Python](http://toblerity.org/shapely/index.html)
 - [ecmwf-api-client: Python client libraries for the ECMWF Web API](https://software.ecmwf.int/wiki/display/WEBAPI/Web-API+Downloads)
 
 #### References

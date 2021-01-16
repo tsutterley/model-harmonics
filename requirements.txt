@@ -1,3 +1,6 @@
 cdsapi
 ecmwf-api-client
+fiona
+pyproj
+shapely
 read_GRACE_harmonics @ https://github.com/tsutterley/read-GRACE-harmonics/tarball/main

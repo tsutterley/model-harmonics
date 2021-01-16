@@ -6,6 +6,9 @@ dependencies:
   - notebook
   - cdsapi
   - ecmwf-api-client
+  - fiona
+  - pyproj
+  - shapely
   - pip
   - pip:
      - git+https://github.com/tsutterley/read-GRACE-harmonics.git

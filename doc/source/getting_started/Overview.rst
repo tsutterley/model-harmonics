@@ -71,7 +71,10 @@ GLDAS version 2.1 is forced with a combination of model and observation data.
 Additionally, the GLDAS project produces two months of "early production stream" products that are run without the forcing data.
 Here, monthly terrestrial water storage (TWS) estimates are calculated by combining the GLDAS soil moisture (SM), snow water equivalent (SWE) and total canopy storage outputs.
 Monthly anomalies in terrestrial water storage are calculated by removing a multi-annual mean (typically 2003 |ndash| 2007).
-Before converting to spherical harmonics, the GLDAS terrestrial water storage estimates are masked to remove glaciated and permafrost regions.
+Before converting to spherical harmonics, the GLDAS terrestrial water storage estimates are masked to remove
+`urbanized <https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_mask_vegetation.py>`_,
+`glaciated <https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_mask_arctic.py>`_ and
+`permafrost <https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_mask_permafrost.py>`_ regions.
 Terrestrial water storage anomalies are converted to spherical harmonics following `Wahr et al. (1998) <https://doi.org/10.1029/98JB02844>`_ (Equation :eq:`3`).
 
 .. math::

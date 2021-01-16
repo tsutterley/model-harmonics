@@ -32,6 +32,7 @@ If you have found a problem in these programs, or you would like to suggest an i
 
 #### Dependencies
 These extension routines are dependent on:
+- [geoid-toolkit: Python utilities for calculating geoid heights from static gravity field coefficients](https://github.com/tsutterley/geoid-toolkit/)
 - [read-GRACE-harmonics: Python tools for working with GRACE/GRACE-FO time-variable gravity data](https://github.com/tsutterley/read-GRACE-harmonics)
 - [numpy: Scientific Computing Tools For Python](https://numpy.org)
 - [scipy: Scientific Tools for Python](https://docs.scipy.org/doc/)
@@ -43,7 +44,9 @@ These extension routines are dependent on:
 - [cartopy: Python package designed for geospatial data processing](https://scitools.org.uk/cartopy/docs/latest/)
 - [netCDF4: Python interface to the netCDF C library](https://unidata.github.io/netcdf4-python/)
 - [h5py: Python interface for Hierarchal Data Format 5 (HDF5)](https://www.h5py.org/)
+- [fiona: Python wrapper for vector data access functions from the OGR library](https://fiona.readthedocs.io/en/latest/manual.html)
 - [pygrib: Python interface for reading and writing GRIB data](https://pypi.python.org/pypi/pygrib)
+- [pyproj: Python interface to PROJ library](https://pypi.org/project/pyproj/)
+- [shapely: PostGIS-ish operations outside a database context for Python](http://toblerity.org/shapely/index.html)
 - [cdsapi: Python client libraries for the CDS Web API](https://pypi.org/project/cdsapi/)
 - [ecmwf-api-client: Python client libraries for the ECMWF Web API](https://software.ecmwf.int/wiki/display/WEBAPI/Web-API+Downloads)
-
