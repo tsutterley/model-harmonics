@@ -8,16 +8,17 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
 
 .. toctree::
     :maxdepth: 2
-    :caption: Getting Started:
+    :caption: Getting Started
 
-    getting_started/Install.md
+    getting_started/Install.rst
     getting_started/Overview.rst
-    getting_started/NASA-Earthdata.md
-    getting_started/Citations.md
+    getting_started/NASA-Earthdata.rst
+    getting_started/Citations.rst
 
 .. toctree::
     :maxdepth: 1
-    :caption: User Guide:
+    :hidden:
+    :caption: User Guide
 
     user_guide/gen_atmosphere_stokes.md
     user_guide/gen_pressure_stokes.md
@@ -25,7 +26,8 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
 
 .. toctree::
     :maxdepth: 1
-    :caption: ECCO:
+    :hidden:
+    :caption: ECCO
 
     user_guide/jpl_ecco_webdav.md
     user_guide/jpl_ecco_sync.md
@@ -43,7 +45,8 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
 
 .. toctree::
     :maxdepth: 1
-    :caption: GLDAS:
+    :hidden:
+    :caption: GLDAS
 
     user_guide/gesdisc_gldas_sync.md
     user_guide/gldas_mean_monthly.md
@@ -55,7 +58,8 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
 
 .. toctree::
     :maxdepth: 1
-    :caption: Reanalysis:
+    :hidden:
+    :caption: Reanalysis
 
     user_guide/cds_reanalysis_retrieve.md
     user_guide/ecmwf_reanalysis_retrieve.md
@@ -75,7 +79,8 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
 
 .. toctree::
     :maxdepth: 1
-    :caption: SMB:
+    :hidden:
+    :caption: SMB
 
     user_guide/gesdisc_merra_sync.md
     user_guide/merra_smb_mean.md
