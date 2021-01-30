@@ -25,7 +25,7 @@ Ylms = gen_atmosphere_stokes(GPH, pressure, lon, lat, LMAX=LMAX,
 - `ELLIPSOID`: reference ellipsoid name
 - `GEOID`: geoid height
 - `PLM`: input Legendre polynomials (for improving computational time)
-- `LOVE`: input load Love numbers up to degree `LMAX` (hl,kl,ll)
+- `LOVE`: input load Love numbers up to degree of truncation
 - `METHOD`: method of integrating over pressure levels
     * `'SW02'`: [Swenson and Wahr (2002)](https://doi.org/10.1029/2000JB000024)
     * `'BC05'`: [Boy and Chao (2005)](https://doi.org/10.1029/2002JB002333)

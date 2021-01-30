@@ -11,7 +11,7 @@ python ecco_mean_version4.py --directory <path_to_directory> V4r3 V4r4
 [Source code](https://github.com/tsutterley/model-harmonics/blob/main/ECCO/ecco_mean_version4.py)
 
 #### Inputs
-- ECCO near-real time models
+- ECCO Near Real-Time models
     * `'V4r3'`: Version 4, Revision 3
     * `'V4r4'`: Version 4, Revision 4
 

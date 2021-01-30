@@ -10,8 +10,8 @@ python ecco_monthly_harmonics.py --directory <path_to_directory> kf080i dr080i
 [Source code](https://github.com/tsutterley/model-harmonics/blob/main/ECCO/ecco_monthly_harmonics.py)
 
 #### Inputs
-- `'kf080i'`: ECCO near-real time Kalman filter analysis
-- `'dr080i'`: ECCO near-real time RTS smoother analysis
+- `'kf080i'`: ECCO Near Real-Time Kalman filter analysis
+- `'dr080i'`: ECCO Near Real-Time RTS smoother analysis
 - `'Cube92'`: ECCO2 Cube92 models
 - `'V4r3'`: ECCO Version 4, Revision 3 models
 - `'V4r4'`: ECCO Version 4, Revision 4 models

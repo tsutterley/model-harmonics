@@ -12,7 +12,7 @@ python ecco_read_realtime.py --directory <path_to_directory> kf080i dr080i
 [Source code](https://github.com/tsutterley/model-harmonics/blob/main/ECCO/ecco_read_realtime.py)
 
 #### Inputs
-- ECCO near-real time models
+- ECCO Near Real-Time models
     * `'kf080i'`: Kalman filter analysis
     * `'dr080i'`: RTS smoother analysis
 

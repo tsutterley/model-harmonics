@@ -1,7 +1,7 @@
 jpl_ecco_v4_sync.py
 ===================
 
-- Syncs ECCO Ocean Bottom Pressure outputs from the [NASA JPL ECCO Drive server](https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README)
+- Syncs ECCO Version 4 model outputs from the [NASA JPL ECCO Drive server](https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README)
 
 #### Calling Sequence
 ```bash
@@ -10,7 +10,7 @@ python jpl_ecco_v4_sync.py --directory <path_to_directory> V4r3 V4r4
 [Source code](https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_v4_sync.py)
 
 #### Inputs
-- ECCO near-real time models
+- ECCO Version 4 models
     * `'V4r3'`: Version 4, Revision 3
     * `'V4r4'`: Version 4, Revision 4
 
@@ -19,6 +19,7 @@ python jpl_ecco_v4_sync.py --directory <path_to_directory> V4r3 V4r4
 - `-N X`, `--netrc X`: path to .netrc file for authentication
 - `-D X`, `--directory X`: working data directory
 - `-Y X`, `--year X`: Years to sync
+- `-P X`, `--product X`: Product to sync
 - `-L`, `--list`: print files to be transferred, but do not execute transfer
 - `-l`, `--log`: output log of files downloaded
 - `-C`, `--clobber:` Overwrite existing data in transfer

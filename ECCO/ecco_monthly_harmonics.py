@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 u"""
 ecco_monthly_harmonics.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (02/2021)
 Reads monthly ECCO ocean bottom pressure anomalies and converts to
     spherical harmonic coefficients
 
 INPUTS:
-    ECCO near real time models
+    ECCO Near Real-Time models
         kf080i: Kalman filter analysis
             https://ecco.jpl.nasa.gov/drive/files/NearRealTime/KalmanFilter/
         dr080i: RTS smoother analysis
@@ -70,6 +70,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 02/2021: separate inputs to gen_pressure_stokes
     Updated 01/2021: added Cube92 choice to input model types
         outputs from gen_pressure_stokes are now harmonics objects
     Updated 12/2020: use argparse to set command line parameters
@@ -218,12 +219,10 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
                 os.path.join(ddir,input_sub,f))
         #-- replace fill value points with 0
         obp_data.replace_invalid(0.0)
-
-        #-- calculate pressure/gravity ratio
-        PG = obp_data.data/gamma_h
-        #-- convert to spherical harmonics
-        obp_Ylms = gen_pressure_stokes(PG, R, glon, latitude_geocentric[:,0],
-            LMAX=LMAX, MMAX=MMAX, PLM=PLM, LOVE=LOVE)
+        #-- calculate spherical harmonics from pressure/gravity ratio
+        obp_Ylms = gen_pressure_stokes(obp_data.data, gamma_h, R,
+            glon, latitude_geocentric[:,0], LMAX=LMAX, MMAX=MMAX,
+            PLM=PLM, LOVE=LOVE)
         obp_Ylms.time = np.copy(obp_data.time)
         obp_Ylms.month = 12*(year - 2002) + month
         #-- output spherical harmonic data file

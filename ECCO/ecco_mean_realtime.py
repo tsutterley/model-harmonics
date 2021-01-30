@@ -13,7 +13,7 @@ Processes the data as described in the GRACE Tellus site
     https://grace.jpl.nasa.gov/data/get-data/ocean-bottom-pressure/
 
 INPUTS:
-    ECCO near real time models
+    ECCO Near Real-Time models
         kf080i: Kalman filter analysis
         dr080i: RTS smoother analysis
 
@@ -298,7 +298,7 @@ def main():
         help='Permission mode of directories and files')
     args = parser.parse_args()
 
-    #-- for each ECCO near real time model
+    #-- for each ECCO Near Real-Time model
     for MODEL in args.model:
         #-- run program
         ecco_mean_realtime(args.directory, MODEL, RANGE=args.mean,

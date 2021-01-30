@@ -14,9 +14,9 @@ ECCO
 ====
 
 Uses outputs from the NASA-JPL `Estimating the Circulation and Climate of the Ocean (ECCO) <https://ecco-group.org/>`_ model.
-For ECCO near-real time Kalman-filtered (kf080i) and Rauch-Tung-Striebel (RTS) smoother (dr080i) models, reads 12-hour ocean bottom pressure data (OBP) and calculates monthly averages.
+For ECCO near real-time Kalman-filtered (kf080i) and Rauch-Tung-Striebel (RTS) smoother (dr080i) models, reads 12-hour ocean bottom pressure data (OBP) and calculates monthly averages.
 For ECCO2 Cube92 and ECCO version 4 models, reads monthly ocean bottom pressure potential anomalies and converts to estimates of absolute ocean bottom pressure (OBP).
-Near-real time models are downloaded using the `jpl_ecco_sync.py <https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_sync.py>`_ program,
+Near real-time models are downloaded using the `jpl_ecco_sync.py <https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_sync.py>`_ program,
 monthly Cube92 models are calculated using the `jpl_ecco_cube92_sync.py <https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_cube92_sync.py>`_ program and
 Version 4 models are downloaded using the `jpl_ecco_v4_sync.py <https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_v4_sync.py>`_ program.
 Because Boussinesq-type models conserve volume rather than mass, the global area average of each monthly map is removed `(Greatbatch, 1994) <https://doi.org/10.1029/94JC00847>`_.

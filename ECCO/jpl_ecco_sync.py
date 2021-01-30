@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 u"""
 jpl_ecco_sync.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (01/2021)
 
-Syncs ECCO Ocean Bottom Pressure outputs from the NASA JPL ECCO Drive server:
+Syncs ECCO Near Real-Time model outputs from the NASA JPL ECCO Drive server:
     https://ecco.jpl.nasa.gov/drive/files/NearRealTime/Readme
     https://ecco.jpl.nasa.gov/drive/files/NearRealTime/KalmanFilter/
     https://ecco.jpl.nasa.gov/drive/files/NearRealTime/Smoother/
@@ -37,7 +37,7 @@ CALLING SEQUENCE:
     where <username> is your NASA Earthdata username
 
 INPUTS:
-    ECCO near real time models
+    ECCO Near Real-Time models
         kf080i: Kalman filter analysis
         dr080i: RTS smoother analysis
 
@@ -47,6 +47,7 @@ COMMAND LINE OPTIONS:
     -N X, --netrc X: path to .netrc file for authentication
     -D X, --directory X: working data directory
     -Y X, --year X: Years to sync
+    -P X, --product X: Product to sync
     -L, --list: print files to be transferred, but do not execute transfer
     -l, --log: output log of files downloaded
     -C, --clobber: Overwrite existing data in transfer
@@ -69,6 +70,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 01/2021: added option to generalize for different products
     Updated 12/2020 for public release.
     Updated 10/2020: use argparse to set command line parameters
     Updated 08/2020: flake8 compatible regular expression strings
@@ -91,7 +93,7 @@ UPDATE HISTORY:
     Updated 09/2016: print the model synchronized even if not using LOG
     Updated 07/2016: can run for multiple ECCO models (separate by commas)
     Updated 06/2016: added --list option for a dry-run (do not transfer files)
-        added --model option for different ECCO OBP models (kf080g vs. dr080i)
+        added --model option for different ECCO models (kf080g vs. dr080i)
     Updated 05-06/2016: using __future__ print function. format log line
     Written 03/2016
 """
@@ -111,9 +113,9 @@ import posixpath
 import lxml.etree
 import gravity_toolkit.utilities
 
-#-- PURPOSE: sync ECCO Ocean Bottom Pressure data from JPL ECCO drive server
-def jpl_ecco_sync(DIRECTORY, MODEL, YEAR=None, LOG=False, LIST=False,
-    CLOBBER=False, CHECKSUM=False, MODE=None):
+#-- PURPOSE: sync ECCO Near Real-Time model data from JPL ECCO drive server
+def jpl_ecco_sync(DIRECTORY, MODEL, YEAR=None, PRODUCT=None, LOG=False,
+    LIST=False, CLOBBER=False, CHECKSUM=False, MODE=None):
 
     #-- check if directory exists and recursively create if not
     os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
@@ -127,9 +129,10 @@ def jpl_ecco_sync(DIRECTORY, MODEL, YEAR=None, LOG=False, LIST=False,
     if LOG:
         #-- format: JPL_ECCO_kf080i_OBP_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = 'JPL_ECCO_{0}_OBP_{1}.log'.format(MODEL,today)
+        args = (MODEL,PRODUCT,today)
+        LOGFILE = 'JPL_ECCO_{0}_{1}_{2}.log'.format(*args)
         fid1 = open(os.path.join(DIRECTORY,LOGFILE),'w')
-        print('JPL ECCO OBP Sync Log ({0})'.format(today), file=fid1)
+        print('ECCO Near Real-Time {1} Sync Log ({2})'.format(*args), file=fid1)
     else:
         #-- standard output (terminal output)
         fid1 = sys.stdout
@@ -150,9 +153,8 @@ def jpl_ecco_sync(DIRECTORY, MODEL, YEAR=None, LOG=False, LIST=False,
     R1 = re.compile(r'{0}_({1})'.format(MODEL, regex_years), re.VERBOSE)
     #-- compile regular expression operator for subdirectories
     R2 = re.compile(r'n10day_(\d+)_(\d+)', re.VERBOSE)
-    #-- compile regular expression operator for ocean bottom pressure files
-    #-- (not the pre-computed ocean bottom pressure anomalies)
-    R3 = re.compile(r'OBP_(.*?).cdf$', re.VERBOSE)
+    #-- compile regular expression operator for model product
+    R3 = re.compile(r'{0}_(.*?).cdf$'.format(PRODUCT), re.VERBOSE)
 
     #-- remote subdirectory for MODEL on JPL ECCO data server
     PATH = [HOST,'drive','files',*model_path[MODEL]]
@@ -269,7 +271,7 @@ def http_pull_file(fid, remote_file, remote_mtime, local_file, LIST, CLOBBER,
 def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
-        description="""Syncs ECCO Ocean Bottom Pressure outputs from the
+        description="""Syncs ECCO Near Real-Time model outputs from the
         NASA JPL ECCO Drive server
         """
     )
@@ -277,7 +279,7 @@ def main():
     parser.add_argument('model',
         metavar='MODEL', type=str, nargs='+',
         default=['kf080i','dr080i'], choices=['kf080i','dr080i'],
-        help='ECCO Model')
+        help='ECCO Near Real-Time Model')
     #-- NASA Earthdata credentials
     parser.add_argument('--user','-U',
         type=str, default='',
@@ -294,6 +296,10 @@ def main():
     parser.add_argument('--year','-Y',
         type=int, nargs='+',
         help='Years to sync')
+    #-- ECCO model product to sync
+    parser.add_argument('--product', '-P',
+        type=str, default='OBP',
+        help='Product to sync')
     #-- Output log file in form
     #-- JPL_ECCO_kf080i_OBP_sync_2002-04-01.log
     parser.add_argument('--log','-l',
@@ -324,7 +330,7 @@ def main():
         #-- enter password securely from command-line
         PASSWORD=getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
     elif args.netrc:
-        args.user,LOGIN,PASSWORD=netrc.netrc(args.netrc).authenticators(HOST)
+        args.user,_,PASSWORD=netrc.netrc(args.netrc).authenticators(HOST)
     else:
         #-- enter password securely from command-line
         PASSWORD=getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
@@ -338,8 +344,9 @@ def main():
     if gravity_toolkit.utilities.check_credentials('https://{0}'.format(HOST)):
         for MODEL in args.model:
             jpl_ecco_sync(args.directory, MODEL, YEAR=args.year,
-                LIST=args.list, LOG=args.log, CLOBBER=args.clobber,
-                CHECKSUM=args.checksum, MODE=args.mode)
+                PRODUCT=args.product, LIST=args.list, LOG=args.log,
+                CLOBBER=args.clobber, CHECKSUM=args.checksum,
+                MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

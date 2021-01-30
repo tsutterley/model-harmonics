@@ -1,16 +1,17 @@
 #!/usr/bin/env python
 u"""
 gen_pressure_stokes.py
-Written by Tyler Sutterley (07/2020)
+Written by Tyler Sutterley (02/2021)
 Calculates spherical harmonic fields from spatial pressure fields
 
 CALLING SEQUENCE:
-    Ylms = gen_pressure_stokes(PG, R, lon, lat, LMAX=60,
+    Ylms = gen_pressure_stokes(P, G, R, lon, lat, LMAX=60,
         PLM=PLM, LOVE=(hl,kl,ll))
 
 INPUTS:
-    PG: pressure/gravity ratio
-    R: radius
+    P: Pressure [Pa]
+    G: Gravitational acceleration [m/s^2]
+    R: Radius at point [m]
     lon: longitude array
     lat: latitude array
 
@@ -56,6 +57,7 @@ REFERENCE:
     76: 279-299, 2002. https://doi.org/10.1007/s00190-002-0216-2
 
 UPDATE HISTORY:
+    Updated 02/2021: separate pressure and gravitational acceleration inputs
     Updated 01/2021: use harmonics class for spherical harmonic operations
     Updated 07/2020: added function docstrings
     Updated 04/2020: made Legendre polynomials and Love numbers options
@@ -72,7 +74,7 @@ import gravity_toolkit.harmonics
 from gravity_toolkit.plm_holmes import plm_holmes
 
 #-- PURPOSE: calculates spherical harmonic fields from pressure fields
-def gen_pressure_stokes(PG, R, lon, lat, LMAX=60, MMAX=None,
+def gen_pressure_stokes(P, G, R, lon, lat, LMAX=60, MMAX=None,
     PLM=None, LOVE=None):
     """
     Converts pressure fields from the spatial domain to spherical
@@ -80,8 +82,9 @@ def gen_pressure_stokes(PG, R, lon, lat, LMAX=60, MMAX=None,
 
     Arguments
     ---------
-    PG: pressure/gravity ratio
-    R: radius
+    P: Pressure [Pa]
+    G: Gravitational acceleration [m/s^2]
+    R: Radius at point [m]
     lon: longitude array
     lat: latitude array
 
@@ -126,10 +129,12 @@ def gen_pressure_stokes(PG, R, lon, lat, LMAX=60, MMAX=None,
     th = (90.0 - np.squeeze(lat.copy()))*np.pi/180.0
 
     #-- For gridded data: dmat = original data matrix
-    sz = np.shape(PG)
+    sz = np.shape(P)
     #-- reforming data to lonXlat if input latXlon
-    PG = np.transpose(PG) if (sz[0] == nlat) else PG
-    R = np.transpose(R) if (sz[0] == nlat) else R
+    if (sz[0] == nlat):
+        P = np.transpose(P)
+        G = np.transpose(G)
+        R = np.transpose(R)
 
     #-- Coefficient for calculating Stokes coefficients from pressure field
     #-- extract arrays of kl, hl, and ll Love Numbers
@@ -173,7 +178,7 @@ def gen_pressure_stokes(PG, R, lon, lat, LMAX=60, MMAX=None,
         #-- Multiplying gridded data with sin/cos of m#phis
         #-- This will sum through all phis in the dot product
         #-- output [m,theta]
-        pfactor = PG*(R/rad_e)**(l+2)
+        pfactor = (P/G)*(R/rad_e)**(l+2)
         dcos = np.dot(ccos,pfactor)
         dsin = np.dot(ssin,pfactor)
         #-- Summing product of plms and data over all latitudes

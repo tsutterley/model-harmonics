@@ -1,7 +1,7 @@
 jpl_ecco_sync.py
 ================
 
-- Syncs ECCO Ocean Bottom Pressure outputs from the [NASA JPL ECCO Drive server](https://ecco.jpl.nasa.gov/drive/files/NearRealTime/Readme)
+- Syncs ECCO Near Real-Time model outputs from the [NASA JPL ECCO Drive server](https://ecco.jpl.nasa.gov/drive/files/NearRealTime/Readme)
 
 #### Calling Sequence
 ```bash
@@ -10,7 +10,7 @@ python jpl_ecco_sync.py --directory <path_to_directory> kf080i dr080i
 [Source code](https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_sync.py)
 
 #### Inputs
-- ECCO near-real time models
+- ECCO Near Real-Time models
     * `'kf080i'`: Kalman filter analysis
     * `'dr080i'`: RTS smoother analysis
 
@@ -19,6 +19,7 @@ python jpl_ecco_sync.py --directory <path_to_directory> kf080i dr080i
 - `-N X`, `--netrc X`: path to .netrc file for authentication
 - `-D X`, `--directory X`: working data directory
 - `-Y X`, `--year X`: Years to sync
+- `-P X`, `--product X`: Product to sync
 - `-L`, `--list`: print files to be transferred, but do not execute transfer
 - `-l`, `--log`: output log of files downloaded
 - `-C`, `--clobber:` Overwrite existing data in transfer

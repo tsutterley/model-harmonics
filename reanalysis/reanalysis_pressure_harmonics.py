@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_pressure_harmonics.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (02/2021)
 Reads atmospheric surface pressure fields from reanalysis and calculates sets of
     spherical harmonics using a thin-layer 2D geometry with realistic earth
 
@@ -75,6 +75,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 02/2021: separate inputs to gen_pressure_stokes
     Updated 01/2021: outputs from gen_pressure_stokes are now harmonics objects
     Updated 12/2020: using argparse to set command line options
         using time module for operations and for extracting time units
@@ -355,8 +356,8 @@ def reanalysis_pressure_harmonics(base_dir, MODEL, YEARS, RANGE=None,
             #-- if redistributing oceanic pressure values
             if REDISTRIBUTE:
                 P[ii,jj] = np.sum(P[ii,jj]*AREA[ii,jj])/TOTAL_AREA
-            #-- calculate pressure harmonics from pressure/gravity ratio
-            Ylms = gen_pressure_stokes(P/gamma_h, R, lon, lat,
+            #-- calculate spherical harmonics from pressure/gravity ratio
+            Ylms = gen_pressure_stokes(P, gamma_h, R, lon, lat,
                 LMAX=LMAX, MMAX=MMAX, PLM=PLM, LOVE=LOVE)
             #-- convert julian dates to calendar then to year-decimal
             YY,MM,DD,hh,mm,ss = gravity_toolkit.time.convert_julian(JD,

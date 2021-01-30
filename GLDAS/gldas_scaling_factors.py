@@ -1,42 +1,16 @@
 #!/usr/bin/env python
 u"""
-gldas_monthly_harmonics.py
+gldas_scaling_factors.py
 Written by Tyler Sutterley (01/2021)
 
-Reads monthly GLDAS total water storage anomalies and converts to
+Reads monthly GLDAS total water storage anomalies and monthly
     spherical harmonic coefficients
-
-Processes as described on the GRACE Tellus Website:
-    Data from the Noah 2.7.1 land hydrology model in the Global Land
-    Data Assimilation System (GLDAS). The GLDAS system is described
-    in the article by Rodell et al (2004). The input data for our
-    processing was downloaded from the Goddard Space Flight Center DISC.
-The mapped data available at this site is integrated total water content,
-    obtained from the GLDAS output by summing the layers:
-        Snow Fall water equivalent [kg/m^2]
-        Total canopy water storage [kg/m^2]
-        Soil Moisture [kg/m^2] (CLM: 10 layers, NOAH: 4 layers)
-            CLM:
-                0.000 - 0.018 m
-                0.018 - 0.045 m
-                0.045 - 0.091 m
-                0.091 - 0.166 m
-                0.166 - 0.289 m
-                0.289 - 0.493 m
-                0.493 - 0.829 m
-                0.829 - 1.383 m
-                1.383 - 2.296 m
-                2.296 - 3.433 m
-            NOAH:
-                0.0 - 0.1 m
-                0.1 - 0.4 m
-                0.4 - 1.0 m
-                1.0 - 2.0 m
-
-    Time-averaged grid from a set yearly range subtracted from individual grids.
+Computes point scaling factors following Landerer and Swenson (2012)
+    https://doi.org/10.1029/2011WR011453
 
 CALLING SEQUENCE:
-    python gldas_monthly_harmonics.py --lmax 60 --format netCDF4 NOAH
+    python gldas_scaling_factors.py --lmax 60 --radius 300 --destripe \
+        --format netCDF4 NOAH
 
 INPUTS:
     GLDAS land surface model
@@ -63,6 +37,8 @@ COMMAND LINE OPTIONS:
         CF: Center of Surface Figure (default)
         CM: Center of Mass of Earth System
         CE: Center of Mass of Solid Earth
+    -R X, --radius X: Gaussian smoothing radius (km)
+    -d, --destripe: use a decorrelation filter (destriping filter)
     -F X, --format X: Input and output data format
         ascii
         netcdf
@@ -82,10 +58,11 @@ PYTHON DEPENDENCIES:
         https://h5py.org
 
 PROGRAM DEPENDENCIES:
-    plm_holmes.py: computes fully-normalized associated Legendre polynomials
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
     ref_ellipsoid.py: calculate reference parameters for common ellipsoids
-    gen_stokes.py: converts a spatial field into a series of spherical harmonics
+    plm_holmes.py: Computes fully normalized associated Legendre polynomials
+    gauss_weights.py: Computes the Gaussian weights as a function of degree
+    harmonic_summation.py: calculates a spatial field from spherical harmonics
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
         destripe_harmonics.py: calculates the decorrelation (destriping) filter
             and filters the GRACE/GRACE-FO coefficients for striping errors
@@ -99,10 +76,11 @@ PROGRAM DEPENDENCIES:
         ncdf_write.py: writes output spatial data to netCDF4
         hdf5_write.py: writes output spatial data to HDF5
     time.py: utilities for calculating time operations
+    units.py: class for converting GRACE/GRACE-FO Level-2 data to specific units
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
-    Updated 01/2021: harmonics object output from gen_stokes.py
+    Updated 01/2021 for public release
     Updated 12/2020: added more love number options
         set spatial variables for both 025 and 10 cases
         using utilities from time module. added maximum harmonic order option
@@ -118,12 +96,7 @@ UPDATE HISTORY:
     Updated 06/2018: using python3 compatible octal and input
     Updated 05/2018: include Svalbard and Iceland in combined land mask
         output combined land mask to netCDF4 file for validation
-    Updated 01/2018: using getopt to set parameters
-    Updated 08/2017: convert from geodetic coordinates to geocentric
-    Updated 06/2016: updated to use __future__ print function
-    Updated 05/2016: complete rewrite of program
-    Updated 02/2014: quick code updates
-    Written 04/2013
+    Written 03/2018
 """
 from __future__ import print_function
 
@@ -136,9 +109,10 @@ import numpy as np
 from gravity_toolkit.read_love_numbers import read_love_numbers
 from gravity_toolkit.harmonics import harmonics
 from gravity_toolkit.spatial import spatial
+from gravity_toolkit.units import units
 from gravity_toolkit.plm_holmes import plm_holmes
-from gravity_toolkit.gen_stokes import gen_stokes
-from gravity_toolkit.time import convert_calendar_decimal
+from gravity_toolkit.gauss_weights import gauss_weights
+from gravity_toolkit.harmonic_summation import harmonic_summation
 from gravity_toolkit.utilities import get_data_path
 from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
 
@@ -150,23 +124,28 @@ gldas_products['MOS'] = 'GLDAS Mosaic model'
 gldas_products['NOAH'] = 'GLDAS Noah model'
 gldas_products['VIC'] = 'GLDAS Variable Infiltration Capacity (VIC) model'
 
-#-- PURPOSE: convert GLDAS terrestrial water storage data to spherical harmonics
-def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
-    LMAX=0, MMAX=None, LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None,
-    VERBOSE=False, MODE=0o775):
+#-- PURPOSE: read GLDAS terrestrial water storage data and spherical harmonics
+#-- calculate the point scaling factors following Landerer and Swenson (2012)
+def gldas_scaling_factors(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
+    LMAX=0, MMAX=None, RAD=0, DESTRIPE=False, LOVE_NUMBERS=0, REFERENCE=None,
+    DATAFORM=None, VERBOSE=False, MODE=0o775):
     #-- Version flags
     V1,V2 = ('_V1','') if (VERSION == '1') else ('','.{0}'.format(VERSION))
     #-- subdirectory for model monthly products at spacing for version
-    subdir = "GLDAS_{0}{1}_{2}{3}".format(MODEL,SPACING,'M',V2)
+    sub1 = "GLDAS_{0}{1}_{2}{3}".format(MODEL,SPACING,'M',V2)
     #-- Creating output subdirectory if it doesn't exist
     args = (MODEL,SPACING,V1,LMAX)
-    output_sub = 'GLDAS_{0}{1}{2}_TWC_CLM_L{3:d}'.format(*args)
-    if (not os.access(os.path.join(ddir,output_sub), os.F_OK)):
-        os.makedirs(os.path.join(ddir,output_sub),MODE)
+    sub2 = 'GLDAS_{0}{1}{2}_TWC_CLM_L{3:d}'.format(*args)
+    if (not os.access(os.path.join(ddir,sub2), os.F_OK)):
+        os.makedirs(os.path.join(ddir,sub2),MODE)
     #-- upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
-    #-- output string for both LMAX == MMAX and LMAX != MMAX cases
+    #-- flag for spherical harmonic order
     order_str = 'M{0:d}'.format(MMAX) if (MMAX != LMAX) else ''
+    #-- Calculating the Gaussian smoothing for radius RAD
+    gw_str = '_r{0:0.0f}km'.format(RAD) if (RAD != 0) else ''
+    #-- destriped GRACE/GRACE-FO coefficients
+    ds_str = '_FL' if DESTRIPE else ''
     #-- output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
 
@@ -183,8 +162,6 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
     vegetation_file = 'modmodis_domveg20_{0}.nc'.format(SPACING)
     arctic_file = 'arcticmask_mod44w_{0}.nc'.format(SPACING)
     permafrost_file = 'permafrost_mod44w_{0}.nc'.format(SPACING)
-    #-- output combined mask file
-    combined_file = 'combinedmask_mod44w_{0}.nc'.format(SPACING)
 
     #-- read vegetation index file from gldas_mask_vegetation.py
     with netCDF4.Dataset(os.path.join(ddir,vegetation_file),'r') as fileID:
@@ -245,107 +222,92 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
     theta = (90.0 - latitude_geocentric[:,0])*np.pi/180.0
 
     #-- read load love numbers
-    LOVE = load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
+    hl,kl,ll = load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
         REFERENCE=REFERENCE)
 
     #-- calculate Legendre polynomials
     PLM,dPLM = plm_holmes(LMAX,np.cos(theta))
 
+    #-- Setting units factor for cmwe: centimeters water equivalent
+    #-- dfactor computes the degree dependent coefficients
+    dfactor = units(lmax=LMAX).harmonic(hl,kl,ll).cmwe
+    #-- Gaussian smoothing
+    if (RAD != 0):
+        wt = 2.0*np.pi*gauss_weights(RAD,LMAX)
+    else:
+        wt = np.ones((LMAX+1))
+
     #-- find input files from read_gldas_monthly.py
     regex_years = r'\d+' if (YEARS is None) else '|'.join(map(str,YEARS))
     args = (MODEL, SPACING, regex_years, suffix[DATAFORM])
     rx = re.compile(r'GLDAS_{0}{1}_TWC_({2})_(\d+)\.{3}$'.format(*args))
-    FILES = [fi for fi in os.listdir(os.path.join(ddir,subdir)) if rx.match(fi)]
+    FILES = [fi for fi in os.listdir(os.path.join(ddir,sub1)) if rx.match(fi)]
+    nfiles = len(FILES)
 
+    #-- spatial object list for original and processed files
+    original = []
+    processed = []
+    grace_month = np.zeros((nfiles),dtype=np.int)
     #-- for each input file
-    for t,fi in enumerate(sorted(FILES)):
+    for t,f1 in enumerate(sorted(FILES)):
         #-- extract year and month from file
-        YY,MM = np.array(rx.findall(fi).pop(), dtype=np.float)
+        YY,MM = np.array(rx.findall(f1).pop(), dtype=np.float)
+        #-- GRACE/GRACE-FO month
+        grace_month[t] = np.int(12.0*(YY - 2002.0) + MM)
 
-        #-- read data file for data format
+        #-- associated spherical harmonic data file
+        args=(MODEL,SPACING,LMAX,order_str,grace_month[t],suffix[DATAFORM])
+        f2='GLDAS_{0}{1}_TWC_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
+        #-- read data files for data format
         if (DATAFORM == 'ascii'):
             #-- ascii (.txt)
             gldas_data = spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
-                extent=extent).from_ascii(os.path.join(ddir,subdir,fi))
+                extent=extent).from_ascii(os.path.join(ddir,sub1,f1))
+            gldas_Ylms = harmonics().from_ascii(os.path.join(ddir,sub2,f2))
         elif (DATAFORM == 'netCDF4'):
             #-- netCDF4 (.nc)
-            gldas_data = spatial().from_netCDF4(os.path.join(ddir,subdir,fi))
+            gldas_data = spatial().from_netCDF4(os.path.join(ddir,sub1,f1))
+            gldas_Ylms = harmonics().from_netCDF4(os.path.join(ddir,sub2,f2))
         elif (DATAFORM == 'HDF5'):
             #-- HDF5 (.H5)
-            gldas_data = spatial().from_HDF5(os.path.join(ddir,subdir,fi))
-
-        #-- write combined mask file to netCDF4 (.nc)
-        if not os.access(os.path.join(ddir,combined_file), os.F_OK):
-            #-- replace fill value points and certain vegetation types with 0
-            complement_mask = np.ones((nlat,nlon), dtype=np.uint8)
-            ii,jj = np.nonzero((~gldas_data.mask) | combined_mask)
-            complement_mask[ii,jj] = 0.0
-            output = dict(mask=complement_mask,longitude=glon,latitude=glat)
-            ncdf_mask_write(output, FILENAME=os.path.join(ddir,combined_file))
-            os.chmod(os.path.join(ddir,combined_file),MODE)
-
+            gldas_data = spatial().from_HDF5(os.path.join(ddir,sub1,f1))
+            gldas_Ylms = harmonics().from_HDF5(os.path.join(ddir,sub2,f2))
+        #-- if destriping the monthly GLDAS spherical harmonic data
+        if DESTRIPE:
+            gldas_Ylms = gldas_Ylms.destripe()
+        #-- convolve with degree dependent weighting
+        gldas_Ylms.convolve(dfactor*wt)
+        #-- convert spherical harmonics to output spatial grid
+        gldas_grid = gldas_data.zeros_like()
+        gldas_grid.time = np.copy(gldas_Ylms.time)
+        gldas_grid.month = np.copy(gldas_Ylms.month)
+        gldas_grid.data = harmonic_summation(gldas_Ylms.clm, gldas_Ylms.slm,
+            gldas_data.lon, gldas_data.lat, LMAX=LMAX, PLM=PLM).T
         #-- replace fill value points and certain vegetation types with 0
         gldas_data.replace_invalid(0.0, mask=combined_mask)
+        gldas_grid.replace_invalid(0.0)
+        gldas_grid.update_mask()
+        #-- append original and processed data to list
+        original.append(gldas_data)
+        processed.append(gldas_grid)
 
-        #-- convert to spherical harmonics
-        gldas_Ylms = gen_stokes(gldas_data.data, glon, latitude_geocentric[:,0],
-            LMAX=LMAX, MMAX=MMAX, PLM=PLM, LOVE=LOVE)
-        #-- calculate date information
-        gldas_Ylms.time, = convert_calendar_decimal(YY,MM)
-        #-- calculate GRACE/GRACE-FO month
-        gldas_Ylms.month = np.int(12.0*(YY - 2002.0) + MM)
-
-        #-- output spherical harmonic data file
-        args=(MODEL,SPACING,LMAX,order_str,gldas_Ylms.month,suffix[DATAFORM])
-        FILE='GLDAS_{0}{1}_TWC_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
-        #-- output data for month
-        print(os.path.join(ddir,output_sub,FILE)) if VERBOSE else None
-        if (DATAFORM == 'ascii'):
-            #-- ascii (.txt)
-            gldas_Ylms.to_ascii(os.path.join(ddir,output_sub,FILE))
-        elif (DATAFORM == 'netCDF4'):
-            #-- netcdf (.nc)
-            gldas_Ylms.to_netCDF4(os.path.join(ddir,output_sub,FILE))
-        elif (DATAFORM == 'HDF5'):
-            #-- HDF5 (.H5)
-            gldas_Ylms.to_HDF5(os.path.join(ddir,output_sub,FILE))
-        #-- change the permissions mode of the output file to MODE
-        os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
-
-    #-- Output date ascii file
-    output_date_file = 'GLDAS_{0}{1}_TWC_DATES.txt'.format(MODEL,SPACING)
-    fid1 = open(os.path.join(ddir,output_sub,output_date_file), 'w')
-    #-- date file header information
-    print('{0:8} {1:^6} {2:^5}'.format('Mid-date','GRACE','Month'), file=fid1)
-    #-- index file listing all output spherical harmonic files
-    output_index_file = 'index.txt'
-    fid2 = open(os.path.join(ddir,output_sub,output_index_file),'w')
-    #-- find all available output files
-    args = (MODEL, SPACING, LMAX, order_str, suffix[DATAFORM])
-    output_regex=r'GLDAS_{0}{1}_TWC_CLM_L{2:d}{3}_([-]?\d+).{4}'.format(*args)
-    #-- find all output ECCO OBP harmonic files (not just ones created in run)
-    output_files=[fi for fi in os.listdir(os.path.join(ddir,output_sub))
-        if re.match(output_regex,fi)]
-    for fi in sorted(output_files):
-        #-- full path to output file
-        full_output_file = os.path.join(ddir,output_sub,fi)
-        #-- extract GRACE month
-        grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int)
-        YY = 2002.0 + np.floor((grace_month-1)/12.0)
-        MM = ((grace_month-1) % 12) + 1
-        tdec, = convert_calendar_decimal(YY, MM)
-        #-- full path to output file
-        full_output_file = os.path.join(ddir,output_sub,fi)
-        #-- print date, GRACE month and calendar month to date file
-        fid1.write('{0:11.6f} {1:03d} {2:02.0f}\n'.format(tdec,grace_month,MM))
-        #-- print output file to index
-        print(full_output_file.replace(os.path.expanduser('~'),'~'), file=fid2)
-    #-- close the date and index files
-    fid1.close()
-    fid2.close()
-    #-- set the permissions level of the output date and index files to MODE
-    os.chmod(os.path.join(ddir,output_sub,output_date_file), MODE)
-    os.chmod(os.path.join(ddir,output_sub,output_index_file), MODE)
+    #-- create merged spatial objects from lists
+    gldas_data = spatial().from_list(original, clear=True)
+    gldas_grid = spatial().from_list(processed, clear=True)
+    #-- calculate scaling factors and scaling factor errors
+    gldas_kfactor = gldas_grid.kfactor(gldas_data)
+    #-- Output scaling factor and scaling factor error to files
+    file_format = 'GLDAS_{0}{1}_TWC_{2}_L{3:d}{4}{5}{6}_{7:03d}-{8:03d}.{9}'
+    f3 = file_format.format(MODEL,SPACING,'kfactor',LMAX,order_str,gw_str,
+        ds_str,grace_month[0],grace_month[-1],suffix[DATAFORM])
+    f4 = file_format.format(MODEL,SPACING,'kf_error',LMAX,order_str,gw_str,
+        ds_str,grace_month[0],grace_month[-1],suffix[DATAFORM])
+    output_data(gldas_kfactor, FILENAME=os.path.join(ddir,sub2,f3),
+        DATAFORM=DATAFORM, UNITS='unitless', LONGNAME='Scaling Factor',
+        TITLE=gldas_products[MODEL], KEY='data', VERBOSE=VERBOSE, MODE=MODE)
+    output_data(gldas_kfactor, FILENAME=os.path.join(ddir,sub2,f4),
+        DATAFORM=DATAFORM, UNITS='cmwe', LONGNAME='Scaling Factor Error',
+        TITLE=gldas_products[MODEL], KEY='error', VERBOSE=VERBOSE, MODE=MODE)
 
 #-- PURPOSE: read load love numbers for the range of spherical harmonic degrees
 def load_love_numbers(LMAX, LOVE_NUMBERS=0, REFERENCE='CF'):
@@ -403,47 +365,32 @@ def load_love_numbers(LMAX, LOVE_NUMBERS=0, REFERENCE='CF'):
     #-- return a tuple of load love numbers
     return (hl,kl,ll)
 
-#-- PURPOSE: write combined land sea mask to netCDF4 file
-def ncdf_mask_write(dinput, FILENAME=None, VERBOSE=False):
-    #-- opening NetCDF file for writing
-    fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
+#-- PURPOSE: wrapper function for outputting data to file
+def output_data(data, FILENAME=None, KEY='data', DATAFORM=None,
+    UNITS=None, LONGNAME=None, TITLE=None, VERBOSE=False, MODE=0o775):
+    output = data.copy()
+    setattr(output,'data',getattr(data,KEY))
+    if (DATAFORM == 'ascii'):
+        #-- ascii (.txt)
+        output.to_ascii(FILENAME,date=False,verbose=VERBOSE)
+    elif (DATAFORM == 'netCDF4'):
+        #-- netcdf (.nc)
+        output.to_netCDF4(FILENAME,date=False,verbose=VERBOSE,
+            units=UNITS,longname=LONGNAME,title=TITLE)
+    elif (DATAFORM == 'HDF5'):
+        #-- HDF5 (.H5)
+        output.to_HDF5(FILENAME,date=False,verbose=VERBOSE,
+            units=UNITS,longname=LONGNAME,title=TITLE)
+    #-- change the permissions mode of the output file
+    os.chmod(FILENAME, MODE)
 
-    #-- Defining the NetCDF dimensions
-    LATNAME,LONNAME = ('latitude','longitude')
-    for key in [LONNAME,LATNAME]:
-        fileID.createDimension(key, len(dinput[key]))
-
-    #-- defining the NetCDF variables
-    nc = {}
-    nc[LATNAME]=fileID.createVariable(LATNAME,dinput[LATNAME].dtype,(LATNAME,))
-    nc[LONNAME]=fileID.createVariable(LONNAME,dinput[LONNAME].dtype,(LONNAME,))
-    nc['mask'] = fileID.createVariable('mask', dinput['mask'].dtype,
-        (LATNAME,LONNAME,), fill_value=0, zlib=True)
-    #-- filling NetCDF variables
-    for key,val in dinput.items():
-        nc[key][:] = dinput[key]
-
-    #-- Defining attributes for longitude and latitude
-    nc[LONNAME].long_name = 'longitude'
-    nc[LONNAME].units = 'degrees_east'
-    nc[LATNAME].long_name = 'latitude'
-    nc[LATNAME].units = 'degrees_north'
-    nc['mask'].long_name = 'land_sea_mask'
-
-    #-- Output NetCDF structure information
-    if VERBOSE:
-        print(os.path.basename(FILENAME))
-        print(list(fileID.variables.keys()))
-
-    #-- Closing the NetCDF file
-    fileID.close()
-
-#-- Main program that calls gldas_monthly_harmonics()
+#-- Main program that calls gldas_scaling_factors()
 def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
         description="""Reads monthly GLDAS total water storage anomalies
-            and converts to spherical harmonic coefficients
+            and monthly spherical harmonic coefficients to compute
+            point scaling factors following Landerer and Swenson (2012)
             """
     )
     #-- command line parameters
@@ -476,6 +423,14 @@ def main():
     parser.add_argument('--mmax','-m',
         type=int, default=None,
         help='Maximum spherical harmonic order')
+    #-- Gaussian smoothing radius (km)
+    parser.add_argument('--radius','-R',
+        type=float, default=0,
+        help='Gaussian smoothing radius (km)')
+    #-- Use a decorrelation (destriping) filter
+    parser.add_argument('--destripe','-d',
+        default=False, action='store_true',
+        help='Verbose output of run')
     #-- different treatments of the load Love numbers
     #-- 0: Han and Wahr (1995) values from PREM
     #-- 1: Gegout (2005) values from PREM
@@ -505,9 +460,10 @@ def main():
     #-- for each GLDAS model
     for MODEL in args.model:
         #-- run program
-        gldas_monthly_harmonics(args.directory, MODEL, args.year,
+        gldas_scaling_factors(args.directory, MODEL, args.year,
             VERSION=args.version, SPACING=args.spacing, LMAX=args.lmax,
-            MMAX=args.mmax, LOVE_NUMBERS=args.love, REFERENCE=args.reference,
+            MMAX=args.mmax, RAD=args.radius, DESTRIPE=args.destripe,
+            LOVE_NUMBERS=args.love, REFERENCE=args.reference,
             DATAFORM=args.format, VERBOSE=args.verbose, MODE=args.mode)
 
 #-- run main program

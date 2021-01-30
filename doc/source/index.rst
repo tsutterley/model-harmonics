@@ -55,6 +55,7 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     user_guide/gldas_mask_permafrost.md
     user_guide/gldas_mask_vegetation.md
     user_guide/gldas_monthly_harmonics.md
+    user_guide/gldas_scaling_factors.md
 
 .. toctree::
     :maxdepth: 1

@@ -1,14 +1,15 @@
-gldas_monthly_harmonics.py
-==========================
+gldas_scaling_factors.py
+========================
 
-- Reads monthly GLDAS total water storage anomalies and converts to spherical harmonic coefficients
+- Reads monthly GLDAS total water storage anomalies and monthly spherical harmonic coefficients
+- Computes point scaling factors following [Landerer and Swenson (2012)](https://doi.org/10.1029/2011WR011453)
 
 #### Calling Sequence
 ```bash
-python gldas_monthly_harmonics.py --directory <path_to_directory> \
-    --lmax 60 --format netCDF4 CLSM NOAH VIC
+python gldas_scaling_factors.py --directory <path_to_directory> \
+    --lmax 60 --radius 300 --destripe --format netCDF4 CLSM NOAH VIC
 ```
-[Source code](https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_monthly_harmonics.py)
+[Source code](https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_scaling_factors.py)
 
 #### Inputs
 - `'CLM'`: GLDAS Common Land Model
@@ -34,6 +35,8 @@ python gldas_monthly_harmonics.py --directory <path_to_directory> \
     * `'CF'`: Center of Surface Figure (default)
     * `'CM'`: Center of Mass of Earth System
     * `'CE'`: Center of Mass of Solid Earth
+- `-R X`, `--radius X`: Gaussian smoothing radius (km)
+- `-D`, `--destripe`: use a decorrelation filter (destriping filter)
 - `-F X`, `--format X`: input and output data format
     * `'ascii'`
     * `'netCDF4'`

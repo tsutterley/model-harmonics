@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 u"""
 jpl_ecco_v4_sync.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (01/2021)
 
-Syncs ECCO Ocean Bottom Pressure outputs from the NASA JPL ECCO Drive server:
+Syncs ECCO Version 4 model outputs from the NASA JPL ECCO Drive server:
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
 https://ecco-group.org/products-ECCO-V4r4.htm
 https://ecco-group.org/user-guide-v4r4.htm
@@ -37,6 +37,7 @@ COMMAND LINE OPTIONS:
     -N X, --netrc X: path to .netrc file for authentication
     -D X, --directory X: working data directory
     -Y X, --year X: Years to sync
+    -P X, --product X: Product to sync
     -L, --list: print files to be transferred, but do not execute transfer
     -l, --log: output log of files downloaded
     -C, --clobber: Overwrite existing data in transfer
@@ -59,6 +60,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 01/2021: added option to generalize for different products
     Updated 12/2020 for public release.
     Updated 10/2020: use argparse to set command line parameters
     Updated 08/2020: flake8 compatible regular expression strings
@@ -89,9 +91,9 @@ import posixpath
 import lxml.etree
 import gravity_toolkit.utilities
 
-#-- PURPOSE: sync ECCO Ocean Bottom Pressure data from JPL ECCO drive server
-def jpl_ecco_v4_sync(ddir, MODEL, YEAR=None, LOG=False, LIST=False,
-    CLOBBER=False, CHECKSUM=False, MODE=None):
+#-- PURPOSE: sync ECCO Version 4 model data from JPL ECCO drive server
+def jpl_ecco_v4_sync(ddir, MODEL, YEAR=None, PRODUCT=None, LOG=False,
+    LIST=False, CLOBBER=False, CHECKSUM=False, MODE=None):
 
     #-- check if directory exists and recursively create if not
     DIRECTORY = os.path.join(ddir, 'ECCO-{0}'.format(MODEL))
@@ -104,11 +106,12 @@ def jpl_ecco_v4_sync(ddir, MODEL, YEAR=None, LOG=False, LIST=False,
 
     #-- create log file with list of synchronized files (or print to terminal)
     if LOG:
-        #-- format: JPL_ECCO_V4r4_OBP_sync_2002-04-01.log
+        #-- format: JPL_ECCO_V4r4_PHIBOT_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = 'JPL_ECCO_{0}_OBP_{1}.log'.format(MODEL,today)
+        args = (MODEL,PRODUCT,today)
+        LOGFILE = 'JPL_ECCO_{0}_{1}_{2}.log'.format(*args)
         fid1 = open(os.path.join(DIRECTORY,LOGFILE),'w')
-        print('ECCO Version 4 OBP Sync Log ({0})'.format(today), file=fid1)
+        print('ECCO Version 4 {1} Sync Log ({2})'.format(*args), file=fid1)
     else:
         #-- standard output (terminal output)
         fid1 = sys.stdout
@@ -118,8 +121,8 @@ def jpl_ecco_v4_sync(ddir, MODEL, YEAR=None, LOG=False, LIST=False,
 
     #-- path to model files
     model_path = {}
-    model_path['V4r3'] = ['Version4','Release3','interp_monthly','PHIBOT']
-    model_path['V4r4'] = ['Version4','Release4','interp_monthly','PHIBOT']
+    model_path['V4r3'] = ['Version4','Release3','interp_monthly',PRODUCT]
+    model_path['V4r4'] = ['Version4','Release4','interp_monthly',PRODUCT]
     #-- compile regular expression operator for years to sync
     if YEAR is None:
         regex_years = r'\d+'
@@ -127,7 +130,8 @@ def jpl_ecco_v4_sync(ddir, MODEL, YEAR=None, LOG=False, LIST=False,
         regex_years = r'|'.join('{0:d}'.format(y) for y in YEAR)
     #-- compile regular expression operator finding years
     if MODEL in ('V4r3',):
-        R1 = re.compile(r'PHIBOT([\.\_])({0})(_\d+)?.nc$'.format(regex_years))
+        args = (PRODUCT,regex_years)
+        R1 = re.compile(r'{0}([\.\_])({1})(_\d+)?.nc$'.format(*args))
     elif MODEL in ('V4r4',):
         R1 = re.compile(regex_years)
 
@@ -147,8 +151,8 @@ def jpl_ecco_v4_sync(ddir, MODEL, YEAR=None, LOG=False, LIST=False,
             #-- add the year directory to the path
             YY, = R1.findall(yr)
             PATH.append(yr)
-        #-- compile regular expression operator for ocean bottom pressure files
-        R3 = re.compile(r'PHIBOT([\.\_])({0})(_\d+)?.nc$'.format(YY))
+        #-- compile regular expression operator for model product files
+        R3 = re.compile(r'{0}([\.\_])({1})(_\d+)?.nc$'.format(PRODUCT,YY))
         #-- full path to remote directory
         remote_dir = posixpath.join(*PATH)
         #-- read and parse request for files (find names and modified dates)
@@ -239,7 +243,7 @@ def http_pull_file(fid, remote_file, remote_mtime, local_file, LIST, CLOBBER,
 def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
-        description="""Syncs ECCO Ocean Bottom Pressure outputs from the
+        description="""Syncs ECCO Version 4 model outputs from the
         NASA JPL ECCO Drive server
         """
     )
@@ -247,7 +251,7 @@ def main():
     parser.add_argument('model',
         metavar='MODEL', type=str, nargs='+',
         default=['V4r3','V4r4'], choices=['V4r3','V4r4'],
-        help='ECCO Model')
+        help='ECCO Version 4 Model')
     #-- NASA Earthdata credentials
     parser.add_argument('--user','-U',
         type=str, default='',
@@ -264,8 +268,12 @@ def main():
     parser.add_argument('--year','-Y',
         type=int, nargs='+',
         help='Years to sync')
+    #-- ECCO model product to sync
+    parser.add_argument('--product','-P',
+        type=str, default='PHIBOT',
+        help='Product to sync')
     #-- Output log file in form
-    #-- JPL_ECCO_kf080i_OBP_sync_2002-04-01.log
+    #-- JPL_ECCO_V4r4_PHIBOT_sync_2002-04-01.log
     parser.add_argument('--log','-l',
         default=False, action='store_true',
         help='Output log file')
@@ -294,7 +302,7 @@ def main():
         #-- enter password securely from command-line
         PASSWORD=getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
     elif args.netrc:
-        args.user,LOGIN,PASSWORD=netrc.netrc(args.netrc).authenticators(HOST)
+        args.user,_,PASSWORD=netrc.netrc(args.netrc).authenticators(HOST)
     else:
         #-- enter password securely from command-line
         PASSWORD=getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
@@ -308,8 +316,9 @@ def main():
     if gravity_toolkit.utilities.check_credentials('https://{0}'.format(HOST)):
         for MODEL in args.model:
             jpl_ecco_v4_sync(args.directory, MODEL, YEAR=args.year,
-                LIST=args.list, LOG=args.log, CLOBBER=args.clobber,
-                CHECKSUM=args.checksum, MODE=args.mode)
+                PRODUCT=args.product, LIST=args.list, LOG=args.log,
+                CLOBBER=args.clobber, CHECKSUM=args.checksum,
+                MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

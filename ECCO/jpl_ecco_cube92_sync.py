@@ -3,8 +3,8 @@ u"""
 jpl_ecco_cube92_sync.py
 Written by Tyler Sutterley (01/2021)
 
-Converts daily outputs of ECCO2 Cube92 Ocean Bottom Pressure from the
-    NASA JPL ECCO2 server into monthly averages
+Converts ECCO2 Cube92 daily model outputs from the NASA JPL ECCO2 server
+    into monthly averages
 https://ecco.jpl.nasa.gov/drive/files/ECCO2/cube92_latlon_quart_90S90N/readme.txt
 https://ecco.jpl.nasa.gov/drive/files/ECCO2/cube92_latlon_quart_90S90N/PHIBOT.nc/
 
@@ -86,9 +86,10 @@ import gravity_toolkit.time
 import gravity_toolkit.spatial
 import gravity_toolkit.utilities
 
-#-- PURPOSE: sync ECCO2 Ocean Bottom Pressure data from JPL ECCO drive server
+#-- PURPOSE: sync ECCO2 Cube92 model outputs from JPL ECCO drive server
 #-- combines daily files to calculate monthly averages
-def jpl_ecco_cube92_sync(ddir, YEAR=None, LOG=False, VERBOSE=False, MODE=None):
+def jpl_ecco_cube92_sync(ddir, YEAR=None, PRODUCT=None, LOG=False,
+    VERBOSE=False, MODE=None):
 
     #-- check if directory exists and recursively create if not
     DIRECTORY = os.path.join(ddir, 'cube92_latlon_quart_90S90N')
@@ -96,33 +97,32 @@ def jpl_ecco_cube92_sync(ddir, YEAR=None, LOG=False, VERBOSE=False, MODE=None):
 
     #-- remote subdirectory for Cube92 data on JPL ECCO data server
     PATH = ['https://ecco.jpl.nasa.gov','drive','files','ECCO2',
-        'cube92_latlon_quart_90S90N','PHIBOT.nc']
+        'cube92_latlon_quart_90S90N','{0}.nc'.format(PRODUCT)]
     #-- compile HTML parser for lxml
     parser = lxml.etree.HTMLParser()
 
     #-- create log file with list of synchronized files (or print to terminal)
     if LOG:
-        #-- format: JPL_ECCO2_Cube92_OBP_sync_2002-04-01.log
+        #-- format: JPL_ECCO2_Cube92_PHIBOT_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = 'JPL_ECCO2_Cube92_OBP_sync_{0}.log'.format(today)
+        args = (PRODUCT, today)
+        LOGFILE = 'JPL_ECCO2_Cube92_{0}_sync_{1}.log'.format(*args)
         fid1 = open(os.path.join(DIRECTORY,LOGFILE),'w')
-        print('ECCO2 Cube92 OBP Sync Log ({0})'.format(today), file=fid1)
+        print('ECCO2 Cube92 {0} Sync Log ({1})'.format(today), file=fid1)
     else:
         #-- standard output (terminal output)
         fid1 = sys.stdout
 
     #-- regular expression for grouping months from daily data
-    regex_pattern = 'PHIBOT\.(\d+)x(\d+)\.({0:4})({1:02d})(\d{{2}}).nc$'
+    regex_pattern = '{0}\.(\d+)x(\d+)\.({1:4})({2:02d})(\d{{2}}).nc$'
     #-- input and output variable names
-    VARNAME = 'PHIBOT'
     LONNAME = 'LONGITUDE_T'
     LATNAME = 'LATITUDE_T'
     TIMENAME = 'TIME'
     #-- output netCDF4 keyword arguments
-    kwargs = dict(varname=VARNAME, latname=LATNAME, lonname=LONNAME,
+    kwargs = dict(varname=PRODUCT, latname=LATNAME, lonname=LONNAME,
         timename=TIMENAME, title="ECCO2 cube92 monthly average",
-        units='m^2/s^2', longname='Bottom_Pressure_(p/rho)_Anomaly',
-        time_units='days since 1992-01-01 00:00:00',
+        units='m^2/s^2', time_units='days since 1992-01-01 00:00:00',
         time_longname='center time of averaging period')
 
     #-- for each year
@@ -153,17 +153,20 @@ def jpl_ecco_cube92_sync(ddir, YEAR=None, LOG=False, VERBOSE=False, MODE=None):
                 #-- remove singleton dimensions
                 dinput = gravity_toolkit.spatial().from_netCDF4(response,
                     compression='bytes', latname=LATNAME, lonname=LONNAME,
-                    varname=VARNAME, timename=TIMENAME).squeeze()
+                    varname=PRODUCT, timename=TIMENAME).squeeze()
                 #-- replace fill value with missing value attribute
                 dinput.fill_value = dinput.attributes['data']['missing_value']
                 dinput.update_mask()
+                #-- get variable longname attribute from daily file
+                kwargs['longname'] = dinput.attributes['data']['long_name']
                 #-- append to daily list
                 daily.append(dinput)
-            #-- calculate mean from totals
-            PHIBOT = gravity_toolkit.spatial().from_list(daily).mean()
+            #-- calculate monthly mean from list of daily files
+            monthly = gravity_toolkit.spatial().from_list(daily).mean()
             #-- output to netCDF4 file
-            FILE = 'PHIBOT.{0}x{1}.{2}{3:02d}.nc'.format(dim1,dim2,YY,MM+1)
-            PHIBOT.to_netCDF4(os.path.join(DIRECTORY,FILE),
+            args = (PRODUCT,dim1,dim2,YY,MM+1)
+            FILE = '{0}.{1}x{2}.{3}{4:02d}.nc'.format(*args)
+            monthly.to_netCDF4(os.path.join(DIRECTORY,FILE),
                 date=True, verbose=VERBOSE, **kwargs)
             #-- set permissions mode to MODE
             os.chmod(os.path.join(DIRECTORY,FILE), MODE)
@@ -177,9 +180,8 @@ def jpl_ecco_cube92_sync(ddir, YEAR=None, LOG=False, VERBOSE=False, MODE=None):
 def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
-        description="""Converts daily outputs of ECCO2 Cube92
-            Ocean Bottom Pressure from the NASA JPL ECCO2 server
-            into monthly averages
+        description="""Converts ECCO2 Cube92 daily model outputs
+            from the NASA JPL ECCO2 server into monthly averages
             """
     )
     #-- command line parameters
@@ -199,6 +201,10 @@ def main():
     parser.add_argument('--year','-Y',
         type=int, nargs='+', default=range(2000,2021),
         help='Years to sync')
+    #-- ECCO model product to sync
+    parser.add_argument('--product', '-P',
+        type=str, default='PHIBOT',
+        help='Product to sync')
     #-- Output log file in form
     #-- JPL_ECCO2_Cube92_OBP_sync_2002-04-01.log
     parser.add_argument('--log','-l',
@@ -223,7 +229,7 @@ def main():
         #-- enter password securely from command-line
         PASSWORD=getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
     elif args.netrc:
-        args.user,LOGIN,PASSWORD=netrc.netrc(args.netrc).authenticators(HOST)
+        args.user,_,PASSWORD=netrc.netrc(args.netrc).authenticators(HOST)
     else:
         #-- enter password securely from command-line
         PASSWORD=getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
@@ -236,7 +242,8 @@ def main():
     #-- check JPL ECCO Drive credentials before attempting to run program
     if gravity_toolkit.utilities.check_credentials('https://{0}'.format(HOST)):
         jpl_ecco_cube92_sync(args.directory, YEAR=args.year,
-            LOG=args.log, VERBOSE=args.verbose, MODE=args.mode)
+            PRODUCT=args.product, LOG=args.log, VERBOSE=args.verbose,
+            MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

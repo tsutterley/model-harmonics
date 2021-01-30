@@ -8,13 +8,14 @@ gen_pressure_stokes.py
 from model_harmonics.gen_pressure_stokes import gen_pressure_stokes
 from gravity_toolkit.plm_holmes import plm_holmes
 PLM,dPLM = plm_holmes(LMAX, np.cos(th))
-Ylms = gen_pressure_stokes(PG, R, lon, lat, LMAX=LMAX, PLM=PLM, LOVE=(hl,kl,ll))
+Ylms = gen_pressure_stokes(P, G, R, lon, lat, LMAX=LMAX, PLM=PLM, LOVE=(hl,kl,ll))
 ```
 [Source code](https://github.com/tsutterley/read-GRACE-harmonics/blob/main/gravity_toolkit/gen_pressure_stokes.py)
 
 #### Inputs
- - `PG`: pressure/gravity ratio
- - `R`: Earth's radius at each data point
+ - `P`: Pressure (Pa)
+ - `G`: Gravitational acceleration (m/s<sup>2</sup>)
+ - `R`: Earth's radius at each data point (m)
  - `lon`: longitude array
  - `lat`: latitude array
 
@@ -22,7 +23,7 @@ Ylms = gen_pressure_stokes(PG, R, lon, lat, LMAX=LMAX, PLM=PLM, LOVE=(hl,kl,ll))
  - `LMAX`:  maximum spherical harmonic degree of the output harmonics
  - `MMAX`: maximum spherical harmonic order of the output harmonics
  - `PLM`: input Legendre polynomials (for improving computational time)
- - `LOVE`: input load Love numbers up to degree `LMAX` (hl,kl,ll)
+ - `LOVE`: input load Love numbers up to degree of truncation
 
 #### Outputs
  - `clm`: Cosine spherical harmonic coefficients (geodesy normalization)
