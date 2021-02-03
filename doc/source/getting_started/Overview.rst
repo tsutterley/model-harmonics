@@ -15,10 +15,11 @@ ECCO
 
 Uses outputs from the NASA-JPL `Estimating the Circulation and Climate of the Ocean (ECCO) <https://ecco-group.org/>`_ model.
 For ECCO near real-time Kalman-filtered (kf080i) and Rauch-Tung-Striebel (RTS) smoother (dr080i) models, reads 12-hour ocean bottom pressure data (OBP) and calculates monthly averages.
-For ECCO2 Cube92 and ECCO version 4 models, reads monthly ocean bottom pressure potential anomalies and converts to estimates of absolute ocean bottom pressure (OBP).
+For ECCO version 4 models, reads monthly ocean bottom pressure potential anomalies and converts to estimates of absolute ocean bottom pressure (OBP).
 Near real-time models are downloaded using the `jpl_ecco_sync.py <https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_sync.py>`_ program,
-monthly Cube92 models are calculated using the `jpl_ecco_cube92_sync.py <https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_cube92_sync.py>`_ program and
-Version 4 models are downloaded using the `jpl_ecco_v4_sync.py <https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_v4_sync.py>`_ program.
+monthly Cube92 models are calculated using the `jpl_ecco_cube92_sync.py <https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_cube92_sync.py>`_ program,
+interpolated Version 4 models are downloaded using the `jpl_ecco_v4_sync.py <https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_v4_sync.py>`_ program, and
+monthly Version 4 and 5 models in LLC tile format are downloaded using the `jpl_ecco_llc_sync.py <https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_llc_sync.py>`_ program.
 Because Boussinesq-type models conserve volume rather than mass, the global area average of each monthly map is removed `(Greatbatch, 1994) <https://doi.org/10.1029/94JC00847>`_.
 Monthly anomalies in ocean bottom pressure are calculated by removing a multi-annual mean (typically 2003 |ndash| 2007).
 Ocean bottom pressure anomalies are converted to spherical harmonics following `Boy and Chao. (2005) <https://doi.org/10.1029/2002JB002333>`_ (Equations :eq:`1` and :eq:`2`).

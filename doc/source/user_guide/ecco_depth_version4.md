@@ -1,14 +1,14 @@
-ecco_v4_ocean_depth.py
+ecco_depth_version4.py
 ======================
 
 - Interpolates [GEBCO bathymetry](https://www.bodc.ac.uk/data/hosted_data_systems/gebco_gridded_bathymetry_data/
-) to ECCO V4 ocean model grids
+) to ECCO Version 4 interpolated ocean model grids
 
 #### Calling Sequence
 ```bash
-python ecco_v4_ocean_depth.py --directory <path_to_directory> model_file
+python ecco_depth_version4.py --directory <path_to_directory> model_file
 ```
-[Source code](https://github.com/tsutterley/model-harmonics/blob/main/ECCO/ecco_v4_ocean_depth.py)
+[Source code](https://github.com/tsutterley/model-harmonics/blob/main/ECCO/ecco_depth_version4.py)
 
 #### Inputs
 - `model_file`: ECCO Version 4 Model File

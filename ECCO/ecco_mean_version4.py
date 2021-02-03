@@ -37,11 +37,14 @@ COMMAND LINE OPTIONS:
     -V, --verbose: Output information for each output file
 
 PYTHON DEPENDENCIES:
-    numpy: Scientific Computing Tools For Python (https://numpy.org)
+    numpy: Scientific Computing Tools For Python
+        https://numpy.org
+    dateutil: powerful extensions to datetime
+        https://dateutil.readthedocs.io/en/stable/
     netCDF4: Python interface to the netCDF C library
-        (https://unidata.github.io/netcdf4-python/netCDF4/index.html)
+        https://unidata.github.io/netcdf4-python/netCDF4/index.html
     h5py: Pythonic interface to the HDF5 binary data format.
-        (https://www.h5py.org/)
+        https://www.h5py.org/
 
 PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
@@ -112,7 +115,7 @@ def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
     a_axis = WGS84['a']
     b_axis = WGS84['b']
 
-    #-- read depth data from ecco_v4_ocean_depth.py
+    #-- read depth data from ecco_depth_version4.py
     input_depth_file = os.path.join(ddir,'DEPTH.2020.720x360.nc')
     depth = gravity_toolkit.spatial().from_netCDF4(input_depth_file,
         varname='depth', date=False)

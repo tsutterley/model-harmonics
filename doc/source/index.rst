@@ -21,6 +21,7 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     :caption: User Guide
 
     user_guide/gen_atmosphere_stokes.md
+    user_guide/gen_point_pressure.md
     user_guide/gen_pressure_stokes.md
     user_guide/utilities.rst
 
@@ -32,15 +33,17 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     user_guide/jpl_ecco_webdav.md
     user_guide/jpl_ecco_sync.md
     user_guide/jpl_ecco_cube92_sync.md
+    user_guide/jpl_ecco_llc_sync.md
     user_guide/jpl_ecco_v4_sync.md
     user_guide/ecco_mean_realtime.md
-    user_guide/ecco_mean_cube92.md
+    user_guide/ecco_mean_llc_tiles.md
     user_guide/ecco_mean_version4.md
     user_guide/ecco_read_realtime.md
-    user_guide/ecco_read_cube92.md
+    user_guide/ecco_read_llc_tiles.md
     user_guide/ecco_read_version4.md
-    user_guide/ecco_cube92_ocean_depth.md
-    user_guide/ecco_v4_ocean_depth.md
+    user_guide/ecco_depth_version4.md
+    user_guide/ecco_geoid_llc_tiles.md
+    user_guide/ecco_llc_tile_harmonics.md
     user_guide/ecco_monthly_harmonics.md
 
 .. toctree::

@@ -11,6 +11,7 @@ Calculates monthly anomalies on an equirectangular grid
 
 Processes the data as described in the GRACE Tellus site
     https://grace.jpl.nasa.gov/data/get-data/ocean-bottom-pressure/
+The global area average of each ocean bottom pressure map is removed
 
 INPUTS:
     ECCO Near Real-Time models

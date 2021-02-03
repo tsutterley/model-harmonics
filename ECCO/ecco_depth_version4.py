@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 u"""
-ecco_v4_ocean_depth.py
+ecco_depth_version4.py
 Written by Tyler Sutterley (12/2020)
 
-Interpolates GEBCO bathymetry to ECCO V4 ocean model grids
+Interpolates GEBCO bathymetry to ECCO Version 4 interpolated model grids
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
 https://ecco-group.org/user-guide-v4r4.htm
 
@@ -41,7 +41,7 @@ import numpy as np
 import gravity_toolkit.spatial
 
 #-- PURPOSE: interpolate GEBCO bathymetry to ECCO V4 ocean model grids
-def ecco_v4_ocean_depth(ddir, model_file, VERSION='2014', MODE=0o775):
+def ecco_depth_version4(ddir, model_file, VERSION='2014', MODE=0o775):
     #-- input bathymetry model parameters
     if (VERSION == '2014'):
         FILE = os.path.join(ddir,'GEBCO_2014_2D.zip')
@@ -129,12 +129,12 @@ def extend_array(input_array,count):
     temp[-count:] = input_array[-1] + step_size*np.arange(1,count+1)
     return temp
 
-#-- Main program that calls ecco_v4_ocean_depth()
+#-- Main program that calls ecco_depth_version4()
 def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
-        description="""Interpolates GEBCO bathymetry to ECCO V4
-            ocean model grids
+        description="""Interpolates GEBCO bathymetry to ECCO Version 4
+            interpolated model grids
             """
     )
     #-- command line parameters
@@ -157,7 +157,7 @@ def main():
     args = parser.parse_args()
 
     #-- run program
-    ecco_v4_ocean_depth(args.directory, args.file, VERSION=args.version,
+    ecco_depth_version4(args.directory, args.file, VERSION=args.version,
         MODE=args.mode)
 
 #-- run main program

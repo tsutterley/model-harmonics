@@ -3,12 +3,11 @@ u"""
 ecco_read_version4.py
 Written by Tyler Sutterley (12/2020)
 
-Calculates monthly ocean bottom pressure anomalies from the ECCO ocean model
+Calculates monthly ocean bottom pressure anomalies from ECCO Version 4 models
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
 https://ecco-group.org/products-ECCO-V4r4.htm
 https://ecco-group.org/user-guide-v4r4.htm
 
-Computes the time-average ocean bottom pressure map between two dates
 Processes the data as described in the GRACE Tellus site
     https://grace.jpl.nasa.gov/data/get-data/ocean-bottom-pressure/
 The global area average of each ocean bottom pressure map is removed
@@ -124,7 +123,7 @@ def ecco_read_version4(ddir, MODEL, YEARS, RANGE=None,
     a_axis = WGS84['a']
     b_axis = WGS84['b']
 
-    #-- read depth data from ecco_v4_ocean_depth.py
+    #-- read depth data from ecco_depth_version4.py
     input_depth_file = os.path.join(ddir,'DEPTH.2020.720x360.nc')
     depth = gravity_toolkit.spatial().from_netCDF4(input_depth_file,
         varname='depth', date=False)

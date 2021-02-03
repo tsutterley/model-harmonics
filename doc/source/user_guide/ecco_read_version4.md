@@ -11,7 +11,7 @@ python ecco_read_version4.py --directory <path_to_directory> V4r3 V4r4
 [Source code](https://github.com/tsutterley/model-harmonics/blob/main/ECCO/ecco_read_version4.py)
 
 #### Inputs
-- ECCO Near Real-Time models
+- ECCO Version 4 models
     * `'V4r3'`: Version 4, Revision 3
     * `'V4r4'`: Version 4, Revision 4
 
