@@ -33,7 +33,6 @@ PYTHON DEPENDENCIES:
 
 PROGRAM DEPENDENCIES:
     legendre.py: Computes associated Legendre polynomials for degree l
-    legendre_polynomials.py: Computes fully normalized Legendre polynomials
     units.py: class for converting spherical harmonic data to specific units
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
         destripe_harmonics.py: calculates the decorrelation (destriping) filter
@@ -60,7 +59,6 @@ import numpy as np
 import gravity_toolkit.units
 import gravity_toolkit.harmonics
 from gravity_toolkit.legendre import legendre
-from gravity_toolkit.legendre_polynomials import legendre_polynomials
 
 def gen_point_pressure(P, G, R, lon, lat, AREA=None, LMAX=60, MMAX=None,
     LOVE=None):
@@ -114,11 +112,11 @@ def gen_point_pressure(P, G, R, lon, lat, AREA=None, LMAX=60, MMAX=None,
     dfactor = 3.0*(1.0 + kl[factors.l])/(rad_e*rho_e*(1.0 + 2.0*factors.l)**2)
 
     #-- Calculating legendre polynomials of the disc
-    pl = np.zeros((LMAX+1,npts))
     #-- alpha will be 1 - the ratio of the input area with the half sphere
     alpha = (1.0 - AREA.flatten()/(2.0*np.pi*rad_e**2))
-    #-- calculate the legendre polynomials up to LMAX+1
-    pl_alpha,_ = legendre_polynomials(LMAX+1,alpha)
+    #-- seed for Legendre Polynomial recursion
+    Pm2 = np.copy(alpha)
+    Pm1 = np.ones((npts))
 
     #-- Initializing output spherical harmonic matrices
     Ylms = gravity_toolkit.harmonics(lmax=LMAX, mmax=MMAX)
@@ -127,28 +125,29 @@ def gen_point_pressure(P, G, R, lon, lat, AREA=None, LMAX=60, MMAX=None,
     #-- for each degree l
     for l in range(LMAX+1):
         m1 = np.min([l,MMAX]) + 1
-        #-- legendre polynomials of the disc
-        #-- from Longman (1962) and Jacob et al (2012)
+        #-- unnormalized Legendre polynomials for degree l
         if (l == 0):
             #-- l=0 is a special case
-            #-- P(-1) = 1
-            #-- P(1) = cos(alpha)
-            pl[l,:] = (1.0 - alpha)/2.0
+            Pl = np.ones((npts))
         else:
-            #-- unnormalizing Legendre polynomials
-            #-- sqrt(2*l - 1) == sqrt(2*(l-1) + 1)
-            #-- sqrt(2*l + 3) == sqrt(2*(l+1) + 1)
-            pll = pl_alpha[l-1,:]/np.sqrt(2.0*l-1.0)
-            plu = pl_alpha[l+1,:]/np.sqrt(2.0*l+3.0)
-            pl[l,:] = (pll - plu)/2.0
+            #-- Calculating legendre polynomials for degree l
+            Pl = ((2.0*l-1.0)/l)*alpha*Pm1 - ((l-1.0)/l)*Pm2
+        #-- Calculating legendre polynomials for degree l+1
+        Pp1 = ((2.0*l+1.0)/(l+1.0))*alpha*Pl - (l/(l+1.0))*Pm1
+        #-- legendre polynomials of the disc (unnormalized)
+        #-- from Longman (1962) and Jacob et al (2012)
+        Pdisc = (Pm1 - Pp1)/2.0
         #-- calculate pressure/gravity ratio for all points
         #-- convolve with legendre polynomials of the disc
         #-- and the radius ratios
-        PGR = pl[l,:]*(P.flatten()/G.flatten())*(R.flatten()/rad_e)**(l+2)
+        PGR = Pdisc*(P.flatten()/G.flatten())*(R.flatten()/rad_e)**(l+2)
         SPH = spherical_harmonic_matrix(l,PGR,phi,theta,dfactor[l])
         #-- truncate to spherical harmonic order and save to output
         Ylms.clm[l,:m1] = SPH.real[:m1]
         Ylms.slm[l,:m1] = SPH.imag[:m1]
+        #-- update unnormalized Legendre polynomials for recursion
+        Pm2[:] = np.copy(Pm1)
+        Pm1[:] = np.copy(Pl)
     #-- return the output spherical harmonics object
     return Ylms
 

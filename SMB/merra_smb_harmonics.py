@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_harmonics.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (02/2021)
 Reads monthly MERRA-2 surface mass balance anomalies and
     converts to spherical harmonic coefficients
 
@@ -15,7 +15,7 @@ COMMAND LINE OPTIONS:
     -m X, --mean X: Year range for mean
     -Y X, --year X: Years to run
     -R X, --region X: region name for subdirectory
-    --mask X: netCDF4 mask file for reducing to regions
+    --mask X: netCDF4 mask files for reducing to regions
     -l X, --lmax X: maximum spherical harmonic degree
     -m X, --mmax X: maximum spherical harmonic order
     -n X, --love X: Load Love numbers dataset
@@ -65,6 +65,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 02/2021: can use multiple mask files to create a combined solution
     Updated 01/2021: added more love number options
         set spatial variables for both 025 and 10 cases
         using utilities from time module. added maximum harmonic order option
@@ -95,8 +96,8 @@ from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
 
 #-- PURPOSE: read Merra-2 cumulative data and convert to spherical harmonics
 def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
-    MASK=None, LMAX=0, MMAX=None, LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None,
-    VERBOSE=False, MODE=0o775):
+    MASKS=None, LMAX=0, MMAX=None, LOVE_NUMBERS=0, REFERENCE=None,
+    DATAFORM=None, VERBOSE=False, MODE=0o775):
 
     #-- setup subdirectories
     cumul_sub = '{0}.5.12.4.CUMUL.{1:d}.{2:d}'.format(PRODUCT,*RANGE)
@@ -118,12 +119,6 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     #-- output string for both LMAX == MMAX and LMAX != MMAX cases
     order_str = 'M{0:d}'.format(MMAX) if (MMAX != LMAX) else ''
 
-    #-- read mask for reducing regions before converting to harmonics
-    if MASK:
-        fileID = netCDF4.Dataset(MASK,'r')
-        input_mask = fileID.variables['mask'][:].astype(np.bool)
-        fileID.close()
-
     #-- output dimensions and extents
     nlat,nlon = (361,576)
     extent = [-180.0,179.375,-90.0,90.0]
@@ -134,6 +129,13 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     glat = np.arange(extent[2],extent[3]+dlat,dlat)
     #-- create mesh grid of latitude and longitude
     gridlon,gridlat = np.meshgrid(glon,glat)
+
+    #-- read masks for reducing regions before converting to harmonics
+    input_mask = np.zeros((nlat,nlon),dtype=np.bool)
+    for mask_file in MASKS:
+        fileID = netCDF4.Dataset(mask_file,'r')
+        input_mask |= fileID.variables['mask'][:].astype(np.bool)
+        fileID.close()
 
     #-- Earth Parameters
     ellipsoid_params = ref_ellipsoid('WGS84')
@@ -167,6 +169,7 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     args = (PRODUCT, regex_years, suffix[DATAFORM])
     regex_pattern = r'MERRA2_(\d+).tavgM_2d_{0}_cumul_Nx.({1})(\d+).{2}$'
     rx = re.compile(regex_pattern.format(*args), re.VERBOSE)
+    #-- will be out of order for 2020 due to September reprocessing
     FILES = sorted([fi for fi in os.listdir(os.path.join(ddir,cumul_sub))
         if rx.match(fi)])
 
@@ -189,9 +192,9 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
                 varname=PRODUCT, verbose=VERBOSE)
 
         #-- if reducing to a region of interest before converting to harmonics
-        if MASK:
+        if np.any(input_mask):
             #-- replace fill value points and masked points with 0
-            merra_data.replace_invalid(0.0, mask=input_mask)
+            merra_data.replace_invalid(0.0, mask=np.logical_not(input_mask))
         else:
             #-- replace fill value points points with 0
             merra_data.replace_invalid(0.0)
@@ -200,7 +203,7 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
         merra_Ylms = gen_stokes(merra_data.data, glon, latitude_geocentric[:,0],
             LMAX=LMAX, MMAX=MMAX, UNITS=3, PLM=PLM, LOVE=LOVE)
         #-- copy date information
-        merra_Ylms.month = np.copy(merra_data.time)
+        merra_Ylms.time = np.copy(merra_data.time)
         #-- calculate GRACE/GRACE-FO month
         merra_Ylms.month = np.int(12.0*(np.float(Y1) - 2002.0) + np.float(M1))
         #-- output spherical harmonic data file
@@ -346,7 +349,7 @@ def main():
     #-- mask file for reducing to regions
     parser.add_argument('--mask',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        help='netCDF4 mask file for reducing to regions')
+        nargs='+', help='netCDF4 masks file for reducing to regions')
     #-- maximum spherical harmonic degree and order
     parser.add_argument('--lmax','-l',
         type=int, default=60,
@@ -384,7 +387,7 @@ def main():
     for PRODUCT in args.product:
         #-- run program
         merra_smb_harmonics(args.directory, PRODUCT, args.year, RANGE=args.mean,
-            REGION=args.region, MASK=args.mask, LMAX=args.lmax, MMAX=args.mmax,
+            REGION=args.region, MASKS=args.mask, LMAX=args.lmax, MMAX=args.mmax,
             LOVE_NUMBERS=args.love, REFERENCE=args.reference,
             DATAFORM=args.format, VERBOSE=args.verbose, MODE=args.mode)
 

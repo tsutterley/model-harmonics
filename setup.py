@@ -16,7 +16,7 @@ with open('requirements.txt') as fh:
 
 # list of all scripts to be included with package
 scripts=[]
-for s in ['ECCO','GLDAS','reanalysis']:
+for s in ['ECCO','GLDAS','reanalysis','SMB']:
     scripts.extend([os.path.join(s,f) for f in os.listdir(s) if f.endswith('.py')])
 
 setup(

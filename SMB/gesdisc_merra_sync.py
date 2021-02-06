@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_merra_sync.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (02/2021)
 
 Syncs MERRA-2 surface mass balance (SMB) related products from the Goddard
     Earth Sciences Data and Information Server Center (GES DISC)
@@ -53,6 +53,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 02/2021: add back MERRA-2 invariant parameters sync
     Updated 01/2021: use argparse to set command line parameters
         using utilities program to build opener and list remote files
     Updated 09/2019: added ssl context to urlopen headers
@@ -108,6 +109,27 @@ def gesdisc_merra_sync(DIRECTORY, YEARS, LOG=False, LIST=False, MODE=None,
     #-- compile regular expression operator to find MERRA2 files
     R2 = re.compile(r'MERRA2_(.*?).nc4(.xml)?', re.VERBOSE)
 
+    #-- sync MERRA-2 invariant products
+    for PRODUCT in ['M2C0NXASM.5.12.4']:
+        #-- open connection with GESDISC server at remote directory
+        #-- find remote yearly directories for PRODUCT
+        remote_years,mtimes = model_harmonics.utilities.gesdisc_list(
+            [*HOST,PRODUCT],pattern='^(\d+)',sort=True)
+        #-- invariant parameters are stored in yearly directory
+        for Y in remote_years:
+            #-- open connection with GESDISC server at remote directory
+            #-- read and parse request for files (names and modified dates)
+            #-- find remote files for PRODUCT and YEAR
+            files,mtimes = model_harmonics.utilities.gesdisc_list([*HOST,
+                PRODUCT,Y],format='%d-%b-%Y %H:%M',pattern=R2,sort=True)
+            for colname,remote_mtime in zip(files,mtimes):
+                #-- local and remote versions of the file
+                local_file = os.path.join(DIRECTORY,colname)
+                remote_file = posixpath.join(*HOST,PRODUCT,Y,colname)
+                #-- copy file from remote directory comparing modified dates
+                http_pull_file(fid, remote_file, remote_mtime, local_file,
+                    LIST, CLOBBER, MODE)
+
     #-- for each MERRA-2 product to sync
     for PRODUCT in ['M2TMNXINT.5.12.4','M2TMNXGLC.5.12.4']:
         print('PRODUCT={0}'.format(PRODUCT), file=fid)
@@ -125,6 +147,9 @@ def gesdisc_merra_sync(DIRECTORY, YEARS, LOG=False, LIST=False, MODE=None,
             files,mtimes = model_harmonics.utilities.gesdisc_list([*HOST,
                 PRODUCT,Y],format='%d-%b-%Y %H:%M',pattern=R2,sort=True)
             for colname,remote_mtime in zip(files,mtimes):
+                #-- recursively create local directory if non-existent
+                if not os.access(os.path.join(DIRECTORY,PRODUCT,Y), os.F_OK):
+                    os.makedirs(os.path.join(DIRECTORY,PRODUCT,Y),MODE)
                 #-- local and remote versions of the file
                 local_file = os.path.join(DIRECTORY,PRODUCT,Y,colname)
                 remote_file = posixpath.join(*HOST,PRODUCT,Y,colname)

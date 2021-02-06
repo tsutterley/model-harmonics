@@ -15,5 +15,7 @@ python gldas_mask_arctic.py --directory <path_to_directory> --shapefile <path_to
     * `'10'`: 1.0 degrees latitude/longitude
     * `'025'`: 0.25 degrees latitude/longitude
 - `-F X`, `--shapefile X`: Shapefiles to use
+- `-A X`, `--area X`: Minimum area threshold for polygons
+- `-B X`, `--buffer X`: Distance to buffer polygons
 - `-V`, `--verbose`: verbose output of processing run
 - `-M X`, `--mode X`: Permissions mode of the files created

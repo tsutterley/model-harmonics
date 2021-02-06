@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_cumulative.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (02/2021)
 Reads MERRA-2 datafiles to calculate monthly cumulative anomalies
     in derived surface mass balance products
 
@@ -48,6 +48,8 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 02/2021: sort files by month as September 2020 was reprocessed
+        https://daac.gsfc.nasa.gov/information/alerts
     Updated 01/2021: use argparse to set command line parameters
         using spatial module for read/write operations
         using utilities from time module
@@ -166,6 +168,9 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     for Y in YEARS:
         #-- find input files for PRODUCT
         f=[f for f in os.listdir(os.path.join(DIRECTORY,P1,Y)) if rx.match(f)]
+        #-- sort files by month
+        indices = np.argsort([rx.match(f1).group(3) for f1 in f])
+        f = [f[indice] for indice in indices]
         #-- days per month in year
         dpm = gravity_toolkit.time.calendar_days(int(Y))
         #-- for each monthly file
