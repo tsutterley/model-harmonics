@@ -20,7 +20,9 @@ python gldas_scaling_factors.py --directory <path_to_directory> \
 
 #### Command Line Options
 - `-D X`, `--directory X`: working data directory
-- `-Y X`, `--year X`: Years to run
+- `-s X`, `--start X`: Starting GRACE/GRACE-FO month
+- `-e X`, `--end X`: Ending GRACE/GRACE-FO month
+- `-o X`, `--missing X`: Missing GRACE/GRACE-FO months
 - `-S X`, `--spacing X`: Spatial resolution of models to run
     * `'10'`: 1.0 degrees latitude/longitude
     * `'025'`: 0.25 degrees latitude/longitude

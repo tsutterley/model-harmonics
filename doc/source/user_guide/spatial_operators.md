@@ -1,0 +1,36 @@
+spatial_operators.py
+====================
+
+- Performs basic operations on spatial files
+
+#### Calling Sequence
+```bash
+python spatial_operators.py --operation add infile1 infile2 outfile
+```
+[Source code](https://github.com/tsutterley/model-harmonics/blob/main/scripts/spatial_operators.py)
+
+#### Inputs
+- path to input spatial files
+- path to output spatial file
+
+#### Command Line Options
+- `--help`: list the command line options
+- `-O X`, `--operation X`: Operation to run
+    * `'add'`
+    * `'subtract'`
+    * `'multiply'`
+    * `'divide'`
+    * `'mean'`
+    * `'RMS'`
+- `-S X`, `--spacing X`: spatial resolution of output data (dlon,dlat)
+- `-I X`, `--interval X`: output grid interval
+    * `1`: (0:360, 90:-90)
+    * `2`: (degree spacing/2)
+- `--header X`: number of header rows to skip in input ascii files
+- `-F X`, `--format X`: input and output data format
+    * `'ascii'`
+    * `'netCDF4'`
+    * `'HDF5'`
+- `-D`, `--date`: input and output files have date information
+- `-V`, `--verbose`: Output information for each output file
+- `-M X`, `--mode X`: Permission mode of directories and files

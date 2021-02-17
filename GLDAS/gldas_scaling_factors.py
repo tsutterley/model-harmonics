@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_scaling_factors.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (02/2021)
 
 Reads monthly GLDAS total water storage anomalies and monthly
     spherical harmonic coefficients
@@ -23,6 +23,9 @@ INPUTS:
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
     -Y X, --year X: Years to run
+    -s X, --start X: Starting GRACE/GRACE-FO month
+    -e X, --end X: Ending GRACE/GRACE-FO month
+    -o X, --missing X: Missing GRACE/GRACE-FO months
     -S X, --spacing X: spatial resolution of models to run
         10: 1.0 degrees latitude/longitude
         025: 0.25 degrees latitude/longitude
@@ -80,6 +83,9 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 02/2021: output spatial power of original data
+        use GRACE/GRACE-FO months to select range of GLDAS data
+        include GLDAS MOD44W land mask modified for HYMAP
     Updated 01/2021 for public release
     Updated 12/2020: added more love number options
         set spatial variables for both 025 and 10 cases
@@ -126,9 +132,9 @@ gldas_products['VIC'] = 'GLDAS Variable Infiltration Capacity (VIC) model'
 
 #-- PURPOSE: read GLDAS terrestrial water storage data and spherical harmonics
 #-- calculate the point scaling factors following Landerer and Swenson (2012)
-def gldas_scaling_factors(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
-    LMAX=0, MMAX=None, RAD=0, DESTRIPE=False, LOVE_NUMBERS=0, REFERENCE=None,
-    DATAFORM=None, VERBOSE=False, MODE=0o775):
+def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
+    SPACING=None, VERSION=None, LMAX=0, MMAX=None, RAD=0, DESTRIPE=False,
+    LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None, VERBOSE=False, MODE=0o775):
     #-- Version flags
     V1,V2 = ('_V1','') if (VERSION == '1') else ('','.{0}'.format(VERSION))
     #-- subdirectory for model monthly products at spacing for version
@@ -158,10 +164,16 @@ def gldas_scaling_factors(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
         nlon,nlat = (360,150)
         dlon,dlat = (1.0,1.0)
         extent = [-179.5,179.5,-59.5,89.5]
+    #-- GLDAS MOD44W land mask modified for HYMAP
+    landmask_file = 'GLDASp5_landmask_{0}d.nc4'.format(SPACING)
     #-- mask files for vegetation type, arctic regions, permafrost
     vegetation_file = 'modmodis_domveg20_{0}.nc'.format(SPACING)
     arctic_file = 'arcticmask_mod44w_{0}.nc'.format(SPACING)
     permafrost_file = 'permafrost_mod44w_{0}.nc'.format(SPACING)
+
+    #-- read GLDAS land mask file
+    with netCDF4.Dataset(os.path.join(ddir,landmask_file),'r') as fileID:
+        GLDAS_mask = fileID.variables['GLDAS_mask'][:].squeeze()
 
     #-- read vegetation index file from gldas_mask_vegetation.py
     with netCDF4.Dataset(os.path.join(ddir,vegetation_file),'r') as fileID:
@@ -182,7 +194,7 @@ def gldas_scaling_factors(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
     #-- create mesh grid of latitude and longitude
     gridlon,gridlat = np.meshgrid(glon,glat)
     #-- create mask combining vegetation index, permafrost index and Arctic mask
-    combined_mask = np.zeros((nlat,nlon),dtype=np.bool)
+    combined_mask = np.logical_not(GLDAS_mask)
     combined_mask |= arctic_mask[:,:]
     # 0: missing value
     # 13: Urban and Built-Up
@@ -237,26 +249,21 @@ def gldas_scaling_factors(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
     else:
         wt = np.ones((LMAX+1))
 
-    #-- find input files from read_gldas_monthly.py
-    regex_years = r'\d+' if (YEARS is None) else '|'.join(map(str,YEARS))
-    args = (MODEL, SPACING, regex_years, suffix[DATAFORM])
-    rx = re.compile(r'GLDAS_{0}{1}_TWC_({2})_(\d+)\.{3}$'.format(*args))
-    FILES = [fi for fi in os.listdir(os.path.join(ddir,sub1)) if rx.match(fi)]
-    nfiles = len(FILES)
-
+    #-- GRACE/GRACE-FO months of interest
+    grace_month = sorted(set(np.arange(START_MON,END_MON+1)) - set(MISSING))
     #-- spatial object list for original and processed files
     original = []
     processed = []
-    grace_month = np.zeros((nfiles),dtype=np.int)
-    #-- for each input file
-    for t,f1 in enumerate(sorted(FILES)):
-        #-- extract year and month from file
-        YY,MM = np.array(rx.findall(f1).pop(), dtype=np.float)
-        #-- GRACE/GRACE-FO month
-        grace_month[t] = np.int(12.0*(YY - 2002.0) + MM)
-
-        #-- associated spherical harmonic data file
-        args=(MODEL,SPACING,LMAX,order_str,grace_month[t],suffix[DATAFORM])
+    #-- for each GRACE/GRACE-FO month
+    for t,gm in enumerate(grace_month):
+        #-- calendar year and month
+        calendar_year = 2002 + (gm-1)//12
+        calendar_month = np.mod(gm-1, 12) + 1
+        #-- GLDAS monthly data file from read_gldas_monthly.py
+        args=(MODEL,SPACING,calendar_year,calendar_month,suffix[DATAFORM])
+        f1='GLDAS_{0}{1}_TWC_{2:4d}_{3:02d}.{4}'.format(*args)
+        #-- spherical harmonic data file
+        args=(MODEL,SPACING,LMAX,order_str,gm,suffix[DATAFORM])
         f2='GLDAS_{0}{1}_TWC_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
         #-- read data files for data format
         if (DATAFORM == 'ascii'):
@@ -296,11 +303,15 @@ def gldas_scaling_factors(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
     gldas_grid = spatial().from_list(processed, clear=True)
     #-- calculate scaling factors and scaling factor errors
     gldas_kfactor = gldas_grid.kfactor(gldas_data)
+    #-- calculate power of original data
+    gldas_power = gldas_data.sum(power=2.0).power(0.5)
     #-- Output scaling factor and scaling factor error to files
     file_format = 'GLDAS_{0}{1}_TWC_{2}_L{3:d}{4}{5}{6}_{7:03d}-{8:03d}.{9}'
     f3 = file_format.format(MODEL,SPACING,'kfactor',LMAX,order_str,gw_str,
         ds_str,grace_month[0],grace_month[-1],suffix[DATAFORM])
     f4 = file_format.format(MODEL,SPACING,'kf_error',LMAX,order_str,gw_str,
+        ds_str,grace_month[0],grace_month[-1],suffix[DATAFORM])
+    f5 = file_format.format(MODEL,SPACING,'power',LMAX,order_str,gw_str,
         ds_str,grace_month[0],grace_month[-1],suffix[DATAFORM])
     output_data(gldas_kfactor, FILENAME=os.path.join(ddir,sub2,f3),
         DATAFORM=DATAFORM, UNITS='unitless', LONGNAME='Scaling Factor',
@@ -308,6 +319,9 @@ def gldas_scaling_factors(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
     output_data(gldas_kfactor, FILENAME=os.path.join(ddir,sub2,f4),
         DATAFORM=DATAFORM, UNITS='cmwe', LONGNAME='Scaling Factor Error',
         TITLE=gldas_products[MODEL], KEY='error', VERBOSE=VERBOSE, MODE=MODE)
+    output_data(gldas_power, FILENAME=os.path.join(ddir,sub2,f5),
+        DATAFORM=DATAFORM, UNITS='cmwe', LONGNAME='Power',
+        TITLE=gldas_products[MODEL], KEY='data', VERBOSE=VERBOSE, MODE=MODE)
 
 #-- PURPOSE: read load love numbers for the range of spherical harmonic degrees
 def load_love_numbers(LMAX, LOVE_NUMBERS=0, REFERENCE='CF'):
@@ -402,10 +416,20 @@ def main():
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         default=os.getcwd(),
         help='Working data directory')
-    #-- years to run
-    parser.add_argument('--year','-Y',
-        type=int, nargs='+', default=range(2000,2021),
-        help='Years of model outputs to run')
+    #-- start and end years GRACE/GRACE-FO months
+    parser.add_argument('--start','-s',
+        type=int,default=4,
+        help='Starting GRACE/GRACE-FO month')
+    parser.add_argument('--end','-e',
+        type=int,default=228,
+        help='Ending GRACE/GRACE-FO month')
+    #-- missing GRACE/GRACE-FO months
+    MISSING = [6,7,18,109,114,125,130,135,140,141,146,151,
+        156,162,166,167,172,177,178,182,187,188,189,190,191,
+        192,193,194,195,196,197,200,201]
+    parser.add_argument('--missing','-o',
+        metavar='MISSING',type=int,nargs='+',default=MISSING,
+        help='Missing GRACE/GRACE-FO months')
     #-- GLDAS model version
     parser.add_argument('--version','-v',
         type=str, default='2.1',
@@ -460,7 +484,8 @@ def main():
     #-- for each GLDAS model
     for MODEL in args.model:
         #-- run program
-        gldas_scaling_factors(args.directory, MODEL, args.year,
+        gldas_scaling_factors(args.directory, MODEL,
+            args.start, args.end, args.missing,
             VERSION=args.version, SPACING=args.spacing, LMAX=args.lmax,
             MMAX=args.mmax, RAD=args.radius, DESTRIPE=args.destripe,
             LOVE_NUMBERS=args.love, REFERENCE=args.reference,

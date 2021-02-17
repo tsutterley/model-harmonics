@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_monthly_harmonics.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (02/2021)
 
 Reads monthly GLDAS total water storage anomalies and converts to
     spherical harmonic coefficients
@@ -102,6 +102,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 02/2021: include GLDAS MOD44W land mask modified for HYMAP
     Updated 01/2021: harmonics object output from gen_stokes.py
     Updated 12/2020: added more love number options
         set spatial variables for both 025 and 10 cases
@@ -179,12 +180,18 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
         nlon,nlat = (360,150)
         dlon,dlat = (1.0,1.0)
         extent = [-179.5,179.5,-59.5,89.5]
+    #-- GLDAS MOD44W land mask modified for HYMAP
+    landmask_file = 'GLDASp5_landmask_{0}d.nc4'.format(SPACING)
     #-- mask files for vegetation type, arctic regions, permafrost
     vegetation_file = 'modmodis_domveg20_{0}.nc'.format(SPACING)
     arctic_file = 'arcticmask_mod44w_{0}.nc'.format(SPACING)
     permafrost_file = 'permafrost_mod44w_{0}.nc'.format(SPACING)
     #-- output combined mask file
     combined_file = 'combinedmask_mod44w_{0}.nc'.format(SPACING)
+
+    #-- read GLDAS land mask file
+    with netCDF4.Dataset(os.path.join(ddir,landmask_file),'r') as fileID:
+        GLDAS_mask = fileID.variables['GLDAS_mask'][:].squeeze()
 
     #-- read vegetation index file from gldas_mask_vegetation.py
     with netCDF4.Dataset(os.path.join(ddir,vegetation_file),'r') as fileID:
@@ -205,7 +212,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
     #-- create mesh grid of latitude and longitude
     gridlon,gridlat = np.meshgrid(glon,glat)
     #-- create mask combining vegetation index, permafrost index and Arctic mask
-    combined_mask = np.zeros((nlat,nlon),dtype=np.bool)
+    combined_mask = np.logical_not(GLDAS_mask)
     combined_mask |= arctic_mask[:,:]
     # 0: missing value
     # 13: Urban and Built-Up
