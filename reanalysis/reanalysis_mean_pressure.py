@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_mean_pressure.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (02/2021)
 Calculates the mean surface pressure fields from reanalysis
 
 INPUTS:
@@ -50,6 +50,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Updated 12/2020: using argparse to set command line options
         using time module for operations and for extracting time units
         using spatial module for operations
@@ -162,7 +163,7 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
     p_mean.lat = np.copy(lat)
     p_mean.time = 0.0
     p_mean.data = np.zeros((nlat,nlon))
-    p_mean.mask = np.zeros((nlat,nlon),dtype=np.bool)
+    p_mean.mask = np.zeros((nlat,nlon),dtype=bool)
     count = 0
     #-- for each reanalysis file
     for fi in input_files:

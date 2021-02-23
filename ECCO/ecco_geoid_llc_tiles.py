@@ -41,6 +41,7 @@ PROGRAM DEPENDENCIES:
     gauss_weights.py: Computes Gaussian weights as a function of degree
 
 UPDATE HISTORY:
+    Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Written 02/2021
 """
 from __future__ import print_function
@@ -85,7 +86,7 @@ def ecco_geoid_llc_tiles(input_file, output_file, GEOID=None,
         output[key] = np.copy(invariant[key])
     #-- allocate for output geoid height
     output['geoid'] = np.ma.zeros((Nt,Nj,Ni),fill_value=fill_value)
-    output['geoid'].mask = np.ones((Nt,Nj,Ni),dtype=np.bool)
+    output['geoid'].mask = np.ones((Nt,Nj,Ni),dtype=bool)
     #-- calculate geoid for each tile
     for k in range(Nt):
         #-- find valid points for tile

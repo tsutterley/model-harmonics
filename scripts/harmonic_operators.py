@@ -19,6 +19,8 @@ COMMAND LINE OPTIONS:
         divide
         mean
         destripe
+    -l X, --lmax X: maximum spherical harmonic degree
+    -m X, --mmax X: maximum spherical harmonic order
     -F X, --format X: Input and output data format
         ascii
         netcdf
@@ -48,6 +50,7 @@ PROGRAM DEPENDENCIES:
         hdf5_stokes.py: writes output spherical harmonic data to HDF5
 
 UPDATE HISTORY:
+    Updated 02/2021: added options to truncate output to a degree or order
     Written 02/2021
 """
 from __future__ import print_function
@@ -55,11 +58,12 @@ from __future__ import print_function
 import sys
 import os
 import argparse
+import numpy as np
 from gravity_toolkit.harmonics import harmonics
 
 #-- PURPOSE: Performs operations on harmonic files
-def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None,
-    DATAFORM=None, DATE=False, VERBOSE=False, MODE=None):
+def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
+    MMAX=None, DATAFORM=None, DATE=False, VERBOSE=False, MODE=None):
 
     #-- number of input harmonic files
     n_files = len(INPUT_FILES)
@@ -107,12 +111,19 @@ def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None,
         output = dinput[0].zeros_like()
         for i in range(n_files):
             #-- perform operation
-            output = output.offset(dinput[i].data)
+            output = output.add(dinput[i])
         #-- convert from total to mean
         output = output.scale(1.0/n_files)
     elif (OPERATION == 'destripe'):
         #-- destripe spherical harmonics
         output = dinput[0].destripe()
+    #-- truncate to specified degree and order
+    if (LMAX is not None) | (MMAX is not None):
+        output.truncate(LMAX, mmax=MMAX)
+    #-- copy date variables if specified
+    if DATE:
+        output.time = np.copy(dinput[0].time)
+        output.month = np.copy(dinput[0].month)
 
     #-- write spherical harmonic file in data format
     if (DATAFORM == 'ascii'):
@@ -147,9 +158,16 @@ def main():
         help='Output file')
     #-- operation to run
     parser.add_argument('--operation','-O',
-        metavar='OPERATION', type=str,
+        metavar='OPERATION', type=str, required=True,
         choices=['add','subtract','multiply','divide','mean','destripe'],
         help='Operation to run')
+    #-- maximum spherical harmonic degree and order
+    parser.add_argument('--lmax','-l',
+        type=int, default=None,
+        help='Maximum spherical harmonic degree')
+    parser.add_argument('--mmax','-m',
+        type=int, default=None,
+        help='Maximum spherical harmonic order')
     #-- input and output data format (ascii, netCDF4, HDF5)
     parser.add_argument('--format','-F',
         type=str, default='netCDF4', choices=['ascii','netCDF4','HDF5'],
@@ -170,8 +188,8 @@ def main():
 
     #-- run program
     harmonic_operators(args.infiles, args.outfile[0], OPERATION=args.operation,
-        DATAFORM=args.format, DATE=args.date, VERBOSE=args.verbose,
-        MODE=args.mode)
+        LMAX=args.lmax, MMAX=args.mmax, DATAFORM=args.format, DATE=args.date,
+        VERBOSE=args.verbose, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_depth_version4.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (02/2021)
 
 Interpolates GEBCO bathymetry to ECCO Version 4 interpolated model grids
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
@@ -28,6 +28,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Updated 12/2020: use argparse to set command line parameters
         using spatial module for read and write routines
     Written 10/2018
@@ -82,7 +83,7 @@ def ecco_depth_version4(ddir, model_file, VERSION='2014', MODE=0o775):
     interp.lon = np.arange(extent[0],extent[1]+dlon,dlon)
     interp.lat = np.arange(extent[2],extent[3]+dlat,dlat)
     interp.data = np.zeros((nlat,nlon))
-    interp.mask = np.ones((nlat,nlon),dtype=np.bool)
+    interp.mask = np.ones((nlat,nlon),dtype=bool)
     #-- iterate over indices to find valid points
     for i,j in zip(ii,jj):
         #-- find bathymetry points

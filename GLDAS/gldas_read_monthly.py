@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_read_monthly.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (02/2021)
 
 Reads GLDAS monthly datafiles from http://ldas.gsfc.nasa.gov/gldas/
 Adding Soil Moisture, snow water equivalent (SWE) and total canopy storage
@@ -82,6 +82,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Updated 12/2020: set spatial variables for both 025 and 10 cases
         using utilities from time module
     Updated 10/2020: use argparse to set command line parameters
@@ -190,7 +191,7 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
                 #-- output twc spatial field
                 twc = spatial()
                 twc.data = np.zeros((nlat,nlon))
-                twc.mask = np.ones((nlat,nlon),dtype=np.bool)
+                twc.mask = np.ones((nlat,nlon),dtype=bool)
                 #-- read GRIB or netCDF4 file
                 if (SFX == 'grb'):
                     SM,SWE,CW,twc.lat,twc.lon,twc.fill_value = \

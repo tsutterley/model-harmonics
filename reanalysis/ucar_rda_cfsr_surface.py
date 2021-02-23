@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ucar_rda_cfsr_surface.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (02/2021)
 
 Downloads NCEP-CFSR products using a links list provided by the
     NCAR/UCAR Research Data Archive (RDA): https://rda.ucar.edu/
@@ -55,6 +55,7 @@ PROGRAM DEPENDENCIES:
         hdf5_write.py: writes output spatial data to HDF5
 
 UPDATE HISTORY:
+    Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Updated 12/2020: using time, spatial and utilities modules
     Written 08/2019
 """
@@ -181,7 +182,7 @@ def ucar_rda_download(links_list_file, DIRECTORY=None, YEARS=None,
         #-- python dictionary with output data
         output = {}
         output[VARNAME] = np.ma.zeros((nmon,nlat,nlon))
-        output[VARNAME].mask = np.ones((nmon,nlat,nlon),dtype=np.bool)
+        output[VARNAME].mask = np.ones((nmon,nlat,nlon),dtype=bool)
         output[TIMENAME] = np.zeros((len(valid_months)))
         #-- copy dimension variables
         output[LATNAME] = dinput.lat.copy()

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_read_realtime.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (02/2021)
 
 Reads 12-hour ECCO ocean bottom pressure data from JPL
 Calculates monthly anomalies on an equirectangular grid
@@ -55,6 +55,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Updated 12/2020: use argparse to set command line parameters
         using spatial module for read/write operations
         using utilities from time module
@@ -187,7 +188,7 @@ def ecco_read_realtime(ddir, MODEL, YEARS, RANGE=None, DATAFORM=None,
             obp_anomaly.lon = np.arange(dlon/2.0,360+dlon/2.0,dlon)
             obp_anomaly.lat = np.arange(-LAT_MAX,LAT_MAX+dlat,dlat)
             obp_anomaly.data = np.zeros((158,360,nt),dtype=obp.data.dtype)
-            obp_anomaly.mask = np.zeros((158,360,nt),dtype=np.bool)
+            obp_anomaly.mask = np.zeros((158,360,nt),dtype=bool)
             #-- convert from calendar dates to year-decimal
             obp_anomaly.time = gravity_toolkit.time.convert_calendar_decimal(
                 YY,MM,day=DD,hour=hh,minute=mm,second=ss)
@@ -222,7 +223,7 @@ def ecco_read_realtime(ddir, MODEL, YEARS, RANGE=None, DATAFORM=None,
 
                 #-- interpolate to equirectangular grid
                 obp_interp = np.ma.zeros((158,360))
-                obp_interp.mask = np.ones((158,360),dtype=np.bool)
+                obp_interp.mask = np.ones((158,360),dtype=bool)
                 theta = (90.0 - obp.lat)*np.pi/180.0
                 th  = (90.0 - obp_anomaly.lat)*np.pi/180.0
                 #-- for each output latitude

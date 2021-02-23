@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mean_monthly.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (02/2021)
 
 Reads GLDAS monthly datafiles from http://ldas.gsfc.nasa.gov/gldas/
 Adding Soil Moisture, snow water equivalent (SWE) and total canopy storage
@@ -79,6 +79,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Updated 12/2020: set spatial variables for both 025 and 10 cases
         using utilities from time module
     Updated 10/2020: use argparse to set command line parameters
@@ -96,7 +97,6 @@ UPDATE HISTORY:
     Updated 05/2015-06/2015: code update using regular expressions and no glob
         added DATAFORM for output ascii and HDF5 formats
     Updated 02/2014 with quick updates but should be fully updated
-    Updated for python 07/2013
     Written 04/2013
 """
 from __future__ import print_function
@@ -147,7 +147,7 @@ def gldas_mean_monthly(base_dir, MODEL, RANGE=None, SPATIAL=None, VERSION=None,
     #-- allocate for mean TWC and date
     twc = spatial()
     twc.data = np.zeros((nlat,nlon,ndates))
-    twc.mask = np.ones((nlat,nlon,ndates),dtype=np.bool)
+    twc.mask = np.ones((nlat,nlon,ndates),dtype=bool)
     twc.time = np.zeros((ndates))
     #-- create counter for dates
     c = 0

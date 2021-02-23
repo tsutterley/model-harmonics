@@ -7,7 +7,7 @@ References
 The programs included in this software have contributed
 most recently to the following work:
 
-    I. Velicogna, Y. Mohajerani, G. A, F. Landerer, J. Mouginot, B. No&euml;l,
+    I. Velicogna, Y. Mohajerani, G. A, F. Landerer, J. Mouginot, B. No\ |euml|\ l,
     E. Rignot, T. C. Sutterley, M. van den Broeke, J. M. van Wessem, and D. Wiese,
     "Continuity of ice sheet mass loss in Greenland and Antarctica from the GRACE
     and GRACE Follow‐On missions", *Geophysical Research Letters*, 47,
@@ -58,3 +58,20 @@ These extension routines are dependent on:
 - `shapely: PostGIS-ish operations outside a database context for Python <http://toblerity.org/shapely/index.html>`_
 - `cdsapi: Python client libraries for the CDS Web API <https://pypi.org/project/cdsapi/>`_
 - `ecmwf-api-client: Python client libraries for the ECMWF Web API <https://software.ecmwf.int/wiki/display/WEBAPI/Web-API+Downloads>`_
+
+Disclaimer
+##########
+This program is not sponsored or maintained by the Universities Space Research Association (USRA),
+the Center for Space Research at the University of Texas (UTCSR),
+the Jet Propulsion Laboratory (JPL),
+the German Research Centre for Geosciences (GeoForschungsZentrum, GFZ) or NASA.
+It is provided here for your convenience but `with no guarantees whatsoever`.
+
+This product includes software developed at:
+
+- University of California, Irvine, Department of Earth System Science
+- Jet Propulsion Laboratory, California Institute of Technology
+- National Aeronautics and Space Administration, Goddard Space Flight Center
+- University of Washington, Applied Physics Laboratory, Polar Science Center
+
+.. |euml|    unicode:: U+00EB .. LATIN SMALL LETTER E WITH DIAERESIS

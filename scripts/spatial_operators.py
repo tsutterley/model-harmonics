@@ -18,6 +18,7 @@ COMMAND LINE OPTIONS:
         multiply
         divide
         mean
+        error
         RMS
     -S X, --spacing X: spatial resolution of input data (dlon,dlat)
     -I X, --interval X: input grid interval
@@ -51,6 +52,7 @@ PROGRAM DEPENDENCIES:
         hdf5_write.py: writes output spatial data to HDF5
 
 UPDATE HISTORY:
+    Updated 02/2021: added variance off mean as estimated error
     Written 02/2021
 """
 from __future__ import print_function
@@ -136,6 +138,25 @@ def spatial_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, DDEG=None,
             output.replace_invalid(output.fill_value,mask=dinput[i].mask)
         #-- convert from total to mean
         output = output.scale(1.0/n_files)
+    elif (OPERATION == 'error'):
+        mean = dinput[0].zeros_like()
+        for i in range(n_files):
+            #-- perform operation
+            mean = mean.offset(dinput[i].data)
+            #-- update mask with values from file
+            mean.replace_invalid(mean.fill_value,mask=dinput[i].mask)
+        #-- convert from total to mean
+        mean = mean.scale(1.0/n_files)
+        #-- use variance off mean as estimated error
+        output = dinput[0].zeros_like()
+        for i in range(n_files):
+            #-- perform operation
+            temp = dinput[i].offset(-mean.data)
+            output = output.offset(temp.power(2.0).data)
+        #-- update mask with values from mean
+        output.replace_invalid(output.fill_value,mask=mean.mask)
+        #-- calculate RMS of mean differences
+        output = output.scale(1.0/(n_files-1.0)).power(0.5)
     elif (OPERATION == 'RMS'):
         output = dinput[0].zeros_like()
         for i in range(n_files):
@@ -182,8 +203,8 @@ def main():
         help='Output file')
     #-- operation to run
     parser.add_argument('--operation','-O',
-        metavar='OPERATION', type=str,
-        choices=['add','subtract','multiply','divide','mean','RMS'],
+        metavar='OPERATION', type=str, required=True,
+        choices=['add','subtract','multiply','divide','mean','error','RMS'],
         help='Operation to run')
     #-- output grid parameters
     parser.add_argument('--spacing','-S',

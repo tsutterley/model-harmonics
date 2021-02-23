@@ -66,6 +66,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 02/2021: can use multiple mask files to create a combined solution
+        replaced numpy bool to prevent deprecation warning
     Updated 01/2021: added more love number options
         set spatial variables for both 025 and 10 cases
         using utilities from time module. added maximum harmonic order option
@@ -131,10 +132,10 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     gridlon,gridlat = np.meshgrid(glon,glat)
 
     #-- read masks for reducing regions before converting to harmonics
-    input_mask = np.zeros((nlat,nlon),dtype=np.bool)
+    input_mask = np.zeros((nlat,nlon),dtype=bool)
     for mask_file in MASKS:
         fileID = netCDF4.Dataset(mask_file,'r')
-        input_mask |= fileID.variables['mask'][:].astype(np.bool)
+        input_mask |= fileID.variables['mask'][:].astype(bool)
         fileID.close()
 
     #-- Earth Parameters

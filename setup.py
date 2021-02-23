@@ -14,6 +14,10 @@ with open("README.md", "r") as fh:
 with open('requirements.txt') as fh:
     install_requires = fh.read().splitlines()
 
+# get version
+with open('version.txt') as fh:
+    version = fh.read()
+
 # list of all scripts to be included with package
 scripts=[]
 for s in ['scripts','ECCO','GLDAS','reanalysis','SMB']:
@@ -21,7 +25,7 @@ for s in ['scripts','ECCO','GLDAS','reanalysis','SMB']:
 
 setup(
     name='model-harmonics',
-    version='1.0.1.22',
+    version=version,
     description=description,
     long_description=long_description,
     long_description_content_type="text/markdown",

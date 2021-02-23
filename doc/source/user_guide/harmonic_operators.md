@@ -22,6 +22,8 @@ python harmonic_operators.py --operation add infile1 infile2 outfile
     * `'divide'`
     * `'mean'`
     * `'destripe'`
+- `-l X`, -`-lmax X`: maximum spherical harmonic degree
+- `-m X`, `--mmax X`: maximum spherical harmonic order
 - `-F X`, `--format X`: input and output data format
     * `'ascii'`
     * `'netCDF4'`

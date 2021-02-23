@@ -103,6 +103,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 02/2021: include GLDAS MOD44W land mask modified for HYMAP
+        replaced numpy bool to prevent deprecation warning
     Updated 01/2021: harmonics object output from gen_stokes.py
     Updated 12/2020: added more love number options
         set spatial variables for both 025 and 10 cases
@@ -205,7 +206,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
 
     #-- read Arctic mask file from gldas_mask_arctic.py
     with netCDF4.Dataset(os.path.join(ddir,arctic_file),'r') as fileID:
-        arctic_mask = fileID.variables['mask'][:].astype(np.bool)
+        arctic_mask = fileID.variables['mask'][:].astype(bool)
 
     #-- shape of the input vegetation_index file
     nlat,nlon = np.shape(vegetation_index)

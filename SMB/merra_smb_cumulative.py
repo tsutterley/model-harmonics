@@ -48,13 +48,14 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
-    Updated 02/2021: sort files by month as September 2020 was reprocessed
+    Updated 02/2021: replaced numpy bool to prevent deprecation warning
+        sort files by month as September 2020 was reprocessed
         https://daac.gsfc.nasa.gov/information/alerts
     Updated 01/2021: use argparse to set command line parameters
         using spatial module for read/write operations
         using utilities from time module
     Updated 10/2019: changing Y/N flags to True/False
-    Updated 01/2017: can output different data products (SMB, PRECIP, RUNOFF)
+    Updated 01/2017: can output different data products
     Written 11/2016
 """
 from __future__ import print_function
@@ -202,7 +203,7 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
                 MM,day=DD,hour=hh,minute=mm,second=ss)
             #-- output data and mask
             dinput.data = np.zeros((nlat,nlon))
-            dinput.mask = np.zeros((nlat,nlon),dtype=np.bool)
+            dinput.mask = np.zeros((nlat,nlon),dtype=bool)
             for key in ['PRECCU','PRECLS','PRECSN','EVAP','RUNOFF']:
                 dinput.mask |= var[key].mask
             #-- valid indices for all variables

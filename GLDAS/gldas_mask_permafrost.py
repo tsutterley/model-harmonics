@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mask_permafrost.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (02/2021)
 
 Creates a mask for GLDAS data based on the permafrost/surface classification
 from the NSIDC Circum-Arctic Map of Permafrost and Ground-Ice Conditions
@@ -46,6 +46,7 @@ REFERENCES:
         ground ice conditions. Boulder, CO: National Snow and Ice Data Center.
 
 UPDATE HISTORY:
+    Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Updated 01/2021: fiona for shapefile read. pyproj for coordinate conversion
     Updated 02/2019: shapely updates for python3 compatibility
     Updated 08/2018: use getopt to set parameters. output a spatial grid
@@ -87,7 +88,7 @@ def gldas_mask_permafrost(ddir, SPACING=None, SHAPEFILE=None, VERBOSE=False,
     dinput['latitude'] = latlimit_south + np.arange(ny)*dy
     #-- read GLDAS mask binary file
     binary_input = np.fromfile(os.path.join(ddir,input_file),'>f4')
-    mask_input = binary_input.reshape(ny,nx).astype(np.bool)
+    mask_input = binary_input.reshape(ny,nx).astype(bool)
     #-- create meshgrid of lat and long
     gridlon,gridlat = np.meshgrid(dinput['longitude'],dinput['latitude'])
     #-- find valid northern hemisphere points from mask input

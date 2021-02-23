@@ -33,6 +33,7 @@ PYTHON DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 02/2021: convert to projection of each shapefile
+        replaced numpy bool to prevent deprecation warning
     Updated 01/2021: use fiona to read from shapefiles
         use pyproj for coordinate conversion
     Updated 02/2019: shapely updates for python3 compatibility
@@ -100,7 +101,7 @@ def gldas_mask_arctic(ddir, SPACING=None, SHAPEFILES=None, AREA=None,
     dinput['latitude'] = latlimit_south + np.arange(ny)*dy
     #-- read GLDAS mask binary file
     binary_input = np.fromfile(os.path.join(ddir,input_file),'>f4')
-    mask_input = binary_input.reshape(ny,nx).astype(np.bool)
+    mask_input = binary_input.reshape(ny,nx).astype(bool)
     #-- find valid points from mask input
     ii,jj = np.nonzero(mask_input)
     valid_count = np.count_nonzero(mask_input)

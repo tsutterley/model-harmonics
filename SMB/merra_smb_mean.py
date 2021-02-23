@@ -48,13 +48,14 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
-    Updated 02/2021: sort files by month as September 2020 was reprocessed
+    Updated 02/2021: replaced numpy bool to prevent deprecation warning
+        sort files by month as September 2020 was reprocessed
         https://daac.gsfc.nasa.gov/information/alerts
     Updated 01/2021: use argparse to set command line parameters
         using spatial module for read/write operations
         using utilities from time module
     Updated 10/2019: changing Y/N flags to True/False
-    Updated 01/2017: can output different data products (SMB, PRECIP, RUNOFF)
+    Updated 01/2017: can output different data products
     Written 11/2016
 """
 from __future__ import print_function
@@ -134,7 +135,7 @@ def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
         fill_value=fill_value)
     #-- output data and mask
     merra_mean.data = np.zeros((nlat,nlon))
-    merra_mean.mask = np.zeros((nlat,nlon),dtype=np.bool)
+    merra_mean.mask = np.zeros((nlat,nlon),dtype=bool)
     merra_mean.time = 0.0
     count = 0.0
     #-- for each input file
@@ -175,7 +176,7 @@ def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
                 MM,day=DD,hour=hh,minute=mm,second=ss)
             #-- output data and mask
             dinput.data = np.zeros((nlat,nlon))
-            dinput.mask = np.zeros((nlat,nlon),dtype=np.bool)
+            dinput.mask = np.zeros((nlat,nlon),dtype=bool)
             for key in ['PRECCU','PRECLS','PRECSN','EVAP','RUNOFF']:
                 dinput.mask |= var[key].mask
             #-- valid indices for all variables

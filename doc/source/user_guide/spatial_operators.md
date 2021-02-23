@@ -21,6 +21,7 @@ python spatial_operators.py --operation add infile1 infile2 outfile
     * `'multiply'`
     * `'divide'`
     * `'mean'`
+    * `'error'`
     * `'RMS'`
 - `-S X`, `--spacing X`: spatial resolution of output data (dlon,dlat)
 - `-I X`, `--interval X`: output grid interval
