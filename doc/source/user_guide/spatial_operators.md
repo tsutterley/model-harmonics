@@ -28,10 +28,13 @@ python spatial_operators.py --operation add infile1 infile2 outfile
     * `1`: (0:360, 90:-90)
     * `2`: (degree spacing/2)
 - `--header X`: number of header rows to skip in input ascii files
-- `-F X`, `--format X`: input and output data format
+- `-F X`, `--format X`: input and output data format (can be a single value for a uniform type or values for each file)
     * `'ascii'`
     * `'netCDF4'`
     * `'HDF5'`
+    * `'index-ascii'`
+    * `'index-netCDF4'`
+    * `'index-HDF5'`
 - `-D`, `--date`: input and output files have date information
 - `-V`, `--verbose`: Output information for each output file
 - `-M X`, `--mode X`: Permission mode of directories and files

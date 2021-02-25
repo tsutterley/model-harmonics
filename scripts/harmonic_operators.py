@@ -51,6 +51,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 02/2021: added options to truncate output to a degree or order
+        add options to read from individual index files
     Written 02/2021
 """
 from __future__ import print_function
@@ -67,6 +68,9 @@ def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
 
     #-- number of input harmonic files
     n_files = len(INPUT_FILES)
+    #-- extend list if a single format was entered for all files
+    if len(DATAFORM) < (n_files+1):
+        DATAFORM = DATAFORM*(n_files+1)
     #-- verify that output directory exists
     DIRECTORY = os.path.abspath(os.path.dirname(OUTPUT_FILE))
     if not os.access(DIRECTORY, os.F_OK):
@@ -76,15 +80,16 @@ def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
     dinput = [None]*n_files
     for i,fi in enumerate(INPUT_FILES):
         #-- read spherical harmonics file in data format
-        if (DATAFORM == 'ascii'):
+        if DATAFORM[i] in ('ascii','netCDF4','HDF5'):
             #-- ascii (.txt)
-            dinput[i] = harmonics().from_ascii(fi,verbose=VERBOSE,date=DATE)
-        elif (DATAFORM == 'netCDF4'):
-            #-- netcdf (.nc)
-            dinput[i] = harmonics().from_netCDF4(fi,verbose=VERBOSE,date=DATE)
-        elif (DATAFORM == 'HDF5'):
+            #-- netCDF4 (.nc)
             #-- HDF5 (.H5)
-            dinput[i] = harmonics().from_HDF5(fi,verbose=VERBOSE,date=DATE)
+            dinput[i] = harmonics().from_file(fi,format=DATAFORM[i],
+                date=DATE, verbose=VERBOSE)
+        elif DATAFORM[i] in ('index-ascii','index-netCDF4','index-HDF5'):
+            #-- read from index file
+            _,dataform = DATAFORM[i].split('-')
+            dinput[i] = harmonics().from_index(fi,format=dataform,date=DATE)
 
     #-- operate on input files
     if (OPERATION == 'add'):
@@ -126,15 +131,15 @@ def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
         output.month = np.copy(dinput[0].month)
 
     #-- write spherical harmonic file in data format
-    if (DATAFORM == 'ascii'):
+    if (DATAFORM[-1] == 'ascii'):
         #-- ascii (.txt)
         print(OUTPUT_FILE) if VERBOSE else None
         output.to_ascii(OUTPUT_FILE,date=DATE)
-    elif (DATAFORM == 'netCDF4'):
+    elif (DATAFORM[-1] == 'netCDF4'):
         #-- netcdf (.nc)
         output.to_netCDF4(OUTPUT_FILE,date=DATE,VERBOSE=VERBOSE,
             TITLE='Output from {0}'.format(os.path.basename(sys.argv[0])))
-    elif (DATAFORM == 'HDF5'):
+    elif (DATAFORM[-1] == 'HDF5'):
         #-- HDF5 (.H5)
         output.to_HDF5(OUTPUT_FILE,date=DATE,VERBOSE=VERBOSE,
             TITLE='Output from {0}'.format(os.path.basename(sys.argv[0])))
@@ -169,8 +174,12 @@ def main():
         type=int, default=None,
         help='Maximum spherical harmonic order')
     #-- input and output data format (ascii, netCDF4, HDF5)
+    choices = []
+    choices.extend(['ascii','netCDF4','HDF5'])
+    choices.extend(['index-ascii','index-netCDF4','index-HDF5'])
     parser.add_argument('--format','-F',
-        type=str, default='netCDF4', choices=['ascii','netCDF4','HDF5'],
+        metavar='FORMAT', type=str, nargs='+',
+        default=['netCDF4'], choices=choices,
         help='Input and output data format')
     #-- Input and output files have date information
     parser.add_argument('--date','-D',

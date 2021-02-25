@@ -24,10 +24,13 @@ python harmonic_operators.py --operation add infile1 infile2 outfile
     * `'destripe'`
 - `-l X`, -`-lmax X`: maximum spherical harmonic degree
 - `-m X`, `--mmax X`: maximum spherical harmonic order
-- `-F X`, `--format X`: input and output data format
+- `-F X`, `--format X`: input and output data format (can be a single value for a uniform type or values for each file)
     * `'ascii'`
     * `'netCDF4'`
     * `'HDF5'`
+    * `'index-ascii'`
+    * `'index-netCDF4'`
+    * `'index-HDF5'`
 - `-D`, `--date`: input and output files have date information
 - `-V`, `--verbose`: Output information for each output file
 - `-M X`, `--mode X`: Permission mode of directories and files
