@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-ecmwf_reanalysis_retrieve.py (01/2021)
+ecmwf_reanalysis_retrieve.py (03/2021)
 Retrieves reanalysis netCDF4 datasets from the ECMWF Web API
 https://software.ecmwf.int/wiki/display/CKB/How+to+download+data+via+the+ECMWF+WebAPI
 https://software.ecmwf.int/wiki/display/WEBAPI/Access+ECMWF+Public+Datasets#AccessECMWFPublicDatasets-key
@@ -34,6 +34,7 @@ PYTHON DEPENDENCIES:
         https://software.ecmwf.int/wiki/display/WEBAPI/Web-API+Downloads
 
 UPDATE HISTORY:
+    Updated 03/2021: added mean sea level pressure (msl) field as output
     Updated 01/2021: added command line options for ECMWF api credentials
     Updated 12/2020: using argparse to set parameters
     Updated 07/2018: close the server connection after completion of program
@@ -43,7 +44,6 @@ UPDATE HISTORY:
 """
 from __future__ import print_function
 
-import sys
 import os
 import argparse
 from ecmwfapi import ECMWFDataServer
@@ -111,24 +111,23 @@ def ecmwf_reanalysis_retrieve(base_dir, server, MODEL, YEAR, INVARIANT=True,
         #-- change the permissions mode to MODE
         os.chmod(os.path.join(ddir,output_surface_file), MODE)
 
-        #-- retrieve model geopotential and pressure at level 1
-        output_geopotential_file = output_filename.format(MODEL,"GPH",y)
+        #-- retrieve the mean sea level pressure field
+        output_pressure_file = output_filename.format(MODEL,"MSL",y)
         server.retrieve({
             "class": model_class,
             "dataset": model_dataset,
             "date": d,
             "expver": "1",
             "grid": model_grid,
-            "levelist": "1",
-            "levtype": "ml",
-            "param": "129.128/152.128",
+            "levtype": "sfc",
+            "param": "151.128",
             "stream": "moda",
             "type": "an",
             "format" : "netcdf",
-            "target": os.path.join(ddir,output_geopotential_file),
+            "target": os.path.join(ddir,output_pressure_file),
         })
         #-- change the permissions mode to MODE
-        os.chmod(os.path.join(ddir,output_geopotential_file), MODE)
+        os.chmod(os.path.join(ddir,output_pressure_file), MODE)
 
         #-- retrieve model temperature and specific humidity
         output_level_file = output_filename.format(MODEL,"Levels",y)

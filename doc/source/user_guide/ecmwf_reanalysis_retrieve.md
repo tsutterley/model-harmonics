@@ -2,6 +2,11 @@ ecmwf_reanalysis_retrieve.py
 ============================
 
 - Retrieves ERA-Interim reanalysis netCDF4 datasets from the ECMWF Web API
+    * 2-metre Temperature (t2m)
+    * Surface Pressure (ps)
+    * Mean Sea Level Pressure (msl)
+    * Temperature (t) and Specific Humidity (q) on Model Levels
+    * Invariant Parameters
 
 #### Calling Sequence
 ```bash

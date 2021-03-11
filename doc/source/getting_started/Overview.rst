@@ -3,12 +3,11 @@ Overview
 ========
 
 This documentation is intended to explain how to compute spherical harmonics from model
-outputs for comparing or correcting GRACE/GRACE-FO time-variable gravity measurements.
+outputs for comparing with or correcting time-variable gravity measurements from the
+`GRACE/GRACE-FO <https://github.com/tsutterley/read-GRACE-harmonics>`_ missions.
 This software was developed with the goal of supporting science applications for
 time-variable gravity.
-`model-harmonics <https://github.com/tsutterley/model-harmonics>`__ consists of
-extension routines for the set of
-`read-GRACE-harmonics <https://github.com/tsutterley/read-GRACE-harmonics>`__ tools.
+The ``model-harmonics`` projects consists of extension routines for the set of ``read-GRACE-harmonics`` tools.
 
 ECCO
 ====
@@ -50,8 +49,10 @@ Ocean bottom pressure anomalies are converted to spherical harmonics following `
             label="Calculate Monthly Anomalies" shape=box style="filled" color="gray"]
         H [URL="https://github.com/tsutterley/model-harmonics/blob/main/ECCO/ecco_monthly_harmonics.py"
             label="Calculate Spherical Harmonics" shape=box style="filled" color="gray"]
-        S [label="Spatial Maps" shape=box style="filled" color="mediumseagreen"]
-        T [label="Time Series" shape=box style="filled" color="mediumseagreen"]
+        S [URL="https://github.com/tsutterley/read-GRACE-harmonics/blob/main/scripts/combine_harmonics.py"
+            label="Spatial Maps" shape=box style="filled" color="mediumseagreen"]
+        T [URL="https://github.com/tsutterley/model-harmonics/blob/main/scripts/least_squares_mascon_timeseries.py"
+            label="Time Series" shape=box style="filled" color="mediumseagreen"]
         E -> M
         M -> R
         E -> R
@@ -100,7 +101,7 @@ Terrestrial water storage anomalies are converted to spherical harmonics followi
             label="Calculate Spherical Harmonics" shape=box style="filled" color="gray"]
         S [URL="https://github.com/tsutterley/read-GRACE-harmonics/blob/main/scripts/combine_harmonics.py"
             label="Spatial Maps" shape=box style="filled" color="mediumseagreen"]
-        T [URL="https://github.com/tsutterley/read-GRACE-harmonics/blob/main/scripts/least_squares_mascon_timeseries.py"
+        T [URL="https://github.com/tsutterley/model-harmonics/blob/main/scripts/least_squares_mascon_timeseries.py"
             label="Time Series" shape=box style="filled" color="mediumseagreen"]
         E -> M
         E -> R
@@ -166,7 +167,7 @@ Anomalies for each reanalysis are calculated relative to a multi-annual mean (su
             label="Calculate Spherical Harmonics" shape=box style="filled" color="gray"]
         S [URL="https://github.com/tsutterley/read-GRACE-harmonics/blob/main/scripts/combine_harmonics.py"
             label="Spatial Maps" shape=box style="filled" color="mediumseagreen"]
-        T [URL="https://github.com/tsutterley/read-GRACE-harmonics/blob/main/scripts/least_squares_mascon_timeseries.py"
+        T [URL="https://github.com/tsutterley/model-harmonics/blob/main/scripts/least_squares_mascon_timeseries.py"
             label="Time Series" shape=box style="filled" color="mediumseagreen"]
         E -> M
         M -> H
@@ -195,7 +196,7 @@ Anomalies for each reanalysis are calculated relative to a multi-annual mean (su
             label="Calculate Spherical Harmonics" shape=box style="filled" color="gray"]
         S [URL="https://github.com/tsutterley/read-GRACE-harmonics/blob/main/scripts/combine_harmonics.py"
             label="Spatial Maps" shape=box style="filled" color="mediumseagreen"]
-        T [URL="https://github.com/tsutterley/read-GRACE-harmonics/blob/main/scripts/least_squares_mascon_timeseries.py"
+        T [URL="https://github.com/tsutterley/model-harmonics/blob/main/scripts/least_squares_mascon_timeseries.py"
             label="Time Series" shape=box style="filled" color="mediumseagreen"]
         E -> G
         L -> G
@@ -240,7 +241,7 @@ Surface mass balance anomalies are converted to spherical harmonics following `W
             label="Calculate Spherical Harmonics" shape=box style="filled" color="gray"]
         S [URL="https://github.com/tsutterley/read-GRACE-harmonics/blob/main/scripts/combine_harmonics.py"
             label="Spatial Maps" shape=box style="filled" color="mediumseagreen"]
-        T [URL="https://github.com/tsutterley/read-GRACE-harmonics/blob/main/scripts/least_squares_mascon_timeseries.py"
+        T [URL="https://github.com/tsutterley/model-harmonics/blob/main/scripts/least_squares_mascon_timeseries.py"
             label="Time Series" shape=box style="filled" color="mediumseagreen"]
         E -> M
         E -> R

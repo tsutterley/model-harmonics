@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-cds_reanalysis_retrieve.py (01/2021)
+cds_reanalysis_retrieve.py (03/2021)
 Retrieves ERA5 reanalysis netCDF4 datasets from the CDS Web API
 https://cds.climate.copernicus.eu/user/register
 https://cds.climate.copernicus.eu/cdsapp/#!/terms/licence-to-use-copernicus-products
@@ -28,6 +28,8 @@ PYTHON DEPENDENCIES:
         https://pypi.org/project/cdsapi/
 
 UPDATE HISTORY:
+    Updated 03/2021: added mean sea level pressure (msl) field as output
+        use netCDF4 variable names for surface and invariant outputs
     Updated 01/2021: added command line options for CDS api credentials
     Updated 12/2020: using argparse to set parameters
     Forked 01/2020 from ecmwf_reanalysis_retrieve.py
@@ -38,7 +40,6 @@ UPDATE HISTORY:
 """
 from __future__ import print_function
 
-import sys
 import os
 import cdsapi
 import argparse
@@ -51,7 +52,6 @@ def cds_reanalysis_retrieve(base_dir, server, YEAR, INVARIANT=True, MODE=0o775):
     model_dataset = "era5"
     model_grid = "0.25/0.25"
     model_levelist = "/".join(['{0:d}'.format(l) for l in range(1,137+1)])
-    model_invariant_date = "2010-01-01"
     #-- output filename structure
     output_filename = "{0}-Monthly-{1}-{2:4d}.nc"
     #-- setup output directory and recursively create if currently non-existent
@@ -60,60 +60,52 @@ def cds_reanalysis_retrieve(base_dir, server, YEAR, INVARIANT=True, MODE=0o775):
 
     #-- for each year
     for y in YEAR:
+        #-- months to retrieve
+        months = ['{0:02d}'.format(m+1) for m in range(12)]
         #-- monthly dates to retrieve
-        d="/".join(['{0:4d}{1:02d}{2:02d}'.format(y,m+1,1) for m in range(12)])
+        d = "/".join(['{0:4d}{1}{2:02d}'.format(y,m,1) for m in months])
 
         #-- retrieve the 2-metre temperature field
         output_temperature_file = output_filename.format(MODEL,"T2m",y)
-        server.retrieve("reanalysis-era5-complete", {
-            "class": model_class,
-            "dataset": model_dataset,
-            "date": d,
-            "expver": "1",
+        server.retrieve('reanalysis-era5-single-levels-monthly-means', {
+            "year": str(y),
+            'month': months,
+            'time': '00:00',
             "grid": model_grid,
-            "levtype": "sfc",
-            "param": "167.128",
-            "stream": "moda",
-            "type": "an",
+            'variable': '2m_temperature',
             "format" : "netcdf",
+            'product_type': 'monthly_averaged_reanalysis',
         }, os.path.join(ddir,output_temperature_file))
         #-- change the permissions mode to MODE
         os.chmod(os.path.join(ddir,output_temperature_file), MODE)
 
         #-- retrieve the surface pressure field
         output_surface_file = output_filename.format(MODEL,"SP",y)
-        server.retrieve("reanalysis-era5-complete", {
-            "class": model_class,
-            "dataset": model_dataset,
-            "date": d,
-            "expver": "1",
+        server.retrieve('reanalysis-era5-single-levels-monthly-means', {
+            "year": str(y),
+            'month': months,
+            'time': '00:00',
             "grid": model_grid,
-            "levtype": "sfc",
-            "param": "134.128",
-            "stream": "moda",
-            "type": "an",
+            'variable': 'surface_pressure',
             "format" : "netcdf",
+            'product_type': 'monthly_averaged_reanalysis',
         }, os.path.join(ddir,output_surface_file))
         #-- change the permissions mode to MODE
         os.chmod(os.path.join(ddir,output_surface_file), MODE)
 
-        #-- retrieve model geopotential and pressure at level 1
-        output_geopotential_file = output_filename.format(MODEL,"GPH",y)
-        server.retrieve("reanalysis-era5-complete", {
-            "class": model_class,
-            "dataset": model_dataset,
-            "date": d,
-            "expver": "1",
+        #-- retrieve the mean sea level pressure field
+        output_pressure_file = output_filename.format(MODEL,"MSL",y)
+        server.retrieve('reanalysis-era5-single-levels-monthly-means', {
+            "year": str(y),
+            'month': months,
+            'time': '00:00',
             "grid": model_grid,
-            "levelist": "1",
-            "levtype": "ml",
-            "param": "129.128/152.128",
-            "stream": "moda",
-            "type": "an",
+            'variable': 'mean_sea_level_pressure',
             "format" : "netcdf",
-        }, os.path.join(ddir,output_geopotential_file))
+            'product_type': 'monthly_averaged_reanalysis',
+        }, os.path.join(ddir,output_pressure_file))
         #-- change the permissions mode to MODE
-        os.chmod(os.path.join(ddir,output_geopotential_file), MODE)
+        os.chmod(os.path.join(ddir,output_pressure_file), MODE)
 
         #-- retrieve model temperature and specific humidity
         output_level_file = output_filename.format(MODEL,"Levels",y)
@@ -136,19 +128,24 @@ def cds_reanalysis_retrieve(base_dir, server, YEAR, INVARIANT=True, MODE=0o775):
     #-- if retrieving the model invariant parameters
     if INVARIANT:
         output_invariant_file = '{0}-Invariant-Parameters.nc'.format(MODEL)
-        server.retrieve("reanalysis-era5-complete", {
+        server.retrieve('reanalysis-era5-single-levels-monthly-means', {
             "class": model_class,
             "dataset": model_dataset,
-            "date": model_invariant_date,
+            'year': '1979',
+            'month': '01',
+            'time': '00:00',
             "expver": "1",
             "grid": model_grid,
             "levtype": "sfc",
-            "param": ("27.128/28.128/29.128/30.128/74.128/129.128/160.128/"
-                "161.128/162.128/163.128/172.128"),
-            "step": "0",
-            "stream": "oper",
-            "time": "12:00:00",
-            "type": "an",
+            'variable': [
+                'angle_of_sub_gridscale_orography',
+                'anisotropy_of_sub_gridscale_orography',
+                'land_sea_mask','orography',
+                'slope_of_sub_gridscale_orography',
+                'standard_deviation_of_filtered_subgrid_orography',
+                'standard_deviation_of_orography',
+            ],
+            'product_type': 'monthly_averaged_reanalysis',
             "format" : "netcdf",
         }, os.path.join(ddir,output_invariant_file))
         #-- change the permissions mode to MODE

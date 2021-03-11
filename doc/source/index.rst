@@ -13,6 +13,7 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     getting_started/Install.rst
     getting_started/Overview.rst
     getting_started/NASA-Earthdata.rst
+    getting_started/Contributing.rst
     getting_started/Citations.rst
 
 .. toctree::
