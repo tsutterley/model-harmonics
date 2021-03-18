@@ -23,33 +23,31 @@ General Methods
 
     Arguments:
 
-        `HOST`: remote http host path split as list
+        ``HOST``: remote http host path split as list
 
     Keyword arguments:
 
-        `username`: NASA Earthdata username
+        ``username``: NASA Earthdata username
 
-        `password`: NASA Earthdata password
+        ``password``: NASA Earthdata password
 
-        `build`: Build opener with NASA Earthdata credentials
+        ``build``: Build opener with NASA Earthdata credentials
 
-        `urs`: Earthdata login URS 3 host
+        ``urs``: Earthdata login URS 3 host
 
-        `timeout`: timeout in seconds for blocking operations
+        ``timeout``: timeout in seconds for blocking operations
 
-        `parser`: HTML parser for lxml
+        ``parser``: HTML parser for lxml
 
-        `format`: format for input time string
+        ``format``: format for input time string
 
-        `pattern`: regular expression pattern for reducing list
+        ``pattern``: regular expression pattern for reducing list
 
-        `sort`: sort output list
+        ``sort``: sort output list
 
     Returns:
 
-        `colnames`: list of column names in a directory
+        ``colnames``: list of column names in a directory
 
-        `collastmod`: list of last modification times for items in the directory
-
-
+        ``collastmod``: list of last modification times for items in the directory
 

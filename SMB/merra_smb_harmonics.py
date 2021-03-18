@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_harmonics.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (03/2021)
 Reads monthly MERRA-2 surface mass balance anomalies and
     converts to spherical harmonic coefficients
 
@@ -65,6 +65,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 03/2021: automatically update years to run based on current time
     Updated 02/2021: can use multiple mask files to create a combined solution
         replaced numpy bool to prevent deprecation warning
     Updated 01/2021: added more love number options
@@ -86,12 +87,12 @@ import re
 import netCDF4
 import argparse
 import numpy as np
+import gravity_toolkit.time
 from gravity_toolkit.read_love_numbers import read_love_numbers
 from gravity_toolkit.harmonics import harmonics
 from gravity_toolkit.spatial import spatial
 from gravity_toolkit.plm_holmes import plm_holmes
 from gravity_toolkit.gen_stokes import gen_stokes
-from gravity_toolkit.time import convert_calendar_decimal
 from gravity_toolkit.utilities import get_data_path
 from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
 
@@ -247,7 +248,7 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
         MOD,grace_month=np.array(re.findall(output_regex,fi).pop(),dtype=np.int)
         YY = 2002.0 + np.floor((grace_month-1)/12.0)
         MM = ((grace_month-1) % 12) + 1
-        tdec, = convert_calendar_decimal(YY, MM)
+        tdec, = gravity_toolkit.time.convert_calendar_decimal(YY, MM)
         #-- full path to output file
         full_output_file = os.path.join(ddir,output_sub,fi)
         #-- print date, GRACE month and calendar month to date file
@@ -340,8 +341,9 @@ def main():
         default=[1980,1995],
         help='Start and end year range for mean')
     #-- years to run
+    now = gravity_toolkit.time.datetime.datetime.now()
     parser.add_argument('--year','-Y',
-        type=int, nargs='+', default=range(2000,2021),
+        type=int, nargs='+', default=range(2000,now.year+1),
         help='Years of model outputs to run')
     #-- region name for subdirectory
     parser.add_argument('--region','-R',

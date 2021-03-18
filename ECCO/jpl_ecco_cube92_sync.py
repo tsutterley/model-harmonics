@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 jpl_ecco_cube92_sync.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (03/2021)
 
 Converts ECCO2 Cube92 daily model outputs from the NASA JPL ECCO2 server
     into monthly averages
@@ -55,6 +55,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 03/2021: automatically update years to run based on current time
     Updated 01/2021 for public release.
     Updated 10/2020: use argparse to set command line parameters
     Updated 08/2020: flake8 compatible regular expression strings
@@ -198,8 +199,9 @@ def main():
         default=os.getcwd(),
         help='Working data directory')
     #-- ECCO model years to sync
+    now = gravity_toolkit.time.datetime.datetime.now()
     parser.add_argument('--year','-Y',
-        type=int, nargs='+', default=range(2000,2021),
+        type=int, nargs='+', default=range(2000,now.year+1),
         help='Years to sync')
     #-- ECCO model product to sync
     parser.add_argument('--product', '-P',

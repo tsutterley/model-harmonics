@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 noaa_cdc_ncep_ftp.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (03/2021)
 Syncs NOAA-DOE-2 surface reanalysis outputs with the NOAA CDC ftp server
     ftp://ftp.cdc.noaa.gov/Datasets/ncep.reanalysis2.dailyavgs/surface/
 
@@ -33,6 +33,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 03/2021: automatically update years to run based on current time
     Updated 12/2020: using utilities module to list and retrieve from ftp
     Written 09/2019
 """
@@ -118,8 +119,9 @@ def main():
         default=os.getcwd(),
         help='Working data directory')
     #-- years to retrieve
+    now = time.gmtime()
     parser.add_argument('--year','-Y',
-        type=int, default=range(2000,2018), nargs='+',
+        type=int, nargs='+', default=range(2000,now.tm_year+1),
         help='Model years to retrieve')
     #-- retrieve the model land surface mask (land.nc)
     parser.add_argument('--mask','-m',

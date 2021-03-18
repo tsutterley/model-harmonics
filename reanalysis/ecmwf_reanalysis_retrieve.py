@@ -35,6 +35,7 @@ PYTHON DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 03/2021: added mean sea level pressure (msl) field as output
+        automatically update years to run based on current time
     Updated 01/2021: added command line options for ECMWF api credentials
     Updated 12/2020: using argparse to set parameters
     Updated 07/2018: close the server connection after completion of program
@@ -45,6 +46,7 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import os
+import time
 import argparse
 from ecmwfapi import ECMWFDataServer
 
@@ -199,8 +201,9 @@ def main():
         default=os.getcwd(),
         help='Working data directory')
     #-- years to retrieve
+    now = time.gmtime()
     parser.add_argument('--year','-Y',
-        type=int, default=range(2000,2018), nargs='+',
+        type=int, nargs='+', default=range(2000,now.tm_year+1),
         help='Model years to retrieve')
     #-- retrieve the model invariant parameters
     parser.add_argument('--invariant','-I',

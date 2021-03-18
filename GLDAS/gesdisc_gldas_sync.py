@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_gldas_sync.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (03/2021)
 
 Syncs GLDAS monthly datafiles from the Goddard Earth Sciences Data and
     Information Server Center (GES DISC)
@@ -62,6 +62,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 03/2021: automatically update years to run based on current time
     Updated 01/2021: moved gesdisc_list to utilities module
     Updated 10/2020: use argparse to set command line parameters
     Updated 09/2020: using utilities program to build opener
@@ -262,8 +263,9 @@ def main():
         default=os.getcwd(),
         help='Working data directory')
     #-- years to download
+    now = time.gmtime()
     parser.add_argument('--year','-Y',
-        type=int, nargs='+', default=range(2000,2021),
+        type=int, nargs='+', default=range(2000,now.tm_year+1),
         help='Years of model outputs to sync')
     #-- GLDAS model version
     parser.add_argument('--version','-v',

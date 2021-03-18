@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 calculate_monthly_pressure.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (03/2021)
 Reads daily atmospheric pressure fields from reanalysis and outputs monthly averages
 
 INPUTS:
@@ -34,6 +34,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 03/2021: automatically update years to run based on current time
     Updated 12/2020: using argparse to set command line options
         using spatial module for operations
     Updated 01/2020: changed year option to be specific years to run
@@ -173,8 +174,9 @@ def main():
         default=os.getcwd(),
         help='Working data directory')
     #-- years to run
+    now = gravity_toolkit.time.datetime.datetime.now()
     parser.add_argument('--year','-Y',
-        type=int, nargs='+', default=range(2000,2021),
+        type=int, nargs='+', default=range(2000,now.year+1),
         help='Years of model outputs to run')
     #-- print information about each input and output file
     parser.add_argument('--verbose','-V',

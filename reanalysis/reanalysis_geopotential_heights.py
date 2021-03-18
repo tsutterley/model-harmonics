@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_geopotential_heights.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (03/2021)
 Reads temperature and specific humidity data to calculate geopotential height
     and pressure difference fields at half levels from reanalysis
 
@@ -25,6 +25,7 @@ PYTHON DEPENDENCIES:
         https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 03/2021: automatically update years to run based on current time
     Updated 01/2021: read from netCDF4 file in slices to reduce memory load
     Updated 12/2020: using argparse to set command line options
     Updated 01/2020: outputs variables as 32-bit floats instead of 64-bit floats
@@ -38,6 +39,7 @@ from __future__ import print_function
 
 import os
 import re
+import time
 import netCDF4
 import argparse
 import numpy as np
@@ -332,8 +334,9 @@ def main():
         default=os.getcwd(),
         help='Working data directory')
     #-- years to run
+    now = time.gmtime()
     parser.add_argument('--year','-Y',
-        type=int, nargs='+', default=range(2000,2021),
+        type=int, nargs='+', default=range(2000,now.tm_year+1),
         help='Years of model outputs to run')
     #-- print information about each input and output file
     parser.add_argument('--verbose','-V',

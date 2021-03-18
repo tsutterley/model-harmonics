@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_read_version4.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (03/2021)
 
 Calculates monthly ocean bottom pressure anomalies from ECCO Version 4 models
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
@@ -63,6 +63,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 03/2021: automatically update years to run based on current time
     Updated 12/2020: use argparse to set command line parameters
         using spatial module for read/write operations
         using utilities from time module
@@ -270,8 +271,9 @@ def main():
         default=os.getcwd(),
         help='Working data directory')
     #-- years to run
+    now = gravity_toolkit.time.datetime.datetime.now()
     parser.add_argument('--year','-Y',
-        type=int, nargs='+', default=range(2000,2021),
+        type=int, nargs='+', default=range(2000,now.year+1),
         help='Years of model outputs to run')
     #-- start and end years to run for mean
     parser.add_argument('--mean','-m',

@@ -24,11 +24,17 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     user_guide/gen_atmosphere_stokes.md
     user_guide/gen_point_pressure.md
     user_guide/gen_pressure_stokes.md
+    user_guide/utilities.rst
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+    :caption: Utilities
+
     user_guide/harmonic_operators.md
     user_guide/least_squares_mascons.md
     user_guide/least_squares_mascon_timeseries.md
     user_guide/spatial_operators.md
-    user_guide/utilities.rst
 
 .. toctree::
     :maxdepth: 1

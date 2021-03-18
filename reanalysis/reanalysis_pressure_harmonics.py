@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_pressure_harmonics.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (03/2021)
 Reads atmospheric surface pressure fields from reanalysis and calculates sets of
     spherical harmonics using a thin-layer 2D geometry with realistic earth
 
@@ -75,6 +75,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 03/2021: automatically update years to run based on current time
     Updated 02/2021: separate inputs to gen_pressure_stokes
     Updated 01/2021: outputs from gen_pressure_stokes are now harmonics objects
     Updated 12/2020: using argparse to set command line options
@@ -514,8 +515,9 @@ def main():
         default=os.getcwd(),
         help='Working data directory')
     #-- years to run
+    now = gravity_toolkit.time.datetime.datetime.now()
     parser.add_argument('--year','-Y',
-        type=int, nargs='+', default=range(2000,2021),
+        type=int, nargs='+', default=range(2000,now.year+1),
         help='Years of model outputs to run')
     #-- start and end years to run for mean
     parser.add_argument('--mean',

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_read_monthly.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (03/2021)
 
 Reads GLDAS monthly datafiles from http://ldas.gsfc.nasa.gov/gldas/
 Adding Soil Moisture, snow water equivalent (SWE) and total canopy storage
@@ -82,6 +82,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 03/2021: automatically update years to run based on current time
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Updated 12/2020: set spatial variables for both 025 and 10 cases
         using utilities from time module
@@ -95,7 +96,12 @@ UPDATE HISTORY:
         changing Y/N flags to True/False
     Updated 06/2018: using python3 compatible octal and input
     Updated 03/2018: include estimates of total canopy water storage
-    Written 03/2018
+    Updated 06/2016: updated to use __future__ print function
+        can output different GLDAS mean fields
+    Updated 05/2015-06/2015: code update using regular expressions and no glob
+        added DATAFORM for output ascii and HDF5 formats
+    Updated 02/2014 with quick updates but should be fully updated
+    Written 04/2013
 """
 from __future__ import print_function
 
@@ -106,8 +112,8 @@ import pygrib
 import netCDF4
 import argparse
 import numpy as np
+import gravity_toolkit.time
 from gravity_toolkit.spatial import spatial
-from gravity_toolkit.time import convert_calendar_decimal
 
 #-- GLDAS models
 gldas_products = {}
@@ -210,7 +216,8 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
                 #-- set the mask for valid points
                 twc.mask[ii,jj] = False
                 #-- calculate date
-                twc.time = convert_calendar_decimal(np.int(YY),np.int(MM))
+                twc.time = gravity_toolkit.time.convert_calendar_decimal(
+                    np.int(YY),np.int(MM))
 
                 #-- output to file
                 if (DATAFORM == 'ascii'):
@@ -328,8 +335,9 @@ def main():
         default=os.getcwd(),
         help='Working data directory')
     #-- years to run
+    now = gravity_toolkit.time.datetime.datetime.now()
     parser.add_argument('--year','-Y',
-        type=int, nargs='+', default=range(2000,2021),
+        type=int, nargs='+', default=range(2000,now.year+1),
         help='Years of model outputs to run')
     #-- start and end years to run for mean
     parser.add_argument('--mean','-m',

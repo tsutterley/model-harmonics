@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_monthly_harmonics.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (03/2021)
 
 Reads monthly GLDAS total water storage anomalies and converts to
     spherical harmonic coefficients
@@ -102,6 +102,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 03/2021: automatically update years to run based on current time
     Updated 02/2021: include GLDAS MOD44W land mask modified for HYMAP
         replaced numpy bool to prevent deprecation warning
     Updated 01/2021: harmonics object output from gen_stokes.py
@@ -135,12 +136,12 @@ import re
 import netCDF4
 import argparse
 import numpy as np
+import gravity_toolkit.time
 from gravity_toolkit.read_love_numbers import read_love_numbers
 from gravity_toolkit.harmonics import harmonics
 from gravity_toolkit.spatial import spatial
 from gravity_toolkit.plm_holmes import plm_holmes
 from gravity_toolkit.gen_stokes import gen_stokes
-from gravity_toolkit.time import convert_calendar_decimal
 from gravity_toolkit.utilities import get_data_path
 from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
 
@@ -299,7 +300,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
         gldas_Ylms = gen_stokes(gldas_data.data, glon, latitude_geocentric[:,0],
             LMAX=LMAX, MMAX=MMAX, PLM=PLM, LOVE=LOVE)
         #-- calculate date information
-        gldas_Ylms.time, = convert_calendar_decimal(YY,MM)
+        gldas_Ylms.time, = gravity_toolkit.time.convert_calendar_decimal(YY,MM)
         #-- calculate GRACE/GRACE-FO month
         gldas_Ylms.month = np.int(12.0*(YY - 2002.0) + MM)
 
@@ -341,7 +342,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
         grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int)
         YY = 2002.0 + np.floor((grace_month-1)/12.0)
         MM = ((grace_month-1) % 12) + 1
-        tdec, = convert_calendar_decimal(YY, MM)
+        tdec, = gravity_toolkit.time.convert_calendar_decimal(YY, MM)
         #-- full path to output file
         full_output_file = os.path.join(ddir,output_sub,fi)
         #-- print date, GRACE month and calendar month to date file
@@ -464,8 +465,9 @@ def main():
         default=os.getcwd(),
         help='Working data directory')
     #-- years to run
+    now = gravity_toolkit.time.datetime.datetime.now()
     parser.add_argument('--year','-Y',
-        type=int, nargs='+', default=range(2000,2021),
+        type=int, nargs='+', default=range(2000,now.year+1),
         help='Years of model outputs to run')
     #-- GLDAS model version
     parser.add_argument('--version','-v',

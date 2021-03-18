@@ -30,6 +30,7 @@ PYTHON DEPENDENCIES:
 UPDATE HISTORY:
     Updated 03/2021: added mean sea level pressure (msl) field as output
         use netCDF4 variable names for surface and invariant outputs
+        automatically update years to run based on current time
     Updated 01/2021: added command line options for CDS api credentials
     Updated 12/2020: using argparse to set parameters
     Forked 01/2020 from ecmwf_reanalysis_retrieve.py
@@ -41,6 +42,7 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import os
+import time
 import cdsapi
 import argparse
 
@@ -173,8 +175,9 @@ def main():
         default=os.getcwd(),
         help='Working data directory')
     #-- years to retrieve
+    now = time.gmtime()
     parser.add_argument('--year','-Y',
-        type=int, default=range(2000,2021), nargs='+',
+        type=int, nargs='+', default=range(2000,now.tm_year+1),
         help='Model years to retrieve')
     #-- retrieve the model invariant parameters
     parser.add_argument('--invariant','-I',

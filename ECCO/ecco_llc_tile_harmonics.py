@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_llc_tile_harmonics.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (03/2021)
 Reads monthly ECCO ocean bottom pressure anomalies from LLC tiles
     and converts to spherical harmonic coefficients
 
@@ -68,6 +68,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 03/2021: automatically update years to run based on current time
     Written 02/2021
 """
 from __future__ import print_function
@@ -351,8 +352,9 @@ def main():
         default=os.getcwd(),
         help='Working data directory')
     #-- years to run
+    now = gravity_toolkit.time.datetime.datetime.now()
     parser.add_argument('--year','-Y',
-        type=int, nargs='+', default=range(2000,2021),
+        type=int, nargs='+', default=range(2000,now.year+1),
         help='Years of model outputs to run')
     #-- maximum spherical harmonic degree and order
     parser.add_argument('--lmax','-l',
