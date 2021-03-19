@@ -86,6 +86,7 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     user_guide/model_level_coefficients.md
     user_guide/reanalysis_atmospheric_harmonics.md
     user_guide/reanalysis_geopotential_heights.md
+    user_guide/reanalysis_inverse_barometer.md
     user_guide/reanalysis_mean_harmonics.md
     user_guide/reanalysis_mean_pressure.md
     user_guide/reanalysis_monthly_harmonics.md
