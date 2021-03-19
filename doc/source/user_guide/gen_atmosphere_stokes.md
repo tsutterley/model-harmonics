@@ -13,13 +13,13 @@ Ylms = gen_atmosphere_stokes(GPH, pressure, lon, lat, LMAX=LMAX,
 ```
 [Source code](https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/gen_atmosphere_stokes.py)
 
-#### Inputs
+#### Arguments
 - `GPH`: geopotential heights at model levels
 - `pressure`: pressure differences between model levels
 - `lon`: longitude array
 - `lat`: latitude array
 
-#### Options
+#### Keyword arguments
 - `LMAX`:  maximum spherical harmonic degree of the output harmonics
 - `MMAX`: maximum spherical harmonic order of the output harmonics
 - `ELLIPSOID`: reference ellipsoid name
@@ -30,7 +30,7 @@ Ylms = gen_atmosphere_stokes(GPH, pressure, lon, lat, LMAX=LMAX,
     * `'SW02'`: [Swenson and Wahr (2002)](https://doi.org/10.1029/2000JB000024)
     * `'BC05'`: [Boy and Chao (2005)](https://doi.org/10.1029/2002JB002333)
 
-#### Outputs
+#### Returns
 - `clm`: Cosine spherical harmonic coefficients (geodesy normalization)
 - `slm`: Sine spherical harmonic coefficients (geodesy normalization)
 - `l`: spherical harmonic degree to LMAX

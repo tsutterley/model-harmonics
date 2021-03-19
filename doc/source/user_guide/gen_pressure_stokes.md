@@ -25,7 +25,7 @@ Ylms = gen_pressure_stokes(P, G, R, lon, lat, LMAX=LMAX, PLM=PLM, LOVE=(hl,kl,ll
  - `PLM`: input Legendre polynomials (for improving computational time)
  - `LOVE`: input load Love numbers up to degree of truncation
 
-#### Outputs
+#### Returns
  - `clm`: Cosine spherical harmonic coefficients (geodesy normalization)
  - `slm`: Sine spherical harmonic coefficients (geodesy normalization)
  - `l`: spherical harmonic degree to LMAX

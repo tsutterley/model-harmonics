@@ -10,20 +10,20 @@ Ylms = gen_point_pressure(P, G, R, lon, lat, AREA=AREA, LMAX=LMAX, LOVE=(hl,kl,l
 ```
 [Source code](https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/gen_point_pressure.py)
 
-#### Inputs
+#### Arguments
  - `P`: Pressure (Pa)
  - `G`: Gravitational acceleration (m/s<sup>2</sup>)
  - `R`: Earth's radius at each data point (m)
  - `lon`: longitude of points
  - `lat`: latitude of points
 
-#### Options
+#### Keyword arguments
  - `AREA`: Area of each pressure cell (m<sup>2</sup>)
  - `LMAX`:  maximum spherical harmonic degree of the output harmonics
  - `MMAX`: maximum spherical harmonic order of the output harmonics
  - `LOVE`: input load Love numbers up to degree of truncation
 
-#### Outputs
+#### Returns
  - `clm`: Cosine spherical harmonic coefficients (geodesy normalization)
  - `slm`: Sine spherical harmonic coefficients (geodesy normalization)
  - `l`: spherical harmonic degree to LMAX
