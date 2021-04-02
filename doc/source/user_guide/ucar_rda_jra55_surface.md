@@ -17,6 +17,7 @@ python ucar_rda_jra55_surface.py --directory <path_to_directory> links_list_file
 
 #### Command Line Options
 - `-U X`, `--user X`: Username for UCAR/NCAR RDA login
+- `-P X`, `--password X`: Password for UCAR/NCAR RDA login
 - `-N X`, `--netrc X`: Path to .netrc file for authentication
 - `-D X`, `--directory X:` Full path to output directory
 - `-Y X`, `--year X`: Years to download from input links file
