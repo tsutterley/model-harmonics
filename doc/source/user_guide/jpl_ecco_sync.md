@@ -16,6 +16,7 @@ python jpl_ecco_sync.py --directory <path_to_directory> kf080i dr080i
 
 #### Command Line Options
 - `-U X`, `--user X`: username for NASA Earthdata Login
+- `-W X`, `--webdav X`: WebDAV password for JPL ECCO Drive Login
 - `-N X`, `--netrc X`: path to .netrc file for authentication
 - `-D X`, `--directory X`: working data directory
 - `-Y X`, `--year X`: Years to sync

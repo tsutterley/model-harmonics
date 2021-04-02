@@ -14,6 +14,7 @@ python gesdisc_merra_download.py --directory <path_to_directory> links_list_file
 
 #### Command Line Options
 - `-U X`, `--user X`: username for NASA Earthdata Login
+- `-P X`, `--password X`: Password for NASA Earthdata Login
 - `-N X`, `--netrc X`: path to .netrc file for authentication
 - `-D X`, `--directory X`: working data directory
 - `-l`, `--log`: output log of files downloaded

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ucar_rda_jra55_surface.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (04/2021)
 
 This program downloads JRA-55 products using a links list provided by the
     NCAR/UCAR Research Data Archive (RDA): https://rda.ucar.edu/
@@ -26,6 +26,7 @@ INPUTS:
 COMMAND LINE OPTIONS:
     --help: list the command line options
     -U X, --user X: Username for UCAR/NCAR RDA login
+    -P X, --password X: Password for UCAR/NCAR RDA login
     -N X, --netrc X: Path to .netrc file for authentication
     -D X, --directory X: Full path to output directory
     -Y X, --year X: Years to download from input links file
@@ -55,6 +56,8 @@ PROGRAM DEPENDENCIES:
         hdf5_write.py: writes output spatial data to HDF5
 
 UPDATE HISTORY:
+    Updated 04/2021: set a default netrc file and check access
+        default credentials from environmental variables
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Updated 12/2020: using time, spatial and utilities modules
     Updated 08/2019: option GZIP to specify if data in links list is compressed
@@ -300,12 +303,16 @@ def main():
     parser.add_argument('file',
         type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='+',
         help='UCAR links list file')
-    #-- NASA Earthdata credentials
+    #-- UCAR/NCAR RDA credentials
     parser.add_argument('--user','-U',
-        type=str, default='',
+        type=str, default=os.environ.get('UCAR_RDA_USERNAME'),
         help='Username for UCAR/NCAR RDA Login')
+    parser.add_argument('--password','-P',
+        type=str, default=os.environ.get('UCAR_RDA_PASSWORD'),
+        help='Password for UCAR/NCAR RDA Login')
     parser.add_argument('--netrc','-N',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        default=os.path.join(os.path.expanduser('~'),'.netrc'),
         help='Path to .netrc file for authentication')
     #-- working data directory
     parser.add_argument('--directory','-D',
@@ -338,26 +345,26 @@ def main():
     #-- UCAR/NCAR RDA hostname
     HOST = 'rda.ucar.edu'
     #-- get UCAR/NCAR RDA credentials
-    if not args.user and not args.netrc:
+    if not args.user and not os.access(args.netrc,os.F_OK):
         #-- check that UCAR/NCAR RDA credentials were entered
         args.user=builtins.input('Username for {0}: '.format(HOST))
         #-- enter password securely from command-line
-        PASSWORD=getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
-    elif args.netrc:
-        args.user,LOGIN,PASSWORD=netrc.netrc(args.netrc).authenticators(HOST)
-    else:
+        args.password=getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
+    elif not args.user and os.access(args.netrc,os.F_OK):
+        args.user,_,args.password=netrc.netrc(args.netrc).authenticators(HOST)
+    elif not args.password:
         #-- enter password securely from command-line
-        PASSWORD=getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
+        args.password=getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
 
     #-- Build opener with cookie jar for storing cookies
     #-- This is used to store and return the session cookie given
     #-- to use by the data server
-    gravity_toolkit.utilities.build_opener(args.user, PASSWORD,
+    gravity_toolkit.utilities.build_opener(args.user, args.password,
         password_manager=False, get_ca_certs=False, redirect=False,
         authorization_header=False, urs=HOST)
     #-- post authorization header to retrieve cookies
     data = gravity_toolkit.utilities.urlencode(
-        dict(email=args.user, passwd=PASSWORD, action='login')).encode("utf-8")
+        dict(email=args.user, passwd=args.password, action='login')).encode("utf-8")
     request = gravity_toolkit.utilities.urllib2.Request(
         'https://rda.ucar.edu/cgi-bin/login',data=data)
     response = gravity_toolkit.utilities.urllib2.urlopen(request,timeout=20)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_gldas_sync.py
-Written by Tyler Sutterley (03/2021)
+Written by Tyler Sutterley (04/2021)
 
 Syncs GLDAS monthly datafiles from the Goddard Earth Sciences Data and
     Information Server Center (GES DISC)
@@ -30,6 +30,7 @@ INPUTS:
 COMMAND LINE OPTIONS:
     --help: list the command line options
     -U X, --user X: username for NASA Earthdata Login
+    -P X, --password X: password for NASA Earthdata Login
     -N X, --netrc X: path to .netrc file for authentication
     -D X, --directory X: working data directory
     -Y X, --year X: years to sync
@@ -62,6 +63,8 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 04/2021: set a default netrc file and check access
+        default credentials from environmental variables
     Updated 03/2021: automatically update years to run based on current time
     Updated 01/2021: moved gesdisc_list to utilities module
     Updated 10/2020: use argparse to set command line parameters
@@ -252,10 +255,14 @@ def main():
         help='GLDAS land surface model')
     #-- NASA Earthdata credentials
     parser.add_argument('--user','-U',
-        type=str, default='',
+        type=str, default=os.environ.get('EARTHDATA_USERNAME'),
         help='Username for NASA Earthdata Login')
+    parser.add_argument('--password','-P',
+        type=str, default=os.environ.get('EARTHDATA_PASSWORD'),
+        help='Password for NASA Earthdata Login')
     parser.add_argument('--netrc','-N',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        default=os.path.join(os.path.expanduser('~'),'.netrc'),
         help='Path to .netrc file for authentication')
     #-- working data directory
     parser.add_argument('--directory','-D',
@@ -308,20 +315,20 @@ def main():
     #-- NASA Earthdata hostname
     URS = 'urs.earthdata.nasa.gov'
     #-- get NASA Earthdata credentials
-    if not args.user and not args.netrc:
+    if not args.user and not os.access(args.netrc,os.F_OK):
         #-- check that NASA Earthdata credentials were entered
         args.user = builtins.input('Username for {0}: '.format(URS))
         #-- enter password securely from command-line
-        PASSWORD=getpass.getpass('Password for {0}@{1}: '.format(args.user,URS))
-    elif args.netrc:
-        args.user,_,PASSWORD = netrc.netrc(args.netrc).authenticators(URS)
+        args.password=getpass.getpass('Password for {0}@{1}: '.format(args.user,URS))
+    elif not args.user and os.access(args.netrc,os.F_OK):
+        args.user,_,args.password = netrc.netrc(args.netrc).authenticators(URS)
     else:
         #-- enter password securely from command-line
-        PASSWORD=getpass.getpass('Password for {0}@{1}: '.format(args.user,URS))
+        args.password=getpass.getpass('Password for {0}@{1}: '.format(args.user,URS))
 
     #-- build a urllib opener for NASA GESDISC
     #-- Add the username and password for NASA Earthdata Login system
-    model_harmonics.utilities.build_opener(args.user, PASSWORD,
+    model_harmonics.utilities.build_opener(args.user, args.password,
         password_manager=True, authorization_header=False)
 
     #-- check internet connection before attempting to run program

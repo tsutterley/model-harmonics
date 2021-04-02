@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 jpl_ecco_webdav.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (04/2021)
 
 Retrieves and prints a user's JPL ECCO Drive WebDAV credentials
 
@@ -45,6 +45,8 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 04/2021: set a default netrc file and check access
+        default credentials from environmental variables
     Written 12/2020 for public release
 """
 from __future__ import print_function
@@ -61,7 +63,7 @@ import lxml.etree
 import gravity_toolkit.utilities
 
 #-- PURPOSE: retrieve JPL ECCO Drive WebDAV credentials
-def jpl_ecco_webdav(USER, PASSWORD, parser):
+def jpl_ecco_webdav(USER, PASSWORD, parser=lxml.etree.HTMLParser()):
     #-- build opener for retrieving JPL ECCO Drive WebDAV credentials
     #-- Add the username and password for NASA Earthdata Login system
     URS = 'https://urs.earthdata.nasa.gov'
@@ -100,10 +102,14 @@ def main():
     #-- command line parameters
     #-- NASA Earthdata credentials
     parser.add_argument('--user','-U',
-        type=str, default='',
+        type=str, default=os.environ.get('EARTHDATA_USERNAME'),
         help='Username for NASA Earthdata Login')
+    parser.add_argument('--password','-P',
+        type=str, default=os.environ.get('EARTHDATA_PASSWORD'),
+        help='Password for NASA Earthdata Login')
     parser.add_argument('--netrc','-N',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        default=os.path.join(os.path.expanduser('~'),'.netrc'),
         help='Path to .netrc file for authentication')
     #-- append to netrc
     parser.add_argument('--append','-A',
@@ -116,16 +122,16 @@ def main():
     #-- JPL JPL ECCO drive hostname
     HOST = 'ecco.jpl.nasa.gov'
     #-- get NASA Earthdata credentials
-    if not args.user and not args.netrc:
+    if not args.user and not os.access(args.netrc,os.F_OK):
         #-- check that NASA Earthdata credentials were entered
         args.user=builtins.input('Username for {0}: '.format(URS))
         #-- enter password securely from command-line
-        PASSWORD=getpass.getpass('Password for {0}@{1}: '.format(args.user,URS))
-    elif args.netrc:
-        args.user,LOGIN,PASSWORD=netrc.netrc(args.netrc).authenticators(URS)
+        args.password=getpass.getpass('Password for {0}@{1}: '.format(args.user,URS))
+    elif not args.user and os.access(args.netrc,os.F_OK):
+        args.user,_,args.password=netrc.netrc(args.netrc).authenticators(URS)
     else:
         #-- enter password securely from command-line
-        PASSWORD=getpass.getpass('Password for {0}@{1}: '.format(args.user,URS))
+        args.password=getpass.getpass('Password for {0}@{1}: '.format(args.user,URS))
     #-- if appending to netrc file and not entered: use default file
     if args.append and not args.netrc:
         args.netrc = os.path.join(os.path.expanduser('~'),'.netrc')
@@ -134,7 +140,7 @@ def main():
     DRIVE = posixpath.join('https://ecco.jpl.nasa.gov','drive')
     if gravity_toolkit.utilities.check_connection(DRIVE):
         #-- compile HTML parser for lxml
-        WEBDAV = jpl_ecco_webdav(args.user, PASSWORD, lxml.etree.HTMLParser())
+        WEBDAV = jpl_ecco_webdav(args.user, args.password)
         #-- output to terminal or append to netrc file
         a = (args.user,HOST,WEBDAV)
         if args.append:

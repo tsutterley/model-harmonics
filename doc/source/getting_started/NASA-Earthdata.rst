@@ -44,14 +44,21 @@ Steps to Sync from GES DISC and PO.DAAC
 5. Retrieve `WebDAV password <https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_webdav.py>`_ to access ECCO servers
 6. Sync `near real-time <https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_sync.py>`_ or `version 4 <https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_v4_sync.py>`_ data
 
-
-Can also create a ``.netrc`` file for permanently storing NASA Earthdata and WebDAV credentials:
+Can also create a ``.netrc`` file for permanently storing NASA Earthdata and JPL WebDAV credentials:
 
 .. code-block:: bash
 
     echo "machine urs.earthdata.nasa.gov login <uid> password <password>" >> ~/.netrc
-    echo "machine podaac-tools.jpl.nasa.gov login <uid> password <webdav>" >> ~/.netrc
+    echo "machine ecco.jpl.nasa.gov login <uid> password <webdav>" >> ~/.netrc
     chmod 0600 ~/.netrc
+
+Or set environmental variables for your NASA Earthdata and JPL WebDAV credentials:
+
+.. code-block:: bash
+
+    export EARTHDATA_USERNAME=<uid>
+    export EARTHDATA_PASSWORD=<password>
+    export ECCO_PASSWORD=<webdav>
 
 Other Data Access Examples
 ##########################
