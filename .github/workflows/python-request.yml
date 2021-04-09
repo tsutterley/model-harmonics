@@ -34,6 +34,9 @@ jobs:
         sudo apt-get install libxml2-dev libxslt1-dev
         pip install --upgrade pip
         pip install flake8 pytest pytest-cov numpy
+        pip install git+https://github.com/tsutterley/geoid-toolkit.git
+        pip install git+https://github.com/tsutterley/read-GRACE-geocenter.git
+        pip install git+https://github.com/tsutterley/read-GRACE-harmonics.git
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Install dependencies for MacOS
       if: matrix.os == 'macos-latest'
@@ -47,6 +50,9 @@ jobs:
         brew install libxslt
         pip install --upgrade pip
         pip install flake8 pytest pytest-cov numpy
+        pip install git+https://github.com/tsutterley/geoid-toolkit.git
+        pip install git+https://github.com/tsutterley/read-GRACE-geocenter.git
+        pip install git+https://github.com/tsutterley/read-GRACE-harmonics.git
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Lint with flake8
       run: |
