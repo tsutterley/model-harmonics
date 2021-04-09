@@ -21,9 +21,9 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     :hidden:
     :caption: User Guide
 
-    user_guide/gen_atmosphere_stokes.md
-    user_guide/gen_point_pressure.md
-    user_guide/gen_pressure_stokes.md
+    user_guide/gen_atmosphere_stokes.rst
+    user_guide/gen_point_pressure.rst
+    user_guide/gen_pressure_stokes.rst
     user_guide/utilities.rst
 
 .. toctree::
@@ -32,8 +32,8 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     :caption: Utilities
 
     user_guide/harmonic_operators.md
-    user_guide/least_squares_mascons.md
-    user_guide/least_squares_mascon_timeseries.md
+    user_guide/least_squares_mascons.rst
+    user_guide/least_squares_mascon_timeseries.rst
     user_guide/spatial_operators.md
 
 .. toctree::
@@ -46,16 +46,16 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     user_guide/jpl_ecco_cube92_sync.md
     user_guide/jpl_ecco_llc_sync.md
     user_guide/jpl_ecco_v4_sync.md
-    user_guide/ecco_mean_realtime.md
-    user_guide/ecco_mean_llc_tiles.md
-    user_guide/ecco_mean_version4.md
-    user_guide/ecco_read_realtime.md
-    user_guide/ecco_read_llc_tiles.md
-    user_guide/ecco_read_version4.md
-    user_guide/ecco_depth_version4.md
-    user_guide/ecco_geoid_llc_tiles.md
-    user_guide/ecco_llc_tile_harmonics.md
-    user_guide/ecco_monthly_harmonics.md
+    user_guide/ecco_mean_realtime.rst
+    user_guide/ecco_mean_llc_tiles.rst
+    user_guide/ecco_mean_version4.rst
+    user_guide/ecco_read_realtime.rst
+    user_guide/ecco_read_llc_tiles.rst
+    user_guide/ecco_read_version4.rst
+    user_guide/ecco_depth_version4.rst
+    user_guide/ecco_geoid_llc_tiles.rst
+    user_guide/ecco_llc_tile_harmonics.rst
+    user_guide/ecco_monthly_harmonics.rst
 
 .. toctree::
     :maxdepth: 1
@@ -63,13 +63,13 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     :caption: GLDAS
 
     user_guide/gesdisc_gldas_sync.md
-    user_guide/gldas_mean_monthly.md
-    user_guide/gldas_read_monthly.md
+    user_guide/gldas_mean_monthly.rst
+    user_guide/gldas_read_monthly.rst
     user_guide/gldas_mask_arctic.md
     user_guide/gldas_mask_permafrost.md
     user_guide/gldas_mask_vegetation.md
-    user_guide/gldas_monthly_harmonics.md
-    user_guide/gldas_scaling_factors.md
+    user_guide/gldas_monthly_harmonics.rst
+    user_guide/gldas_scaling_factors.rst
 
 .. toctree::
     :maxdepth: 1
@@ -83,15 +83,15 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     user_guide/noaa_cdc_ncep_ftp.md
     user_guide/ucar_rda_cfsr_surface.md
     user_guide/ucar_rda_jra55_surface.md
-    user_guide/model_level_coefficients.md
-    user_guide/reanalysis_atmospheric_harmonics.md
+    user_guide/model_level_coefficients.rst
+    user_guide/reanalysis_atmospheric_harmonics.rst
     user_guide/reanalysis_geopotential_heights.md
-    user_guide/reanalysis_inverse_barometer.md
-    user_guide/reanalysis_mean_harmonics.md
+    user_guide/reanalysis_inverse_barometer.rst
+    user_guide/reanalysis_mean_harmonics.rst
     user_guide/reanalysis_mean_pressure.md
-    user_guide/reanalysis_monthly_harmonics.md
-    user_guide/reanalysis_monthly_pressure.md
-    user_guide/reanalysis_pressure_harmonics.md
+    user_guide/reanalysis_monthly_harmonics.rst
+    user_guide/reanalysis_monthly_pressure.rst
+    user_guide/reanalysis_pressure_harmonics.rst
 
 .. toctree::
     :maxdepth: 1
@@ -102,4 +102,4 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     user_guide/merra_smb_mean.md
     user_guide/merra_smb_cumulative.md
     user_guide/merra_smb_mask.md
-    user_guide/merra_smb_harmonics.md
+    user_guide/merra_smb_harmonics.rst

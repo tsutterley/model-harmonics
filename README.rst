@@ -50,7 +50,7 @@ References
     E. Rignot, T. C. Sutterley, M. van den Broeke, J. M. van Wessem, and D. Wiese,
     "Continuity of ice sheet mass loss in Greenland and Antarctica from the GRACE
     and GRACE Follow‐On missions", *Geophysical Research Letters*, 47,
-    (2020). `doi:10.1029/2020GL087291 < https://doi.org/10.1029/2020GL087291>`_
+    (2020). `doi:10.1029/2020GL087291 <https://doi.org/10.1029/2020GL087291>`_
 
     T. C. Sutterley, I. Velicogna, and C.-W. Hsu, "Self‐Consistent Ice Mass Balance
     and Regional Sea Level From Time‐Variable Gravity", *Earth and Space Science*, 7,
@@ -71,7 +71,7 @@ This project contains work and contributions from the `scientific community <./C
 This program is not sponsored or maintained by the Universities Space Research Association (USRA),
 the Center for Space Research at the University of Texas (UTCSR), the Jet Propulsion Laboratory (JPL),
 the German Research Centre for Geosciences (GeoForschungsZentrum, GFZ) or NASA.
-It is provided here for your convenience but `with no guarantees whatsoever`.
+It is provided here for your convenience but *with no guarantees whatsoever*.
 
 License
 #######

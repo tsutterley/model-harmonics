@@ -15,13 +15,13 @@ ECCO
 Uses outputs from the NASA-JPL `Estimating the Circulation and Climate of the Ocean (ECCO) <https://ecco-group.org/>`_ model.
 For ECCO near real-time Kalman-filtered (kf080i) and Rauch-Tung-Striebel (RTS) smoother (dr080i) models, reads 12-hour ocean bottom pressure data (OBP) and calculates monthly averages.
 For ECCO version 4 models, reads monthly ocean bottom pressure potential anomalies and converts to estimates of absolute ocean bottom pressure (OBP).
-Near real-time models are downloaded using the `jpl_ecco_sync.py <https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_sync.py>`_ program,
-monthly Cube92 models are calculated using the `jpl_ecco_cube92_sync.py <https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_cube92_sync.py>`_ program,
-interpolated Version 4 models are downloaded using the `jpl_ecco_v4_sync.py <https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_v4_sync.py>`_ program, and
-monthly Version 4 and 5 models in LLC tile format are downloaded using the `jpl_ecco_llc_sync.py <https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_llc_sync.py>`_ program.
-Because Boussinesq-type models conserve volume rather than mass, the global area average of each monthly map is removed `(Greatbatch, 1994) <https://doi.org/10.1029/94JC00847>`_.
+Near real-time models are downloaded using the ``jpl_ecco_sync.py`` program,
+monthly Cube92 models are calculated using the ``jpl_ecco_cube92_sync.py`` program,
+interpolated Version 4 models are downloaded using the ``jpl_ecco_v4_sync.py`` program, and
+monthly Version 4 and 5 models in LLC tile format are downloaded using the ``jpl_ecco_llc_sync.py`` program.
+Because Boussinesq-type models conserve volume rather than mass, the global area average of each monthly map is removed [Greatbatch1994]_.
 Monthly anomalies in ocean bottom pressure are calculated by removing a multi-annual mean (typically 2003 |ndash| 2007).
-Ocean bottom pressure anomalies are converted to spherical harmonics following `Boy and Chao. (2005) <https://doi.org/10.1029/2002JB002333>`_ (Equations :eq:`1` and :eq:`2`).
+Ocean bottom pressure anomalies are converted to spherical harmonics following [Boy2005]_ (Equations :eq:`1` and :eq:`2`).
 
 .. math::
     :label: 1
@@ -67,8 +67,9 @@ GLDAS
 =====
 
 Uses `GLDAS model outputs <https://ldas.gsfc.nasa.gov/gldas>`_ from the NASA Goddard Space Flight Center (GSFC) Hydrological Sciences Laboratory (HSL)
-`Global Land Data Assimilation System Version 2 (GLDAS-2) <https://disc.gsfc.nasa.gov/information/data-release?title=New%20and%20Reprocessed%20GLDAS%20Version%202%20Data%20Products%20Released>`_.
-GLDAS outputs are downloaded using the `gesdisc_gldas_sync.py <https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gesdisc_gldas_sync.py>`_ program.
+`Global Land Data Assimilation System Version 2 (GLDAS-2) <https://disc.gsfc.nasa.gov/information/data-release?title=New%20and%20Reprocessed%20GLDAS%20Version%202%20Data%20Products%20Released>`_
+[Rodell2004]_.
+GLDAS outputs are downloaded using the ``gesdisc_gldas_sync.py`` program.
 GLDAS version 2.1 is forced with a combination of model and observation data.
 Additionally, the GLDAS project produces two months of "early production stream" products that are run without the forcing data.
 Here, monthly terrestrial water storage (TWS) estimates are calculated by combining the GLDAS soil moisture (SM), snow water equivalent (SWE) and total canopy storage outputs.
@@ -77,7 +78,7 @@ Before converting to spherical harmonics, the GLDAS terrestrial water storage es
 `urbanized <https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_mask_vegetation.py>`_,
 `glaciated <https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_mask_arctic.py>`_ and
 `permafrost <https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_mask_permafrost.py>`_ regions.
-Terrestrial water storage anomalies are converted to spherical harmonics following `Wahr et al. (1998) <https://doi.org/10.1029/98JB02844>`_ (Equation :eq:`3`).
+Terrestrial water storage anomalies are converted to spherical harmonics following [Wahr1998]_ (Equation :eq:`3`).
 
 .. math::
     :label: 3
@@ -119,18 +120,18 @@ Reanalysis
 `ERA-Interim <https://www.ecmwf.int/en/forecasts/datasets/reanalysis-datasets/era-interim>`_ is computed by ECMWF and is available starting from 1979.
 `ERA5 <https://www.ecmwf.int/en/forecasts/datasets/reanalysis-datasets/era5>`_  is the latest reanalysis computed by ECMWF offering much higher spatial and temporal resolution and is available starting from 1950.
 Differences between ERA-Interim and ERA5 are outlined `here <https://confluence.ecmwf.int/pages/viewpage.action?pageId=74764925>`_.
-ERA-Interim outputs are downloaded using the `ecmwf_reanalysis_retrieve.py <https://github.com/tsutterley/model-harmonics/blob/main/reanalysis/ecmwf_reanalysis_retrieve.py>`_ program following using the `ecmwf-api-client <https://confluence.ecmwf.int/display/WEBAPI/Access+ECMWF+Public+Datasets>`_ documentation.
-ERA5 outputs are downloaded using the `cds_reanalysis_retrieve.py <https://github.com/tsutterley/model-harmonics/blob/main/reanalysis/cds_reanalysis_retrieve.py>`_ program.
+ERA-Interim outputs are downloaded using the ``ecmwf_reanalysis_retrieve.py`` program following using the `ecmwf-api-client <https://confluence.ecmwf.int/display/WEBAPI/Access+ECMWF+Public+Datasets>`_ documentation.
+ERA5 outputs are downloaded using the ``cds_reanalysis_retrieve.py`` program following using the `cdsapi <https://cds.climate.copernicus.eu/api-how-to>`_ documentation.
 `MERRA-2 <https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/>`_ is computed by the NASA Global Modeling and Assimilation Office (GMAO) and is available starting from 1980.
-MERRA-2 outputs are downloaded using the `gesdisc_merra_download.py <https://github.com/tsutterley/model-harmonics/blob/main/reanalysis/gesdisc_merra_download.py>`_ or `gesdisc_merra_monthly.py <https://github.com/tsutterley/model-harmonics/blob/main/reanalysis/gesdisc_merra_monthly.py>`_ programs.
+MERRA-2 outputs are downloaded using the ``gesdisc_merra_download.py`` or ``gesdisc_merra_monthly.py`` programs.
 `NCEP-DOE-2 <https://www.esrl.noaa.gov/psd/data/gridded/data.ncep.reanalysis2.html>`_ is computed by the National Centers for Environmental Prediction (NCEP) and is available starting from 1979.
-NCEP-DOE-2 outputs are downloaded using the `noaa_cdc_ncep_ftp.py <https://github.com/tsutterley/model-harmonics/blob/main/reanalysis/noaa_cdc_ncep_ftp.py>`_ program.
+NCEP-DOE-2 outputs are downloaded using the ``noaa_cdc_ncep_ftp.py`` program.
 `NCEP-CFSR <https://cfs.ncep.noaa.gov/>`_ is computed by the National Centers for Environmental Prediction (NCEP) and is available starting from 1979 with Version 2 available from 2011 onward.
-NCEP-CFSR outputs are downloaded using the `ucar_rda_cfsr_surface.py <https://github.com/tsutterley/model-harmonics/blob/main/reanalysis/ucar_rda_cfsr_surface.py>`_ program.
+NCEP-CFSR outputs are downloaded using the ``ucar_rda_cfsr_surface.py`` program.
 `JRA-55 <http://jra.kishou.go.jp/JRA-55/index_en.html>`_ is computed by the Japan Meteorological Agency (JMA) and is available starting from 1958.
-JRA-55 outputs are downloaded using the `ucar_rda_jra55_surface.py <https://github.com/tsutterley/model-harmonics/blob/main/reanalysis/ucar_rda_jra55_surface.py>`_ program.
+JRA-55 outputs are downloaded using the ``ucar_rda_jra55_surface.py`` program.
 
-Spherical harmonics from reanalysis outputs are computed here using three different schemes of complexity following `Boy and Chao. (2005) <https://doi.org/10.1029/2002JB002333>`_:
+Spherical harmonics from reanalysis outputs are computed here using three different schemes of complexity following [Boy2005]_ and [Swenson2002]_:
 1) a thin-layer 2D spherical geometry,
 2) a thin-layer 2D geometry with realistic geometry incorporating model orography and estimates of geoid height (Equations :eq:`4` and :eq:`5`), and
 3) a 3D atmospheric geometry integrating over the model layers (Equations :eq:`4` and :eq:`6`).
@@ -213,11 +214,13 @@ SMB
 ===
 
 Uses `MERRA-2 model outputs <https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/s>`_ from the NASA `Global Modeling and Assimilation Office (GMAO) <https://gmao.gsfc.nasa.gov/>`_.
-MERRA-2 `Vertically Integrated Diagnostics (M2TMNXINT) <https://disc.gsfc.nasa.gov/datasets/M2TMNXINT_5.12.4/summary>`_ and `Land Ice Surface Diagnostics (M2TMNXGLC) <https://disc.gsfc.nasa.gov/datasets/M2TMNXGLC_5.12.4/summary>`_ are downloaded using the `gesdisc_merra_sync.py <https://github.com/tsutterley/model-harmonics/blob/main/SMB/gesdisc_merra_sync.py>`_ program.
-Here, monthly surface mass balance (SMB) estimates are calculated by combining the MERRA-2 convective rain (PRECCU), large-scale rain (PRECLS), snow (PRECSN), evaporation (EVAP), and runoff over glaciated land (RUNOFF) variables.
+MERRA-2 `Vertically Integrated Diagnostics (M2TMNXINT) <https://disc.gsfc.nasa.gov/datasets/M2TMNXINT_5.12.4/summary>`_ and
+`Land Ice Surface Diagnostics (M2TMNXGLC) <https://disc.gsfc.nasa.gov/datasets/M2TMNXGLC_5.12.4/summary>`_ are downloaded using the ``gesdisc_merra_sync.py`` program.
+Here, monthly surface mass balance (SMB) estimates are calculated by combining the MERRA-2
+convective rain (PRECCU), large-scale rain (PRECLS), snow (PRECSN), evaporation (EVAP), and runoff over glaciated land (RUNOFF) variables.
 Monthly cumulative anomalies in surface mass balance are calculated by removing a multi-annual mean (typically 1980 |ndash| 1995).
 Before converting to spherical harmonics, the MERRA-2 surface mass balance estimates are masked to isolate regions of interest.
-Surface mass balance anomalies are converted to spherical harmonics following `Wahr et al. (1998) <https://doi.org/10.1029/98JB02844>`_ (Equation :eq:`7`).
+Surface mass balance anomalies are converted to spherical harmonics following [Wahr1998]_ (Equation :eq:`7`).
 
 .. math::
     :label: 7
@@ -253,3 +256,16 @@ Surface mass balance anomalies are converted to spherical harmonics following `W
     }
 
 .. |ndash|    unicode:: U+2013 .. EN DASH
+
+References
+##########
+
+.. [Boy2005] J.-P. Boy and B. F. Chao, "Precise evaluation of atmospheric loading effects on Earth's time‐variable gravity field", *Journal of Geophysical Research: Solid Earth*, 110(B08412), (2005). `doi: 10.1029/2002JB002333 <https://doi.org/10.1029/2002JB002333>`_
+
+.. [Greatbatch1994] R. J. Greatbatch, "A note on the representation of steric sea level in models that conserve volume rather than mass", *Journal of Geophysical Research*, 99(C6), 12767--12771, (1994). `doi: 10.1029/94JC00847 <https://doi.org/10.1029/94JC00847>`_
+
+.. [Rodell2004] M. Rodell et al., "The Global Land Data Assimilation System", *Bulletin of the American Meteorological Society*, 85(3), (2004). `doi: 10.1175/BAMS-85-3-381 <https://doi.org/10.1175/BAMS-85-3-381>`_
+
+.. [Swenson2002] S. Swenson and J. Wahr, "Estimated effects of the vertical structure of atmospheric mass on the time‐variable geoid", *Journal of Geophysical Research*, 107(B9), 2194, (2002) `doi: 10.1029/2000JB000024 <https://doi.org/10.1029/2000JB000024>`_
+
+.. [Wahr1998] J. Wahr, M. Molenaar, and F. Bryan, "Time variability of the Earth's gravity field: Hydrological and oceanic effects and their possible detection using GRACE", *Journal of Geophysical Research*, 103(B12), 30205--30229, (1998). `doi: 10.1029/98JB02844 <https://doi.org/10.1029/98JB02844>`_

@@ -34,7 +34,8 @@ Please see the `Contribution Guidelines <./Contributing.html>`_ for more informa
 
 Problem Reports
 ###############
-If you have found a problem in these programs, or you would like to suggest an improvement or modification, please submit a `GitHub issue <https://github.com/tsutterley/model-harmonics/issues>`_ and we will get back to you.
+If you have found a problem in these programs, or you would like to suggest an improvement or modification,
+please submit a `GitHub issue <https://github.com/tsutterley/model-harmonics/issues>`_ and we will get back to you.
 
 Dependencies
 ############
@@ -65,7 +66,7 @@ This program is not sponsored or maintained by the Universities Space Research A
 the Center for Space Research at the University of Texas (UTCSR),
 the Jet Propulsion Laboratory (JPL),
 the German Research Centre for Geosciences (GeoForschungsZentrum, GFZ) or NASA.
-It is provided here for your convenience but `with no guarantees whatsoever`.
+It is provided here for your convenience but *with no guarantees whatsoever*.
 
 This product includes software developed at:
 
