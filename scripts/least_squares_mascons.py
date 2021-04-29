@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 least_squares_mascons.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (04/2021)
 
 Calculates regional mass anomalies through a least-squares mascon procedure
     from an index of spherical harmonic coefficient files
@@ -104,6 +104,7 @@ REFERENCES:
         https://doi.org/10.1029/2009GL039401
 
 UPDATE HISTORY:
+    Updated 04/2021: add parser object for removing commented or empty lines
     Updated 01/2021: harmonics object output from gen_stokes.py/ocean_stokes.py
     Updated 12/2020: added more love number options
     Updated 10/2020: use argparse to set command line parameters
@@ -152,6 +153,7 @@ from __future__ import print_function, division
 
 import sys
 import os
+import re
 import time
 import argparse
 import numpy as np
@@ -273,6 +275,10 @@ def least_squares_mascons(parameters, LOVE_NUMBERS=0, REFERENCE=None,
 
     #-- list object of output files for file logs (full path)
     output_files = []
+    #-- file parser for reading index files
+    #-- removes commented lines (can comment out files in the index)
+    #-- removes empty lines (if there are extra empty lines)
+    parser = re.compile(r'^(?!#|%|$)', re.VERBOSE)
 
     #-- read arrays of kl, hl, and ll Love Numbers
     hl,kl,ll = load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
@@ -337,7 +343,7 @@ def least_squares_mascons(parameters, LOVE_NUMBERS=0, REFERENCE=None,
 
     #-- input mascon spherical harmonic datafiles
     with open(MASCON_INDEX,'r') as f:
-        mascon_files = f.read().splitlines()
+        mascon_files = [l for l in f.read().splitlines() if parser.match(l)]
     #-- number of mascons
     n_mas = len(mascon_files)
     #-- spatial area of the mascon
