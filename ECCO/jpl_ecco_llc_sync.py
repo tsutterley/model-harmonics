@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 jpl_ecco_llc_sync.py
-Written by Tyler Sutterley (04/2021)
+Written by Tyler Sutterley (05/2021)
 
 Syncs ECCO LLC tile model outputs from the NASA JPL ECCO Drive server:
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/nctiles_monthly
@@ -38,8 +38,9 @@ COMMAND LINE OPTIONS:
     -D X, --directory X: working data directory
     -Y X, --year X: Years to sync
     -P X, --product X: Product to sync
-    -L, --list: print files to be transferred, but do not execute transfer
+    -t X, --timeout X: Timeout in seconds for blocking operations
     -l, --log: output log of files downloaded
+    -L, --list: print files to be transferred, but do not execute transfer
     -C, --clobber: Overwrite existing data in transfer
     --checksum: compare hashes to check if overwriting existing data
     -M X, --mode X: Local permissions mode of the directories and files synced
@@ -60,6 +61,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2021: added option for connection timeout (in seconds)
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
     Written 02/2021
@@ -81,8 +83,8 @@ import lxml.etree
 import gravity_toolkit.utilities
 
 #-- PURPOSE: sync ECCO LLC tile data from JPL ECCO drive server
-def jpl_ecco_llc_sync(ddir, MODEL, YEAR=None, PRODUCT=None, LOG=False,
-    LIST=False, CLOBBER=False, CHECKSUM=False, MODE=None):
+def jpl_ecco_llc_sync(ddir, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
+    LOG=False, LIST=False, CLOBBER=False, CHECKSUM=False, MODE=None):
 
     #-- check if directory exists and recursively create if not
     DIRECTORY = os.path.join(ddir,'ECCO-{0}'.format(MODEL),'nctiles_monthly')
@@ -115,7 +117,7 @@ def jpl_ecco_llc_sync(ddir, MODEL, YEAR=None, PRODUCT=None, LOG=False,
     #-- remote subdirectory for MODEL on JPL ECCO data server
     PATH = [HOST,'drive','files',*grid_path[MODEL]]
     colnames,mtimes = gravity_toolkit.utilities.drive_list(PATH,
-        timeout=120,build=False,parser=parser,pattern='ECCO-GRID.nc$')
+        timeout=120,build=False,parser=parser,pattern=r'ECCO-GRID.nc$')
     #-- full path to remote directory
     remote_dir = posixpath.join(*PATH)
     #-- remote and local versions of the file
@@ -144,7 +146,7 @@ def jpl_ecco_llc_sync(ddir, MODEL, YEAR=None, PRODUCT=None, LOG=False,
     #-- open connection with ECCO drive server at remote directory
     #-- find remote yearly directories for MODEL
     years,mtimes = gravity_toolkit.utilities.drive_list(PATH,
-        timeout=120,build=False,parser=parser,pattern=R1,sort=True)
+        timeout=TIMEOUT,build=False,parser=parser,pattern=R1,sort=True)
     for yr in years:
         #-- extract year from file
         if MODEL in ('V5alpha'):
@@ -161,14 +163,15 @@ def jpl_ecco_llc_sync(ddir, MODEL, YEAR=None, PRODUCT=None, LOG=False,
         remote_dir = posixpath.join(*PATH)
         #-- read and parse request for files (find names and modified dates)
         colnames,mtimes=gravity_toolkit.utilities.drive_list(PATH,
-            timeout=120,build=False,parser=parser,pattern=R3,sort=True)
+            timeout=TIMEOUT,build=False,parser=parser,pattern=R3,sort=True)
         #-- for each file on the remote server
         for colname,remote_mtime in zip(colnames,mtimes):
             #-- remote and local versions of the file
             remote_file = posixpath.join(remote_dir,colname)
             local_file = os.path.join(DIRECTORY,colname)
             http_pull_file(fid1, remote_file, remote_mtime,
-                local_file, LIST, CLOBBER, CHECKSUM, MODE)
+                local_file, TIMEOUT=TIMEOUT, LIST=LIST,
+                CLOBBER=CLOBBER, CHECKSUM=CHECKSUM, MODE=MODE)
         #-- remove the year directory from the path
         if MODEL in ('V4r4',):
             PATH.remove(yr)
@@ -180,8 +183,8 @@ def jpl_ecco_llc_sync(ddir, MODEL, YEAR=None, PRODUCT=None, LOG=False,
 
 #-- PURPOSE: pull file from a remote host checking if file exists locally
 #-- and if the remote file is newer than the local file
-def http_pull_file(fid, remote_file, remote_mtime, local_file, LIST, CLOBBER,
-    CHECKSUM, MODE):
+def http_pull_file(fid, remote_file, remote_mtime, local_file,
+    TIMEOUT=None, LIST=False, CLOBBER=False, CHECKSUM=False, MODE=0o775):
     #-- if file exists in file system: check if remote file is newer
     TEST = False
     OVERWRITE = ' (clobber)'
@@ -193,10 +196,11 @@ def http_pull_file(fid, remote_file, remote_mtime, local_file, LIST, CLOBBER,
         #-- Create and submit request.
         #-- There are a wide range of exceptions that can be thrown here
         #-- including HTTPError and URLError.
-        req=gravity_toolkit.utilities.urllib2.Request(remote_file)
-        resp=gravity_toolkit.utilities.urllib2.urlopen(req,timeout=120)
+        request = gravity_toolkit.utilities.urllib2.Request(remote_file)
+        response = gravity_toolkit.utilities.urllib2.urlopen(request,
+            timeout=TIMEOUT)
         #-- copy remote file contents to bytesIO object
-        remote_buffer = io.BytesIO(resp.read())
+        remote_buffer = io.BytesIO(response.read())
         remote_buffer.seek(0)
         #-- generate checksum hash for remote file
         remote_hash = gravity_toolkit.utilities.get_hash(remote_buffer)
@@ -233,12 +237,13 @@ def http_pull_file(fid, remote_file, remote_mtime, local_file, LIST, CLOBBER,
                 #-- Create and submit request.
                 #-- There are a wide range of exceptions that can be thrown here
                 #-- including HTTPError and URLError.
-                req=gravity_toolkit.utilities.urllib2.Request(remote_file)
-                resp=gravity_toolkit.utilities.urllib2.urlopen(req,timeout=120)
+                request = gravity_toolkit.utilities.urllib2.Request(remote_file)
+                response = gravity_toolkit.utilities.urllib2.urlopen(request,
+                    timeout=TIMEOUT)
                 #-- copy contents to local file using chunked transfer encoding
                 #-- transfer should work properly with ascii and binary formats
                 with open(local_file, 'wb') as f:
-                    shutil.copyfileobj(resp, f, CHUNK)
+                    shutil.copyfileobj(response, f, CHUNK)
             #-- keep remote modification time of file and local access time
             os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
             os.chmod(local_file, MODE)
@@ -280,6 +285,10 @@ def main():
     parser.add_argument('--product','-P',
         type=str, default='PHIBOT',
         help='Product to sync')
+    #-- connection timeout
+    parser.add_argument('--timeout','-t',
+        type=int, default=360,
+        help='Timeout in seconds for blocking operations')
     #-- Output log file in form
     #-- JPL_ECCO_V5alpha_PHIBOT_sync_2002-04-01.log
     parser.add_argument('--log','-l',
@@ -324,8 +333,8 @@ def main():
     if gravity_toolkit.utilities.check_credentials('https://{0}'.format(HOST)):
         for MODEL in args.model:
             jpl_ecco_llc_sync(args.directory, MODEL, YEAR=args.year,
-                PRODUCT=args.product, LIST=args.list, LOG=args.log,
-                CLOBBER=args.clobber, CHECKSUM=args.checksum,
+                PRODUCT=args.product, TIMEOUT=args.timeout, LOG=args.log,
+                LIST=args.list, CLOBBER=args.clobber, CHECKSUM=args.checksum,
                 MODE=args.mode)
 
 #-- run main program

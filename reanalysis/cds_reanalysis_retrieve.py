@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-cds_reanalysis_retrieve.py (03/2021)
+cds_reanalysis_retrieve.py (05/2021)
 Retrieves ERA5 reanalysis netCDF4 datasets from the CDS Web API
 https://cds.climate.copernicus.eu/user/register
 https://cds.climate.copernicus.eu/cdsapp/#!/terms/licence-to-use-copernicus-products
@@ -21,6 +21,7 @@ COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
     -Y X, --year X: Year to retrieve
     -I, --invariant: Retrieve the model invariant parameters
+    -t X, --timeout X: Timeout in seconds for blocking operations
     -M X, --mode X: Permissions mode of the directories and files
 
 PYTHON DEPENDENCIES:
@@ -28,6 +29,7 @@ PYTHON DEPENDENCIES:
         https://pypi.org/project/cdsapi/
 
 UPDATE HISTORY:
+    Updated 05/2021: added option for connection timeout (in seconds)
     Updated 03/2021: added mean sea level pressure (msl) field as output
         use netCDF4 variable names for surface and invariant outputs
         automatically update years to run based on current time
@@ -183,6 +185,10 @@ def main():
     parser.add_argument('--invariant','-I',
         default=False, action='store_true',
         help='Retrieve model invariant parameters')
+    #-- connection timeout
+    parser.add_argument('--timeout','-t',
+        type=int, default=360,
+        help='Timeout in seconds for blocking operations')
     #-- permissions mode of the directories and files retrieved
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
@@ -190,7 +196,8 @@ def main():
     args = parser.parse_args()
 
     #-- open connection with CDS api server
-    server = cdsapi.Client(url=args.api_url, key=args.api_key)
+    server = cdsapi.Client(url=args.api_url, key=args.api_key,
+        timeout=args.timeout)
     #-- run program for ERA5
     cds_reanalysis_retrieve(args.directory, server, args.year,
         INVARIANT=args.invariant, MODE=args.mode)

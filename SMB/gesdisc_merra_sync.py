@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_merra_sync.py
-Written by Tyler Sutterley (04/2021)
+Written by Tyler Sutterley (05/2021)
 
 Syncs MERRA-2 surface mass balance (SMB) related products from the Goddard
     Earth Sciences Data and Information Server Center (GES DISC)
@@ -33,6 +33,7 @@ COMMAND LINE OPTIONS:
     -N X, --netrc X: path to .netrc file for authentication
     -D X, --directory X: working data directory
     -Y X, --year X: years to sync
+    -t X, --timeout X: Timeout in seconds for blocking operations
     --log: output log of files downloaded
     --list: print files to be transferred, but do not execute transfer
     --clobber: Overwrite existing data in transfer
@@ -54,6 +55,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2021: added option for connection timeout (in seconds)
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
     Updated 02/2021: add back MERRA-2 invariant parameters sync
@@ -86,8 +88,8 @@ import posixpath
 import model_harmonics.utilities
 
 #-- PURPOSE: sync local MERRA-2 files with GESDISC server
-def gesdisc_merra_sync(DIRECTORY, YEARS, LOG=False, LIST=False, MODE=None,
-    CLOBBER=False):
+def gesdisc_merra_sync(DIRECTORY, YEARS, TIMEOUT=None, LOG=False,
+    LIST=False, MODE=None, CLOBBER=False):
 
     #-- check if directory exists and recursively create if not
     os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
@@ -117,21 +119,22 @@ def gesdisc_merra_sync(DIRECTORY, YEARS, LOG=False, LIST=False, MODE=None,
         #-- open connection with GESDISC server at remote directory
         #-- find remote yearly directories for PRODUCT
         remote_years,mtimes = model_harmonics.utilities.gesdisc_list(
-            [*HOST,PRODUCT],pattern='^(\d+)',sort=True)
+            [*HOST,PRODUCT],timeout=TIMEOUT,pattern=r'^(\d+)',sort=True)
         #-- invariant parameters are stored in yearly directory
         for Y in remote_years:
             #-- open connection with GESDISC server at remote directory
             #-- read and parse request for files (names and modified dates)
             #-- find remote files for PRODUCT and YEAR
             files,mtimes = model_harmonics.utilities.gesdisc_list([*HOST,
-                PRODUCT,Y],format='%d-%b-%Y %H:%M',pattern=R2,sort=True)
+                PRODUCT,Y],timeout=TIMEOUT,format='%d-%b-%Y %H:%M',
+                pattern=R2,sort=True)
             for colname,remote_mtime in zip(files,mtimes):
                 #-- local and remote versions of the file
                 local_file = os.path.join(DIRECTORY,colname)
                 remote_file = posixpath.join(*HOST,PRODUCT,Y,colname)
                 #-- copy file from remote directory comparing modified dates
                 http_pull_file(fid, remote_file, remote_mtime, local_file,
-                    LIST, CLOBBER, MODE)
+                    TIMEOUT=TIMEOUT, LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
 
     #-- for each MERRA-2 product to sync
     for PRODUCT in ['M2TMNXINT.5.12.4','M2TMNXGLC.5.12.4']:
@@ -139,7 +142,7 @@ def gesdisc_merra_sync(DIRECTORY, YEARS, LOG=False, LIST=False, MODE=None,
         #-- open connection with GESDISC server at remote directory
         #-- find remote yearly directories for PRODUCT
         remote_years,mtimes = model_harmonics.utilities.gesdisc_list(
-            [*HOST,PRODUCT],pattern=R1,sort=True)
+            [*HOST,PRODUCT],timeout=TIMEOUT,pattern=R1,sort=True)
         for Y in remote_years:
             #-- check if local directory exists and recursively create if not
             if (not os.access(os.path.join(DIRECTORY,PRODUCT,Y), os.F_OK)):
@@ -148,7 +151,8 @@ def gesdisc_merra_sync(DIRECTORY, YEARS, LOG=False, LIST=False, MODE=None,
             #-- read and parse request for files (names and modified dates)
             #-- find remote files for PRODUCT and YEAR
             files,mtimes = model_harmonics.utilities.gesdisc_list([*HOST,
-                PRODUCT,Y],format='%d-%b-%Y %H:%M',pattern=R2,sort=True)
+                PRODUCT,Y],timeout=TIMEOUT,format='%d-%b-%Y %H:%M',
+                pattern=R2,sort=True)
             for colname,remote_mtime in zip(files,mtimes):
                 #-- recursively create local directory if non-existent
                 if not os.access(os.path.join(DIRECTORY,PRODUCT,Y), os.F_OK):
@@ -158,7 +162,7 @@ def gesdisc_merra_sync(DIRECTORY, YEARS, LOG=False, LIST=False, MODE=None,
                 remote_file = posixpath.join(*HOST,PRODUCT,Y,colname)
                 #-- copy file from remote directory comparing modified dates
                 http_pull_file(fid, remote_file, remote_mtime, local_file,
-                    LIST, CLOBBER, MODE)
+                    TIMEOUT=TIMEOUT, LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
 
     #-- close log file and set permissions level to MODE
     if LOG:
@@ -167,7 +171,8 @@ def gesdisc_merra_sync(DIRECTORY, YEARS, LOG=False, LIST=False, MODE=None,
 
 #-- PURPOSE: pull file from a remote host checking if file exists locally
 #-- and if the remote file is newer than the local file
-def http_pull_file(fid,remote_file,remote_mtime,local_file,LIST,CLOBBER,MODE):
+def http_pull_file(fid, remote_file, remote_mtime, local_file,
+    TIMEOUT=None, LIST=False, CLOBBER=False, MODE=0o775):
     #-- if file exists in file system: check if remote file is newer
     TEST = False
     OVERWRITE = ' (clobber)'
@@ -193,7 +198,8 @@ def http_pull_file(fid,remote_file,remote_mtime,local_file,LIST,CLOBBER,MODE):
             #-- Create and submit request. There are a wide range of exceptions
             #-- that can be thrown here, including HTTPError and URLError.
             request = model_harmonics.utilities.urllib2.Request(remote_file)
-            response = model_harmonics.utilities.urllib2.urlopen(request)
+            response = model_harmonics.utilities.urllib2.urlopen(request,
+                timeout=TIMEOUT)
             #-- chunked transfer encoding size
             CHUNK = 16 * 1024
             #-- copy contents to local file using chunked transfer encoding
@@ -234,6 +240,10 @@ def main():
     parser.add_argument('--year','-Y',
         type=int, nargs='+', default=range(1980,2021),
         help='Years of model outputs to sync')
+    #-- connection timeout
+    parser.add_argument('--timeout','-t',
+        type=int, default=360,
+        help='Timeout in seconds for blocking operations')
     #-- Output log file in form
     #-- NASA_GESDISC_MERRA2_sync_2002-04-01.log
     parser.add_argument('--log','-l',
@@ -274,8 +284,8 @@ def main():
     #-- check internet connection before attempting to run program
     HOST = posixpath.join('http://goldsmr4.gesdisc.eosdis.nasa.gov','data')
     if model_harmonics.utilities.check_connection(HOST):
-        gesdisc_merra_sync(args.directory, args.year, LOG=args.log,
-            LIST=args.list, CLOBBER=args.clobber, MODE=args.mode)
+        gesdisc_merra_sync(args.directory, args.year, TIMEOUT=args.timeout,
+            LOG=args.log, LIST=args.list, CLOBBER=args.clobber, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

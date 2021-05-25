@@ -16,6 +16,7 @@ python jpl_ecco_cube92_sync.py --directory <path_to_directory>
 - `-D X`, `--directory X`: working data directory
 - `-Y X`, `--year X`: Years to sync
 - `-P X`, `--product X`: Product to sync
+- `-t X`, `--timeout X`: Timeout in seconds for blocking operations
 - `-l`, `--log`: output log of files downloaded
 - `-V`, `--verbose:`:  Output information for each output file
 - `-M X`, `--mode X`: Local permissions mode of the directories and files synced

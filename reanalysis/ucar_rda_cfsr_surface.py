@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ucar_rda_cfsr_surface.py
-Written by Tyler Sutterley (04/2021)
+Written by Tyler Sutterley (05/2021)
 
 Downloads NCEP-CFSR products using a links list provided by the
     NCAR/UCAR Research Data Archive (RDA): https://rda.ucar.edu/
@@ -32,6 +32,7 @@ COMMAND LINE OPTIONS:
     -Y X, --year X: Years to download from input links file
     -I, --isentropic: Input data is over isentropic levels
     -G, --gzip: Input data is compressed
+    -t X, --timeout X: Timeout in seconds for blocking operations
     -l, --log: Output log of files downloaded
     -M X, --mode=X: Permission mode of directories and files downloaded
 
@@ -56,6 +57,7 @@ PROGRAM DEPENDENCIES:
         hdf5_write.py: writes output spatial data to HDF5
 
 UPDATE HISTORY:
+    Updated 05/2021: added option for connection timeout (in seconds)
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
@@ -82,7 +84,7 @@ from gravity_toolkit.spatial import spatial
 
 #-- PURPOSE: sync local NCEP-CFSR files with UCAR/NCAR RDA server
 def ucar_rda_download(links_list_file, DIRECTORY=None, YEARS=None,
-    ISENTROPIC=False, GZIP=False, LOG=False, MODE=None):
+    ISENTROPIC=False, GZIP=False, TIMEOUT=None, LOG=False, MODE=None):
     #-- check if directory exists and recursively create if not
     if (not os.access(os.path.join(DIRECTORY), os.F_OK)):
         os.makedirs(os.path.join(DIRECTORY), MODE)
@@ -146,7 +148,7 @@ def ucar_rda_download(links_list_file, DIRECTORY=None, YEARS=None,
             #-- Create and submit request. There are a wide range of exceptions
             # local = os.path.join(DIRECTORY,valid_lines[i])
             response=gravity_toolkit.utilities.from_http([HOST,valid_lines[i]],
-                context=None, verbose=True, fid=fid, local=None)
+                timeout=TIMEOUT, context=None, verbose=True, fid=fid, local=None)
             #-- extract information from monthly files
             NL,OP,YEAR,MONTH,AUX = rx.findall(valid_lines[i]).pop()
             #-- decompress file or convert stream to BytesIO object
@@ -299,6 +301,10 @@ def main():
     parser.add_argument('--gzip','-G',
         default=False, action='store_true',
         help='Input data is compressed')
+    #-- connection timeout
+    parser.add_argument('--timeout','-t',
+        type=int, default=360,
+        help='Timeout in seconds for blocking operations')
     #-- Output log file in form
     #-- UCAR_RDA_NCEP-CFSR_2002-04-01.log
     parser.add_argument('--log','-l',
@@ -343,8 +349,8 @@ def main():
         #-- for each links list file from UCAR/NCAR RDA
         for FILE in args.file:
             ucar_rda_download(FILE, DIRECTORY=args.directory, YEARS=args.year,
-                ISENTROPIC=args.isentropic, GZIP=args.gzip, LOG=args.log,
-                MODE=args.mode)
+                ISENTROPIC=args.isentropic, GZIP=args.gzip, TIMEOUT=args.timeout,
+                LOG=args.log, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

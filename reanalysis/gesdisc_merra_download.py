@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_merra_download.py
-Written by Tyler Sutterley (04/2021)
+Written by Tyler Sutterley (05/2021)
 
 This program downloads MERRA-2 products using a links list provided by the
     Goddard Earth Sciences Data and Information Server Center
@@ -27,6 +27,7 @@ COMMAND LINE OPTIONS:
     -P X, --password X: password for NASA Earthdata Login
     -N X, --netrc X: path to .netrc file for authentication
     -D X, --directory X: Working data directory
+    -t X, --timeout X: Timeout in seconds for blocking operations
     -l, --log: output log of files downloaded
     -V, --verbose: Output information for each output file
     -M X, --mode X: Local permissions mode of the files created
@@ -47,6 +48,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2021: added option for connection timeout (in seconds)
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
     Updated 01/2021: use argparse to set command line parameters
@@ -70,8 +72,8 @@ import builtins
 import gravity_toolkit.utilities
 
 #-- PURPOSE: download MERRA-2 files from GESDISC using a links list file
-def gesdisc_merra_download(base_dir, links_list_file, LOG=False,
-    VERBOSE=False, MODE=None):
+def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
+    LOG=False, VERBOSE=False, MODE=None):
     #-- full path to MERRA-2 directory
     DIRECTORY = os.path.join(base_dir,'MERRA-2')
     #-- check if DIRECTORY exists and recursively create if not
@@ -110,9 +112,9 @@ def gesdisc_merra_download(base_dir, links_list_file, LOG=False,
         MD5 = gravity_toolkit.utilities.get_hash(local_file)
         #-- Create and submit request. There are a wide range of exceptions
         #-- that can be thrown here, including HTTPError and URLError.
-        gravity_toolkit.utilities.from_http(HOST, context=None,
-            local=local_file, hash=MD5, fid=fid, verbose=VERBOSE,
-            mode=MODE)
+        gravity_toolkit.utilities.from_http(HOST, timeout=TIMEOUT,
+            context=None, local=local_file, hash=MD5, fid=fid,
+            verbose=VERBOSE, mode=MODE)
 
     #-- close log file and set permissions level to MODE
     if LOG:
@@ -148,6 +150,10 @@ def main():
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         default=os.getcwd(),
         help='Working data directory')
+    #-- connection timeout
+    parser.add_argument('--timeout','-t',
+        type=int, default=360,
+        help='Timeout in seconds for blocking operations')
     #-- Output log file in form
     #-- NASA_GESDISC_MERRA2_download_2002-04-01.log
     parser.add_argument('--log','-l',
@@ -187,8 +193,8 @@ def main():
     if gravity_toolkit.utilities.check_connection(HOST):
         #-- for each links list file from GESDISC
         for FILE in args.file:
-            gesdisc_merra_download(args.directory, FILE, LOG=args.log,
-                VERBOSE=args.verbose, MODE=args.mode)
+            gesdisc_merra_download(args.directory, FILE, TIMEOUT=args.timeout,
+                LOG=args.log, VERBOSE=args.verbose, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

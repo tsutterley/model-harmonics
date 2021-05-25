@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ucar_rda_jra55_surface.py
-Written by Tyler Sutterley (04/2021)
+Written by Tyler Sutterley (05/2021)
 
 This program downloads JRA-55 products using a links list provided by the
     NCAR/UCAR Research Data Archive (RDA): https://rda.ucar.edu/
@@ -32,6 +32,7 @@ COMMAND LINE OPTIONS:
     -Y X, --year X: Years to download from input links file
     -I, --interpolated: Input data is interpolated to 1.25 degrees
     -G, --gzip: Input data is compressed
+    -t X, --timeout X: Timeout in seconds for blocking operations
     -l, --log: Output log of files downloaded
     -M X, --mode=X: Permission mode of directories and files downloaded
 
@@ -56,6 +57,7 @@ PROGRAM DEPENDENCIES:
         hdf5_write.py: writes output spatial data to HDF5
 
 UPDATE HISTORY:
+    Updated 05/2021: added option for connection timeout (in seconds)
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
@@ -85,7 +87,7 @@ from gravity_toolkit.spatial import spatial
 
 #-- PURPOSE: sync local JRA-55 files with UCAR/NCAR RDA server
 def ucar_rda_download(links_list_file, DIRECTORY=None, YEARS=None,
-    INTERPOLATED=False, GZIP=False, LOG=False, MODE=None):
+    INTERPOLATED=False, GZIP=False, TIMEOUT=None, LOG=False, MODE=None):
     #-- check if directory exists and recursively create if not
     if (not os.access(os.path.join(DIRECTORY), os.F_OK)):
         os.makedirs(os.path.join(DIRECTORY), MODE)
@@ -140,7 +142,8 @@ def ucar_rda_download(links_list_file, DIRECTORY=None, YEARS=None,
     if remote_tar_file:
         # local = os.path.join(DIRECTORY,remote_tar_file)
         response = gravity_toolkit.utilities.from_http([HOST,'TarFiles',
-            remote_tar_file], context=None, verbose=True, fid=fid, local=None)
+            remote_tar_file], timeout=TIMEOUT, context=None, verbose=True,
+            fid=fid, local=None)
         tar = tarfile.open(fileobj=response, mode='r')
         #-- for each member within the tar file
         for member in tar.getmembers():
@@ -179,8 +182,8 @@ def ucar_rda_download(links_list_file, DIRECTORY=None, YEARS=None,
                 print(valid_lines[i])
                 # local = os.path.join(DIRECTORY,valid_lines[i])
                 response = gravity_toolkit.utilities.from_http([HOST,
-                    valid_lines[i]], context=None, verbose=True, fid=fid,
-                    local=None)
+                    valid_lines[i]], timeout=TIMEOUT, context=None,
+                    verbose=True, fid=fid, local=None)
             #-- decompress file or convert stream to BytesIO object
             if GZIP:
                 fd = gzip.GzipFile(fileobj=io.BytesIO(response.read()))
@@ -331,6 +334,10 @@ def main():
     parser.add_argument('--gzip','-G',
         default=False, action='store_true',
         help='Input data is compressed')
+    #-- connection timeout
+    parser.add_argument('--timeout','-t',
+        type=int, default=360,
+        help='Timeout in seconds for blocking operations')
     #-- Output log file in form
     #-- UCAR_RDA_JRA-55_2002-04-01.log
     parser.add_argument('--log','-l',
@@ -375,8 +382,8 @@ def main():
         #-- for each links list file from UCAR/NCAR RDA
         for FILE in args.file:
             ucar_rda_download(FILE, DIRECTORY=args.directory, YEARS=args.year,
-                INTERPOLATED=args.interpolated, GZIP=args.gzip, LOG=args.log,
-                MODE=args.mode)
+                INTERPOLATED=args.interpolated, GZIP=args.gzip,
+                TIMEOUT=args.timeout, LOG=args.log, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

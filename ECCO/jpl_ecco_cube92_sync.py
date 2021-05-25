@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 jpl_ecco_cube92_sync.py
-Written by Tyler Sutterley (04/2021)
+Written by Tyler Sutterley (05/2021)
 
 Converts ECCO2 Cube92 daily model outputs from the NASA JPL ECCO2 server
     into monthly averages
@@ -26,6 +26,7 @@ COMMAND LINE OPTIONS:
     -N X, --netrc X: path to .netrc file for authentication
     -D X, --directory X: working data directory
     -Y X, --year X: Years to sync
+    -t X, --timeout X: Timeout in seconds for blocking operations
     -l, --log: output log of files downloaded
     -V, --verbose: Output information for each output file
     -M X, --mode X: Local permissions mode of the directories and files synced
@@ -56,6 +57,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2021: added option for connection timeout (in seconds)
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
     Updated 03/2021: automatically update years to run based on current time
@@ -81,19 +83,17 @@ import re
 import time
 import netrc
 import getpass
-import netCDF4
 import argparse
 import builtins
 import lxml.etree
-import numpy as np
 import gravity_toolkit.time
 import gravity_toolkit.spatial
 import gravity_toolkit.utilities
 
 #-- PURPOSE: sync ECCO2 Cube92 model outputs from JPL ECCO drive server
 #-- combines daily files to calculate monthly averages
-def jpl_ecco_cube92_sync(ddir, YEAR=None, PRODUCT=None, LOG=False,
-    VERBOSE=False, MODE=None):
+def jpl_ecco_cube92_sync(ddir, YEAR=None, PRODUCT=None, TIMEOUT=None,
+    LOG=False, VERBOSE=False, MODE=None):
 
     #-- check if directory exists and recursively create if not
     DIRECTORY = os.path.join(ddir, 'cube92_latlon_quart_90S90N')
@@ -118,7 +118,7 @@ def jpl_ecco_cube92_sync(ddir, YEAR=None, PRODUCT=None, LOG=False,
         fid1 = sys.stdout
 
     #-- regular expression for grouping months from daily data
-    regex_pattern = '{0}\.(\d+)x(\d+)\.({1:4})({2:02d})(\d{{2}}).nc$'
+    regex_pattern = r'{0}\.(\d+)x(\d+)\.({1:4})({2:02d})(\d{{2}}).nc$'
     #-- input and output variable names
     LONNAME = 'LONGITUDE_T'
     LATNAME = 'LATITUDE_T'
@@ -139,7 +139,7 @@ def jpl_ecco_cube92_sync(ddir, YEAR=None, PRODUCT=None, LOG=False,
             R1 = re.compile(regex_pattern.format(YY,MM+1), re.VERBOSE)
             #-- read and parse request for files (find names and modified dates)
             colnames,mtimes=gravity_toolkit.utilities.drive_list(PATH,
-                timeout=120,build=False,parser=parser,pattern=R1,sort=True)
+                timeout=TIMEOUT,build=False,parser=parser,pattern=R1,sort=True)
             #-- check if all files are available for the month
             if (len(colnames) != dpm[MM]):
                 continue
@@ -151,8 +151,8 @@ def jpl_ecco_cube92_sync(ddir, YEAR=None, PRODUCT=None, LOG=False,
                 dim1,dim2,Y,M,D = R1.findall(remote_file).pop()
                 #-- Create and submit request to retrieve bytes
                 response = gravity_toolkit.utilities.from_drive(
-                    [*PATH,remote_file], build=False, verbose=VERBOSE,
-                    fid=fid1, mode=MODE)
+                    [*PATH,remote_file], build=False, timeout=TIMEOUT,
+                    verbose=VERBOSE, fid=fid1, mode=MODE)
                 #-- open remote file with netCDF4
                 #-- remove singleton dimensions
                 dinput = gravity_toolkit.spatial().from_netCDF4(response,
@@ -214,6 +214,10 @@ def main():
     parser.add_argument('--product', '-P',
         type=str, default='PHIBOT',
         help='Product to sync')
+    #-- connection timeout
+    parser.add_argument('--timeout','-t',
+        type=int, default=360,
+        help='Timeout in seconds for blocking operations')
     #-- Output log file in form
     #-- JPL_ECCO2_Cube92_OBP_sync_2002-04-01.log
     parser.add_argument('--log','-l',
@@ -251,8 +255,8 @@ def main():
     #-- check JPL ECCO Drive credentials before attempting to run program
     if gravity_toolkit.utilities.check_credentials('https://{0}'.format(HOST)):
         jpl_ecco_cube92_sync(args.directory, YEAR=args.year,
-            PRODUCT=args.product, LOG=args.log, VERBOSE=args.verbose,
-            MODE=args.mode)
+            PRODUCT=args.product, TIMEOUT=args.timeout, LOG=args.log,
+            VERBOSE=args.verbose, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

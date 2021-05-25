@@ -20,4 +20,5 @@ python cds_reanalysis_retrieve.py --directory <path_to_directory>
 - `-D X`, `--directory X`: Working data directory
 - `-Y X`, `--year X`: Year to retrieve
 - `-I`, `--invariant`: Retrieve the model invariant parameters
+- `-t X`, `--timeout X`: Timeout in seconds for blocking operations
 - `-M X`, `--mode X`: Permissions mode of the directories and files

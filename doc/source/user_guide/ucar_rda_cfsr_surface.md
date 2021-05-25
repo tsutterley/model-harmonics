@@ -21,5 +21,6 @@ python ucar_rda_cfsr_surface.py --directory <path_to_directory> links_list_file
 - `-Y X`, `--year X`: Years to download from input links file
 - `-I`, `--isentropic`: Input data is over isentropic levels
 - `-G`, `--gzip`: Input data is compressed
+- `-t X`, `--timeout X`: Timeout in seconds for blocking operations
 - `-l`, `--log`: Output log of files downloaded
 - `-M X`, `--mode=X`: Permission mode of directories and files downloaded
