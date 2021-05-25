@@ -14,5 +14,6 @@ python noaa_cdc_ncep_ftp.py --directory <path_to_directory>
 - `-Y X`, `--year X`: Years to download
 - `--mask`: Download land-sea mask file (`land.nc`)
 - `-I`, `--invariant`: Download invariant parameters file (`hgt.sfc.nc`)
+- `-t X`, `--timeout X`: Timeout in seconds for blocking operations
 - `-l`, `--log`: output log of files downloaded
 - `-M X`, `--mode X`: Permissions mode of the directories and files downloaded

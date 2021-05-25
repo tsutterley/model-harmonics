@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 u"""
 noaa_cdc_ncep_ftp.py
-Written by Tyler Sutterley (03/2021)
+Written by Tyler Sutterley (05/2021)
+
 Syncs NOAA-DOE-2 surface reanalysis outputs with the NOAA CDC ftp server
     ftp://ftp.cdc.noaa.gov/Datasets/ncep.reanalysis2.dailyavgs/surface/
 
@@ -14,6 +15,7 @@ COMMAND LINE OPTIONS:
     -Y X, --year X: years to download
     --mask: Download land-sea mask file (land.nc)
     --invariant: Download invariant parameters file (hgt.sfc.nc)
+    -t X, --timeout X: Timeout in seconds for blocking operations
     -l, --log: output log of files downloaded
     -M X, --mode X: Permissions mode of the directories and files downloaded
 
@@ -33,6 +35,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2021: added option for connection timeout (in seconds)
     Updated 03/2021: automatically update years to run based on current time
     Updated 12/2020: using utilities module to list and retrieve from ftp
     Written 09/2019
@@ -48,7 +51,7 @@ import gravity_toolkit.utilities
 
 #-- PURPOSE: sync local NCEP-DOE-2 reanalysis files with NOAA CDC server
 def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
-    LOG=False, MODE=None):
+    TIMEOUT=None, LOG=False, MODE=None):
 
     #-- directory setup
     DIRECTORY = os.path.join(base_dir,'NCEP-DOE-2')
@@ -75,13 +78,14 @@ def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
     R1 = re.compile('pres.sfc.({0}).nc'.format(regex_years))
     #-- list filenames and modification times from remote directory
     remote_files,remote_mtimes = gravity_toolkit.utilities.ftp_list(HOST,
-        basename=True, pattern=R1, sort=True)
+        timeout=TIMEOUT, basename=True, pattern=R1, sort=True)
     for fi,mtime in zip(remote_files,remote_mtimes):
         #-- extract filename from regex object
         local_file = os.path.join(DIRECTORY,fi)
         MD5 = gravity_toolkit.utilities.get_hash(local_file)
         gravity_toolkit.utilities.from_ftp(HOST + [fi],
-            local=local_file, hash=MD5, verbose=True, fid=fid1, mode=MODE)
+            local=local_file, timeout=TIMEOUT, hash=MD5,
+            verbose=True, fid=fid1, mode=MODE)
 
     #-- get mask file
     if MASK:
@@ -89,7 +93,8 @@ def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
         local_file = os.path.join(DIRECTORY,'land.nc')
         MD5 = gravity_toolkit.utilities.get_hash(local_file)
         gravity_toolkit.utilities.from_ftp(HOST + ['land.nc'],
-            local=local_file, hash=MD5, verbose=True, fid=fid1, mode=MODE)
+            local=local_file, timeout=TIMEOUT, hash=MD5,
+            verbose=True, fid=fid1, mode=MODE)
 
     #-- get invariant file
     if INVARIANT:
@@ -97,7 +102,8 @@ def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
         local_file = os.path.join(DIRECTORY,'hgt.sfc.nc')
         MD5 = gravity_toolkit.utilities.get_hash(local_file)
         gravity_toolkit.utilities.from_ftp(HOST + ['hgt.sfc.nc'],
-            local=local_file, hash=MD5, verbose=True, fid=fid1, mode=MODE)
+            local=local_file, timeout=TIMEOUT, hash=MD5,
+            verbose=True, fid=fid1, mode=MODE)
 
     #-- close log file and set permissions level to MODE
     if LOG:
@@ -131,6 +137,10 @@ def main():
     parser.add_argument('--invariant','-I',
         default=False, action='store_true',
         help='Retrieve model invariant parameters')
+    #-- connection timeout
+    parser.add_argument('--timeout','-t',
+        type=int, default=360,
+        help='Timeout in seconds for blocking operations')
     #-- Output log file in form
     #-- NOAA_CDC_NCEP-DOE-2_sync_2002-04-01.log
     parser.add_argument('--log','-l',
@@ -145,7 +155,8 @@ def main():
     #-- run program for model
     if gravity_toolkit.utilities.check_ftp_connection('ftp.cdc.noaa.gov'):
         noaa_cdc_ncep_ftp(args.directory, YEAR=args.year, MASK=args.mask,
-            INVARIANT=args.invariant, LOG=args.log, MODE=args.mode)
+            INVARIANT=args.invariant, TIMEOUT=args.timeout, LOG=args.log,
+            MODE=args.mode)
     else:
         raise RuntimeError('Check internet connection')
 

@@ -30,6 +30,7 @@ python gesdisc_gldas_sync.py --directory <path_to_directory>
     * `'3H'`: 3-hourly
 - `-v X`, `--version X`: GLDAS model version to sync
 - `-e`, `--early`: Sync GLDAS early products
+- `-t X`, `--timeout X`: Timeout in seconds for blocking operations
 - `--log`: output log of files downloaded
 - `--list`: print files to be transferred, but do not execute transfer
 - `--clobber`: Overwrite existing data in transfer

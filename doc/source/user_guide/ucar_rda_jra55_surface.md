@@ -23,5 +23,6 @@ python ucar_rda_jra55_surface.py --directory <path_to_directory> links_list_file
 - `-Y X`, `--year X`: Years to download from input links file
 - `-I`, `--interpolated`: Input data is interpolated to 1.25 degrees
 - `-G`, `--gzip`: Input data is compressed
+- `-t X`, `--timeout X`: Timeout in seconds for blocking operations
 - `-l`, `--log`: Output log of files downloaded
 - `-M X`, `--mode=X`: Permission mode of directories and files downloaded

@@ -22,6 +22,7 @@ python gesdisc_merra_sync.py --directory <path_to_directory>
 - `-N X`, `--netrc X`: path to .netrc file for authentication
 - `-D X`, `--directory X`: working data directory
 - `-Y X`, `--year X`: years to sync
+- `-t X`, `--timeout X`: Timeout in seconds for blocking operations
 - `--log`: output log of files downloaded
 - `--list`: print files to be transferred, but do not execute transfer
 - `--clobber`: Overwrite existing data in transfer

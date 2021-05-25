@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_gldas_sync.py
-Written by Tyler Sutterley (04/2021)
+Written by Tyler Sutterley (05/2021)
 
 Syncs GLDAS monthly datafiles from the Goddard Earth Sciences Data and
     Information Server Center (GES DISC)
@@ -42,6 +42,7 @@ COMMAND LINE OPTIONS:
         3H: 3-hourly
     -v X, --version X: GLDAS model version to sync
     -e, --early: Sync GLDAS early products
+    -t X, --timeout X: Timeout in seconds for blocking operations
     --log: output log of files downloaded
     --list: print files to be transferred, but do not execute transfer
     --clobber: Overwrite existing data in transfer
@@ -63,6 +64,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2021: added option for connection timeout (in seconds)
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
     Updated 03/2021: automatically update years to run based on current time
@@ -110,7 +112,8 @@ gldas_products['VIC'] = 'GLDAS Variable Infiltration Capacity (VIC) model'
 
 #-- PURPOSE: sync local GLDAS files with GESDISC server
 def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
-    VERSION='', EARLY=False, LOG=False, LIST=False, MODE=0o775, CLOBBER=False):
+    VERSION='', EARLY=False, TIMEOUT=0, LOG=False, LIST=False, MODE=0o775,
+    CLOBBER=False):
 
     #-- check if directory exists and recursively create if not
     os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
@@ -147,7 +150,7 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
     #-- open connection with GESDISC server at remote directory
     #-- find remote yearly directories for MODEL
     remote_years,mtimes = model_harmonics.utilities.gesdisc_list(
-        [*HOST,REMOTE],pattern=R1,sort=True)
+        [*HOST,REMOTE],timeout=TIMEOUT,pattern=R1,sort=True)
     #-- compile regular expression operator for model on GESDISC server
     args = (MODEL,SPATIAL)
     R2 = re.compile(r'GLDAS_{0}{1}_(.*?).(nc4|grb)(.xml)?$'.format(*args))
@@ -162,7 +165,7 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
             #-- read and parse request for files (names and modified dates)
             #-- find remote files for MODEL and YEAR
             files,mtimes = model_harmonics.utilities.gesdisc_list(
-                [*HOST,REMOTE,Y],pattern=R2,sort=True)
+                [*HOST,REMOTE,Y],timeout=TIMEOUT,pattern=R2,sort=True)
             for colname,remote_mtime in zip(files,mtimes):
                 #-- local and remote versions of the file
                 local_file = os.path.join(DIRECTORY,PRODUCT,Y,colname)
@@ -179,7 +182,7 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
             #-- open connection with GESDISC server at remote directory
             #-- find remote daily directories for MODEL
             remote_days,mtimes = model_harmonics.utilities.gesdisc_list(
-                [*HOST,REMOTE,Y],pattern=R3,sort=True)
+                [*HOST,REMOTE,Y],timeout=TIMEOUT,pattern=R3,sort=True)
             #-- for each daily subdirectory
             for D in remote_days:
                 #-- check if local directory exists and recursively create if not
@@ -189,14 +192,14 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
                 #-- read and parse request for files (names and modified dates)
                 #-- find remote files for MODEL and YEAR
                 files,mtimes = model_harmonics.utilities.gesdisc_list(
-                    [*HOST,REMOTE,Y,D],pattern=R2,sort=True)
+                    [*HOST,REMOTE,Y,D],timeout=TIMEOUT,pattern=R2,sort=True)
                 for colname,remote_mtime in zip(files,mtimes):
                     #-- local and remote versions of the file
                     local_file = os.path.join(DIRECTORY,PRODUCT,Y,D,colname)
                     remote_file = posixpath.join(*HOST,REMOTE,Y,D,colname)
                     #-- copy file from remote directory comparing modified dates
                     http_pull_file(fid, remote_file, remote_mtime, local_file,
-                        LIST, CLOBBER, MODE)
+                        TIMEOUT=TIMEOUT, LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
 
     #-- close log file and set permissions level to MODE
     if LOG:
@@ -205,7 +208,8 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
 
 #-- PURPOSE: pull file from a remote host checking if file exists locally
 #-- and if the remote file is newer than the local file
-def http_pull_file(fid,remote_file,remote_mtime,local_file,LIST,CLOBBER,MODE):
+def http_pull_file(fid,remote_file,remote_mtime,local_file,
+    TIMEOUT=0,LIST=False,CLOBBER=False,MODE=0o775):
     #-- if file exists in file system: check if remote file is newer
     TEST = False
     OVERWRITE = ' (clobber)'
@@ -230,7 +234,8 @@ def http_pull_file(fid,remote_file,remote_mtime,local_file,LIST,CLOBBER,MODE):
             #-- Create and submit request. There are a wide range of exceptions
             #-- that can be thrown here, including HTTPError and URLError.
             request = model_harmonics.utilities.urllib2.Request(remote_file)
-            response = model_harmonics.utilities.urllib2.urlopen(request)
+            response = model_harmonics.utilities.urllib2.urlopen(request,
+                timeout=TIMEOUT)
             #-- chunked transfer encoding size
             CHUNK = 16 * 1024
             #-- copy contents to local file using chunked transfer encoding
@@ -294,6 +299,10 @@ def main():
     parser.add_argument('--early','-e',
         default=False, action='store_true',
         help='Sync GLDAS early products')
+    #-- connection timeout
+    parser.add_argument('--timeout','-t',
+        type=int, default=360,
+        help='Timeout in seconds for blocking operations')
     #-- Output log file in form
     #-- NASA_GESDISC_GLDAS_sync_2002-04-01.log
     parser.add_argument('--log','-l',
@@ -339,8 +348,8 @@ def main():
             gesdisc_gldas_sync(args.directory, MODEL, args.year,
                 VERSION=args.version, EARLY=args.early,
                 SPATIAL=args.spacing, TEMPORAL=args.temporal,
-                LOG=args.log, LIST=args.list, CLOBBER=args.clobber,
-                MODE=args.mode)
+                TIMEOUT=args.timeout, LOG=args.log, LIST=args.list,
+                CLOBBER=args.clobber, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

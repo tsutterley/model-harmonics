@@ -17,6 +17,7 @@ python gesdisc_merra_download.py --directory <path_to_directory> links_list_file
 - `-P X`, `--password X`: Password for NASA Earthdata Login
 - `-N X`, `--netrc X`: path to .netrc file for authentication
 - `-D X`, `--directory X`: working data directory
+- `-t X`, `--timeout X`: Timeout in seconds for blocking operations
 - `-l`, `--log`: output log of files downloaded
 - `-V`, `--verbose`: Output information for each output file
 - `-M X`, `--mode X`: Local permissions mode of the files created

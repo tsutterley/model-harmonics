@@ -21,8 +21,9 @@ python jpl_ecco_sync.py --directory <path_to_directory> kf080i dr080i
 - `-D X`, `--directory X`: working data directory
 - `-Y X`, `--year X`: Years to sync
 - `-P X`, `--product X`: Product to sync
-- `-L`, `--list`: print files to be transferred, but do not execute transfer
+- `-t X`, `--timeout X`: Timeout in seconds for blocking operations
 - `-l`, `--log`: output log of files downloaded
+- `-L`, `--list`: print files to be transferred, but do not execute transfer
 - `-C`, `--clobber:` Overwrite existing data in transfer
 - `--checksum`: compare hashes to check if overwriting existing data
 - `-M X`, `--mode X`: Local permissions mode of the directories and files synced
