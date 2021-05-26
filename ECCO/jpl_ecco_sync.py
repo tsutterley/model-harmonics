@@ -73,6 +73,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 05/2021: added option for connection timeout (in seconds)
+        use try/except for retrieving netrc credentials
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
     Updated 01/2021: added option to generalize for different products
@@ -340,16 +341,17 @@ def main():
     #-- JPL ECCO drive hostname
     HOST = 'ecco.jpl.nasa.gov'
     #-- get NASA Earthdata and JPL ECCO drive credentials
-    if not args.user and not os.access(args.netrc,os.F_OK):
+    try:
+        args.user,_,args.webdav = netrc.netrc(args.netrc).authenticators(HOST)
+    except:
         #-- check that NASA Earthdata credentials were entered
-        args.user=builtins.input('Username for {0}: '.format(HOST))
-        #-- enter password securely from command-line
-        args.webdav=getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
-    elif not args.user and os.access(args.netrc,os.F_OK):
-        args.user,_,args.webdav=netrc.netrc(args.netrc).authenticators(HOST)
-    else:
-        #-- enter password securely from command-line
-        args.webdav=getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
+        if not args.user:
+            prompt = 'Username for {0}: '.format(HOST)
+            args.user = builtins.input(prompt)
+        #-- enter WebDAV password securely from command-line
+        if not args.webdav:
+            prompt = 'Password for {0}@{1}: '.format(args.user,HOST)
+            args.webdav = getpass.getpass(prompt)
 
     #-- build a urllib opener for JPL ECCO Drive
     #-- Add the username and password for NASA Earthdata Login system

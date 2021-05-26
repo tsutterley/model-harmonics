@@ -58,6 +58,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 05/2021: added option for connection timeout (in seconds)
+        use try/except for retrieving netrc credentials
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
@@ -319,16 +320,17 @@ def main():
     #-- UCAR/NCAR RDA hostname
     HOST = 'rda.ucar.edu'
     #-- get UCAR/NCAR RDA credentials
-    if not args.user and not os.access(args.netrc,os.F_OK):
+    try:
+        args.user,_,args.password = netrc.netrc(args.netrc).authenticators(HOST)
+    except:
         #-- check that UCAR/NCAR RDA credentials were entered
-        args.user=builtins.input('Username for {0}: '.format(HOST))
+        if not args.user:
+            prompt = 'Username for {0}: '.format(HOST)
+            args.user = builtins.input(prompt)
         #-- enter password securely from command-line
-        args.password=getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
-    elif not args.user and os.access(args.netrc,os.F_OK):
-        args.user,_,args.password=netrc.netrc(args.netrc).authenticators(HOST)
-    elif not args.password:
-        #-- enter password securely from command-line
-        args.password=getpass.getpass('Password for {0}@{1}: '.format(args.user,HOST))
+        if not args.password:
+            prompt = 'Password for {0}@{1}: '.format(args.user,HOST)
+            args.password = getpass.getpass(prompt)
 
     #-- Build opener with cookie jar for storing cookies
     #-- This is used to store and return the session cookie given

@@ -50,6 +50,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 05/2021: added option for connection timeout (in seconds)
+        use try/except for retrieving netrc credentials
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
     Updated 12/2020: use argparse to set command line parameters
@@ -330,16 +331,17 @@ def main():
     #-- NASA Earthdata hostname
     URS = 'urs.earthdata.nasa.gov'
     #-- get NASA Earthdata credentials
-    if not args.user and not os.access(args.netrc,os.F_OK):
+    try:
+        args.user,_,args.password = netrc.netrc(args.netrc).authenticators(URS)
+    except:
         #-- check that NASA Earthdata credentials were entered
-        args.user = builtins.input('Username for {0}: '.format(URS))
+        if not args.user:
+            prompt = 'Username for {0}: '.format(URS)
+            args.user = builtins.input(prompt)
         #-- enter password securely from command-line
-        args.password=getpass.getpass('Password for {0}@{1}: '.format(args.user,URS))
-    elif not args.user and os.access(args.netrc,os.F_OK):
-        args.user,_,args.password=netrc.netrc(args.netrc).authenticators(URS)
-    elif not args.password:
-        #-- enter password securely from command-line
-        args.password=getpass.getpass('Password for {0}@{1}: '.format(args.user,URS))
+        if not args.password:
+            prompt = 'Password for {0}@{1}: '.format(args.user,URS)
+            args.password = getpass.getpass(prompt)
 
     #-- build a urllib opener for NASA GESDISC
     #-- Add the username and password for NASA Earthdata Login system

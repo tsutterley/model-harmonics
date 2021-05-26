@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 jpl_ecco_webdav.py
-Written by Tyler Sutterley (04/2021)
+Written by Tyler Sutterley (05/2021)
 
 Retrieves and prints a user's JPL ECCO Drive WebDAV credentials
 
@@ -45,6 +45,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2021: use try/except for retrieving netrc credentials
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
     Written 12/2020 for public release
@@ -122,19 +123,17 @@ def main():
     #-- JPL JPL ECCO drive hostname
     HOST = 'ecco.jpl.nasa.gov'
     #-- get NASA Earthdata credentials
-    if not args.user and not os.access(args.netrc,os.F_OK):
+    try:
+        args.user,_,args.password = netrc.netrc(args.netrc).authenticators(URS)
+    except:
         #-- check that NASA Earthdata credentials were entered
-        args.user=builtins.input('Username for {0}: '.format(URS))
+        if not args.user:
+            prompt = 'Username for {0}: '.format(URS)
+            args.user = builtins.input(prompt)
         #-- enter password securely from command-line
-        args.password=getpass.getpass('Password for {0}@{1}: '.format(args.user,URS))
-    elif not args.user and os.access(args.netrc,os.F_OK):
-        args.user,_,args.password=netrc.netrc(args.netrc).authenticators(URS)
-    else:
-        #-- enter password securely from command-line
-        args.password=getpass.getpass('Password for {0}@{1}: '.format(args.user,URS))
-    #-- if appending to netrc file and not entered: use default file
-    if args.append and not args.netrc:
-        args.netrc = os.path.join(os.path.expanduser('~'),'.netrc')
+        if not args.password:
+            prompt = 'Password for {0}@{1}: '.format(args.user,URS)
+            args.password = getpass.getpass(prompt)
 
     #-- check internet connection before attempting to run program
     DRIVE = posixpath.join('https://ecco.jpl.nasa.gov','drive')
