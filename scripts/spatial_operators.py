@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 spatial_operators.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (05/2021)
 Performs basic operations on spatial files
 
 CALLING SEQUENCE:
@@ -52,6 +52,7 @@ PROGRAM DEPENDENCIES:
         hdf5_write.py: writes output spatial data to HDF5
 
 UPDATE HISTORY:
+    Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 02/2021: added variance off mean as estimated error
         add options to read from individual index files
     Written 02/2021
@@ -83,11 +84,11 @@ def spatial_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, DDEG=None,
     dlon,dlat = (DDEG,DDEG) if (np.ndim(DDEG) == 0) else (DDEG[0],DDEG[1])
     #-- Grid dimensions
     if (INTERVAL == 1):#-- (0:360, 90:-90)
-        nlon = np.int((360.0/dlon)+1.0)
-        nlat = np.int((180.0/dlat)+1.0)
+        nlon = np.int64((360.0/dlon)+1.0)
+        nlat = np.int64((180.0/dlat)+1.0)
     elif (INTERVAL == 2):#-- degree spacing/2
-        nlon = np.int((360.0/dlon))
-        nlat = np.int((180.0/dlat))
+        nlon = np.int64((360.0/dlon))
+        nlat = np.int64((180.0/dlat))
 
     #-- read each input file
     dinput = [None]*n_files

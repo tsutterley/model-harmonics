@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_mean_realtime.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (05/2021)
 
 Reads 12-hour ECCO ocean bottom pressure data from JPL
 Calculates multi-annual means on an equirectangular grid
@@ -53,6 +53,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Updated 12/2020: use argparse to set command line parameters
         using spatial module for read/write operations
@@ -109,7 +110,7 @@ def ecco_mean_realtime(ddir, MODEL, RANGE=None, DATAFORM=None,
     obp_mean = gravity_toolkit.spatial(fill_value=fill_value)
     obp_mean.lon = np.arange(dlon/2.0,360+dlon/2.0,dlon)
     obp_mean.lat = np.arange(-LAT_MAX,LAT_MAX+dlat,dlat)
-    obp_mean.data = np.zeros((158,360),dtype=np.float)
+    obp_mean.data = np.zeros((158,360),dtype=np.float64)
     obp_mean.mask = np.zeros((158,360),dtype=bool)
     obp_mean.time = 0.0
     count = 0.0

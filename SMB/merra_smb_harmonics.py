@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_harmonics.py
-Written by Tyler Sutterley (03/2021)
+Written by Tyler Sutterley (05/2021)
 Reads monthly MERRA-2 surface mass balance anomalies and
     converts to spherical harmonic coefficients
 
@@ -65,6 +65,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 03/2021: automatically update years to run based on current time
     Updated 02/2021: can use multiple mask files to create a combined solution
         replaced numpy bool to prevent deprecation warning
@@ -207,7 +208,7 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
         #-- copy date information
         merra_Ylms.time = np.copy(merra_data.time)
         #-- calculate GRACE/GRACE-FO month
-        merra_Ylms.month = np.int(12.0*(np.float(Y1) - 2002.0) + np.float(M1))
+        merra_Ylms.month = np.int64(12.0*(np.float64(Y1) - 2002.0) + np.float64(M1))
         #-- output spherical harmonic data file
         args=(MOD,PRODUCT,LMAX,order_str,merra_Ylms.month,suffix[DATAFORM])
         FILE='MERRA2_{0}_tavgM_2d_{1}_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
@@ -245,7 +246,7 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
         #-- full path to output file
         full_output_file = os.path.join(ddir,output_sub,fi)
         #-- extract GRACE month
-        MOD,grace_month=np.array(re.findall(output_regex,fi).pop(),dtype=np.int)
+        MOD,grace_month=np.array(re.findall(output_regex,fi).pop(),dtype=np.int64)
         YY = 2002.0 + np.floor((grace_month-1)/12.0)
         MM = ((grace_month-1) % 12) + 1
         tdec, = gravity_toolkit.time.convert_calendar_decimal(YY, MM)

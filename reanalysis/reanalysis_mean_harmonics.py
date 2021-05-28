@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_mean_harmonics.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (05/2021)
 Reads atmospheric geopotential heights fields from reanalysis and calculates
     a multi-annual mean set of spherical harmonics using a 3D geometry
 
@@ -71,6 +71,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 01/2021: read from netCDF4 file in slices to reduce memory load
         separated gen_atmosphere_stokes to a separate function
     Updated 12/2020: using argparse to set command line options
@@ -267,7 +268,7 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
             Ylms.time, = gravity_toolkit.time.convert_calendar_decimal(YY,
                 MM, day=DD, hour=hh, minute=mm, second=ss)
             #-- calculate GRACE month from calendar dates
-            Ylms.month, = np.array([(YY - 2002)*12 + MM], dtype=np.int)
+            Ylms.month, = np.array([(YY - 2002)*12 + MM], dtype=np.int64)
             #-- append to list of harmonics
             harmonics_list.append(Ylms)
         #-- close the input netCDF4 file
@@ -296,7 +297,7 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
 def ncdf_geoid(FILENAME):
     with netCDF4.Dataset(FILENAME,'r') as fileID:
         geoid_undulation = fileID.variables['geoid'][:].copy()
-        gridstep = np.array(fileID.gridstep.split(','),dtype=np.float)
+        gridstep = np.array(fileID.gridstep.split(','),dtype=np.float64)
     return (geoid_undulation,np.squeeze(gridstep))
 
 #-- PURPOSE: read land sea mask to get indices of oceanic values

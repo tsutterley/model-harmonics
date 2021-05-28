@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_mean_version4.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (05/2021)
 
 Calculates mean of ocean bottom pressure data from the ECCO ocean model
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
@@ -62,6 +62,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Updated 12/2020: use argparse to set command line parameters
         using spatial module for read/write operations
@@ -129,7 +130,7 @@ def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
 
     #-- output multi-annual mean
     obp_mean = gravity_toolkit.spatial(fill_value=fill_value)
-    obp_mean.data = np.zeros((nlat,nlon),dtype=np.float)
+    obp_mean.data = np.zeros((nlat,nlon),dtype=np.float64)
     obp_mean.mask = np.zeros((nlat,nlon),dtype=bool)
     obp_mean.time = 0.0
     #-- calculate dimension variables
