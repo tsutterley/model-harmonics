@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mean_monthly.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (05/2021)
 
 Reads GLDAS monthly datafiles from http://ldas.gsfc.nasa.gov/gldas/
 Adding Soil Moisture, snow water equivalent (SWE) and total canopy storage
@@ -79,6 +79,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Updated 12/2020: set spatial variables for both 025 and 10 cases
         using utilities from time module
@@ -175,7 +176,7 @@ def gldas_mean_monthly(base_dir, MODEL, RANGE=None, SPATIAL=None, VERSION=None,
             #-- set the mask for valid points
             twc.mask[ii,jj,c] = False
             #-- calculate date
-            twc.time[c] = convert_calendar_decimal(np.int(YY),np.int(MM))
+            twc.time[c] = convert_calendar_decimal(np.int64(YY),np.int64(MM))
             #-- add 1 to counter
             c += 1
 

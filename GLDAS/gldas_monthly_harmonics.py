@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_monthly_harmonics.py
-Written by Tyler Sutterley (03/2021)
+Written by Tyler Sutterley (05/2021)
 
 Reads monthly GLDAS total water storage anomalies and converts to
     spherical harmonic coefficients
@@ -102,6 +102,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 03/2021: automatically update years to run based on current time
     Updated 02/2021: include GLDAS MOD44W land mask modified for HYMAP
         replaced numpy bool to prevent deprecation warning
@@ -269,7 +270,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
     #-- for each input file
     for t,fi in enumerate(sorted(FILES)):
         #-- extract year and month from file
-        YY,MM = np.array(rx.findall(fi).pop(), dtype=np.float)
+        YY,MM = np.array(rx.findall(fi).pop(), dtype=np.float64)
 
         #-- read data file for data format
         if (DATAFORM == 'ascii'):
@@ -302,7 +303,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
         #-- calculate date information
         gldas_Ylms.time, = gravity_toolkit.time.convert_calendar_decimal(YY,MM)
         #-- calculate GRACE/GRACE-FO month
-        gldas_Ylms.month = np.int(12.0*(YY - 2002.0) + MM)
+        gldas_Ylms.month = np.int64(12.0*(YY - 2002.0) + MM)
 
         #-- output spherical harmonic data file
         args=(MODEL,SPACING,LMAX,order_str,gldas_Ylms.month,suffix[DATAFORM])
@@ -339,7 +340,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
         #-- full path to output file
         full_output_file = os.path.join(ddir,output_sub,fi)
         #-- extract GRACE month
-        grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int)
+        grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int64)
         YY = 2002.0 + np.floor((grace_month-1)/12.0)
         MM = ((grace_month-1) % 12) + 1
         tdec, = gravity_toolkit.time.convert_calendar_decimal(YY, MM)

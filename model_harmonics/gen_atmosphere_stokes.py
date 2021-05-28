@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gen_atmosphere_stokes.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (05/2021)
 Calculates spherical harmonic fields from 3D atmospheric geopotential
     height and pressure difference fields
 
@@ -63,6 +63,7 @@ REFERENCE:
     76: 279-299, 2002. https://doi.org/10.1007/s00190-002-0216-2
 
 UPDATE HISTORY:
+    Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 01/2021: added function docstrings
     Updated 05/2020: use harmonics class for spherical harmonic operations
     Updated 04/2020: made Legendre polynomials and Love numbers options
@@ -114,7 +115,7 @@ def gen_atmosphere_stokes(GPH, pressure, lon, lat, LMAX=0, MMAX=None,
     """
 
     #-- converting LMAX to integer
-    LMAX = np.int(LMAX)
+    LMAX = np.int64(LMAX)
     #-- upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
 

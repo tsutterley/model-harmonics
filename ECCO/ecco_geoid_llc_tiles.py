@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_geoid_llc_tiles.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (05/2021)
 
 Calculates geoid heights for ECCO ocean model LLC tiles using model
     coefficients from the GFZ International Centre for Global Earth
@@ -41,6 +41,7 @@ PROGRAM DEPENDENCIES:
     gauss_weights.py: Computes Gaussian weights as a function of degree
 
 UPDATE HISTORY:
+    Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Written 02/2021
 """
@@ -76,9 +77,9 @@ def ecco_geoid_llc_tiles(input_file, output_file, GEOID=None,
     #-- read gravity model spherical harmonics
     Ylms = read_ICGEM_harmonics(os.path.expanduser(GEOID), LMAX=LMAX)
     #-- extract parameters
-    R = np.float(Ylms['radius'])
-    GM = np.float(Ylms['earth_gravity_constant'])
-    LMAX = np.int(Ylms['max_degree']) if not LMAX else LMAX
+    R = np.float64(Ylms['radius'])
+    GM = np.float64(Ylms['earth_gravity_constant'])
+    LMAX = np.int64(Ylms['max_degree']) if not LMAX else LMAX
     #-- dictionary with output variables
     output = {}
     #-- copy from invariant

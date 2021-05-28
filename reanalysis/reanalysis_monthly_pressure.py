@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 calculate_monthly_pressure.py
-Written by Tyler Sutterley (03/2021)
+Written by Tyler Sutterley (05/2021)
 Reads daily atmospheric pressure fields from reanalysis and outputs monthly averages
 
 INPUTS:
@@ -34,6 +34,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 03/2021: automatically update years to run based on current time
     Updated 12/2020: using argparse to set command line options
         using spatial module for operations
@@ -91,7 +92,7 @@ def reanalysis_monthly_pressure(base_dir,MODEL,YEARS,VERBOSE=False,MODE=0o775):
                 #-- for each day in the month
                 indices = np.arange(cumulative_days[m],cumulative_days[m+1])
                 try:
-                    p_mean.append(p.mean(indices=indices.astype(np.int)))
+                    p_mean.append(p.mean(indices=indices.astype(np.int64)))
                 except:
                     break
                 else:

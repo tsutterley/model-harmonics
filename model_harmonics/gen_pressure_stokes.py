@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gen_pressure_stokes.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (05/2021)
 Calculates spherical harmonic fields from spatial pressure fields
 
 CALLING SEQUENCE:
@@ -57,6 +57,7 @@ REFERENCE:
     76: 279-299, 2002. https://doi.org/10.1007/s00190-002-0216-2
 
 UPDATE HISTORY:
+    Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 02/2021: separate pressure and gravitational acceleration inputs
     Updated 01/2021: use harmonics class for spherical harmonic operations
     Updated 07/2020: added function docstrings
@@ -104,12 +105,12 @@ def gen_pressure_stokes(P, G, R, lon, lat, LMAX=60, MMAX=None,
     """
 
     #-- converting LMAX to integer
-    LMAX = np.int(LMAX)
+    LMAX = np.int64(LMAX)
     #-- upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
 
     #-- grid dimensions
-    nlat = np.int(len(lat))
+    nlat = np.int64(len(lat))
     #-- grid step
     dlon = np.abs(lon[1]-lon[0])
     dlat = np.abs(lat[1]-lat[0])

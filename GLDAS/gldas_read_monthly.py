@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_read_monthly.py
-Written by Tyler Sutterley (03/2021)
+Written by Tyler Sutterley (05/2021)
 
 Reads GLDAS monthly datafiles from http://ldas.gsfc.nasa.gov/gldas/
 Adding Soil Moisture, snow water equivalent (SWE) and total canopy storage
@@ -82,6 +82,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 03/2021: automatically update years to run based on current time
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Updated 12/2020: set spatial variables for both 025 and 10 cases
@@ -176,7 +177,7 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
             #-- Getting date information from file
             EP,YY,MM,VF,SFX = rx.findall(fi).pop()
             #-- file output file
-            args = (MODEL, SPATIAL, np.int(YY), np.int(MM), suffix[DATAFORM])
+            args = (MODEL, SPATIAL, np.int64(YY), np.int64(MM), suffix[DATAFORM])
             FILE = 'GLDAS_{0}{1}_TWC_{2:4d}_{3:02d}.{4}'.format(*args)
             TEST = False
             #-- Checking if output file exists
@@ -217,7 +218,7 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
                 twc.mask[ii,jj] = False
                 #-- calculate date
                 twc.time = gravity_toolkit.time.convert_calendar_decimal(
-                    np.int(YY),np.int(MM))
+                    np.int64(YY),np.int64(MM))
 
                 #-- output to file
                 if (DATAFORM == 'ascii'):

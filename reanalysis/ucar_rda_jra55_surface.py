@@ -59,6 +59,7 @@ PROGRAM DEPENDENCIES:
 UPDATE HISTORY:
     Updated 05/2021: added option for connection timeout (in seconds)
         use try/except for retrieving netrc credentials
+        define int/float precision to prevent deprecation warning
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
@@ -162,7 +163,7 @@ def ucar_rda_download(links_list_file, DIRECTORY=None, YEARS=None,
     nlat,nlon = (145,288) if INTERPOLATED else (320,640)
     var = 0 if INTERPOLATED else 4
     #-- for each unique date
-    YEARS = np.unique(year).astype(np.int) if (YEARS is None) else YEARS
+    YEARS = np.unique(year).astype(np.int64) if (YEARS is None) else YEARS
     for YY in YEARS:
         #-- compile regular expression operators
         rx = re.compile(regex_pattern.format(prefix,str(YY),suffix), re.VERBOSE)
@@ -210,7 +211,7 @@ def ucar_rda_download(links_list_file, DIRECTORY=None, YEARS=None,
             #-- for each month
             for tt,mn in enumerate(M):
                 #-- convert month number to variable indice
-                m1 = np.int(mn - 1)
+                m1 = np.int64(mn - 1)
                 #-- extract data for the month
                 p_month[m1].append(dinput.index(tt))
 

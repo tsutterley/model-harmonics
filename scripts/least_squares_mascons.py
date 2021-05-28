@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 least_squares_mascons.py
-Written by Tyler Sutterley (04/2021)
+Written by Tyler Sutterley (05/2021)
 
 Calculates regional mass anomalies through a least-squares mascon procedure
     from an index of spherical harmonic coefficient files
@@ -104,6 +104,7 @@ REFERENCES:
         https://doi.org/10.1029/2009GL039401
 
 UPDATE HISTORY:
+    Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 04/2021: add parser object for removing commented or empty lines
     Updated 01/2021: harmonics object output from gen_stokes.py/ocean_stokes.py
     Updated 12/2020: added more love number options
@@ -243,15 +244,15 @@ def least_squares_mascons(parameters, LOVE_NUMBERS=0, REFERENCE=None,
     INDEX_FILE = os.path.expanduser(parameters['INDEX_FILE'])
     DATAFORM = parameters['DATAFORM']
     #-- spherical harmonic degree range
-    LMIN = np.int(parameters['LMIN'])
-    LMAX = np.int(parameters['LMAX'])
+    LMIN = np.int64(parameters['LMIN'])
+    LMAX = np.int64(parameters['LMAX'])
     #-- maximum spherical harmonic order
     if (parameters['MMAX'].title() == 'None'):
         MMAX = np.copy(LMAX)
     else:
-        MMAX = np.int(parameters['MMAX'])
+        MMAX = np.int64(parameters['MMAX'])
     #-- gaussian smoothing radius
-    RAD = np.float(parameters['RAD'])
+    RAD = np.float64(parameters['RAD'])
     #-- filter coefficients for stripe effects
     DESTRIPE = parameters['DESTRIPE'] in ('Y','y')
     #-- index of mascons spherical harmonics
@@ -267,7 +268,7 @@ def least_squares_mascons(parameters, LOVE_NUMBERS=0, REFERENCE=None,
     #-- output directory
     DIRECTORY = os.path.expanduser(parameters['DIRECTORY'])
     #-- 1: fit mass, 2: fit geoid
-    FIT_METHOD = np.int(parameters['FIT_METHOD'])
+    FIT_METHOD = np.int64(parameters['FIT_METHOD'])
 
     #-- Recursively create output directory if not currently existing
     if (not os.access(DIRECTORY,os.F_OK)):
@@ -391,7 +392,7 @@ def least_squares_mascons(parameters, LOVE_NUMBERS=0, REFERENCE=None,
 
     #-- Calculating the number of cos and sin harmonics between LMIN and LMAX
     #-- taking into account MMAX (if MMAX == LMAX then LMAX-MMAX=0)
-    n_harm=np.int(LMAX**2 - LMIN**2 + 2*LMAX + 1 - (LMAX-MMAX)**2 - (LMAX-MMAX))
+    n_harm=np.int64(LMAX**2 - LMIN**2 + 2*LMAX + 1 - (LMAX-MMAX)**2 - (LMAX-MMAX))
 
     #-- Initialing harmonics for least squares fitting
     #-- mascon kernel

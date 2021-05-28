@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_llc_tile_harmonics.py
-Written by Tyler Sutterley (03/2021)
+Written by Tyler Sutterley (05/2021)
 Reads monthly ECCO ocean bottom pressure anomalies from LLC tiles
     and converts to spherical harmonic coefficients
 
@@ -68,6 +68,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 03/2021: automatically update years to run based on current time
     Written 02/2021
 """
@@ -173,7 +174,7 @@ def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     #-- for each input file
     for f in sorted(FILES):
         #-- extract dates from file
-        year,month = np.array(rx.findall(f).pop(), dtype=np.int)
+        year,month = np.array(rx.findall(f).pop(), dtype=np.int64)
         #-- read input data file
         obp_data = {}
         with netCDF4.Dataset(os.path.join(input_dir,f),'r') as fileID:
@@ -240,7 +241,7 @@ def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
         #-- full path to output file
         full_output_file = os.path.join(ddir,output_sub,fi)
         #-- extract GRACE month
-        grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int)
+        grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int64)
         YY = 2002.0 + np.floor((grace_month-1)/12.0)
         MM = ((grace_month-1) % 12) + 1
         tdec, = gravity_toolkit.time.convert_calendar_decimal(YY, MM)

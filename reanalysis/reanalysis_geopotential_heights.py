@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_geopotential_heights.py
-Written by Tyler Sutterley (03/2021)
+Written by Tyler Sutterley (05/2021)
 Reads temperature and specific humidity data to calculate geopotential height
     and pressure difference fields at half levels from reanalysis
 
@@ -25,6 +25,7 @@ PYTHON DEPENDENCIES:
         https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 03/2021: automatically update years to run based on current time
     Updated 01/2021: read from netCDF4 file in slices to reduce memory load
     Updated 12/2020: using argparse to set command line options
@@ -166,14 +167,14 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None,
 
         if MODEL in ('MERRA-2'):
             #-- extract date from monthly files
-            MOD,YEAR,MONTH = np.array(rx.findall(fi).pop(), dtype=np.float)
+            MOD,YEAR,MONTH = np.array(rx.findall(fi).pop(), dtype=np.float64)
             #-- output monthly filename
             FILE = os.path.join(ddir,output_file_format.format(MOD,YEAR,MONTH))
             #-- read surface pressure
             surface_pressure = np.copy(fid1.variables[VARNAME][:])
         elif MODEL in ('ERA-Interim','ERA5'):
             #-- extract year from file name
-            YEAR, = np.array(rx.findall(fi),dtype=np.int)
+            YEAR, = np.array(rx.findall(fi),dtype=np.int64)
             #-- output yearly filename
             FILE = os.path.join(ddir,output_file_format.format(YEAR))
             #-- read input surface pressure data

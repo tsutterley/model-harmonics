@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_atmospheric_harmonics.py
-Written by Tyler Sutterley (03/2021)
+Written by Tyler Sutterley (05/2021)
 Reads atmospheric geopotential heights fields from reanalysis and calculates
     sets of spherical harmonics using a 3D geometry
 
@@ -72,6 +72,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 03/2021: automatically update years to run based on current time
     Updated 01/2021: read from netCDF4 file in slices to reduce memory load
         separated gen_atmosphere_stokes to a separate function
@@ -299,7 +300,7 @@ def reanalysis_atmospheric_harmonics(base_dir, MODEL, YEARS, RANGE=None,
             Ylms.time,=gravity_toolkit.time.convert_calendar_decimal(YY,
                 MM, day=DD, hour=hh, minute=mm, second=ss)
             #-- calculate GRACE month from calendar dates
-            Ylms.month, = np.array([(YY - 2002)*12 + MM], dtype=np.int)
+            Ylms.month, = np.array([(YY - 2002)*12 + MM], dtype=np.int64)
             #-- output data to file
             args = (MODEL.upper(),LMAX,order_str,Ylms.month,suffix[DATAFORM])
             FILE = output_file_format.format(*args)
@@ -329,7 +330,7 @@ def reanalysis_atmospheric_harmonics(base_dir, MODEL, YEARS, RANGE=None,
         #-- full path to output file
         full_output_file = os.path.join(ddir,output_sub,fi)
         #-- extract GRACE month
-        grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int)
+        grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int64)
         YY = 2002.0 + np.floor((grace_month-1)/12.0)
         MM = ((grace_month-1) % 12) + 1
         tdec, = gravity_toolkit.time.convert_calendar_decimal(YY, MM)
@@ -350,7 +351,7 @@ def reanalysis_atmospheric_harmonics(base_dir, MODEL, YEARS, RANGE=None,
 def ncdf_geoid(FILENAME):
     with netCDF4.Dataset(FILENAME,'r') as fileID:
         geoid_undulation = fileID.variables['geoid'][:].copy()
-        gridstep = np.array(fileID.gridstep.split(','),dtype=np.float)
+        gridstep = np.array(fileID.gridstep.split(','),dtype=np.float64)
     return (geoid_undulation,np.squeeze(gridstep))
 
 #-- PURPOSE: read land sea mask to get indices of oceanic values
