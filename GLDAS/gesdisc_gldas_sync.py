@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_gldas_sync.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (06/2021)
 
 Syncs GLDAS monthly datafiles from the Goddard Earth Sciences Data and
     Information Server Center (GES DISC)
@@ -64,6 +64,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 06/2021: fixed timeout for monthly GLDAS download
     Updated 05/2021: added option for connection timeout (in seconds)
         use try/except for retrieving netrc credentials
     Updated 04/2021: set a default netrc file and check access
@@ -173,7 +174,7 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
                 remote_file = posixpath.join(*HOST,REMOTE,Y,colname)
                 #-- copy file from remote directory comparing modified dates
                 http_pull_file(fid, remote_file, remote_mtime, local_file,
-                    LIST, CLOBBER, MODE)
+                    TIMEOUT=TIMEOUT, LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
     #-- if running daily data
     elif (TEMPORAL == '3H'):
         #-- for each yearly subdirectory
@@ -219,7 +220,8 @@ def http_pull_file(fid,remote_file,remote_mtime,local_file,
         #-- check last modification time of local file
         local_mtime = os.stat(local_file).st_mtime
         #-- if remote file is newer: overwrite the local file
-        if (remote_mtime > local_mtime):
+        if (model_harmonics.utilities.even(remote_mtime) >
+            model_harmonics.utilities.even(local_mtime)):
             TEST = True
             OVERWRITE = ' (overwrite)'
     else:

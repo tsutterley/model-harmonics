@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_merra_sync.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (06/2021)
 
 Syncs MERRA-2 surface mass balance (SMB) related products from the Goddard
     Earth Sciences Data and Information Server Center (GES DISC)
@@ -55,6 +55,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 06/2021: new last modified date format on GESDISC servers
     Updated 05/2021: added option for connection timeout (in seconds)
         use try/except for retrieving netrc credentials
     Updated 04/2021: set a default netrc file and check access
@@ -127,7 +128,7 @@ def gesdisc_merra_sync(DIRECTORY, YEARS, TIMEOUT=None, LOG=False,
             #-- read and parse request for files (names and modified dates)
             #-- find remote files for PRODUCT and YEAR
             files,mtimes = model_harmonics.utilities.gesdisc_list([*HOST,
-                PRODUCT,Y],timeout=TIMEOUT,format='%d-%b-%Y %H:%M',
+                PRODUCT,Y],timeout=TIMEOUT,format='%Y-%m-%d %H:%M',
                 pattern=R2,sort=True)
             for colname,remote_mtime in zip(files,mtimes):
                 #-- local and remote versions of the file
@@ -152,7 +153,7 @@ def gesdisc_merra_sync(DIRECTORY, YEARS, TIMEOUT=None, LOG=False,
             #-- read and parse request for files (names and modified dates)
             #-- find remote files for PRODUCT and YEAR
             files,mtimes = model_harmonics.utilities.gesdisc_list([*HOST,
-                PRODUCT,Y],timeout=TIMEOUT,format='%d-%b-%Y %H:%M',
+                PRODUCT,Y],timeout=TIMEOUT,format='%Y-%m-%d %H:%M',
                 pattern=R2,sort=True)
             for colname,remote_mtime in zip(files,mtimes):
                 #-- recursively create local directory if non-existent
