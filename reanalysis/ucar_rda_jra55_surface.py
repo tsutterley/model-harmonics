@@ -25,10 +25,10 @@ INPUTS:
 
 COMMAND LINE OPTIONS:
     --help: list the command line options
+    -D X, --directory X: Working data directory
     -U X, --user X: Username for UCAR/NCAR RDA login
     -P X, --password X: Password for UCAR/NCAR RDA login
     -N X, --netrc X: Path to .netrc file for authentication
-    -D X, --directory X: Full path to output directory
     -Y X, --year X: Years to download from input links file
     -I, --interpolated: Input data is interpolated to 1.25 degrees
     -G, --gzip: Input data is compressed
@@ -88,11 +88,13 @@ import gravity_toolkit.utilities
 from gravity_toolkit.spatial import spatial
 
 #-- PURPOSE: sync local JRA-55 files with UCAR/NCAR RDA server
-def ucar_rda_download(links_list_file, DIRECTORY=None, YEARS=None,
+def ucar_rda_download(base_dir, links_list_file, YEARS=None,
     INTERPOLATED=False, GZIP=False, TIMEOUT=None, LOG=False, MODE=None):
+    #-- full path to JRA-55 directory
+    DIRECTORY = os.path.join(base_dir,'JRA-55')
     #-- check if directory exists and recursively create if not
-    if (not os.access(os.path.join(DIRECTORY), os.F_OK)):
-        os.makedirs(os.path.join(DIRECTORY), MODE)
+    if not os.access(os.path.join(DIRECTORY), os.F_OK):
+        os.makedirs(os.path.join(DIRECTORY), mode=MODE, exist_ok=True)
 
     #-- create log file with list of synchronized files (or print to terminal)
     if LOG:
@@ -349,7 +351,7 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files synced')
-    args = parser.parse_args()
+    args,_ = parser.parse_known_args()
 
     #-- UCAR/NCAR RDA hostname
     HOST = 'rda.ucar.edu'
@@ -384,7 +386,7 @@ def main():
     if (response.read().startswith(b'Authentication successful')):
         #-- for each links list file from UCAR/NCAR RDA
         for FILE in args.file:
-            ucar_rda_download(FILE, DIRECTORY=args.directory, YEARS=args.year,
+            ucar_rda_download(args.directory, FILE, YEARS=args.year,
                 INTERPOLATED=args.interpolated, GZIP=args.gzip,
                 TIMEOUT=args.timeout, LOG=args.log, MODE=args.mode)
 

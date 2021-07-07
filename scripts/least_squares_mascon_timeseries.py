@@ -1,64 +1,52 @@
 #!/usr/bin/env python
 u"""
 least_squares_mascon_timeseries.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (07/2021)
 
 Calculates a time-series of regional mass anomalies through a
     least-squares mascon procedure procedure from an index of
     spherical harmonic coefficient files
 
-CALLING SEQUENCE:
-    python least_squares_mascon_timeseries.py
-
-    Can use input parameter files to run an analysis:
-    python least_squares_mascon_timeseries.py mascon_parameter_file
-
-    Can also input several parameter files in series:
-    python least_squares_mascon_timeseries.py parameter_file1 parameter_file2
-
-    Can be run in parallel with the python multiprocessing package:
-    python least_squares_mascon_timeseries.py --np=2 param_file1 param_file2
-    python least_squares_mascon_timeseries.py -P 2 param_file1 param_file2
-
-    Can output a log file listing the input parameters and output files:
-    python least_squares_mascon_timeseries.py --log parameter_file
-    python least_squares_mascon_timeseries.py -l parameter_file
-
-SYSTEM ARGUMENTS README:
-    program is run as:
-    python least_squares_mascon_timeseries.py inp1 inp2 inp3
-        where inp1, inp2 and inp3 are different inputs
-
-        firstinput=sys.argv[1] (in this case inp1)
-        secondinput=sys.argv[2] (in this case inp2)
-        thirdinput=sys.argv[3] (in this case inp3)
-
-    As python is base 0, sys.argv[0] is least_squares_mascon_timeseries.py
-        (which is useful in some applications, but not for this program)
-
-    For this program, the system arguments are parameter files
-    The program reads the parameter file, which is separated by column as:
-        Column 1: parameter name (such as LMAX)
-        Column 2: parameter (e.g. 60)
-        Column 3: comments (which are discarded)
-    The parameters are stored in a python dictionary (variables indexed by keys)
-        the keys are the parameter name (for LMAX: parameters['LMAX'] == 60)
-
 INPUTS:
-    parameter files containing specific variables for each analysis
+    Input index file for model harmonics
 
 COMMAND LINE OPTIONS:
     --help: list the command line options
-    -P X, --np X: Run in parallel with X number of processes
+    -O X, --output-directory X: output directory for mascon files
+    -P X, --file-prefix X: prefix string for mascon files
+    -S X, --start X: starting GRACE/GRACE-FO month
+    -E X, --end X: ending GRACE/GRACE-FO month
+    -N X, --missing X: Missing GRACE/GRACE-FO months
+    --lmin X: minimum spherical harmonic degree
+    -l X, --lmax X: maximum spherical harmonic degree
+    -m X, --mmax X: maximum spherical harmonic order
+    -R X, --radius X: Gaussian smoothing radius (km)
+    -d, --destripe: use decorrelation filter (destriping filter)
     -n X, --love X: Load Love numbers dataset
         0: Han and Wahr (1995) values from PREM
         1: Gegout (2005) values from PREM
         2: Wang et al. (2012) values from PREM
-    -r X, --reference X: Reference frame for load love numbers
+    --reference X: Reference frame for load love numbers
         CF: Center of Surface Figure (default)
         CM: Center of Mass of Earth System
         CE: Center of Mass of Solid Earth
-    -l, --log: Output log of files created for each job
+    -F X, --format X: input data format
+        ascii
+        netCDF4
+        HDF5
+    --mask X: Land-sea mask for redistributing mascon mass and land water flux
+    --mascon-file X: index file of mascons spherical harmonics
+    --redistribute-mascons: redistribute mascon mass over the ocean
+    --fit-method X: method for fitting sensitivity kernel to harmonics
+        1: mass coefficients
+        2: geoid coefficients
+    --redistribute-mass: redistribute input mass fields over the ocean
+    --harmonic-errors: input spherical harmonic fields are data errors
+    --remove-file X: Monthly files to be removed from the harmonic data
+    --remove-format X: Input data format for files to be removed
+    --redistribute-removed: redistribute removed mass fields over the ocean
+    --log: Output log of files created for each job
+    -V, --verbose: Verbose output of processing run
     -M X, --mode X: Permissions mode of the files created
 
 PYTHON DEPENDENCIES:
@@ -110,6 +98,7 @@ REFERENCES:
         https://doi.org/10.1029/2009GL039401
 
 UPDATE HISTORY:
+    Updated 06/2021: switch from parameter files to argparse arguments
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 04/2021: add parser object for removing commented or empty lines
     Updated 02/2021: changed remove index to files with specified formats
@@ -164,9 +153,9 @@ import re
 import time
 import argparse
 import numpy as np
-import multiprocessing
 import traceback
 
+import gravity_toolkit.utilities as utilities
 from gravity_toolkit.harmonics import harmonics
 from gravity_toolkit.units import units
 from gravity_toolkit.read_love_numbers import read_love_numbers
@@ -174,10 +163,10 @@ from gravity_toolkit.gauss_weights import gauss_weights
 from gravity_toolkit.ocean_stokes import ocean_stokes
 from gravity_toolkit.utilities import get_data_path
 
-#-- PURPOSE: keep track of multiprocessing threads
-def info(title):
+#-- PURPOSE: keep track of threads
+def info(args):
     print(os.path.basename(sys.argv[0]))
-    print(title)
+    print(args)
     print('module name: {0}'.format(__name__))
     if hasattr(os, 'getppid'):
         print('parent process: {0:d}'.format(os.getppid()))
@@ -214,19 +203,22 @@ def load_love_numbers(LMAX, LOVE_NUMBERS=0, REFERENCE='CF'):
     if (LOVE_NUMBERS == 0):
         #-- PREM outputs from Han and Wahr (1995)
         #-- https://doi.org/10.1111/j.1365-246X.1995.tb01819.x
-        love_numbers_file = get_data_path(['data','love_numbers'])
+        love_numbers_file = utilities.get_data_path(
+            ['data','love_numbers'])
         header = 2
         columns = ['l','hl','kl','ll']
     elif (LOVE_NUMBERS == 1):
         #-- PREM outputs from Gegout (2005)
         #-- http://gemini.gsfc.nasa.gov/aplo/
-        love_numbers_file = get_data_path(['data','Load_Love2_CE.dat'])
+        love_numbers_file = utilities.get_data_path(
+            ['data','Load_Love2_CE.dat'])
         header = 3
         columns = ['l','hl','ll','kl']
     elif (LOVE_NUMBERS == 2):
         #-- PREM outputs from Wang et al. (2012)
         #-- https://doi.org/10.1016/j.cageo.2012.06.022
-        love_numbers_file = get_data_path(['data','PREM-LLNs-truncated.dat'])
+        love_numbers_file = utilities.get_data_path(
+            ['data','PREM-LLNs-truncated.dat'])
         header = 1
         columns = ['l','hl','ll','kl','nl','nk']
     #-- LMAX of load love numbers from Han and Wahr (1995) is 696.
@@ -241,46 +233,32 @@ def load_love_numbers(LMAX, LOVE_NUMBERS=0, REFERENCE='CF'):
 
 #-- PURPOSE: calculate a regional time-series through a least
 #-- squares mascon process
-def least_squares_mascons(parameters, LOVE_NUMBERS=0, REFERENCE=None,
+def least_squares_mascons(input_file, LMAX, RAD,
+    START=None,
+    END=None,
+    MISSING=None,
+    LMIN=None,
+    MMAX=None,
+    DESTRIPE=False,
+    LOVE_NUMBERS=0,
+    REFERENCE=None,
+    DATAFORM=None,
+    MASCON_FILE=None,
+    REDISTRIBUTE_MASCONS=False,
+    FIT_METHOD=0,
+    REDISTRIBUTE=False,
+    DATA_ERROR=False,
+    REMOVE_FILES=None,
+    REMOVE_FORMAT=None,
+    REDISTRIBUTE_REMOVED=False,
+    LANDMASK=None,
+    OUTPUT_DIRECTORY=None,
+    FILE_PREFIX=None,
     MODE=0o775):
-    #-- convert parameters to variables
-    #-- index file of data files (containing path)
-    #-- path.expanduser = tilde expansion of path
-    INDEX_FILE = os.path.expanduser(parameters['INDEX_FILE'])
-    DATAFORM = parameters['DATAFORM']
-    #-- Date Range and missing months
-    start_mon = np.int64(parameters['START'])
-    end_mon = np.int64(parameters['END'])
-    missing = np.array(parameters['MISSING'].split(','),dtype=np.int64)
-    #-- spherical harmonic degree range
-    LMIN = np.int64(parameters['LMIN'])
-    LMAX = np.int64(parameters['LMAX'])
-    #-- maximum spherical harmonic order
-    if (parameters['MMAX'].title() == 'None'):
-        MMAX = np.copy(LMAX)
-    else:
-        MMAX = np.int64(parameters['MMAX'])
-    #-- gaussian smoothing radius
-    RAD = np.float64(parameters['RAD'])
-    #-- filter coefficients for stripe effects
-    DESTRIPE = parameters['DESTRIPE'] in ('Y','y')
-    #-- index of mascons spherical harmonics
-    MASCON_INDEX = os.path.expanduser(parameters['MASCON_INDEX'])
-    #-- mascon distribution over the ocean
-    MASCON_OCEAN = parameters['MASCON_OCEAN'] in ('Y','y')
-    #-- destribute total mass of spherical harmonics over the ocean
-    REDISTRIBUTE = parameters['REDISTRIBUTE'] in ('Y','y')
-    REDISTRIBUTE_REMOVED = parameters['REDISTRIBUTE_REMOVED'] in ('Y','y')
-    #-- calculating with data errors
-    DATA_ERROR = parameters['DATA_ERROR'] in ('Y','y')
-    #-- output directory
-    DIRECTORY = os.path.expanduser(parameters['DIRECTORY'])
-    #-- 1: fit mass, 2: fit geoid
-    FIT_METHOD = np.int64(parameters['FIT_METHOD'])
 
     #-- Recursively create output directory if not currently existing
-    if (not os.access(DIRECTORY,os.F_OK)):
-        os.makedirs(DIRECTORY, mode=MODE, exist_ok=True)
+    if (not os.access(OUTPUT_DIRECTORY,os.F_OK)):
+        os.makedirs(OUTPUT_DIRECTORY, mode=MODE, exist_ok=True)
 
     #-- list object of output files for file logs (full path)
     output_files = []
@@ -310,14 +288,14 @@ def least_squares_mascons(parameters, LOVE_NUMBERS=0, REFERENCE=None,
         gw_str = ''
 
     #-- output string for both LMAX==MMAX and LMAX != MMAX cases
+    MMAX = np.copy(LMAX) if not MMAX else MMAX
     order_str = 'M{0:d}'.format(MMAX) if (MMAX != LMAX) else ''
     #-- output string for destriped harmonics
     ds_str = '_FL' if DESTRIPE else ''
 
     #-- Read Ocean function and convert to Ylms for redistribution
-    if (MASCON_OCEAN | REDISTRIBUTE):
+    if (REDISTRIBUTE_MASCONS | REDISTRIBUTE):
         #-- read Land-Sea Mask and convert to spherical harmonics
-        LANDMASK = os.path.expanduser(parameters['LANDMASK'])
         ocean_Ylms = ocean_stokes(LANDMASK, LMAX, MMAX=MMAX, LOVE=(hl,kl,ll))
         ocean_str = '_OCN'
     else:
@@ -325,9 +303,9 @@ def least_squares_mascons(parameters, LOVE_NUMBERS=0, REFERENCE=None,
         ocean_str = ''
 
     #-- Range of months from start_mon to end_mon
-    mon_range = np.arange(start_mon,end_mon+1)#-- end_mon+1 to include end_mon
+    mon_range = np.arange(START,END+1)#-- end_mon+1 to include end_mon
     #-- Removing the missing months and months not to consider
-    for i in missing:
+    for i in MISSING:
         mon_range = mon_range[np.nonzero(mon_range != i)]
     #-- number of months to consider in analysis
     n_files = len(mon_range)
@@ -335,7 +313,7 @@ def least_squares_mascons(parameters, LOVE_NUMBERS=0, REFERENCE=None,
     #-- input spherical harmonic datafile index
     #-- correspond file names with GRACE month
     #-- this allows additional months to be in the index
-    data_Ylms = harmonics().from_index(INDEX_FILE, DATAFORM)
+    data_Ylms = harmonics().from_index(input_file, DATAFORM)
     #-- reduce to GRACE/GRACE-FO months and truncate to degree and order
     data_Ylms = data_Ylms.subset(mon_range).truncate(lmax=LMAX,mmax=MMAX)
     #-- distribute Ylms uniformly over the ocean
@@ -359,15 +337,12 @@ def least_squares_mascons(parameters, LOVE_NUMBERS=0, REFERENCE=None,
     remove_Ylms = data_Ylms.zeros_like()
     remove_Ylms.time[:] = np.copy(data_Ylms.time)
     remove_Ylms.month[:] = np.copy(data_Ylms.month)
-    if (parameters['REMOVE_FILE'].title() != 'None'):
-        #-- files to be removed and their respective formats
-        REMOVE_FILES = parameters['REMOVE_FILE'].split(',')
-        FORMATS = parameters['REMOVEFORM'].split(',')
+    if REMOVE_FILES:
         #-- extend list if a single format was entered for all files
-        if len(FORMATS) < len(REMOVE_FILES):
-            FORMATS = FORMATS*len(REMOVE_FILES)
+        if len(REMOVE_FORMAT) < len(REMOVE_FILES):
+            REMOVE_FORMAT = REMOVE_FORMAT*len(REMOVE_FILES)
         #-- for each file to be removed
-        for REMOVE_FILE,REMOVEFORM in zip(REMOVE_FILES,FORMATS):
+        for REMOVE_FILE,REMOVEFORM in zip(REMOVE_FILES,REMOVE_FORMAT):
             if (REMOVEFORM == 'ascii'):
                 #-- ascii (.txt)
                 Ylms = harmonics().from_ascii(REMOVE_FILE)
@@ -403,7 +378,7 @@ def least_squares_mascons(parameters, LOVE_NUMBERS=0, REFERENCE=None,
             remove_Ylms.add(Ylms)
 
     #-- input mascon spherical harmonic datafiles
-    with open(MASCON_INDEX,'r') as f:
+    with open(MASCON_FILE,'r') as f:
         mascon_files = [l for l in f.read().splitlines() if parser.match(l)]
     #-- number of mascons
     n_mas = len(mascon_files)
@@ -427,7 +402,7 @@ def least_squares_mascons(parameters, LOVE_NUMBERS=0, REFERENCE=None,
         #-- Calculating the total mass of each mascon (1 cmH2O uniform)
         area_tot[k] = 4.0*np.pi*(rad_e**3)*rho_e*Ylms.clm[0,0]/3.0
         #-- distribute MASCON mass uniformly over the ocean
-        if MASCON_OCEAN:
+        if REDISTRIBUTE_MASCONS:
             #-- calculate ratio between total mascon mass and
             #-- a uniformly distributed cm of water over the ocean
             ratio = Ylms.clm[0,0]/ocean_Ylms.clm[0,0]
@@ -536,14 +511,14 @@ def least_squares_mascons(parameters, LOVE_NUMBERS=0, REFERENCE=None,
     for k in range(n_mas):
         #-- output filename format:
         #-- mascon name, LMAX, order flag, Gaussian smoothing radii, filter flag
-        file_out='{0}{1}_L{2:d}{3}{4}{5}{6}.txt'.format(parameters['FILENAME'],
+        file_out='{0}{1}_L{2:d}{3}{4}{5}{6}.txt'.format(FILE_PREFIX,
             mascon_name[k], LMAX, order_str, gw_str, ds_str, ocean_str)
 
         #-- Output mascon datafiles
         #-- Will output each mascon mass time series
         #-- month, date, mascon mass, mascon area
         #-- open output mascon time-series file
-        fid = open(os.path.join(DIRECTORY,file_out),'w')
+        fid = open(os.path.join(OUTPUT_DIRECTORY,file_out),'w')
         #-- for each date
         for f,mon in enumerate(data_Ylms.month):
             #-- Summing over all spherical harmonics for mascon k, and time t
@@ -561,32 +536,25 @@ def least_squares_mascons(parameters, LOVE_NUMBERS=0, REFERENCE=None,
         #-- close the output file
         fid.close()
         #-- change the permissions mode of the output file
-        os.chmod(os.path.join(DIRECTORY,file_out), MODE)
+        os.chmod(os.path.join(OUTPUT_DIRECTORY,file_out), MODE)
         #-- add output files to list object
-        output_files.append(os.path.join(DIRECTORY,file_out))
+        output_files.append(os.path.join(OUTPUT_DIRECTORY,file_out))
 
     #-- return the list of output files
     return output_files
 
 #-- PURPOSE: print a file log for the mascon analysis
-#-- lists: the parameter file, the parameters and the output files
-def output_log_file(parameters,output_files):
+def output_log_file(arguments,output_files):
     #-- format: calc_mascon_run_2002-04-01_PID-70335.log
     args = (time.strftime('%Y-%m-%d',time.localtime()), os.getpid())
     LOGFILE = 'calc_mascon_run_{0}_PID-{1:d}.log'.format(*args)
-    DIRECTORY = os.path.expanduser(parameters['DIRECTORY'])
     #-- create a unique log and open the log file
-    fid = create_unique_logfile(os.path.join(DIRECTORY,LOGFILE))
-    #-- check if run from entering parameters or from parameter files
-    if parameters['PARAMETER_FILE'] is not None:
-        #-- print parameter file on top
-        print('PARAMETER FILE:\n{0}\n\nPARAMETERS:'.format(
-            os.path.abspath(parameters['PARAMETER_FILE'])), file=fid)
-    else:
-        print('PARAMETERS:', file=fid)
-    #-- print parameter values sorted alphabetically
-    for p in sorted(list(set(parameters.keys())-set(['PARAMETER_FILE']))):
-        print('{0}: {1}'.format(p, parameters[p]), file=fid)
+    DIRECTORY = os.path.expanduser(arguments.output_directory)
+    fid = utilities.create_unique_file(os.path.join(DIRECTORY,LOGFILE))
+    #-- print argument values sorted alphabetically
+    print('ARGUMENTS:', file=fid)
+    for arg, value in sorted(vars(arguments).items()):
+        print('{0}: {1}'.format(arg, value), file=fid)
     #-- print output files
     print('\n\nOUTPUT FILES:', file=fid)
     for f in output_files:
@@ -595,85 +563,22 @@ def output_log_file(parameters,output_files):
     fid.close()
 
 #-- PURPOSE: print a error file log for the mascon analysis
-#-- lists: the parameter file, the parameters and the error
-def output_error_log_file(parameters):
+def output_error_log_file(arguments):
     #-- format: calc_mascon_failed_run_2002-04-01_PID-70335.log
     args = (time.strftime('%Y-%m-%d',time.localtime()), os.getpid())
     LOGFILE = 'calc_mascon_failed_run_{0}_PID-{1:d}.log'.format(*args)
-    DIRECTORY = os.path.expanduser(parameters['DIRECTORY'])
     #-- create a unique log and open the log file
-    fid = create_unique_logfile(os.path.join(DIRECTORY,LOGFILE))
-    #-- check if run from entering parameters or from parameter files
-    if parameters['PARAMETER_FILE'] is not None:
-        #-- print parameter file on top
-        print('PARAMETER FILE:\n{0}\n\nPARAMETERS:'.format(
-            os.path.abspath(parameters['PARAMETER_FILE'])), file=fid)
-    else:
-        print('PARAMETERS:', file=fid)
-    #-- print parameter values sorted alphabetically
-    for p in sorted(list(set(parameters.keys())-set(['PARAMETER_FILE']))):
-        print('{0}: {1}'.format(p, parameters[p]), file=fid)
+    DIRECTORY = os.path.expanduser(arguments.output_directory)
+    fid = utilities.create_unique_file(os.path.join(DIRECTORY,LOGFILE))
+    #-- print argument values sorted alphabetically
+    print('ARGUMENTS:', file=fid)
+    for arg, value in sorted(vars(arguments).items()):
+        print('{0}: {1}'.format(arg, value), file=fid)
     #-- print traceback error
     print('\n\nTRACEBACK ERROR:', file=fid)
     traceback.print_exc(file=fid)
     #-- close the log file
     fid.close()
-
-#-- PURPOSE: open a unique log file adding a numerical instance if existing
-def create_unique_logfile(filename):
-    #-- split filename into fileBasename and fileExtension
-    fileBasename, fileExtension = os.path.splitext(filename)
-    #-- create counter to add to the end of the filename if existing
-    counter = 1
-    while counter:
-        try:
-            #-- open file descriptor only if the file doesn't exist
-            fd = os.open(filename, os.O_CREAT | os.O_EXCL | os.O_RDWR)
-        except OSError:
-            pass
-        else:
-            return os.fdopen(fd, 'w+')
-        #-- new filename adds counter the between fileBasename and fileExtension
-        filename = '{0}_{1:d}{2}'.format(fileBasename, counter, fileExtension)
-        counter += 1
-
-#-- PURPOSE: define the analysis for multiprocessing
-def define_analysis(parameter_file,LOVE_NUMBERS=0,REFERENCE=None,LOG=False,
-    MODE=0o775):
-    #-- keep track of multiprocessing threads
-    info(os.path.basename(parameter_file))
-
-    #-- variable with parameter definitions
-    parameters = {}
-    parameters['PARAMETER_FILE'] = parameter_file
-    #-- Opening parameter file and assigning file ID number (fid)
-    fid = open(os.path.expanduser(parameter_file), 'r')
-    #-- for each line in the file will extract the parameter (name and value)
-    for fileline in fid:
-        #-- Splitting the input line between parameter name and value
-        part = fileline.split()
-        #-- filling the parameter definition variable
-        parameters[part[0]] = part[1]
-    #-- close the parameter file
-    fid.close()
-
-    #-- try to run the analysis with listed parameters
-    try:
-        #-- run mascon algorithm with parameters
-        output_files = least_squares_mascons(parameters,
-            LOVE_NUMBERS=LOVE_NUMBERS, REFERENCE=REFERENCE,
-            MODE=MODE)
-    except:
-        #-- if there has been an error exception
-        #-- print the type, value, and stack trace of the
-        #-- current exception being handled
-        print('process id {0:d} failed'.format(os.getpid()))
-        traceback.print_exc()
-        if LOG:#-- write failed job completion log file
-            output_error_log_file(parameters)
-    else:
-        if LOG:#-- write successful job completion log file
-            output_log_file(parameters,output_files)
 
 #-- This is the main part of the program that calls the individual modules
 def main():
@@ -681,16 +586,45 @@ def main():
         description="""Calculates a time-series of regional mass anomalies
             through a least-squares mascon procedure procedure from an index
             of spherical harmonic coefficient files
-            """
+            """,
+        fromfile_prefix_chars="@"
     )
+    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
     #-- command line parameters
-    parser.add_argument('parameters',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='+',
-        help='Parameter files containing specific variables for each analysis')
-    #-- number of processes to run in parallel
-    parser.add_argument('--np','-P',
-        metavar='PROCESSES', type=int, default=0,
-        help='Number of processes to run in parallel')
+    parser.add_argument('infile',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        help='Input index file with spherical harmonic data files')
+    #-- working data directory
+    parser.add_argument('--output-directory','-O',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        default=os.getcwd(),
+        help='Output directory for mascon files')
+    parser.add_argument('--file-prefix','-P',
+        type=str,
+        help='Prefix string for mascon files')
+    #-- minimum spherical harmonic degree
+    parser.add_argument('--lmin',
+        type=int, default=1,
+        help='Minimum spherical harmonic degree')
+    #-- maximum spherical harmonic degree and order
+    parser.add_argument('--lmax','-l',
+        type=int, default=60,
+        help='Maximum spherical harmonic degree')
+    parser.add_argument('--mmax','-m',
+        type=int, default=None,
+        help='Maximum spherical harmonic order')
+    #-- start and end GRACE/GRACE-FO months
+    parser.add_argument('--start','-S',
+        type=int, default=4,
+        help='Starting GRACE/GRACE-FO month')
+    parser.add_argument('--end','-E',
+        type=int, default=232,
+        help='Ending GRACE/GRACE-FO month')
+    MISSING = [6,7,18,109,114,125,130,135,140,141,146,151,156,162,166,167,
+        172,177,178,182,187,188,189,190,191,192,193,194,195,196,197,200,201]
+    parser.add_argument('--missing','-N',
+        metavar='MISSING', type=int, nargs='+', default=MISSING,
+        help='Missing GRACE/GRACE-FO months')
     #-- different treatments of the load Love numbers
     #-- 0: Han and Wahr (1995) values from PREM
     #-- 1: Gegout (2005) values from PREM
@@ -700,43 +634,111 @@ def main():
         help='Treatment of the Load Love numbers')
     #-- option for setting reference frame for gravitational load love number
     #-- reference frame options (CF, CM, CE)
-    parser.add_argument('--reference','-r',
+    parser.add_argument('--reference',
         type=str.upper, default='CF', choices=['CF','CM','CE'],
         help='Reference frame for load Love numbers')
+    #-- Gaussian smoothing radius (km)
+    parser.add_argument('--radius','-R',
+        type=float, default=0,
+        help='Gaussian smoothing radius (km)')
+    #-- Use a decorrelation (destriping) filter
+    parser.add_argument('--destripe','-d',
+        default=False, action='store_true',
+        help='Use decorrelation (destriping) filter')
+    #-- input data format (ascii, netCDF4, HDF5)
+    parser.add_argument('--format','-F',
+        type=str, default='netCDF4', choices=['ascii','netCDF4','HDF5'],
+        help='Input data format for auxiliary files')
+    #-- mascon index file and parameters
+    parser.add_argument('--mascon-file',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        help='Index file of mascons spherical harmonics')
+    parser.add_argument('--redistribute-mascons',
+        default=False, action='store_true',
+        help='Redistribute mascon mass over the ocean')
+    #-- 1: mass coefficients
+    #-- 2: geoid coefficients
+    parser.add_argument('--fit-method',
+        type=int, default=1, choices=(1,2),
+        help='Method for fitting sensitivity kernel to harmonics')
+    #-- redistribute total mass over the ocean
+    parser.add_argument('--redistribute-mass',
+        default=False, action='store_true',
+        help='Redistribute total mass over the ocean')
+    #-- calculating with data errors
+    parser.add_argument('--harmonic-errors',
+        default=False, action='store_true',
+        help='Input spherical harmonic fields are data errors')
+    #-- monthly files to be removed from the harmonic data
+    parser.add_argument('--remove-file',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='+',
+        help='Monthly files to be removed from the harmonic data')
+    parser.add_argument('--remove-format',
+        type=str, nargs='+', choices=['ascii','netCDF4','HDF5','index'],
+        help='Input data format for files to be removed')
+    parser.add_argument('--redistribute-removed',
+        default=False, action='store_true',
+        help='Redistribute removed mass fields over the ocean')
+    #-- land-sea mask for redistributing mascon mass and land water flux
+    parser.add_argument('--mask',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        help='Land-sea mask for redistributing mascon mass and land water flux')
     #-- Output log file for each job in forms
     #-- calc_mascon_run_2002-04-01_PID-00000.log
     #-- calc_mascon_failed_run_2002-04-01_PID-00000.log
-    parser.add_argument('--log','-l',
+    parser.add_argument('--log',
         default=False, action='store_true',
         help='Output log file for each job')
+    #-- print information about processing run
+    parser.add_argument('--verbose','-V',
+        default=False, action='store_true',
+        help='Verbose output of processing run')
     #-- permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='permissions mode of output files')
-    args = parser.parse_args()
+    args,_ = parser.parse_known_args()
 
-    #-- use parameter files from system arguments listed after the program.
-    if (args.np == 0):
-        #-- run directly as series if PROCESSES = 0
-        #-- for each entered parameter file
-        for f in args.parameters:
-            define_analysis(f, LOVE_NUMBERS=args.love,
-                REFERENCE=args.reference,
-                LOG=args.log, MODE=args.mode)
+    #-- try to run the analysis with listed parameters
+    try:
+        info(args) if args.verbose else None
+        #-- run least_squares_mascons algorithm with parameters
+        output_files = least_squares_mascons(
+            args.infile,
+            args.lmax,
+            args.radius,
+            START=args.start,
+            END=args.end,
+            MISSING=args.missing,
+            LMIN=args.lmin,
+            MMAX=args.mmax,
+            DESTRIPE=args.destripe,
+            LOVE_NUMBERS=args.love,
+            REFERENCE=args.reference,
+            DATAFORM=args.format,
+            MASCON_FILE=args.mascon_file,
+            REDISTRIBUTE_MASCONS=args.redistribute_mascons,
+            FIT_METHOD=args.fit_method,
+            REDISTRIBUTE=args.redistribute_mass,
+            DATA_ERROR=args.harmonic_errors,
+            REMOVE_FILES=args.remove_file,
+            REMOVE_FORMAT=args.remove_format,
+            REDISTRIBUTE_REMOVED=args.redistribute_removed,
+            LANDMASK=args.mask,
+            OUTPUT_DIRECTORY=args.output_directory,
+            FILE_PREFIX=args.file_prefix,
+            MODE=args.mode)
+    except:
+        #-- if there has been an error exception
+        #-- print the type, value, and stack trace of the
+        #-- current exception being handled
+        print('process id {0:d} failed'.format(os.getpid()))
+        traceback.print_exc()
+        if args.log:#-- write failed job completion log file
+            output_error_log_file(args)
     else:
-        #-- run in parallel with multiprocessing Pool
-        pool = multiprocessing.Pool(processes=args.np)
-        #-- for each entered parameter file
-        for f in args.parameters:
-            kwds=dict(LOVE_NUMBERS=args.love,REFERENCE=args.reference,
-                LOG=args.log,MODE=args.mode)
-            pool.apply_async(define_analysis,args=(f,),kwds=kwds)
-        #-- start multiprocessing jobs
-        #-- close the pool
-        #-- prevents more tasks from being submitted to the pool
-        pool.close()
-        #-- exit the completed processes
-        pool.join()
+        if args.log:#-- write successful job completion log file
+            output_log_file(args,output_files)
 
 #-- run main program
 if __name__ == '__main__':

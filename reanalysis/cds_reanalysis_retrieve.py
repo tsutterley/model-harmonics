@@ -193,7 +193,7 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files retrieved')
-    args = parser.parse_args()
+    args,_ = parser.parse_known_args()
 
     #-- open connection with CDS api server
     server = cdsapi.Client(url=args.api_url, key=args.api_key,
