@@ -155,7 +155,7 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
-    args = parser.parse_args()
+    args,_ = parser.parse_known_args()
 
     #-- run program
     ecco_depth_version4(args.directory, args.file, VERSION=args.version,

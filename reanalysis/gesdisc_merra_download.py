@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_merra_download.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (07/2021)
 
 This program downloads MERRA-2 products using a links list provided by the
     Goddard Earth Sciences Data and Information Server Center
@@ -48,6 +48,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 07/2021: add catch for hyperlinks that are not files
     Updated 05/2021: added option for connection timeout (in seconds)
         use try/except for retrieving netrc credentials
     Updated 04/2021: set a default netrc file and check access
@@ -78,8 +79,8 @@ def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
     #-- full path to MERRA-2 directory
     DIRECTORY = os.path.join(base_dir,'MERRA-2')
     #-- check if DIRECTORY exists and recursively create if not
-    if (not os.access(os.path.join(DIRECTORY), os.F_OK)):
-        os.makedirs(os.path.join(DIRECTORY), MODE)
+    if not os.access(os.path.join(DIRECTORY), os.F_OK):
+        os.makedirs(os.path.join(DIRECTORY), mode=MODE, exist_ok=True)
 
     #-- create log file with list of synchronized files (or print to terminal)
     if LOG:
@@ -106,16 +107,24 @@ def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
             rx = re.compile(r'MERRA2_(\d+)\.(.*?)\.(\d+)\.(.*?).nc')
             MOD,DSET,YMD,AUX = rx.findall(f.decode('utf-8')).pop()
             FILE = 'MERRA2_{0}.{1}.{2}.SUB.nc'.format(MOD,DSET,YMD)
+        elif re.search(rb'FAQ',f,re.IGNORECASE):
+            #-- skip frequently asked questions hyperlinks
+            continue
         else:
             FILE = HOST[-1]
-        #-- output local file
-        local_file = os.path.join(DIRECTORY,FILE)
-        MD5 = gravity_toolkit.utilities.get_hash(local_file)
         #-- Create and submit request. There are a wide range of exceptions
         #-- that can be thrown here, including HTTPError and URLError.
-        gravity_toolkit.utilities.from_http(HOST, timeout=TIMEOUT,
-            context=None, local=local_file, hash=MD5, fid=fid,
-            verbose=VERBOSE, mode=MODE)
+        try:
+            #-- output local file
+            local_file = os.path.join(DIRECTORY,FILE)
+            MD5 = gravity_toolkit.utilities.get_hash(local_file)
+            gravity_toolkit.utilities.from_http(HOST, timeout=TIMEOUT,
+                context=None, local=local_file, hash=MD5, fid=fid,
+                verbose=VERBOSE, mode=MODE)
+        except:
+            remote_file = gravity_toolkit.utilities.posixpath.join(HOST)
+            print('Link not downloaded: {0}'.format(remote_file))
+            continue
 
     #-- close log file and set permissions level to MODE
     if LOG:
@@ -168,7 +177,7 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files synced')
-    args = parser.parse_args()
+    args,_ = parser.parse_known_args()
 
     #-- NASA Earthdata hostname
     URS = 'urs.earthdata.nasa.gov'

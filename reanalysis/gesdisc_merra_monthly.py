@@ -81,8 +81,8 @@ def gesdisc_merra_monthly(base_dir, links_list_file, TIMEOUT=None,
     #-- full path to MERRA-2 directory
     DIRECTORY = os.path.join(base_dir,'MERRA-2')
     #-- check if DIRECTORY exists and recursively create if not
-    if (not os.access(os.path.join(DIRECTORY), os.F_OK)):
-        os.makedirs(os.path.join(DIRECTORY), MODE)
+    if not os.access(os.path.join(DIRECTORY), os.F_OK):
+        os.makedirs(os.path.join(DIRECTORY), mode=MODE, exist_ok=True)
 
     #-- create log file with list of synchronized files (or print to terminal)
     if LOG:
@@ -326,7 +326,7 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files synced')
-    args = parser.parse_args()
+    args,_ = parser.parse_known_args()
 
     #-- NASA Earthdata hostname
     URS = 'urs.earthdata.nasa.gov'

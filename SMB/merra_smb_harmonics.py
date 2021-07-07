@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_harmonics.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (07/2021)
 Reads monthly MERRA-2 surface mass balance anomalies and
     converts to spherical harmonic coefficients
 
@@ -22,7 +22,7 @@ COMMAND LINE OPTIONS:
         0: Han and Wahr (1995) values from PREM
         1: Gegout (2005) values from PREM
         2: Wang et al. (2012) values from PREM
-    -r X, --reference X: Reference frame for load love numbers
+    --reference X: Reference frame for load love numbers
         CF: Center of Surface Figure (default)
         CM: Center of Mass of Earth System
         CE: Center of Mass of Solid Earth
@@ -65,6 +65,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 07/2021: can use input files to define command line arguments
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 03/2021: automatically update years to run based on current time
     Updated 02/2021: can use multiple mask files to create a combined solution
@@ -89,12 +90,12 @@ import netCDF4
 import argparse
 import numpy as np
 import gravity_toolkit.time
+import gravity_toolkit.utilities as utilities
 from gravity_toolkit.read_love_numbers import read_love_numbers
 from gravity_toolkit.harmonics import harmonics
 from gravity_toolkit.spatial import spatial
 from gravity_toolkit.plm_holmes import plm_holmes
 from gravity_toolkit.gen_stokes import gen_stokes
-from gravity_toolkit.utilities import get_data_path
 from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
 
 #-- PURPOSE: read Merra-2 cumulative data and convert to spherical harmonics
@@ -294,19 +295,22 @@ def load_love_numbers(LMAX, LOVE_NUMBERS=0, REFERENCE='CF'):
     if (LOVE_NUMBERS == 0):
         #-- PREM outputs from Han and Wahr (1995)
         #-- https://doi.org/10.1111/j.1365-246X.1995.tb01819.x
-        love_numbers_file = get_data_path(['data','love_numbers'])
+        love_numbers_file = utilities.get_data_path(
+            ['data','love_numbers'])
         header = 2
         columns = ['l','hl','kl','ll']
     elif (LOVE_NUMBERS == 1):
         #-- PREM outputs from Gegout (2005)
         #-- http://gemini.gsfc.nasa.gov/aplo/
-        love_numbers_file = get_data_path(['data','Load_Love2_CE.dat'])
+        love_numbers_file = utilities.get_data_path(
+            ['data','Load_Love2_CE.dat'])
         header = 3
         columns = ['l','hl','ll','kl']
     elif (LOVE_NUMBERS == 2):
         #-- PREM outputs from Wang et al. (2012)
         #-- https://doi.org/10.1016/j.cageo.2012.06.022
-        love_numbers_file = get_data_path(['data','PREM-LLNs-truncated.dat'])
+        love_numbers_file = utilities.get_data_path(
+            ['data','PREM-LLNs-truncated.dat'])
         header = 1
         columns = ['l','hl','ll','kl','nl','nk']
     #-- LMAX of load love numbers from Han and Wahr (1995) is 696.
@@ -325,8 +329,10 @@ def main():
     parser = argparse.ArgumentParser(
         description="""Reads monthly MERRA-2 surface mass balance
             anomalies and converts to spherical harmonic coefficients
-            """
+            """,
+        fromfile_prefix_chars="@"
     )
+    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
     #-- command line parameters
     parser.add_argument('product',
         type=str, nargs='+', choices=['SMB','PRECIP','RUNOFF'],
@@ -370,7 +376,7 @@ def main():
         help='Treatment of the Load Love numbers')
     #-- option for setting reference frame for gravitational load love number
     #-- reference frame options (CF, CM, CE)
-    parser.add_argument('--reference','-r',
+    parser.add_argument('--reference',
         type=str.upper, default='CF', choices=['CF','CM','CE'],
         help='Reference frame for load Love numbers')
     #-- input and output data format (ascii, netCDF4, HDF5)
@@ -385,7 +391,7 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
-    args = parser.parse_args()
+    args,_ = parser.parse_known_args()
 
     #-- run program for each input product
     for PRODUCT in args.product:

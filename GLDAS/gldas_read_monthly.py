@@ -128,7 +128,7 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
     VERSION=None, DATAFORM=None, CLOBBER=False, VERBOSE=False, MODE=0o775):
     #-- Version flags
     V1,V2 = ('_V1','') if (VERSION == '1') else ('','.{0}'.format(VERSION))
-    #-- dimensions of spatial fields from SPATIAL parameter
+    #-- dimensions of spatial fields from SPATIAL variable
     if (SPATIAL == '025'):
         nlon,nlat = (1440,600)
         dlon,dlat = (0.25,0.25)
@@ -371,7 +371,7 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
-    args = parser.parse_args()
+    args,_ = parser.parse_known_args()
 
     #-- for each GLDAS model
     for MODEL in args.model:

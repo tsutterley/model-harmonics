@@ -11,7 +11,7 @@ Calling Sequence
 
 .. code-block:: bash
 
-    python least_squares_mascon_timeseries.py --mode 0o775 parameter_file
+    python least_squares_mascon_timeseries.py @default_arguments_file input_index_file
 
 `Source code`__
 
@@ -20,23 +20,50 @@ Calling Sequence
 Inputs
 ######
 
-- parameter file containing specific variables for the analysis
+- input index file for model harmonics
 
 Command Line Options
 ####################
 
-- ``-P X``, ``--np X``: Run in parallel with X number of processes
+- ``-O X``, ``--output-directory X``: output directory for mascon files
+- ``-P X``, ``--file-prefix X``: prefix string for mascon files
+- ``-S X``, ``--start X``: starting GRACE/GRACE-FO month
+- ``-E X``, ``--end X``: ending GRACE/GRACE-FO month
+- ``-N X``, ``--missing X``: Missing GRACE/GRACE-FO months
+- ``--lmin X``: minimum spherical harmonic degree
+- ``-l X``, ``--lmax X``: maximum spherical harmonic degree
+- ``-m X``, ``--mmax X``: maximum spherical harmonic order
+- ``-R X``, ``--radius X``: Gaussian smoothing radius (km)
+- ``-d``, ``--destripe``: use decorrelation filter (destriping filter)
 - ``-n X``, ``--love X``: Load Love numbers dataset
 
      * ``0``: Han and Wahr (1995) values from PREM [Han1995]_
      * ``1``: Gegout (2005) values from PREM [Gegout2010]_
      * ``2``: Wang et al. (2012) values from PREM [Wang2012]_
-- ``-r X``, ``--reference X``: Reference frame for load love numbers
+- ``--reference X``: Reference frame for load love numbers
 
      * ``'CF'``: Center of Surface Figure (default)
      * ``'CM'``: Center of Mass of Earth System
      * ``'CE'``: Center of Mass of Solid Earth
+- ``-F X``, ``--format X``: input data format
+
+     * ``'ascii'``
+     * ``'netCDF4'``
+     * ``'HDF5'``
+- ``--mask X``: Land-sea mask for redistributing mascon mass and land water flux
+- ``--mascon-file X``: index file of mascons spherical harmonics
+- ``--redistribute-mascons``: redistribute mascon mass over the ocean
+- ``--fit-method X``: method for fitting sensitivity kernel to harmonics
+
+    * ``1``: mass coefficients
+    * ``2``: geoid coefficients
+- ``--redistribute-mass``: redistribute input mass fields over the ocean
+- ``--harmonic-errors``: input spherical harmonic fields are data errors
+- ``--remove-file X``: Monthly files to be removed from the harmonic data
+- ``--remove-format X``: Input data format for files to be removed
+- ``--redistribute-removed``: redistribute removed mass fields over the ocean
 - ``-l``, ``--log``: output log file for each job
+- ``-V``, ``--verbose``: Verbose output of processing run
 - ``-M X``, ``--mode X``: permissions mode of output files
 
 References

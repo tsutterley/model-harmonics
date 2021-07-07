@@ -36,7 +36,7 @@ COMMAND LINE OPTIONS:
         0: Han and Wahr (1995) values from PREM
         1: Gegout (2005) values from PREM
         2: Wang et al. (2012) values from PREM
-    -r X, --reference X: Reference frame for load love numbers
+    --reference X: Reference frame for load love numbers
         CF: Center of Surface Figure (default)
         CM: Center of Mass of Earth System
         CE: Center of Mass of Solid Earth
@@ -147,7 +147,7 @@ def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
         os.makedirs(os.path.join(ddir,sub2),MODE)
     #-- upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
-    #-- flag for spherical harmonic order
+    #-- output string for both LMAX == MMAX and LMAX != MMAX cases
     order_str = 'M{0:d}'.format(MMAX) if (MMAX != LMAX) else ''
     #-- Calculating the Gaussian smoothing for radius RAD
     gw_str = '_r{0:0.0f}km'.format(RAD) if (RAD != 0) else ''
@@ -465,7 +465,7 @@ def main():
         help='Treatment of the Load Love numbers')
     #-- option for setting reference frame for gravitational load love number
     #-- reference frame options (CF, CM, CE)
-    parser.add_argument('--reference','-r',
+    parser.add_argument('--reference',
         type=str.upper, default='CF', choices=['CF','CM','CE'],
         help='Reference frame for load Love numbers')
     #-- input and output data format (ascii, netCDF4, HDF5)
@@ -480,7 +480,7 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
-    args = parser.parse_args()
+    args,_ = parser.parse_known_args()
 
     #-- for each GLDAS model
     for MODEL in args.model:
