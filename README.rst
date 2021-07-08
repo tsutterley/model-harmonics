@@ -9,8 +9,8 @@ model-harmonics
 .. |Language| image:: https://img.shields.io/badge/python-v3.7-green.svg
    :target: https://www.python.org/
 
-.. |License| image:: https://img.shields.io/badge/license-MIT-green.svg
-   :target: https://github.com/tsutterley/read-GRACE-harmonics/blob/main/LICENSE
+.. |License| image:: https://img.shields.io/github/license/tsutterley/model-harmonics
+   :target: https://github.com/tsutterley/model-harmonics/blob/main/LICENSE
 
 .. |Documentation Status| image:: https://readthedocs.org/projects/model-harmonics/badge/?version=latest
    :target: https://read-grace-harmonics.readthedocs.io/projects/model-harmonics/en/latest/?badge=latest

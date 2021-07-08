@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 u"""
 ucar_rda_jra55_surface.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (07/2021)
 
-This program downloads JRA-55 products using a links list provided by the
+Downloads JRA-55 products using a links list csh file provided by the
     NCAR/UCAR Research Data Archive (RDA): https://rda.ucar.edu/
 
 JRA-55: Japanese 55-year Reanalysis, Daily 3-Hourly and 6-Hourly Data
@@ -16,6 +16,11 @@ Parameters for links list file:
     Pressure
     Subset regular monthly means converted to netCDF4
     Monthly Mean (4 per day) of Analyses
+
+NOTE:
+    Make small enough requests so that the data comes in a single tar file
+        or as single files
+    Large requests coming in multiple tar files are presently not supported
 
 CALLING SEQUENCE:
     python ucar_rda_jra55_surface.py --user <username> links_list_file
@@ -57,6 +62,7 @@ PROGRAM DEPENDENCIES:
         hdf5_write.py: writes output spatial data to HDF5
 
 UPDATE HISTORY:
+    Updated 07/2021: adjust ordering of file line search in csh file
     Updated 05/2021: added option for connection timeout (in seconds)
         use try/except for retrieving netrc credentials
         define int/float precision to prevent deprecation warning
@@ -128,8 +134,12 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
     remote_tar_file = None
     #-- for each line in the links_list_file
     for i,input_lines in enumerate(lines):
+        #-- check if data is compressed into a single tar file
+        if rx3.search(input_lines):
+            match_object = rx3.search(input_lines)
+            remote_tar_file = match_object.group(0).decode('utf-8')
         #-- extract filename from url
-        if rx1.search(input_lines):
+        elif rx1.search(input_lines):
             match_object = rx1.search(input_lines)
             valid_lines.append(match_object.group(0).decode('utf-8'))
             year.append(match_object.group(1).decode('utf-8'))
@@ -137,10 +147,6 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
         if rx2.search(input_lines):
             match_object = rx2.search(input_lines)
             HOST=match_object.group(1).decode('utf-8').replace('http:','https:')
-        #-- check if data is compressed into a single tar file
-        if rx3.search(input_lines):
-            match_object = rx3.search(input_lines)
-            remote_tar_file = match_object.group(0).decode('utf-8')
 
     #-- if files are compressed into a single tar file
     if remote_tar_file:
@@ -183,7 +189,6 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
                 response = tar.extractfile(valid_lines[i])
             else:
                 #-- Create and submit request for file
-                print(valid_lines[i])
                 # local = os.path.join(DIRECTORY,valid_lines[i])
                 response = gravity_toolkit.utilities.from_http([HOST,
                     valid_lines[i]], timeout=TIMEOUT, context=None,

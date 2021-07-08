@@ -1,7 +1,7 @@
 ucar_rda_cfsr_surface.py
 ========================
 
-- Downloads NCEP-CFSR products using a links list provided by the [NCAR/UCAR Research Data Archive (RDA)](https://rda.ucar.edu/)
+- Downloads NCEP-CFSR products using a links list csh file provided by the [NCAR/UCAR Research Data Archive (RDA)](https://rda.ucar.edu/)
 - For CFSR version 2 files: combines monthly files into yearly to standardize between versions
 
 #### Calling Sequence

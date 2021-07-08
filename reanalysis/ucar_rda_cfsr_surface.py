@@ -3,7 +3,7 @@ u"""
 ucar_rda_cfsr_surface.py
 Written by Tyler Sutterley (05/2021)
 
-Downloads NCEP-CFSR products using a links list provided by the
+Downloads NCEP-CFSR products using a links list csh file provided by the
     NCAR/UCAR Research Data Archive (RDA): https://rda.ucar.edu/
 
 NCEP Climate Forecast System Reanalysis (CFSR) Monthly Products
