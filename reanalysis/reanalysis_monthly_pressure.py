@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-calculate_monthly_pressure.py
+reanalysis_monthly_pressure.py
 Written by Tyler Sutterley (05/2021)
 Reads daily atmospheric pressure fields from reanalysis and outputs monthly averages
 

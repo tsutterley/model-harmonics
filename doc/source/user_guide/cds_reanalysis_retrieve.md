@@ -19,6 +19,7 @@ python cds_reanalysis_retrieve.py --directory <path_to_directory>
 - `-K X`, `--api-key`: CDS api key
 - `-D X`, `--directory X`: Working data directory
 - `-Y X`, `--year X`: Year to retrieve
+- `-L`, `--level`: Retrieve the model level variables
 - `-I`, `--invariant`: Retrieve the model invariant parameters
 - `-t X`, `--timeout X`: Timeout in seconds for blocking operations
 - `-M X`, `--mode X`: Permissions mode of the directories and files

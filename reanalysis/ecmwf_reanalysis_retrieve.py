@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-ecmwf_reanalysis_retrieve.py (03/2021)
+ecmwf_reanalysis_retrieve.py (07/2021)
 Retrieves reanalysis netCDF4 datasets from the ECMWF Web API
 https://software.ecmwf.int/wiki/display/CKB/How+to+download+data+via+the+ECMWF+WebAPI
 https://software.ecmwf.int/wiki/display/WEBAPI/Access+ECMWF+Public+Datasets#AccessECMWFPublicDatasets-key
@@ -25,6 +25,7 @@ COMMAND LINE OPTIONS:
     -E X, --api-email: ECMWF api email
     -D X, --directory X: Working data directory
     -Y X, --year X: Year to retrieve
+    -L, --level: Retrieve the model level variables
     -I, --invariant: Retrieve the model invariant parameters
     -M X, --mode X: Permissions mode of the directories and files
 
@@ -34,6 +35,7 @@ PYTHON DEPENDENCIES:
         https://software.ecmwf.int/wiki/display/WEBAPI/Web-API+Downloads
 
 UPDATE HISTORY:
+    Updated 07/2021: added option for retrieving the model level variables
     Updated 03/2021: added mean sea level pressure (msl) field as output
         automatically update years to run based on current time
     Updated 01/2021: added command line options for ECMWF api credentials
@@ -51,8 +53,8 @@ import argparse
 from ecmwfapi import ECMWFDataServer
 
 #-- PURPOSE: retrieve ECMWF level data for a set of years
-def ecmwf_reanalysis_retrieve(base_dir, server, MODEL, YEAR, INVARIANT=True,
-    MODE=0o775):
+def ecmwf_reanalysis_retrieve(base_dir, server, MODEL, YEAR, LEVEL=False,
+    INVARIANT=True, MODE=0o775):
     #-- parameters for each dataset
     if (MODEL == 'ERA-Interim'):
         model_class = "ei"
@@ -131,24 +133,26 @@ def ecmwf_reanalysis_retrieve(base_dir, server, MODEL, YEAR, INVARIANT=True,
         #-- change the permissions mode to MODE
         os.chmod(os.path.join(ddir,output_pressure_file), MODE)
 
-        #-- retrieve model temperature and specific humidity
-        output_level_file = output_filename.format(MODEL,"Levels",y)
-        server.retrieve({
-            "class": model_class,
-            "dataset": model_dataset,
-            "date": d,
-            "expver": "1",
-            "grid": model_grid,
-            "levelist": model_levelist,
-            "levtype": "ml",
-            "param": "130.128/133.128",
-            "stream": "moda",
-            "type": "an",
-            "format" : "netcdf",
-            "target": os.path.join(ddir,output_level_file),
-        })
-        #-- change the permissions mode to MODE
-        os.chmod(os.path.join(ddir,output_level_file), MODE)
+        #-- if retrieving the model level data
+        if LEVEL:
+            #-- retrieve model temperature and specific humidity
+            output_level_file = output_filename.format(MODEL,"Levels",y)
+            server.retrieve({
+                "class": model_class,
+                "dataset": model_dataset,
+                "date": d,
+                "expver": "1",
+                "grid": model_grid,
+                "levelist": model_levelist,
+                "levtype": "ml",
+                "param": "130.128/133.128",
+                "stream": "moda",
+                "type": "an",
+                "format" : "netcdf",
+                "target": os.path.join(ddir,output_level_file),
+            })
+            #-- change the permissions mode to MODE
+            os.chmod(os.path.join(ddir,output_level_file), MODE)
 
     #-- if retrieving the model invariant parameters
     if INVARIANT:
@@ -205,6 +209,10 @@ def main():
     parser.add_argument('--year','-Y',
         type=int, nargs='+', default=range(2000,now.tm_year+1),
         help='Model years to retrieve')
+    #-- retrieve the model level variables
+    parser.add_argument('--level','-L',
+        default=False, action='store_true',
+        help='Retrieve model level variables')
     #-- retrieve the model invariant parameters
     parser.add_argument('--invariant','-I',
         default=False, action='store_true',
@@ -221,7 +229,8 @@ def main():
     #-- run program for model
     for model in args.model:
         ecmwf_reanalysis_retrieve(args.directory, server, model,
-            args.year, INVARIANT=args.invariant, MODE=args.mode)
+            args.year, LEVEL=args.level, INVARIANT=args.invariant,
+            MODE=args.mode)
     #-- close connection with ECMWF server
     server = None
 

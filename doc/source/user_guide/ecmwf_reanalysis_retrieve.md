@@ -20,5 +20,6 @@ python ecmwf_reanalysis_retrieve.py --directory <path_to_directory>
 - `-E X,` `--api-email`: ECMWF api email
 - `-D X`, `--directory X`: Working data directory
 - `-Y X`, `--year X`: Year to retrieve
+- `-L`, `--level`: Retrieve the model level variables
 - `-I`, `--invariant`: Retrieve the model invariant parameters
 - `-M X`, `--mode X`: Permissions mode of the directories and files

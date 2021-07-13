@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-cds_reanalysis_retrieve.py (05/2021)
+cds_reanalysis_retrieve.py (07/2021)
 Retrieves ERA5 reanalysis netCDF4 datasets from the CDS Web API
 https://cds.climate.copernicus.eu/user/register
 https://cds.climate.copernicus.eu/cdsapp/#!/terms/licence-to-use-copernicus-products
@@ -21,6 +21,7 @@ COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
     -Y X, --year X: Year to retrieve
     -I, --invariant: Retrieve the model invariant parameters
+    -L, --level: Retrieve the model level variables
     -t X, --timeout X: Timeout in seconds for blocking operations
     -M X, --mode X: Permissions mode of the directories and files
 
@@ -29,6 +30,7 @@ PYTHON DEPENDENCIES:
         https://pypi.org/project/cdsapi/
 
 UPDATE HISTORY:
+    Updated 07/2021: added option for retrieving the model level variables
     Updated 05/2021: added option for connection timeout (in seconds)
     Updated 03/2021: added mean sea level pressure (msl) field as output
         use netCDF4 variable names for surface and invariant outputs
@@ -49,7 +51,8 @@ import cdsapi
 import argparse
 
 #-- PURPOSE: retrieve ERA5 level data for a set of years from CDS server
-def cds_reanalysis_retrieve(base_dir, server, YEAR, INVARIANT=True, MODE=0o775):
+def cds_reanalysis_retrieve(base_dir, server, YEAR,
+    LEVEL=False, INVARIANT=True, MODE=0o775):
     #-- parameters for ERA5 dataset
     MODEL = 'ERA5'
     model_class = "ea"
@@ -111,23 +114,25 @@ def cds_reanalysis_retrieve(base_dir, server, YEAR, INVARIANT=True, MODE=0o775):
         #-- change the permissions mode to MODE
         os.chmod(os.path.join(ddir,output_pressure_file), MODE)
 
-        #-- retrieve model temperature and specific humidity
-        output_level_file = output_filename.format(MODEL,"Levels",y)
-        server.retrieve("reanalysis-era5-complete", {
-            "class": model_class,
-            "dataset": model_dataset,
-            "date": d,
-            "expver": "1",
-            "grid": model_grid,
-            "levelist": model_levelist,
-            "levtype": "ml",
-            "param": "130.128/133.128",
-            "stream": "moda",
-            "type": "an",
-            "format" : "netcdf",
-        }, os.path.join(ddir,output_level_file))
-        #-- change the permissions mode to MODE
-        os.chmod(os.path.join(ddir,output_level_file), MODE)
+        #-- if retrieving the model level data
+        if LEVEL:
+            #-- retrieve model temperature and specific humidity
+            output_level_file = output_filename.format(MODEL,"Levels",y)
+            server.retrieve("reanalysis-era5-complete", {
+                "class": model_class,
+                "dataset": model_dataset,
+                "date": d,
+                "expver": "1",
+                "grid": model_grid,
+                "levelist": model_levelist,
+                "levtype": "ml",
+                "param": "130.128/133.128",
+                "stream": "moda",
+                "type": "an",
+                "format" : "netcdf",
+            }, os.path.join(ddir,output_level_file))
+            #-- change the permissions mode to MODE
+            os.chmod(os.path.join(ddir,output_level_file), MODE)
 
     #-- if retrieving the model invariant parameters
     if INVARIANT:
@@ -181,6 +186,10 @@ def main():
     parser.add_argument('--year','-Y',
         type=int, nargs='+', default=range(2000,now.tm_year+1),
         help='Model years to retrieve')
+    #-- retrieve the model level variables
+    parser.add_argument('--level','-L',
+        default=False, action='store_true',
+        help='Retrieve model level variables')
     #-- retrieve the model invariant parameters
     parser.add_argument('--invariant','-I',
         default=False, action='store_true',
@@ -200,7 +209,7 @@ def main():
         timeout=args.timeout)
     #-- run program for ERA5
     cds_reanalysis_retrieve(args.directory, server, args.year,
-        INVARIANT=args.invariant, MODE=args.mode)
+        LEVEL=args.level, INVARIANT=args.invariant, MODE=args.mode)
     #-- close connection with CDS api server
     server = None
 
