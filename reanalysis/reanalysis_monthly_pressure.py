@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_monthly_pressure.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (07/2021)
 Reads daily atmospheric pressure fields from reanalysis and outputs monthly averages
 
 INPUTS:
@@ -32,8 +32,10 @@ PROGRAM DEPENDENCIES:
         ncdf_write.py: writes output spatial data to netCDF4
         hdf5_write.py: writes output spatial data to HDF5
     time.py: utilities for calculating time operations
+    utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 07/2021: can use input files to define command line arguments
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 03/2021: automatically update years to run based on current time
     Updated 12/2020: using argparse to set command line options
@@ -51,6 +53,7 @@ import argparse
 import numpy as np
 import gravity_toolkit.time
 import gravity_toolkit.spatial
+import gravity_toolkit.utilities as utilities
 
 #-- PURPOSE: read atmospheric surface pressure fields and calculate monthly mean
 def reanalysis_monthly_pressure(base_dir,MODEL,YEARS,VERBOSE=False,MODE=0o775):
@@ -161,8 +164,10 @@ def main():
     parser = argparse.ArgumentParser(
         description="""Reads daily atmospheric pressure fields
             from reanalysis and outputs monthly averages
-            """
+            """,
+        fromfile_prefix_chars="@"
     )
+    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
     #-- command line parameters
     choices = ['NCEP-DOE-2']
     parser.add_argument('model',

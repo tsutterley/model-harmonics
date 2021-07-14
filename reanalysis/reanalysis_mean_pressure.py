@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_mean_pressure.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (07/2021)
 Calculates the mean surface pressure fields from reanalysis
 
 INPUTS:
@@ -37,6 +37,7 @@ PROGRAM DEPENDENCIES:
         ncdf_write.py: writes output spatial data to netCDF4
         hdf5_write.py: writes output spatial data to HDF5
     time.py: utilities for calculating time operations
+    utilities.py: download and management utilities for files
 
 REFERENCES:
     JP Boy and B Chao, "Precise evaluation of atmospheric loading effects on
@@ -50,6 +51,8 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 07/2021: can use input files to define command line arguments
+        added check for ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Updated 12/2020: using argparse to set command line options
@@ -70,6 +73,7 @@ import argparse
 import numpy as np
 import gravity_toolkit.time
 import gravity_toolkit.spatial
+import gravity_toolkit.utilities as utilities
 
 #-- PURPOSE: read atmospheric surface pressure fields and calculates yearly mean
 def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
@@ -170,7 +174,12 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
     for fi in input_files:
         #-- read input data
         with netCDF4.Dataset(os.path.join(ddir,fi),'r') as fileID:
-            pressure = fileID.variables[VARNAME][:].copy()
+            #-- check dimensions for expver slice
+            if (fileID.variables[VARNAME].ndim == 4):
+                pressure = ncdf_expver(fileID, VARNAME)
+            else:
+                pressure = fileID.variables[VARNAME][:].copy()
+            #-- use output fill value
             p_mean.fill_value = fileID.variables[VARNAME]._FillValue
             #-- convert time to Modified Julian Days
             delta_time=np.copy(fileID.variables[TIMENAME][:])
@@ -182,7 +191,7 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
         for t,JD in enumerate(MJD+2400000.5):
             #-- add to mean pressure
             p_mean.data += pressure[t,:,:]
-            p_mean.mask |= (pressure[t,:,:]==p_mean.fill_value)
+            p_mean.mask |= (pressure[t,:,:] == p_mean.fill_value)
             #-- convert from Julian days to calendar dates
             YY,MM,DD,hh,mm,ss = gravity_toolkit.time.convert_julian(JD,
                 FORMAT='tuple')
@@ -192,7 +201,7 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
             count += 1
 
     #-- calculate mean pressure by dividing by count
-    indy,indx = np.nonzero(~p_mean.mask)
+    indy,indx = np.nonzero(np.logical_not(p_mean.mask))
     p_mean.data[indy,indx] /= count
     p_mean.update_mask()
     p_mean.time /= np.float64(count)
@@ -206,6 +215,24 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
         UNITS='Pa', LONGNAME='surface_pressure', TITLE=TITLE)
     #-- change the permissions mode of the output file to MODE
     os.chmod(os.path.join(ddir,FILE),MODE)
+
+#-- PURPOSE: extract pressure variable from a 4d netCDF4 dataset
+def ncdf_expver(fileID, VARNAME):
+    ntime,nexp,nlat,nlon = fileID.variables[VARNAME].shape
+    fill_value = fileID.variables[VARNAME]._FillValue
+    #-- reduced surface pressure output
+    pressure = np.ma.zeros((ntime,nlat,nlon))
+    pressure.fill_value = fill_value
+    for t in range(ntime):
+        #-- iterate over expver slices to find valid outputs
+        for j in range(nexp):
+            #-- check if any are valid for expver
+            if np.any(fileID.variables[VARNAME][t,j,:,:]):
+                pressure[t,:,:] = fileID.variables[VARNAME][t,j,:,:]
+    #-- update mask variable
+    pressure.mask = (pressure.data == pressure.fill_value)
+    #-- return the reduced pressure variable
+    return pressure
 
 #-- PURPOSE: read reanalysis invariant parameters (geopotential,lat,lon)
 def ncdf_invariant(FILENAME,LONNAME,LATNAME,ZNAME):
@@ -221,8 +248,10 @@ def main():
     parser = argparse.ArgumentParser(
         description="""Calculates the mean surface pressure
             fields from reanalysis
-            """
+            """,
+        fromfile_prefix_chars="@"
     )
+    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
     #-- command line parameters
     choices = ['ERA-Interim','ERA5','MERRA-2','NCEP-DOE-2','NCEP-CFSR','JRA-55']
     parser.add_argument('model',
