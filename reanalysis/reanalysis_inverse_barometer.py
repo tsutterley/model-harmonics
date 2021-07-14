@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_inverse_barometer.py
-Written by Tyler Sutterley (03/2021)
+Written by Tyler Sutterley (07/2021)
 Reads hourly mean sea level pressure fields from reanalysis and
     calculates the inverse-barometer response
 
@@ -26,6 +26,9 @@ PYTHON DEPENDENCIES:
     netCDF4: Python interface to the netCDF C library
          https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
+PROGRAM DEPENDENCIES:
+    utilities.py: download and management utilities for files
+
 REFERENCES:
     Wunsch and Stammer. Atmospheric loading and the oceanic "inverted
         barometer" effect. Reviews of Geophysics, 35(1), 79-107, (1997).
@@ -35,6 +38,7 @@ REFERENCES:
         https://doi.org/10.1007/978-3-211-33545-1
 
 UPDATE HISTORY:
+    Updated 07/2021: can use input files to define command line arguments
     Written 03/2021
 """
 from __future__ import print_function
@@ -45,6 +49,7 @@ import netCDF4
 import argparse
 import datetime
 import numpy as np
+import gravity_toolkit.utilities as utilities
 
 #-- PURPOSE: read land sea mask to get indices of oceanic values
 def ncdf_landmask(FILENAME,MASKNAME,OCEAN):
@@ -290,8 +295,10 @@ def main():
         description="""Reads hourly mean sea level pressure
             fields from reanalysis and calculates the
             inverse-barometer response
-            """
+            """,
+        fromfile_prefix_chars="@"
     )
+    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
     #-- command line parameters
     choices = ['ERA-Interim','ERA5','MERRA-2']
     parser.add_argument('model',

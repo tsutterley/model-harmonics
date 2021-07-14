@@ -76,6 +76,7 @@ REFERENCES:
 
 UPDATE HISTORY:
     Updated 07/2021: can use input files to define command line arguments
+        added check for ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 03/2021: automatically update years to run based on current time
     Updated 02/2021: separate inputs to gen_pressure_stokes
@@ -345,7 +346,11 @@ def reanalysis_pressure_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     for fi in input_files:
         #-- read input data
         with netCDF4.Dataset(os.path.join(ddir,fi),'r') as fileID:
-            pressure=np.copy(fileID.variables[VARNAME][:])
+            #-- check dimensions for expver slice
+            if (fileID.variables[VARNAME].ndim == 4):
+                pressure = ncdf_expver(fileID, VARNAME)
+            else:
+                pressure = fileID.variables[VARNAME][:].copy()
             #-- convert time to Modified Julian Days
             delta_time=np.copy(fileID.variables[TIMENAME][:])
             date_string=fileID.variables[TIMENAME].units
@@ -420,6 +425,24 @@ def ncdf_mean_pressure(FILENAME,VARNAME,LONNAME,LATNAME):
         longitude = fileID.variables[LONNAME][:].squeeze()
         latitude = fileID.variables[LATNAME][:].squeeze()
     return (mean_pressure,longitude,latitude)
+
+#-- PURPOSE: extract pressure variable from a 4d netCDF4 dataset
+def ncdf_expver(fileID, VARNAME):
+    ntime,nexp,nlat,nlon = fileID.variables[VARNAME].shape
+    fill_value = fileID.variables[VARNAME]._FillValue
+    #-- reduced surface pressure output
+    pressure = np.ma.zeros((ntime,nlat,nlon))
+    pressure.fill_value = fill_value
+    for t in range(ntime):
+        #-- iterate over expver slices to find valid outputs
+        for j in range(nexp):
+            #-- check if any are valid for expver
+            if np.any(fileID.variables[VARNAME][t,j,:,:]):
+                pressure[t,:,:] = fileID.variables[VARNAME][t,j,:,:]
+    #-- update mask variable
+    pressure.mask = (pressure.data == pressure.fill_value)
+    #-- return the reduced pressure variable
+    return pressure
 
 #-- PURPOSE: read reanalysis invariant parameters (geopotential,lat,lon)
 def ncdf_invariant(FILENAME,ZNAME):

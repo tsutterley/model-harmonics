@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_geopotential_heights.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (07/2021)
 Reads temperature and specific humidity data to calculate geopotential height
     and pressure difference fields at half levels from reanalysis
 
@@ -24,7 +24,12 @@ PYTHON DEPENDENCIES:
     netCDF4: Python interface to the netCDF C library
         https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
+PROGRAM DEPENDENCIES:
+    utilities.py: download and management utilities for files
+
 UPDATE HISTORY:
+    Updated 07/2021: can use input files to define command line arguments
+        added check for ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 03/2021: automatically update years to run based on current time
     Updated 01/2021: read from netCDF4 file in slices to reduce memory load
@@ -44,6 +49,7 @@ import time
 import netCDF4
 import argparse
 import numpy as np
+import gravity_toolkit.utilities as utilities
 
 #-- PURPOSE: reads temperature and specific humidity data to calculate
 #-- geopotential height fields at half levels from reanalysis
@@ -184,9 +190,14 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None,
 
         #-- iterate over dates
         for t in range(ntime):
-            #-- temperature and specific humidity (reverse layers so bottom=0)
-            t_time = fid1.variables[TNAME][t,::-1,:,:]
-            q_time = fid1.variables[QNAME][t,::-1,:,:]
+            #-- check dimensions for expver slice
+            if (fid1.variables[VARNAME].ndim == 5):
+                t_time,q_time = ncdf_expver(fid1,t,TNAME,QNAME)
+            else:
+                #-- temperature and specific humidity
+                #-- reverse layers so bottom=0
+                t_time = fid1.variables[TNAME][t,::-1,:,:]
+                q_time = fid1.variables[QNAME][t,::-1,:,:]
             #-- calculate geopotential over model levels
             geopotential_height = np.empty((nlat,nlon),dtype=np.float32)
             #-- start with surface geopotential converted to units (m^2/s^2)
@@ -241,6 +252,28 @@ def calculate_specific_humidity(P, T, RH):
     #-- calculate the specific humidity
     Q = (epsilon * Ev)/(P/100.0 - (0.378 * Ev))
     return (Q,Td)
+
+#-- PURPOSE: extract temperature and specific humidity variables
+#-- from a 5d netCDF4 dataset
+def ncdf_expver(fileID, slice, TNAME, QNAME):
+    ntime,nexp,nlevel,nlat,nlon = fileID.variables[TNAME].shape
+    fill_value = fileID.variables[TNAME]._FillValue
+    #-- reduced temperature and specific humidity for time
+    temperature = np.ma.zeros((nlevel,nlat,nlon))
+    temperature.fill_value = fill_value
+    humidity = np.ma.zeros((nlevel,nlat,nlon))
+    humidity.fill_value = fill_value
+    #-- iterate over expver slices to find valid outputs
+    for j in range(nexp):
+        #-- check if any are valid for expver
+        if np.any(fileID.variables[TNAME][slice,j,:,:,:]):
+            temperature[:,:,:] = fileID.variables[TNAME][slice,j,:,:,:]
+            humidity[:,:,:] = fileID.variables[QNAME][slice,j,:,:,:]
+    #-- update mask variables
+    temperature.mask = (temperature.data == temperature.fill_value)
+    humidity.mask = (humidity.data == humidity.fill_value)
+    #-- return the reduced temperature and specific humidity variables
+    return (temperature,humidity)
 
 #-- PURPOSE: read reanalysis invariant parameters (geopotential,lat,lon)
 def ncdf_invariant(FILENAME,LONNAME,LATNAME,ZNAME):
@@ -321,8 +354,10 @@ def main():
         description="""Reads temperature and specific humidity data
             to calculate geopotential height and pressure difference
             fields at half levels from reanalysis
-            """
+            """,
+        fromfile_prefix_chars="@"
     )
+    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
     #-- command line parameters
     choices = ['ERA-Interim','ERA5','MERRA-2']
     parser.add_argument('model',
