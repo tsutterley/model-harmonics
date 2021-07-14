@@ -267,8 +267,9 @@ def ncdf_expver(fileID, slice, TNAME, QNAME):
     for j in range(nexp):
         #-- check if any are valid for expver
         if np.any(fileID.variables[TNAME][slice,j,:,:,:]):
-            temperature[:,:,:] = fileID.variables[TNAME][slice,j,:,:,:]
-            humidity[:,:,:] = fileID.variables[QNAME][slice,j,:,:,:]
+            #-- reverse layers so bottom=0
+            temperature[:,:,:] = fileID.variables[TNAME][slice,j,::-1,:,:]
+            humidity[:,:,:] = fileID.variables[QNAME][slice,j,::-1,:,:]
     #-- update mask variables
     temperature.mask = (temperature.data == temperature.fill_value)
     humidity.mask = (humidity.data == humidity.fill_value)
