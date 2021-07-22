@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_read_monthly.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (07/2021)
 
 Reads GLDAS monthly datafiles from http://ldas.gsfc.nasa.gov/gldas/
 Adding Soil Moisture, snow water equivalent (SWE) and total canopy storage
@@ -82,6 +82,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 07/2021: add try/except for pygrib import
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 03/2021: automatically update years to run based on current time
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
@@ -109,12 +110,17 @@ from __future__ import print_function
 import sys
 import os
 import re
-import pygrib
+import warnings
 import netCDF4
 import argparse
 import numpy as np
 import gravity_toolkit.time
 from gravity_toolkit.spatial import spatial
+try:
+    import pygrib
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("pygrib not available")
 
 #-- GLDAS models
 gldas_products = {}
