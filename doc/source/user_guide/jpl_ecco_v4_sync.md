@@ -2,6 +2,7 @@ jpl_ecco_v4_sync.py
 ===================
 
 - Syncs ECCO Version 4 model outputs from the [NASA JPL ECCO Drive server](https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README)
+- Errata document for [Version 4, Revision 4 Atmospheric Pressure Forcing](https://ecco-group.org/docs/ECCO_V4r4_errata.pdf)
 
 #### Calling Sequence
 ```bash

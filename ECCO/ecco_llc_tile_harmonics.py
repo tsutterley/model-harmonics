@@ -5,7 +5,7 @@ Written by Tyler Sutterley (07/2021)
 Reads monthly ECCO ocean bottom pressure anomalies from LLC tiles
     and converts to spherical harmonic coefficients
 
-ECCO Version 4, Release 4
+ECCO Version 4, Revision 4
     https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/nctiles_monthly
 
 ECCO Version 5, Alpha

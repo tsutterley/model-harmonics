@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 jpl_ecco_llc_sync.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (07/2021)
 
 Syncs ECCO LLC tile model outputs from the NASA JPL ECCO Drive server:
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/nctiles_monthly
@@ -61,6 +61,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 07/2021: add warning for Version 4, Revision 4
     Updated 05/2021: added option for connection timeout (in seconds)
         use try/except for retrieving netrc credentials
     Updated 04/2021: set a default netrc file and check access
@@ -79,6 +80,7 @@ import shutil
 import getpass
 import argparse
 import builtins
+import warnings
 import posixpath
 import lxml.etree
 import gravity_toolkit.utilities
@@ -110,6 +112,12 @@ def jpl_ecco_llc_sync(ddir, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
 
     #-- print the model synchronized
     print('MODEL: {0}\n'.format(MODEL), file=fid1)
+
+    #-- print warning for Version 4, Revision 4
+    #-- https://ecco-group.org/docs/ECCO_V4r4_errata.pdf
+    if MODEL in ('V4r4',):
+        warnings.filterwarnings("always")
+        warnings.warn("See Errata for V4r4 Atmospheric Pressure Forcing")
 
     #-- download the ECCO llc grid file
     grid_path = {}

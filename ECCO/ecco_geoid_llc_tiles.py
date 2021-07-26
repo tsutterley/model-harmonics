@@ -7,7 +7,7 @@ Calculates geoid heights for ECCO ocean model LLC tiles using model
     coefficients from the GFZ International Centre for Global Earth
     Models (ICGEM)
 
-ECCO Version 4, Release 4
+ECCO Version 4, Revision 4
     https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/nctiles_monthly
 
 ECCO Version 5, Alpha

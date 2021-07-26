@@ -8,6 +8,9 @@ https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
 https://ecco-group.org/products-ECCO-V4r4.htm
 https://ecco-group.org/user-guide-v4r4.htm
 
+Errata document for Version 4, Revision 4 Atmospheric Pressure Forcing
+https://ecco-group.org/docs/ECCO_V4r4_errata.pdf
+
 Computes the time-average ocean bottom pressure map between two dates
 Processes the data as described in the GRACE Tellus site
     https://grace.jpl.nasa.gov/data/get-data/ocean-bottom-pressure/
