@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 harmonic_operators.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (08/2021)
 Performs basic operations on spherical harmonic files
 
 CALLING SEQUENCE:
@@ -19,6 +19,8 @@ COMMAND LINE OPTIONS:
         divide
         mean
         destripe
+        error
+        RMS
     -l X, --lmax X: maximum spherical harmonic degree
     -m X, --mmax X: maximum spherical harmonic order
     -F X, --format X: Input and output data format
@@ -50,6 +52,7 @@ PROGRAM DEPENDENCIES:
         hdf5_stokes.py: writes output spherical harmonic data to HDF5
 
 UPDATE HISTORY:
+    Updated 08/2021: added variance off mean as estimated error
     Updated 02/2021: added options to truncate output to a degree or order
         add options to read from individual index files
     Written 02/2021
@@ -122,6 +125,28 @@ def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
     elif (OPERATION == 'destripe'):
         #-- destripe spherical harmonics
         output = dinput[0].destripe()
+    elif (OPERATION == 'error'):
+        mean = dinput[0].zeros_like()
+        for i in range(n_files):
+            #-- perform operation
+            mean = mean.add(dinput[i])
+        #-- convert from total to mean
+        mean = mean.scale(1.0/n_files)
+        #-- use variance off mean as estimated error
+        output = dinput[0].zeros_like()
+        for i in range(n_files):
+            #-- perform operation
+            temp = dinput[i].subtract(mean)
+            output = output.add(temp.power(2.0))
+        #-- calculate RMS of mean differences
+        output = output.scale(1.0/(n_files-1.0)).power(0.5)
+    elif (OPERATION == 'RMS'):
+        output = dinput[0].zeros_like()
+        for i in range(n_files):
+            #-- perform operation
+            output = output.add(dinput[i].power(2.0))
+        #-- convert from total in quadrature to RMS
+        output = output.scale(1.0/n_files).power(0.5)
     #-- truncate to specified degree and order
     if (LMAX is not None) | (MMAX is not None):
         output.truncate(LMAX, mmax=MMAX)
@@ -130,19 +155,11 @@ def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
         output.time = np.copy(dinput[0].time)
         output.month = np.copy(dinput[0].month)
 
+    #-- output file title
+    title = 'Output from {0}'.format(os.path.basename(sys.argv[0]))
     #-- write spherical harmonic file in data format
-    if (DATAFORM[-1] == 'ascii'):
-        #-- ascii (.txt)
-        print(OUTPUT_FILE) if VERBOSE else None
-        output.to_ascii(OUTPUT_FILE,date=DATE)
-    elif (DATAFORM[-1] == 'netCDF4'):
-        #-- netcdf (.nc)
-        output.to_netCDF4(OUTPUT_FILE,date=DATE,VERBOSE=VERBOSE,
-            TITLE='Output from {0}'.format(os.path.basename(sys.argv[0])))
-    elif (DATAFORM[-1] == 'HDF5'):
-        #-- HDF5 (.H5)
-        output.to_HDF5(OUTPUT_FILE,date=DATE,VERBOSE=VERBOSE,
-            TITLE='Output from {0}'.format(os.path.basename(sys.argv[0])))
+    output.to_file(OUTPUT_FILE, format=DATAFORM[-1],
+        date=DATE, title=title, verbose=VERBOSE)
     #-- change the permissions mode of the output file
     os.chmod(OUTPUT_FILE, MODE)
 
@@ -162,9 +179,11 @@ def main():
         type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs=1,
         help='Output file')
     #-- operation to run
+    choices = ['add','subtract','multiply','divide','mean',
+        'destripe','error','RMS']
     parser.add_argument('--operation','-O',
-        metavar='OPERATION', type=str, required=True,
-        choices=['add','subtract','multiply','divide','mean','destripe'],
+        metavar='OPERATION', type=str,
+        required=True, choices=choices,
         help='Operation to run')
     #-- maximum spherical harmonic degree and order
     parser.add_argument('--lmax','-l',

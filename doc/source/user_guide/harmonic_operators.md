@@ -22,6 +22,8 @@ python harmonic_operators.py --operation add infile1 infile2 outfile
     * `'divide'`
     * `'mean'`
     * `'destripe'`
+    * `'error'`
+    * `'RMS'`
 - `-l X`, -`-lmax X`: maximum spherical harmonic degree
 - `-m X`, `--mmax X`: maximum spherical harmonic order
 - `-F X`, `--format X`: input and output data format (can be a single value for a uniform type or values for each file)
