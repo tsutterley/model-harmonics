@@ -99,6 +99,8 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     :caption: SMB
 
     user_guide/gesdisc_merra_sync.md
+    user_guide/merra_hybrid_cumulative.md
+    user_guide/merra_hybrid_harmonics.rst
     user_guide/merra_smb_mean.md
     user_guide/merra_smb_cumulative.md
     user_guide/merra_smb_mask.md
