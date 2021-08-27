@@ -19,6 +19,7 @@ COMMAND LINE OPTIONS:
         v1.1
     --mean: Start and end year of mean
     -G, --gzip: netCDF4 file is locally gzip compressed
+    -V, --verbose: Output information for each output file
     -M X, --mode X: Local permissions mode of the directories and files
 
 PYTHON DEPENDENCIES:
@@ -30,6 +31,8 @@ PYTHON DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 08/2021: output areas to file if applicable
+        add verbose option to print input and output file information
+        additionally output surface mass balance anomalies
     Updated 02/2021: using argparse to set parameters
         read and write for all available variables in a file
         added gzip compression option
@@ -48,7 +51,7 @@ import numpy as np
 
 #-- PURPOSE: read and interpolate MERRA-2 hybrid surface mass balance variables
 def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
-    MODE=0o775):
+    VERBOSE=False, MODE=0o775):
 
     #-- MERRA-2 hybrid directory
     DIRECTORY = os.path.join(base_dir,VERSION)
@@ -70,7 +73,7 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
         hybrid_file = 'gsfc_fdm_smb_{0}_{1}.nc{2}'.format(*args)
         output_file = 'gsfc_fdm_smb_cumul_{0}_{1}.nc{2}'.format(*args)
         #-- names of variables to read
-        VARIABLES = ('runoff','rainfall','snowfall_minus_sublimation')
+        VARIABLES = ('runoff','rainfall','snowfall_minus_sublimation','SMB')
         AREA = None
         #-- flag to append to output netCDF4 variables
         anomaly_flag = '_anomaly'
@@ -81,7 +84,7 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
         hybrid_file = 'gsfc_fdm_smb_{0}_{1}.nc{2}'.format(*args)
         output_file = 'gsfc_fdm_smb_cumul_{0}_{1}.nc{2}'.format(*args)
         #-- names of variables to read
-        VARIABLES = ('Me','Ra','Ru','Sn-Ev')
+        VARIABLES = ('Me','Ra','Ru','Sn-Ev','SMB')
         AREA = 'iArea'
         #-- flag to append to output netCDF4 variables
         anomaly_flag = '_a'
@@ -94,6 +97,11 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
     else:
         #-- read netCDF4 dataset
         fileID = netCDF4.Dataset(os.path.join(DIRECTORY,hybrid_file), 'r')
+
+    #-- Output NetCDF file information
+    if VERBOSE:
+        print(os.path.join(DIRECTORY,hybrid_file))
+        print(list(fileID.variables.keys()))
 
     #-- Get data and attribute from each netCDF variable
     fd = {}
@@ -118,8 +126,6 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
         fd['x'] = fileID.variables['x'][:].copy()
         fd['y'] = fileID.variables['y'][:].copy()
         xg,yg = np.meshgrid(fd['x'],fd['y'],indexing='ij')
-    #-- close the NetCDF files
-    fileID.close()
     #-- time is year decimal at time step 5 days
     time_step = 5.0/365.25
     #-- calculate mean period for MERRA-2
@@ -130,7 +136,7 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
         #-- copy data and remove singleton dimensions
         DATA = np.ma.array(fileID.variables[v][:]).squeeze()
         #-- invalid data value
-        DATA.fill_value = np.float(fileID.variables[v]._FillValue)
+        DATA.fill_value = np.float64(fileID.variables[v]._FillValue)
         #-- set masks
         DATA.mask = (DATA.data == DATA.fill_value)
         #-- get each attribute for variable if applicable
@@ -159,6 +165,11 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
             fd[v].data[t,i,j] = CUMULATIVE.copy()
         #-- replace masked values with fill value
         fd[v].data[fd[v].mask] = fd[v].fill_value
+    #-- close the NetCDF files
+    fileID.close()
+
+    #-- Output NetCDF filename
+    print(os.path.join(DIRECTORY,output_file)) if VERBOSE else None
 
     #-- output MERRA-2 data file with cumulative data
     if GZIP:
@@ -262,6 +273,8 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
         "Greenland and Antarctic Ice Sheets, The Cryosphere Discuss. "
         "[preprint], https://doi.org/10.5194/tc-2020-266, in review, 2020.")
     fileID.institution = "NASA Goddard Space Flight Center (GSFC)"
+    #-- Output NetCDF file information
+    print(list(fileID.variables.keys())) if VERBOSE else None
     #-- Closing the NetCDF file and getting the buffer object
     nc_buffer = fileID.close()
 
@@ -306,6 +319,10 @@ def main():
     parser.add_argument('--gzip','-G',
         default=False, action='store_true',
         help='netCDF4 file is locally gzip compressed')
+    #-- print information about each input and output file
+    parser.add_argument('--verbose','-V',
+        default=False, action='store_true',
+        help='Verbose output of run')
     #-- permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
@@ -314,9 +331,9 @@ def main():
 
     #-- run program
     merra_hybrid_cumulative(args.directory, args.region, args.version,
-        RANGE=args.mean, GZIP=args.gzip, MODE=args.mode)
+        RANGE=args.mean, GZIP=args.gzip, VERBOSE=args.verbose,
+        MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':
     main()
-

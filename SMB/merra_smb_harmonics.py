@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_harmonics.py
-Written by Tyler Sutterley (07/2021)
+Written by Tyler Sutterley (08/2021)
 Reads monthly MERRA-2 surface mass balance anomalies and
     converts to spherical harmonic coefficients
 
@@ -65,6 +65,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 08/2021: set all points to valid if not using masks
     Updated 07/2021: can use input files to define command line arguments
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 03/2021: automatically update years to run based on current time
@@ -134,8 +135,12 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     #-- create mesh grid of latitude and longitude
     gridlon,gridlat = np.meshgrid(glon,glat)
 
+    #-- create mask object for reducing data
+    if np.any(MASKS):
+        input_mask = np.zeros((nlat,nlon),dtype=bool)
+    else:
+        input_mask = np.ones((nlat,nlon),dtype=bool)
     #-- read masks for reducing regions before converting to harmonics
-    input_mask = np.zeros((nlat,nlon),dtype=bool)
     for mask_file in MASKS:
         fileID = netCDF4.Dataset(mask_file,'r')
         input_mask |= fileID.variables['mask'][:].astype(bool)
@@ -359,7 +364,8 @@ def main():
     #-- mask file for reducing to regions
     parser.add_argument('--mask',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        nargs='+', help='netCDF4 masks file for reducing to regions')
+        nargs='+', default=[],
+        help='netCDF4 masks file for reducing to regions')
     #-- maximum spherical harmonic degree and order
     parser.add_argument('--lmax','-l',
         type=int, default=60,

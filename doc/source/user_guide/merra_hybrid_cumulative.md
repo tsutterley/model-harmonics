@@ -21,5 +21,6 @@ python merra_hybrid_cumulative.py --directory <path_to_directory> --region gris 
     * `v1.1`
 - `--mean`: Start and end year of mean
 - `-G`, `--gzip`: netCDF4 file is locally gzip compressed
+- `-V`, `--verbose`: Output information for each output file
 - `-M X`, `--mode X`: Local permissions mode of the directories and files
 

@@ -75,6 +75,7 @@ import uuid
 import pyproj
 import netCDF4
 import argparse
+import warnings
 import numpy as np
 import scipy.interpolate
 import gravity_toolkit.time
@@ -102,11 +103,12 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
     #-- suffix if compressed
     suffix = '.gz' if GZIP else ''
     #-- set the input netCDF4 file for the variable of interest
-    if VARIABLE in ('cum_smb_anomaly','SMB_a'):
+    if VARIABLE in ('cum_smb_anomaly',):
         args = (VERSION,REGION.lower(),suffix)
         hybrid_file = 'gsfc_fdm_{0}_{1}.nc{2}'.format(*args)
-    elif VARIABLE in ('Me_a','Ra_a','Ru_a','Sn-Ev_a'):
-        args = (VERSION,REGION.lower(),suffix)
+    elif VARIABLE in ('Me_a','Ra_a','Ru_a','Sn-Ev_a','SMB_a'):
+        FILE_VERSION = VERSION.replace('.','_')
+        args = (FILE_VERSION,REGION.lower(),suffix)
         hybrid_file = 'gsfc_fdm_smb_cumul_{0}_{1}.nc{2}'.format(*args)
 
     #-- Open the MERRA-2 Hybrid NetCDF file for reading
@@ -117,6 +119,11 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
     else:
         #-- read netCDF4 dataset
         fileID = netCDF4.Dataset(os.path.join(DIRECTORY,hybrid_file), 'r')
+
+    #-- Output NetCDF file information
+    if VERBOSE:
+        print(os.path.join(DIRECTORY,hybrid_file))
+        print(list(fileID.variables.keys()))
 
     #-- Get data from each netCDF variable and remove singleton dimensions
     fd = {}
@@ -130,7 +137,7 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
     f = scipy.interpolate.interp1d(fileID.variables['time'][:],
         np.arange(nt), kind='nearest', bounds_error=False,
         fill_value=(0,nt))
-    imin,imax = f((tmin,tmax)).astype(np.int)
+    imin,imax = f((tmin,tmax)).astype(np.int64)
     #-- read reduced time variables
     fd['time'] = fileID.variables['time'][imin:imax+1].copy()
     #-- ice covered area
@@ -138,7 +145,7 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
     #-- read reduced dataset and remove singleton dimensions
     fd[VARIABLE] = np.squeeze(fileID.variables[VARIABLE][imin:imax+1,:,:])
     #-- invalid data value
-    fv = np.float(fileID.variables[VARIABLE]._FillValue)
+    fv = np.float64(fileID.variables[VARIABLE]._FillValue)
     #-- input shape of MERRA-2 Hybrid firn data
     nt,nx,ny = np.shape(fd[VARIABLE])
     #-- extract x and y coordinate arrays from grids if applicable
@@ -154,8 +161,11 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
     #-- close the NetCDF files
     fileID.close()
 
-    #-- create mask object for interpolating data
-    fd['mask'] = np.zeros((nx,ny),dtype=bool)
+    #-- create mask object for reducing data
+    if np.any(MASKS):
+        fd['mask'] = np.zeros((nx,ny),dtype=bool)
+    else:
+        fd['mask'] = np.ones((nx,ny),dtype=bool)
     #-- read masks for reducing regions before converting to harmonics
     for mask_file in MASKS:
         fileID = netCDF4.Dataset(mask_file,'r')
@@ -173,7 +183,8 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
     #-- convert projection from model coordinates
     gridlon,gridlat = transformer.transform(xg, yg, direction=direction)
     #-- polar stereographic standard parallel (latitude of true scale)
-    reference_latitude = crs2.to_dict().pop('lat_ts')
+    with warnings.catch_warnings():#-- suppress pyproj warning
+        reference_latitude = crs2.to_dict().pop('lat_ts')
 
     #-- Earth Parameters
     ellipsoid_params = ref_ellipsoid('WGS84')
@@ -182,7 +193,7 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
     #--  first numerical eccentricity
     ecc1 = ellipsoid_params['ecc1']
     #-- flattening of the ellipsoid
-    flat = ellipsoid_params['flat']
+    flat = ellipsoid_params['f']
     #-- convert from geodetic latitude to geocentric latitude
     #-- geodetic latitude in radians
     latitude_geodetic_rad = np.pi*gridlat/180.0
@@ -234,8 +245,8 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
     #-- output spherical harmonic data file
     args = (VERSION,REGION.lower(),VARIABLE,LMAX,order_str,suffix)
     FILE = 'gsfc_fdm_{0}_{1}_{2}_{3:d}{4}.{5}'
-    print(os.path.join(DIRECTORY,FILE)) if VERBOSE else None
-    Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM, date=True)
+    Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM,
+        date=True, verbose=VERBOSE)
     #-- change the permissions mode of the output file to MODE
     os.chmod(os.path.join(DIRECTORY,FILE),MODE)
 
@@ -362,7 +373,7 @@ def main():
     choices = ['cum_smb_anomaly','SMB_a','Me_a','Ra_a','Ru_a','Sn-Ev_a']
     parser.add_argument('--product','-P',
         type=str, default='SMB_a', choices=choices, nargs='+',
-        help='Version of firn model to calculate')
+        help='MERRA-2 hybrid product to calculate')
     #-- years to run
     now = gravity_toolkit.time.datetime.datetime.now()
     parser.add_argument('--year','-Y',
@@ -371,7 +382,8 @@ def main():
     #-- mask file for reducing to regions
     parser.add_argument('--mask',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        nargs='+', help='netCDF4 masks file for reducing to regions')
+        nargs='+', default=[],
+        help='netCDF4 masks file for reducing to regions')
     #-- maximum spherical harmonic degree and order
     parser.add_argument('--lmax','-l',
         type=int, default=60,
