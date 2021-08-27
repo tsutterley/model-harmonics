@@ -353,8 +353,10 @@ def main():
     parser = argparse.ArgumentParser(
         description="""Read MERRA-2 hybrid variables and
             converts to spherical harmonics
-            """
+            """,
+        fromfile_prefix_chars="@"
     )
+    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
     #-- command line parameters
     #-- working data directory
     parser.add_argument('--directory','-D',
@@ -420,7 +422,6 @@ def main():
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
     args,_ = parser.parse_known_args()
-    args = parser.parse_args()
 
     #-- run program
     for VARIABLE in args.product:
