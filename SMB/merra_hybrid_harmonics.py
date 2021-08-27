@@ -88,11 +88,9 @@ from gravity_toolkit.gen_point_load import gen_point_load
 def set_projection(REGION):
     if (REGION == 'ais'):
         projection_flag = 'EPSG:3031'
-        reference_latitude = -71.0
     elif (REGION == 'gris'):
         projection_flag = 'EPSG:3413'
-        reference_latitude = 70.0
-    return (projection_flag,reference_latitude)
+    return projection_flag
 
 #-- PURPOSE: read MERRA-2 hybrid SMB estimates and convert to spherical harmonics
 def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
@@ -167,13 +165,15 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
     fd['mask'] &= (fd[VARIABLE][0,:,:] != fv)
 
     #-- pyproj transformer for converting to input coordinates (EPSG)
-    MODEL_EPSG,reference_latitude = set_projection(REGION)
+    MODEL_EPSG = set_projection(REGION)
     crs1 = pyproj.CRS.from_string('EPSG:4326')
     crs2 = pyproj.CRS.from_string(MODEL_EPSG)
     transformer = pyproj.Transformer.from_crs(crs1, crs2, always_xy=True)
     direction = pyproj.enums.TransformDirection.INVERSE
     #-- convert projection from model coordinates
     gridlon,gridlat = transformer.transform(xg, yg, direction=direction)
+    #-- polar stereographic standard parallel (latitude of true scale)
+    reference_latitude = crs2.to_dict().pop('lat_ts')
 
     #-- Earth Parameters
     ellipsoid_params = ref_ellipsoid('WGS84')
