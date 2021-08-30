@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 least_squares_mascon_timeseries.py
-Written by Tyler Sutterley (07/2021)
+Written by Tyler Sutterley (08/2021)
 
 Calculates a time-series of regional mass anomalies through a
     least-squares mascon procedure procedure from an index of
@@ -36,6 +36,7 @@ COMMAND LINE OPTIONS:
         HDF5
     --mask X: Land-sea mask for redistributing mascon mass and land water flux
     --mascon-file X: index file of mascons spherical harmonics
+    --mascon-format X: input format for mascon files
     --redistribute-mascons: redistribute mascon mass over the ocean
     --fit-method X: method for fitting sensitivity kernel to harmonics
         1: mass coefficients
@@ -98,6 +99,7 @@ REFERENCES:
         https://doi.org/10.1029/2009GL039401
 
 UPDATE HISTORY:
+    Updated 08/2021: add option for setting input format of the mascon files
     Updated 06/2021: switch from parameter files to argparse arguments
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 04/2021: add parser object for removing commented or empty lines
@@ -161,7 +163,6 @@ from gravity_toolkit.units import units
 from gravity_toolkit.read_love_numbers import read_love_numbers
 from gravity_toolkit.gauss_weights import gauss_weights
 from gravity_toolkit.ocean_stokes import ocean_stokes
-from gravity_toolkit.utilities import get_data_path
 
 #-- PURPOSE: keep track of threads
 def info(args):
@@ -244,6 +245,7 @@ def least_squares_mascons(input_file, LMAX, RAD,
     REFERENCE=None,
     DATAFORM=None,
     MASCON_FILE=None,
+    MASCON_FORMAT=None,
     REDISTRIBUTE_MASCONS=False,
     FIT_METHOD=0,
     REDISTRIBUTE=False,
@@ -310,10 +312,16 @@ def least_squares_mascons(input_file, LMAX, RAD,
     #-- number of months to consider in analysis
     n_files = len(mon_range)
 
-    #-- input spherical harmonic datafile index
-    #-- correspond file names with GRACE month
-    #-- this allows additional months to be in the index
-    data_Ylms = harmonics().from_index(input_file, DATAFORM)
+    #-- read spherical harmonics file in data format
+    if DATAFORM in ('ascii','netCDF4','HDF5'):
+        #-- ascii (.txt)
+        #-- netCDF4 (.nc)
+        #-- HDF5 (.H5)
+        data_Ylms = harmonics().from_file(input_file,format=DATAFORM,date=True)
+    elif DATAFORM in ('index-ascii','index-netCDF4','index-HDF5'):
+        #-- read from index file
+        _,DATAFORM = DATAFORM.split('-')
+        data_Ylms = harmonics().from_index(input_file,format=DATAFORM,date=True)
     #-- reduce to GRACE/GRACE-FO months and truncate to degree and order
     data_Ylms = data_Ylms.subset(mon_range).truncate(lmax=LMAX,mmax=MMAX)
     #-- distribute Ylms uniformly over the ocean
@@ -343,18 +351,16 @@ def least_squares_mascons(input_file, LMAX, RAD,
             REMOVE_FORMAT = REMOVE_FORMAT*len(REMOVE_FILES)
         #-- for each file to be removed
         for REMOVE_FILE,REMOVEFORM in zip(REMOVE_FILES,REMOVE_FORMAT):
-            if (REMOVEFORM == 'ascii'):
+            if REMOVEFORM in ('ascii','netCDF4','HDF5'):
                 #-- ascii (.txt)
-                Ylms = harmonics().from_ascii(REMOVE_FILE)
-            elif (REMOVEFORM == 'netCDF4'):
                 #-- netCDF4 (.nc)
-                Ylms = harmonics().from_netCDF4(REMOVE_FILE)
-            elif (REMOVEFORM == 'HDF5'):
-                #-- HDF5 (.h5)
-                Ylms = harmonics().from_HDF5(REMOVE_FILE)
-            elif (REMOVEFORM == 'index'):
+                #-- HDF5 (.H5)
+                Ylms = harmonics().from_file(REMOVE_FILE, format=REMOVEFORM)
+            elif REMOVEFORM in ('index-ascii','index-netCDF4','index-HDF5'):
+                #-- read from index file
+                _,removeform = REMOVEFORM.split('-')
                 #-- index containing files in data format
-                Ylms = harmonics().from_index(REMOVE_FILE, DATAFORM)
+                Ylms = harmonics().from_index(REMOVE_FILE, format=removeform)
             #-- reduce to GRACE/GRACE-FO months and truncate to degree and order
             Ylms = Ylms.subset(data_Ylms.month).truncate(lmax=LMAX,mmax=MMAX)
             #-- distribute removed Ylms uniformly over the ocean
@@ -390,15 +396,8 @@ def least_squares_mascons(input_file, LMAX, RAD,
     mascon_list = []
     for k in range(n_mas):
         #-- read mascon spherical harmonics
-        if (DATAFORM == 'ascii'):
-            #-- ascii (.txt)
-            Ylms = harmonics().from_ascii(mascon_files[k],date=False)
-        elif (DATAFORM == 'netCDF4'):
-            #-- netcdf (.nc)
-            Ylms = harmonics().from_netCDF4(mascon_files[k],date=False)
-        elif (DATAFORM == 'HDF5'):
-            #-- HDF5 (.H5)
-            Ylms = harmonics().from_HDF5(mascon_files[k],date=False)
+        Ylms = harmonics().from_file(mascon_files[k],
+            format=MASCON_FORMAT, date=False)
         #-- Calculating the total mass of each mascon (1 cmH2O uniform)
         area_tot[k] = 4.0*np.pi*(rad_e**3)*rho_e*Ylms.clm[0,0]/3.0
         #-- distribute MASCON mass uniformly over the ocean
@@ -646,13 +645,20 @@ def main():
         default=False, action='store_true',
         help='Use decorrelation (destriping) filter')
     #-- input data format (ascii, netCDF4, HDF5)
+    choices = []
+    choices.extend(['ascii','netCDF4','HDF5'])
+    choices.extend(['index-ascii','index-netCDF4','index-HDF5'])
     parser.add_argument('--format','-F',
-        type=str, default='netCDF4', choices=['ascii','netCDF4','HDF5'],
-        help='Input data format for auxiliary files')
+        metavar='FORMAT', type=str,
+        default='netCDF4', choices=choices,
+        help='Input data format')
     #-- mascon index file and parameters
     parser.add_argument('--mascon-file',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         help='Index file of mascons spherical harmonics')
+    parser.add_argument('--mascon-format',
+        type=str, default='netCDF4', choices=['ascii','netCDF4','HDF5'],
+        help='Input data format for mascon files')
     parser.add_argument('--redistribute-mascons',
         default=False, action='store_true',
         help='Redistribute mascon mass over the ocean')
@@ -673,15 +679,19 @@ def main():
     parser.add_argument('--remove-file',
         type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='+',
         help='Monthly files to be removed from the harmonic data')
+    choices = []
+    choices.extend(['ascii','netCDF4','HDF5'])
+    choices.extend(['index-ascii','index-netCDF4','index-HDF5'])
     parser.add_argument('--remove-format',
-        type=str, nargs='+', choices=['ascii','netCDF4','HDF5','index'],
+        type=str, nargs='+', choices=choices,
         help='Input data format for files to be removed')
     parser.add_argument('--redistribute-removed',
         default=False, action='store_true',
         help='Redistribute removed mass fields over the ocean')
     #-- land-sea mask for redistributing mascon mass and land water flux
+    lsmask = utilities.get_data_path(['data','landsea_hd.nc'])
     parser.add_argument('--mask',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=lambda p: os.path.abspath(os.path.expanduser(p)), default=lsmask,
         help='Land-sea mask for redistributing mascon mass and land water flux')
     #-- Output log file for each job in forms
     #-- calc_mascon_run_2002-04-01_PID-00000.log
@@ -717,6 +727,7 @@ def main():
             REFERENCE=args.reference,
             DATAFORM=args.format,
             MASCON_FILE=args.mascon_file,
+            MASCON_FORMAT=args.mascon_format,
             REDISTRIBUTE_MASCONS=args.redistribute_mascons,
             FIT_METHOD=args.fit_method,
             REDISTRIBUTE=args.redistribute_mass,

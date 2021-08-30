@@ -45,13 +45,21 @@ Command Line Options
      * ``'CF'``: Center of Surface Figure (default)
      * ``'CM'``: Center of Mass of Earth System
      * ``'CE'``: Center of Mass of Solid Earth
-- ``-F X``, ``--format X``: input data format
+- ``-F X``, ``--format X``: Input data format
 
      * ``'ascii'``
      * ``'netCDF4'``
      * ``'HDF5'``
+     * ``'index-ascii'``
+     * ``'index-netCDF4'``
+     * ``'index-HDF5'``
 - ``--mask X``: Land-sea mask for redistributing mascon mass and land water flux
-- ``--mascon-file X``: index file of mascons spherical harmonics
+- ``--mascon-file X``: file of mascons spherical harmonics
+- ``--mascon-format X``: Input data format for mascon files
+
+     * ``'ascii'``
+     * ``'netCDF4'``
+     * ``'HDF5'``
 - ``--redistribute-mascons``: redistribute mascon mass over the ocean
 - ``--fit-method X``: method for fitting sensitivity kernel to harmonics
 
@@ -61,6 +69,13 @@ Command Line Options
 - ``--harmonic-errors``: input spherical harmonic fields are data errors
 - ``--remove-file X``: Monthly files to be removed from the harmonic data
 - ``--remove-format X``: Input data format for files to be removed
+
+    * ``'ascii'``
+    * ``'netCDF4'``
+    * ``'HDF5'``
+    * ``'index-ascii'``
+    * ``'index-netCDF4'``
+    * ``'index-HDF5'``
 - ``--redistribute-removed``: redistribute removed mass fields over the ocean
 - ``-l``, ``--log``: output log file for each job
 - ``-V``, ``--verbose``: Verbose output of processing run
