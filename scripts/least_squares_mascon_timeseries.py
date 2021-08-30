@@ -163,7 +163,6 @@ from gravity_toolkit.units import units
 from gravity_toolkit.read_love_numbers import read_love_numbers
 from gravity_toolkit.gauss_weights import gauss_weights
 from gravity_toolkit.ocean_stokes import ocean_stokes
-from gravity_toolkit.utilities import get_data_path
 
 #-- PURPOSE: keep track of threads
 def info(args):
@@ -690,8 +689,9 @@ def main():
         default=False, action='store_true',
         help='Redistribute removed mass fields over the ocean')
     #-- land-sea mask for redistributing mascon mass and land water flux
+    lsmask = utilities.get_data_path(['data','landsea_hd.nc'])
     parser.add_argument('--mask',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=lambda p: os.path.abspath(os.path.expanduser(p)), default=lsmask,
         help='Land-sea mask for redistributing mascon mass and land water flux')
     #-- Output log file for each job in forms
     #-- calc_mascon_run_2002-04-01_PID-00000.log

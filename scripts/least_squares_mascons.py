@@ -618,8 +618,9 @@ def main():
         default=False, action='store_true',
         help='Input spherical harmonic fields are data errors')
     #-- land-sea mask for redistributing mascon mass and land water flux
+    lsmask = utilities.get_data_path(['data','landsea_hd.nc'])
     parser.add_argument('--mask',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=lambda p: os.path.abspath(os.path.expanduser(p)), default=lsmask,
         help='Land-sea mask for redistributing mascon mass and land water flux')
     #-- Output log file for each job in forms
     #-- calc_mascon_run_2002-04-01_PID-00000.log
