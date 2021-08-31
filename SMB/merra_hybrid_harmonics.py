@@ -75,7 +75,6 @@ import uuid
 import pyproj
 import netCDF4
 import argparse
-import warnings
 import numpy as np
 import scipy.interpolate
 import gravity_toolkit.time
@@ -140,8 +139,6 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
     imin,imax = f((tmin,tmax)).astype(np.int64)
     #-- read reduced time variables
     fd['time'] = fileID.variables['time'][imin:imax+1].copy()
-    #-- ice covered area
-    fd['area'] = fileID.variables['iArea'][:,:].copy()
     #-- read reduced dataset and remove singleton dimensions
     fd[VARIABLE] = np.squeeze(fileID.variables[VARIABLE][imin:imax+1,:,:])
     #-- invalid data value
@@ -158,14 +155,25 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
         fd['x'] = fileID.variables['x'][:].copy()
         fd['y'] = fileID.variables['y'][:].copy()
         xg,yg = np.meshgrid(fd['x'],fd['y'],indexing='ij')
+    #-- extract area of each grid cell if applicable
+    #-- calculate using dimensions if not possible
+    fd['area'] = np.zeros((nx,ny),dtype=bool)
+    try:
+        #-- ice covered area
+        fd['area'][:,:] = fileID.variables['iArea'][:,:].copy()
+    except:
+        #-- calculate grid areas (assume fully ice covered)
+        dx = np.abs(fd['x'][1] - fd['x'][0])
+        dy = np.abs(fd['y'][1] - fd['y'][0])
+        fd['area'][:,:] = dx*dy
     #-- close the NetCDF files
     fileID.close()
 
     #-- create mask object for reducing data
-    if np.any(MASKS):
-        fd['mask'] = np.zeros((nx,ny),dtype=bool)
-    else:
+    if not MASKS:
         fd['mask'] = np.ones((nx,ny),dtype=bool)
+    else:
+        fd['mask'] = np.zeros((nx,ny),dtype=bool)
     #-- read masks for reducing regions before converting to harmonics
     for mask_file in MASKS:
         fileID = netCDF4.Dataset(mask_file,'r')
@@ -183,8 +191,7 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
     #-- convert projection from model coordinates
     gridlon,gridlat = transformer.transform(xg, yg, direction=direction)
     #-- polar stereographic standard parallel (latitude of true scale)
-    with warnings.catch_warnings():#-- suppress pyproj warning
-        reference_latitude = crs2.to_dict().pop('lat_ts')
+    reference_latitude = crs2.to_dict().pop('lat_ts')
 
     #-- Earth Parameters
     ellipsoid_params = ref_ellipsoid('WGS84')
