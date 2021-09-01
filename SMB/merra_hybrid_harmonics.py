@@ -70,6 +70,7 @@ from __future__ import print_function
 
 import sys
 import os
+import copy
 import gzip
 import uuid
 import pyproj
@@ -103,6 +104,7 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
     suffix = '.gz' if GZIP else ''
     #-- set the input netCDF4 file for the variable of interest
     if VARIABLE in ('cum_smb_anomaly',):
+        FILE_VERSION = copy.copy(VERSION)
         args = (VERSION,REGION.lower(),suffix)
         hybrid_file = 'gsfc_fdm_{0}_{1}.nc{2}'.format(*args)
     elif VARIABLE in ('Me_a','Ra_a','Ru_a','Sn-Ev_a','SMB_a'):
@@ -180,7 +182,7 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
         fd['mask'] |= fileID.variables['mask'][:].astype(bool)
         fileID.close()
     #-- indices of valid MERRA hybrid data
-    fd['mask'] &= (fd[VARIABLE][0,:,:] != fv)
+    fd['mask'] &= (fd[VARIABLE].data[0,:,:] != fv)
 
     #-- pyproj transformer for converting to input coordinates (EPSG)
     MODEL_EPSG = set_projection(REGION)
@@ -249,8 +251,10 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
         Ylms.time[t] = fd['time'][t].copy()
         Ylms.month[t] = np.int64(12.0*(Ylms.time[t] - 2002.0)) + 1
 
+    #-- output data file format
+    suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
     #-- output spherical harmonic data file
-    args = (VERSION,REGION.lower(),VARIABLE,LMAX,order_str,suffix)
+    args = (FILE_VERSION,REGION.lower(),VARIABLE,LMAX,order_str,suffix[DATAFORM])
     FILE = 'gsfc_fdm_{0}_{1}_{2}_CLM_L{3:d}{4}.{5}'.format(*args)
     Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM,
         date=True, verbose=VERBOSE)
@@ -354,7 +358,7 @@ def scale_areas(lat, flat=1.0/298.257223563, ref=70.0):
     scale = 1.0/(k**2)
     return scale
 
-#-- Main program that calls merra_hybrid_cumulative()
+#-- Main program that calls merra_hybrid_harmonics()
 def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
