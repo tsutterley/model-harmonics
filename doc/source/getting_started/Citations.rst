@@ -57,6 +57,7 @@ These extension routines are dependent on:
 - `pygrib: Python interface for reading and writing GRIB data <https://pypi.python.org/pypi/pygrib>`_
 - `pyproj: Python interface to PROJ library <https://pypi.org/project/pyproj/>`_
 - `shapely: PostGIS-ish operations outside a database context for Python <http://toblerity.org/shapely/index.html>`_
+- `scikit-learn: Machine Learning in Python <https://scikit-learn.org/stable/index.html>`_
 - `cdsapi: Python client libraries for the CDS Web API <https://pypi.org/project/cdsapi/>`_
 - `ecmwf-api-client: Python client libraries for the ECMWF Web API <https://software.ecmwf.int/wiki/display/WEBAPI/Web-API+Downloads>`_
 

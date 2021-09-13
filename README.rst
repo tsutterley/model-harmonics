@@ -5,6 +5,7 @@ model-harmonics
 |Language|
 |License|
 |Documentation Status|
+|zenodo|
 
 .. |Language| image:: https://img.shields.io/badge/python-v3.7-green.svg
    :target: https://www.python.org/
@@ -15,6 +16,8 @@ model-harmonics
 .. |Documentation Status| image:: https://readthedocs.org/projects/model-harmonics/badge/?version=latest
    :target: https://read-grace-harmonics.readthedocs.io/projects/model-harmonics/en/latest/?badge=latest
 
+.. |zenodo| image:: https://zenodo.org/badge/325402443.svg
+   :target: https://zenodo.org/badge/latestdoi/325402443
 
 Python tools for obtaining and working with model synthetic spherical harmonic coefficients for comparing with data from the the NASA/DLR Gravity Recovery and Climate Experiment (GRACE) and the NASA/GFZ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
 

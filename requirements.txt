@@ -3,3 +3,4 @@ ecmwf-api-client
 fiona
 pyproj
 shapely
+scikit-learn

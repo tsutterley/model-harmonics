@@ -9,6 +9,7 @@ dependencies:
   - fiona
   - pyproj
   - shapely
+  - scikit-learn
   - pip
   - pip:
      - git+https://github.com/tsutterley/read-GRACE-harmonics.git

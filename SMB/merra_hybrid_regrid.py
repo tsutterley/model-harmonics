@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 u"""
-merra_hybrid_harmonics.py
-Written by Tyler Sutterley (08/2021)
-Read MERRA-2 hybrid variables and converts to spherical harmonics
+merra_hybrid_regrid.py
+Written by Tyler Sutterley (09/2021)
+Read and regrid MERRA-2 hybrid variables
     MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
 
 CALLING SEQUENCE:
-    python merra_hybrid_harmonics.py --directory <path> --region gris \
-        --version v1.1 --product SMB_a --lmax 60 --verbose
+    python merra_hybrid_regrid.py --directory <path> --region gris \
+        --version v1.1 --product SMB_a --verbose
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
@@ -20,20 +20,12 @@ COMMAND LINE OPTIONS:
     -P X, --product X: MERRA-2 hybrid product to calculate
     -Y X, --year X: Years to run
     --mask X: netCDF4 mask files for reducing to regions
-    -l X, --lmax X: maximum spherical harmonic degree
-    -m X, --mmax X: maximum spherical harmonic order
-    -n X, --love X: Load Love numbers dataset
-        0: Han and Wahr (1995) values from PREM
-        1: Gegout (2005) values from PREM
-        2: Wang et al. (2012) values from PREM
-    --reference X: Reference frame for load love numbers
-        CF: Center of Surface Figure (default)
-        CM: Center of Mass of Earth System
-        CE: Center of Mass of Solid Earth
-    -F X, --format X: Output data format
-        ascii
-        netcdf
-        HDF5
+    -S X, --spacing X: spatial resolution of input data (dlon,dlat)
+    -I X, --interval X: output grid interval
+        1: (0:360, 90:-90)
+        2: (degree spacing/2)
+        3: non-global grid (set with defined bounds)
+    -B X, --bounds X: non-global grid bounding box (minlon,maxlon,minlat,maxlat)
     -G, --gzip: input netCDF4 file is gzip compressed
     -V, --verbose: Output information for each output file
     -M X, --mode X: Permissions mode of the files created
@@ -52,19 +44,15 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
     utilities.py: download and management utilities for files
-    read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
     ref_ellipsoid.py: calculate reference parameters for common ellipsoids
-    gen_point_load.py: calculates spherical harmonics from point masses
-    harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
-        destripe_harmonics.py: calculates the decorrelation (destriping) filter
-            and filters the GRACE/GRACE-FO coefficients for striping errors
-        ncdf_read_stokes.py: reads spherical harmonic netcdf files
-        ncdf_stokes.py: writes output spherical harmonic data to netcdf
-        hdf5_read_stokes.py: reads spherical harmonic HDF5 files
-        hdf5_stokes.py: writes output spherical harmonic data to HDF5
+    spatial.py: spatial data class for reading, writing and processing data
+        ncdf_read.py: reads input spatial data from netCDF4 files
+        hdf5_read.py: reads input spatial data from HDF5 files
+        ncdf_write.py: writes output spatial data to netCDF4
+        hdf5_write.py: writes output spatial data to HDF5
 
 UPDATE HISTORY:
-    Written 08/2021
+    Written 09/2021
 """
 from __future__ import print_function
 
@@ -73,17 +61,17 @@ import os
 import copy
 import gzip
 import uuid
+import time
 import pyproj
 import netCDF4
 import argparse
 import numpy as np
+import sklearn.neighbors
 import scipy.interpolate
 import gravity_toolkit.time
 import gravity_toolkit.utilities as utilities
-from gravity_toolkit.read_love_numbers import read_love_numbers
-from gravity_toolkit.harmonics import harmonics
+from gravity_toolkit.spatial import spatial
 from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
-from gravity_toolkit.gen_point_load import gen_point_load
 
 #-- PURPOSE: set the projection parameters based on the region name
 def set_projection(REGION):
@@ -93,10 +81,16 @@ def set_projection(REGION):
         projection_flag = 'EPSG:3413'
     return projection_flag
 
-#-- PURPOSE: read MERRA-2 hybrid SMB estimates and convert to spherical harmonics
-def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
-    MASKS=None, LMAX=None, MMAX=None, LOVE_NUMBERS=0, REFERENCE=None,
-    DATAFORM=None, GZIP=False, VERBOSE=False, MODE=0o775):
+#-- PURPOSE: read and regrid MERRA-2 hybrid SMB estimates
+def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
+    VERSION='v1',
+    MASKS=None,
+    DDEG=None,
+    INTERVAL=None,
+    BOUNDS=None,
+    GZIP=False,
+    VERBOSE=False,
+    MODE=0o775):
 
     #-- MERRA-2 hybrid directory
     DIRECTORY = os.path.join(base_dir,VERSION)
@@ -111,6 +105,11 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
         FILE_VERSION = VERSION.replace('.','_')
         args = (FILE_VERSION,REGION.lower(),suffix)
         hybrid_file = 'gsfc_fdm_smb_cumul_{0}_{1}.nc{2}'.format(*args)
+    #-- reference for GSFC-FDM model outputs
+    reference = ("Medley, B., Neumann, T. A., Zwally, H. J., and "
+        "Smith, B. E.: Forty-year Simulations of Firn Processes over the "
+        "Greenland and Antarctic Ice Sheets, The Cryosphere Discuss. "
+        "[preprint], https://doi.org/10.5194/tc-2020-266, in review, 2020.")
 
     #-- Open the MERRA-2 Hybrid NetCDF file for reading
     if GZIP:
@@ -176,7 +175,7 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
         fd['mask'] = np.ones((nx,ny),dtype=bool)
     else:
         fd['mask'] = np.zeros((nx,ny),dtype=bool)
-    #-- read masks for reducing regions before converting to harmonics
+    #-- read masks for reducing regions before regridding
     for mask_file in MASKS:
         fileID = netCDF4.Dataset(mask_file,'r')
         fd['mask'] |= fileID.variables['mask'][:].astype(bool)
@@ -196,13 +195,15 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
     reference_latitude = crs2.to_dict().pop('lat_ts')
 
     #-- Earth Parameters
-    ellipsoid_params = ref_ellipsoid('WGS84')
-    #-- semimajor axis of ellipsoid [m]
+    ellipsoid_params = ref_ellipsoid('WGS84', UNITS='CGS')
+    #-- semimajor axis of ellipsoid [cm]
     a_axis = ellipsoid_params['a']
     #--  first numerical eccentricity
     ecc1 = ellipsoid_params['ecc1']
     #-- flattening of the ellipsoid
     flat = ellipsoid_params['f']
+    #-- Average Radius of the Earth with equal surface area [cm]
+    rad_e = ellipsoid_params['rad_e']
     #-- convert from geodetic latitude to geocentric latitude
     #-- geodetic latitude in radians
     latitude_geodetic_rad = np.pi*gridlat/180.0
@@ -221,104 +222,157 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
     #-- scaled areas
     ps_scale = scale_areas(lat, flat=flat, ref=reference_latitude)
     scaled_area = ps_scale*fd['area'][indx,indy]
-    #-- read load love numbers
-    LOVE = load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
-        REFERENCE=REFERENCE)
-    #-- upper bound of spherical harmonic orders (default = LMAX)
-    MMAX = np.copy(LMAX) if not MMAX else MMAX
-    #-- output string for both LMAX == MMAX and LMAX != MMAX cases
-    order_str = 'M{0:d}'.format(MMAX) if (MMAX != LMAX) else ''
-    #-- densities of meteoric ice
+    npts = len(scaled_area)
+    #-- densities of meteoric ice [kg/m^3]
     rho_ice = 917.0
 
-    #-- allocate for output spherical harmonics
-    Ylms = harmonics(lmax=LMAX, mmax=MMAX)
-    Ylms.clm = np.zeros((LMAX+1,MMAX+1,nt))
-    Ylms.slm = np.zeros((LMAX+1,MMAX+1,nt))
-    Ylms.time = np.zeros((nt))
-    Ylms.month = np.zeros((nt),dtype=np.int64)
+    #-- Output spatial data
+    grid = spatial(fill_value=fv)
+    grid.time = np.zeros((nt))
+    grid.month = np.zeros((nt),dtype=np.int64)
+
+    #-- Output Degree Spacing
+    dlon,dlat = (DDEG[0],DDEG[0]) if (len(DDEG) == 1) else (DDEG[0],DDEG[1])
+    #-- Output Degree Interval
+    if (INTERVAL == 1):
+        #-- (0:360,90:-90)
+        nlon = np.int64((360.0/dlon)+1.0)
+        nlat = np.int64((180.0/dlat)+1.0)
+        grid.lon = dlon*np.arange(0,nlon)
+        grid.lat = 90.0 - dlat*np.arange(0,nlat)
+    elif (INTERVAL == 2):
+        #-- (Degree spacing)/2
+        grid.lon = np.arange(dlon/2.0,360+dlon/2.0,dlon)
+        grid.lat = np.arange(90.0-dlat/2.0,-90.0-dlat/2.0,-dlat)
+        nlon = len(grid.lon)
+        nlat = len(grid.lat)
+    elif (INTERVAL == 3):
+        #-- non-global grid set with BOUNDS parameter
+        minlon,maxlon,minlat,maxlat = BOUNDS.copy()
+        grid.lon = np.arange(minlon+dlon/2.0,maxlon+dlon/2.0,dlon)
+        grid.lat = np.arange(maxlat-dlat/2.0,minlat-dlat/2.0,-dlat)
+        nlon = len(grid.lon)
+        nlat = len(grid.lat)
+    #-- degree spacing in radians
+    dphi = np.pi*dlon/180.0
+    dth = np.pi*dlat/180.0
+    #-- meshgrid of output data coordinates
+    gridlon,gridlat = np.meshgrid(grid.lon, grid.lat)
+    #-- area of each new grid cells
+    grid.area = (rad_e**2)*dphi*dth*np.cos(gridlat*np.pi/180.0)
+    #-- allocate for output data and mask
+    grid.data = np.zeros((nlat,nlon,nt))
+    grid.mask = np.zeros((nlat,nlon,nt),dtype=bool)
+    #-- update attributes
+    grid.update_spacing()
+    grid.update_extents()
+    grid.update_dimensions()
+
+    #-- Finding bin indices by finding the closest lat/lon
+    #-- calculates the great circle distance between the
+    #-- model lat/lon and the global lat/lon grids
+    INDICE_FILE = 'gsfc_fdm_global_indices.nc'
+    if (not os.access(os.path.join(DIRECTORY, INDICE_FILE),os.F_OK)):
+        #-- convert latitude and longitude into radians
+        phi,theta = (np.pi*lon/180.0,np.pi*lat/180.0)
+        #-- allocate for output variables (indice maps and grid mask)
+        ilon = np.zeros((npts), dtype=np.int32)
+        ilat = np.zeros((npts), dtype=np.int32)
+        point_mask = np.zeros((nlat,nlon),dtype=bool)
+        #-- creating column arrays of the global grid to quickly
+        #-- compute the great circle distance (all at once for each model pt)
+        xphi,xth = (np.pi*gridlon.flatten()/180.0,np.pi*gridlat.flatten()/180.0)
+        #-- create Ball search tree for finding nearest neighbors (great-circle)
+        xpoints = np.concatenate((xphi[:,None],xth[:,None]),axis=1)
+        tree = sklearn.neighbors.BallTree(xpoints, metric='haversine')
+        #-- find indices of closest grid point for each lat/lon value
+        points = np.concatenate((phi[:,None],theta[:,None]),axis=1)
+        indices = np.squeeze(tree.query(points,k=1,return_distance=False))
+        #-- longitude indice will be the remainder of the indices/number of lons
+        ilon[:] = indices % nlon
+        #-- ilat indice will be number of longitude loops
+        ilat[:] = (indices - ilon)/nlon
+        #-- set point mask for lon and lat to True
+        point_mask[ilat,ilon] = True
+
+        #-- Create the NetCDF file for saving indices and points
+        fileID=netCDF4.Dataset(os.path.join(DIRECTORY,INDICE_FILE),'w')
+        #-- Defining the netCDF dimensions
+        fileID.createDimension('points', npts)
+        fileID.createDimension('nlon', nlon)
+        fileID.createDimension('nlat', nlat)
+        #-- lat, lon and mask
+        nc = {}
+        nc['ilon'] = fileID.createVariable('ilon', 'i', ('points',))
+        nc['ilat'] = fileID.createVariable('ilat', 'i', ('points',))
+        nc['lon'] = fileID.createVariable('lon', 'f', ('nlon',))
+        nc['lat'] = fileID.createVariable('lat', 'f', ('nlat',))
+        nc['mask'] = fileID.createVariable('mask', 'b', ('nlat','nlon',))
+        nc['area'] = fileID.createVariable('area', 'f', ('nlat','nlon',))
+        #-- filling netCDF variables
+        nc['ilon'][:] = ilon.copy()
+        nc['ilat'][:] = ilat.copy()
+        nc['lat'][:] = grid.lat.copy()
+        nc['lon'][:] = grid.lon.copy()
+        nc['mask'][:,:] = point_mask.copy()
+        nc['area'][:,:] = grid.area/1e4
+        #-- Defining attributes for each variable
+        nc['ilon'].long_name = 'longitude_indices'
+        nc['ilat'].long_name = 'latitude_indices'
+        nc['lat'].long_name = 'latitude'
+        nc['lat'].units = 'Degrees North'
+        nc['lon'].long_name = 'longitude'
+        nc['lon'].units = 'Degrees East'
+        nc['mask'].long_name = 'point_mask'
+        nc['area'].long_name = 'Area'
+        nc['area'].units = 'meters squared'
+        #-- global variable of netCDF file
+        fileID.title = 'GSFC-FDM remapping'
+        fileID.source = 'version {0}'.format(VERSION)
+        fileID.reference = copy.copy(reference)
+        #-- date created
+        fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
+        #-- Closing the netCDF file
+        fileID.close()
+    else:
+        #-- Open the NetCDF file for reading
+        fileID = netCDF4.Dataset(os.path.join(DIRECTORY,INDICE_FILE), 'r')
+        #-- Getting the data from each netCDF variable
+        #-- filling numpy arrays with NetCDF objects
+        ilon = np.array(fileID.variables['ilon'][:].copy())
+        ilat = np.array(fileID.variables['ilat'][:].copy())
+        point_mask=np.array(fileID.variables['mask'][:,:].copy(),dtype=bool)
+        #-- Closing the netCDF file
+        fileID.close()
+
     #-- for each time step
     for t in range(nt):
         #-- reduce data for date and convert to mass (g)
-        merra_mass = 1000.0*rho_ice*scaled_area*fd[VARIABLE][t,indx,indy]
-        #-- convert to spherical harmonics
-        merra_Ylms = gen_point_load(merra_mass, lon, lat, LMAX=LMAX,
-            MMAX=MMAX, UNITS=1, LOVE=LOVE)
-        #-- copy harmonics for time step
-        Ylms.clm[:,:,t] = merra_Ylms.clm[:,:].copy()
-        Ylms.slm[:,:,t] = merra_Ylms.slm[:,:].copy()
+        ptms = 1000.0*rho_ice*scaled_area*fd[VARIABLE][t,indx,indy]
+        #-- Sums model point masses nearest to the regular grid lat/lon
+        #-- nearest lat/lon point was calculated using the minimum great circle
+        #-- distance between the model lat/lon and the global lat/lon
+        mass_grid = np.zeros((nlat,nlon))
+        for i in range(npts):
+            mass_grid[ilat[i],ilon[i]] += ptms[i]
+        #-- new surface density in cm w.e.
+        grid.data[:,:,t] = mass_grid/grid.area
+        #-- set grid data mask
+        grid.mask[:,:,t] = np.logical_not(point_mask)
         #-- copy date parameters for time step
-        Ylms.time[t] = fd['time'][t].copy()
-        Ylms.month[t] = np.int64(12.0*(Ylms.time[t] - 2002.0)) + 1
-
+        grid.time[t] = fd['time'][t].copy()
+        grid.month[t] = np.int64(12.0*(grid.time[t] - 2002.0)) + 1
+    #-- update mask
+    grid.update_mask()
     #-- output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
-    #-- output spherical harmonic data file
-    args = (FILE_VERSION,REGION.lower(),VARIABLE,LMAX,order_str,suffix[DATAFORM])
-    FILE = 'gsfc_fdm_{0}_{1}_{2}_CLM_L{3:d}{4}.{5}'.format(*args)
-    Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM,
-        date=True, verbose=VERBOSE)
-    #-- change the permissions mode of the output file to MODE
-    os.chmod(os.path.join(DIRECTORY,FILE),MODE)
-
-#-- PURPOSE: read load love numbers for the range of spherical harmonic degrees
-def load_love_numbers(LMAX, LOVE_NUMBERS=0, REFERENCE='CF'):
-    """
-    Reads PREM load Love numbers for the range of spherical harmonic degrees
-    and applies isomorphic parameters
-
-    Arguments
-    ---------
-    LMAX: maximum spherical harmonic degree
-
-    Keyword arguments
-    -----------------
-    LOVE_NUMBERS: Load Love numbers dataset
-        0: Han and Wahr (1995) values from PREM
-        1: Gegout (2005) values from PREM
-        2: Wang et al. (2012) values from PREM
-    REFERENCE: Reference frame for calculating degree 1 love numbers
-        CF: Center of Surface Figure (default)
-        CM: Center of Mass of Earth System
-        CE: Center of Mass of Solid Earth
-
-    Returns
-    -------
-    kl: Love number of Gravitational Potential
-    hl: Love number of Vertical Displacement
-    ll: Love number of Horizontal Displacement
-    """
-    #-- load love numbers file
-    if (LOVE_NUMBERS == 0):
-        #-- PREM outputs from Han and Wahr (1995)
-        #-- https://doi.org/10.1111/j.1365-246X.1995.tb01819.x
-        love_numbers_file = utilities.get_data_path(
-            ['data','love_numbers'])
-        header = 2
-        columns = ['l','hl','kl','ll']
-    elif (LOVE_NUMBERS == 1):
-        #-- PREM outputs from Gegout (2005)
-        #-- http://gemini.gsfc.nasa.gov/aplo/
-        love_numbers_file = utilities.get_data_path(
-            ['data','Load_Love2_CE.dat'])
-        header = 3
-        columns = ['l','hl','ll','kl']
-    elif (LOVE_NUMBERS == 2):
-        #-- PREM outputs from Wang et al. (2012)
-        #-- https://doi.org/10.1016/j.cageo.2012.06.022
-        love_numbers_file = utilities.get_data_path(
-            ['data','PREM-LLNs-truncated.dat'])
-        header = 1
-        columns = ['l','hl','ll','kl','nl','nk']
-    #-- LMAX of load love numbers from Han and Wahr (1995) is 696.
-    #-- from Wahr (2007) linearly interpolating kl works
-    #-- however, as we are linearly extrapolating out, do not make
-    #-- LMAX too much larger than 696
-    #-- read arrays of kl, hl, and ll Love Numbers
-    hl,kl,ll = read_love_numbers(love_numbers_file, LMAX=LMAX, HEADER=header,
-        COLUMNS=columns, REFERENCE=REFERENCE, FORMAT='tuple')
-    #-- return a tuple of load love numbers
-    return (hl,kl,ll)
+    #-- output regridded data file
+    FILE='gsfc_fdm_{0}_{1}_{2}.nc'.format(FILE_VERSION,REGION.lower(),VARIABLE)
+    #-- output grid to netCDF4 (.nc)
+    grid.to_netCDF4(os.path.join(DIRECTORY,FILE), varname=VARIABLE, units='cmwe',
+        longname='Equivalent Water Thickness', reference=reference)
+    #-- change the permissions mode
+    os.chmod(os.path.join(DIRECTORY,FILE), MODE)
 
 def scale_areas(lat, flat=1.0/298.257223563, ref=70.0):
     """
@@ -358,12 +412,11 @@ def scale_areas(lat, flat=1.0/298.257223563, ref=70.0):
     scale = 1.0/(k**2)
     return scale
 
-#-- Main program that calls merra_hybrid_harmonics()
+#-- Main program that calls merra_hybrid_regrid()
 def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
-        description="""Read MERRA-2 hybrid variables and
-            converts to spherical harmonics
+        description="""Read and regrid MERRA-2 hybrid variables
             """,
         fromfile_prefix_chars="@"
     )
@@ -397,29 +450,17 @@ def main():
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         nargs='+', default=[],
         help='netCDF4 masks file for reducing to regions')
-    #-- maximum spherical harmonic degree and order
-    parser.add_argument('--lmax','-l',
-        type=int, default=60,
-        help='Maximum spherical harmonic degree')
-    parser.add_argument('--mmax','-m',
-        type=int, default=None,
-        help='Maximum spherical harmonic order')
-    #-- different treatments of the load Love numbers
-    #-- 0: Han and Wahr (1995) values from PREM
-    #-- 1: Gegout (2005) values from PREM
-    #-- 2: Wang et al. (2012) values from PREM
-    parser.add_argument('--love','-n',
-        type=int, default=0, choices=[0,1,2],
-        help='Treatment of the Load Love numbers')
-    #-- option for setting reference frame for gravitational load love number
-    #-- reference frame options (CF, CM, CE)
-    parser.add_argument('--reference',
-        type=str.upper, default='CF', choices=['CF','CM','CE'],
-        help='Reference frame for load Love numbers')
-    #-- input and output data format (ascii, netCDF4, HDF5)
-    parser.add_argument('--format','-F',
-        type=str, default='netCDF4', choices=['ascii','netCDF4','HDF5'],
-        help='Input and output data format')
+    #-- output grid parameters
+    parser.add_argument('--spacing','-S',
+        type=float, nargs='+', default=[0.5,0.5], metavar=('dlon','dlat'),
+        help='Spatial resolution of output data')
+    parser.add_argument('--interval','-I',
+        type=int, default=2, choices=[1,2,3],
+        help=('Output grid interval '
+            '(1: global, 2: centered global, 3: non-global)'))
+    parser.add_argument('--bounds','-B',
+        type=float, nargs=4, metavar=('lon_min','lon_max','lat_min','lat_max'),
+        help='Bounding box for non-global grid')
     #-- print information about each input and output file
     parser.add_argument('--verbose','-V',
         default=False, action='store_true',
@@ -436,14 +477,12 @@ def main():
 
     #-- run program
     for VARIABLE in args.product:
-        merra_hybrid_harmonics(args.directory, args.region, VARIABLE, args.year,
+        merra_hybrid_regrid(args.directory, args.region, VARIABLE, args.year,
             VERSION=args.version,
             MASKS=args.mask,
-            LMAX=args.lmax,
-            MMAX=args.mmax,
-            LOVE_NUMBERS=args.love,
-            REFERENCE=args.reference,
-            DATAFORM=args.format,
+            DDEG=args.spacing,
+            INTERVAL=args.interval,
+            BOUNDS=args.bounds,
             GZIP=args.gzip,
             VERBOSE=args.verbose,
             MODE=args.mode)
