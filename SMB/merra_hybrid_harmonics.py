@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_harmonics.py
-Written by Tyler Sutterley (08/2021)
+Written by Tyler Sutterley (09/2021)
 Read MERRA-2 hybrid variables and converts to spherical harmonics
     MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
 
@@ -64,6 +64,7 @@ PROGRAM DEPENDENCIES:
         hdf5_stokes.py: writes output spherical harmonic data to HDF5
 
 UPDATE HISTORY:
+    Updated 09/2021: use original FDM file for ais products
     Written 08/2021
 """
 from __future__ import print_function
@@ -106,6 +107,10 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
     if VARIABLE in ('cum_smb_anomaly',):
         FILE_VERSION = copy.copy(VERSION)
         args = (VERSION,REGION.lower(),suffix)
+        hybrid_file = 'gsfc_fdm_{0}_{1}.nc{2}'.format(*args)
+    elif (REGION.lower() == 'ais'):
+        FILE_VERSION = VERSION.replace('.','_')
+        args = (FILE_VERSION,REGION.lower(),suffix)
         hybrid_file = 'gsfc_fdm_{0}_{1}.nc{2}'.format(*args)
     elif VARIABLE in ('Me_a','Ra_a','Ru_a','Sn-Ev_a','SMB_a'):
         FILE_VERSION = VERSION.replace('.','_')

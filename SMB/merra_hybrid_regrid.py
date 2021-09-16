@@ -20,7 +20,7 @@ COMMAND LINE OPTIONS:
     -P X, --product X: MERRA-2 hybrid product to calculate
     -Y X, --year X: Years to run
     --mask X: netCDF4 mask files for reducing to regions
-    -S X, --spacing X: spatial resolution of input data (dlon,dlat)
+    -S X, --spacing X: spatial resolution of output data (dlon,dlat)
     -I X, --interval X: output grid interval
         1: (0:360, 90:-90)
         2: (degree spacing/2)
@@ -52,6 +52,7 @@ PROGRAM DEPENDENCIES:
         hdf5_write.py: writes output spatial data to HDF5
 
 UPDATE HISTORY:
+    Updated 09/2021: use original FDM file for ais products
     Written 09/2021
 """
 from __future__ import print_function
@@ -100,6 +101,10 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
     if VARIABLE in ('cum_smb_anomaly',):
         FILE_VERSION = copy.copy(VERSION)
         args = (VERSION,REGION.lower(),suffix)
+        hybrid_file = 'gsfc_fdm_{0}_{1}.nc{2}'.format(*args)
+    elif (REGION.lower() == 'ais'):
+        FILE_VERSION = VERSION.replace('.','_')
+        args = (FILE_VERSION,REGION.lower(),suffix)
         hybrid_file = 'gsfc_fdm_{0}_{1}.nc{2}'.format(*args)
     elif VARIABLE in ('Me_a','Ra_a','Ru_a','Sn-Ev_a','SMB_a'):
         FILE_VERSION = VERSION.replace('.','_')
