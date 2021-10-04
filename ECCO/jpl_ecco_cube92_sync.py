@@ -207,9 +207,9 @@ def main():
         default=os.getcwd(),
         help='Working data directory')
     #-- ECCO model years to sync
-    now = gravity_toolkit.time.datetime.datetime.now()
+    now = time.gmtime()
     parser.add_argument('--year','-Y',
-        type=int, nargs='+', default=range(2000,now.year+1),
+        type=int, nargs='+', default=range(2000,now.tm_year+1),
         help='Years to sync')
     #-- ECCO model product to sync
     parser.add_argument('--product', '-P',

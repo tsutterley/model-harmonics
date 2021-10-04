@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_monthly_harmonics.py
-Written by Tyler Sutterley (07/2021)
+Written by Tyler Sutterley (09/2021)
 
 Reads monthly GLDAS total water storage anomalies and converts to
     spherical harmonic coefficients
@@ -102,6 +102,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 09/2021: use GRACE/GRACE-FO month to calendar month converters
     Updated 07/2021: can use input files to define command line arguments
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 03/2021: automatically update years to run based on current time
@@ -137,6 +138,7 @@ import os
 import re
 import netCDF4
 import argparse
+import datetime
 import numpy as np
 import gravity_toolkit.time
 import gravity_toolkit.utilities as utilities
@@ -305,7 +307,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
         #-- calculate date information
         gldas_Ylms.time, = gravity_toolkit.time.convert_calendar_decimal(YY,MM)
         #-- calculate GRACE/GRACE-FO month
-        gldas_Ylms.month = np.int64(12.0*(YY - 2002.0) + MM)
+        gldas_Ylms.month = gravity_toolkit.time.calendar_to_grace(YY,MM)
 
         #-- output spherical harmonic data file
         args=(MODEL,SPACING,LMAX,order_str,gldas_Ylms.month,suffix[DATAFORM])
@@ -343,8 +345,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
         full_output_file = os.path.join(ddir,output_sub,fi)
         #-- extract GRACE month
         grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int64)
-        YY = 2002.0 + np.floor((grace_month-1)/12.0)
-        MM = ((grace_month-1) % 12) + 1
+        YY,MM = gravity_toolkit.time.grace_to_calendar(grace_month)
         tdec, = gravity_toolkit.time.convert_calendar_decimal(YY, MM)
         #-- full path to output file
         full_output_file = os.path.join(ddir,output_sub,fi)
@@ -473,7 +474,7 @@ def main():
         default=os.getcwd(),
         help='Working data directory')
     #-- years to run
-    now = gravity_toolkit.time.datetime.datetime.now()
+    now = datetime.datetime.now()
     parser.add_argument('--year','-Y',
         type=int, nargs='+', default=range(2000,now.year+1),
         help='Years of model outputs to run')

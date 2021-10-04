@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_harmonics.py
-Written by Tyler Sutterley (08/2021)
+Written by Tyler Sutterley (09/2021)
 Reads monthly MERRA-2 surface mass balance anomalies and
     converts to spherical harmonic coefficients
 
@@ -65,6 +65,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 09/2021: use GRACE/GRACE-FO month to calendar month converters
     Updated 08/2021: set all points to valid if not using masks
     Updated 07/2021: can use input files to define command line arguments
     Updated 05/2021: define int/float precision to prevent deprecation warning
@@ -89,6 +90,7 @@ import os
 import re
 import netCDF4
 import argparse
+import datetime
 import numpy as np
 import gravity_toolkit.time
 import gravity_toolkit.utilities as utilities
@@ -214,7 +216,8 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
         #-- copy date information
         merra_Ylms.time = np.copy(merra_data.time)
         #-- calculate GRACE/GRACE-FO month
-        merra_Ylms.month = np.int64(12.0*(np.float64(Y1) - 2002.0) + np.float64(M1))
+        merra_Ylms.month[t] = gravity_toolkit.time.calendar_to_grace(
+            np.float64(Y1), np.float64(M1))
         #-- output spherical harmonic data file
         args=(MOD,PRODUCT,LMAX,order_str,merra_Ylms.month,suffix[DATAFORM])
         FILE='MERRA2_{0}_tavgM_2d_{1}_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
@@ -253,8 +256,7 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
         full_output_file = os.path.join(ddir,output_sub,fi)
         #-- extract GRACE month
         MOD,grace_month=np.array(re.findall(output_regex,fi).pop(),dtype=np.int64)
-        YY = 2002.0 + np.floor((grace_month-1)/12.0)
-        MM = ((grace_month-1) % 12) + 1
+        YY,MM = gravity_toolkit.time.grace_to_calendar(grace_month)
         tdec, = gravity_toolkit.time.convert_calendar_decimal(YY, MM)
         #-- full path to output file
         full_output_file = os.path.join(ddir,output_sub,fi)
@@ -353,7 +355,7 @@ def main():
         default=[1980,1995],
         help='Start and end year range for mean')
     #-- years to run
-    now = gravity_toolkit.time.datetime.datetime.now()
+    now = datetime.datetime.now()
     parser.add_argument('--year','-Y',
         type=int, nargs='+', default=range(2000,now.year+1),
         help='Years of model outputs to run')
