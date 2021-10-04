@@ -68,6 +68,7 @@ import time
 import pyproj
 import netCDF4
 import argparse
+import warnings
 import numpy as np
 import sklearn.neighbors
 import scipy.interpolate
@@ -75,6 +76,8 @@ import gravity_toolkit.time
 import gravity_toolkit.utilities as utilities
 from gravity_toolkit.spatial import spatial
 from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
+#-- ignore pyproj and divide by zero warnings
+warnings.filterwarnings("ignore")
 
 #-- PURPOSE: set the projection parameters based on the region name
 def set_projection(REGION):

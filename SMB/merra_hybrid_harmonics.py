@@ -79,6 +79,7 @@ import pyproj
 import netCDF4
 import argparse
 import datetime
+import warnings
 import numpy as np
 import scipy.interpolate
 import gravity_toolkit.time
@@ -87,6 +88,8 @@ from gravity_toolkit.read_love_numbers import read_love_numbers
 from gravity_toolkit.harmonics import harmonics
 from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
 from gravity_toolkit.gen_point_load import gen_point_load
+#-- ignore pyproj and divide by zero warnings
+warnings.filterwarnings("ignore")
 
 #-- PURPOSE: set the projection parameters based on the region name
 def set_projection(REGION):
