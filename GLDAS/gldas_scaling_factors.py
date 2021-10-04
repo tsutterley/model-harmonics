@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_scaling_factors.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (09/2021)
 
 Reads monthly GLDAS total water storage anomalies and monthly
     spherical harmonic coefficients
@@ -83,6 +83,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 09/2021: use GRACE/GRACE-FO month to calendar month converters
     Updated 02/2021: output spatial power of original data
         use GRACE/GRACE-FO months to select range of GLDAS data
         include GLDAS MOD44W land mask modified for HYMAP
@@ -113,6 +114,7 @@ import re
 import netCDF4
 import argparse
 import numpy as np
+from gravity_toolkit.time import grace_to_calendar
 from gravity_toolkit.read_love_numbers import read_love_numbers
 from gravity_toolkit.harmonics import harmonics
 from gravity_toolkit.spatial import spatial
@@ -258,8 +260,7 @@ def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
     #-- for each GRACE/GRACE-FO month
     for t,gm in enumerate(grace_month):
         #-- calendar year and month
-        calendar_year = 2002 + (gm-1)//12
-        calendar_month = np.mod(gm-1, 12) + 1
+        calendar_year,calendar_month = grace_to_calendar(gm)
         #-- GLDAS monthly data file from read_gldas_monthly.py
         args=(MODEL,SPACING,calendar_year,calendar_month,suffix[DATAFORM])
         f1='GLDAS_{0}{1}_TWC_{2:4d}_{3:02d}.{4}'.format(*args)

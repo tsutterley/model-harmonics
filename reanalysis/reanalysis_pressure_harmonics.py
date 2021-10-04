@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_pressure_harmonics.py
-Written by Tyler Sutterley (07/2021)
+Written by Tyler Sutterley (09/2021)
 Reads atmospheric surface pressure fields from reanalysis and calculates sets of
     spherical harmonics using a thin-layer 2D geometry with realistic earth
 
@@ -75,6 +75,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 09/2021: use GRACE/GRACE-FO month to calendar month converters
     Updated 07/2021: can use input files to define command line arguments
         added check for ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
     Updated 05/2021: define int/float precision to prevent deprecation warning
@@ -103,6 +104,7 @@ import os
 import re
 import netCDF4
 import argparse
+import datetime
 import numpy as np
 import gravity_toolkit.time
 import gravity_toolkit.harmonics
@@ -373,7 +375,7 @@ def reanalysis_pressure_harmonics(base_dir, MODEL, YEARS, RANGE=None,
             Ylms.time,=gravity_toolkit.time.convert_calendar_decimal(YY,
                 MM, day=DD, hour=hh, minute=mm, second=ss)
             #-- calculate GRACE month from calendar dates
-            Ylms.month, = np.array([(YY - 2002)*12 + MM], dtype=np.int64)
+            Ylms.month = gravity_toolkit.time.calendar_to_grace(YY, MM)
             #-- output data to file
             args = (MODEL.upper(),LMAX,order_str,Ylms.month,suffix[DATAFORM])
             FILE = output_file_format.format(*args)
@@ -402,8 +404,7 @@ def reanalysis_pressure_harmonics(base_dir, MODEL, YEARS, RANGE=None,
         full_output_file = os.path.join(ddir,output_sub,fi)
         #-- extract GRACE month
         grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int64)
-        YY = 2002.0 + np.floor((grace_month-1)/12.0)
-        MM = ((grace_month-1) % 12) + 1
+        YY,MM = gravity_toolkit.time.grace_to_calendar(grace_month)
         tdec, = gravity_toolkit.time.convert_calendar_decimal(YY, MM)
         #-- full path to output file
         full_output_file = os.path.join(ddir,output_sub,fi)
@@ -545,7 +546,7 @@ def main():
         default=os.getcwd(),
         help='Working data directory')
     #-- years to run
-    now = gravity_toolkit.time.datetime.datetime.now()
+    now = datetime.datetime.now()
     parser.add_argument('--year','-Y',
         type=int, nargs='+', default=range(2000,now.year+1),
         help='Years of model outputs to run')

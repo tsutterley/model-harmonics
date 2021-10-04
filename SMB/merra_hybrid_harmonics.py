@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_harmonics.py
-Written by Tyler Sutterley (09/2021)
+Written by Tyler Sutterley (10/2021)
 Read MERRA-2 hybrid variables and converts to spherical harmonics
     MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
 
@@ -64,6 +64,7 @@ PROGRAM DEPENDENCIES:
         hdf5_stokes.py: writes output spherical harmonic data to HDF5
 
 UPDATE HISTORY:
+    Updated 10/2021: add pole case in stereographic area scale calculation
     Updated 09/2021: use original FDM file for ais products
     Written 08/2021
 """
@@ -77,6 +78,7 @@ import uuid
 import pyproj
 import netCDF4
 import argparse
+import datetime
 import numpy as np
 import scipy.interpolate
 import gravity_toolkit.time
@@ -224,7 +226,8 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
     indx,indy = np.nonzero(fd['mask'])
     lon,lat = (gridlon[indx,indy],latitude_geocentric[indx,indy])
     #-- scaled areas
-    ps_scale = scale_areas(lat, flat=flat, ref=reference_latitude)
+    ps_scale = scale_areas(gridlat[indx,indy], flat=flat,
+        ref=reference_latitude)
     scaled_area = ps_scale*fd['area'][indx,indy]
     #-- read load love numbers
     LOVE = load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
@@ -254,7 +257,7 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
         Ylms.slm[:,:,t] = merra_Ylms.slm[:,:].copy()
         #-- copy date parameters for time step
         Ylms.time[t] = fd['time'][t].copy()
-        Ylms.month[t] = np.int64(12.0*(Ylms.time[t] - 2002.0)) + 1
+        Ylms.month[t] = gravity_toolkit.time.calendar_to_grace(Ylms.time[t])
 
     #-- output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
@@ -328,6 +331,7 @@ def load_love_numbers(LMAX, LOVE_NUMBERS=0, REFERENCE='CF'):
 def scale_areas(lat, flat=1.0/298.257223563, ref=70.0):
     """
     Calculates area scaling factors for a polar stereographic projection
+        including special case of at the exact pole
 
     Arguments
     ---------
@@ -358,9 +362,11 @@ def scale_areas(lat, flat=1.0/298.257223563, ref=70.0):
     mref = np.cos(theta_ref)/np.sqrt(1.0 - ecc2*np.sin(theta_ref)**2)
     tref = np.tan(np.pi/4.0 - theta_ref/2.0)/((1.0 - ecc*np.sin(theta_ref)) / \
         (1.0 + ecc*np.sin(theta_ref)))**(ecc/2.0)
-    #-- area scaling
+    #-- distance scaling
     k = (mref/m)*(t/tref)
-    scale = 1.0/(k**2)
+    kp = 0.5*mref*np.sqrt(((1.0+ecc)**(1.0+ecc))*((1.0-ecc)**(1.0-ecc)))/tref
+    #-- area scaling
+    scale = np.where(np.isclose(theta,np.pi/2.0),1.0/(kp**2),1.0/(k**2))
     return scale
 
 #-- Main program that calls merra_hybrid_harmonics()
@@ -393,7 +399,7 @@ def main():
         type=str, default='SMB_a', choices=choices, nargs='+',
         help='MERRA-2 hybrid product to calculate')
     #-- years to run
-    now = gravity_toolkit.time.datetime.datetime.now()
+    now = datetime.datetime.now()
     parser.add_argument('--year','-Y',
         type=int, nargs='+', default=range(2000,now.year+1),
         help='Years of model outputs to run')

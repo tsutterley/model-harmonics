@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_mean_harmonics.py
-Written by Tyler Sutterley (07/2021)
+Written by Tyler Sutterley (09/2021)
 Reads atmospheric geopotential heights fields from reanalysis and calculates
     a multi-annual mean set of spherical harmonics using a 3D geometry
 
@@ -71,6 +71,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 09/2021: use GRACE/GRACE-FO month to calendar month converters
     Updated 07/2021: can use input files to define command line arguments
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 01/2021: read from netCDF4 file in slices to reduce memory load
@@ -269,7 +270,7 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
             Ylms.time, = gravity_toolkit.time.convert_calendar_decimal(YY,
                 MM, day=DD, hour=hh, minute=mm, second=ss)
             #-- calculate GRACE month from calendar dates
-            Ylms.month, = np.array([(YY - 2002)*12 + MM], dtype=np.int64)
+            Ylms.month = gravity_toolkit.time.calendar_to_grace(YY, MM)
             #-- append to list of harmonics
             harmonics_list.append(Ylms)
         #-- close the input netCDF4 file

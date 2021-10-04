@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_regrid.py
-Written by Tyler Sutterley (09/2021)
+Written by Tyler Sutterley (10/2021)
 Read and regrid MERRA-2 hybrid variables
     MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
 
@@ -52,7 +52,9 @@ PROGRAM DEPENDENCIES:
         hdf5_write.py: writes output spatial data to HDF5
 
 UPDATE HISTORY:
+    Updated 10/2021: add pole case in stereographic area scale calculation
     Updated 09/2021: use original FDM file for ais products
+        use original FDM file for non-mass variables (height and FAC)
     Written 09/2021
 """
 from __future__ import print_function
@@ -102,7 +104,7 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
         FILE_VERSION = copy.copy(VERSION)
         args = (VERSION,REGION.lower(),suffix)
         hybrid_file = 'gsfc_fdm_{0}_{1}.nc{2}'.format(*args)
-    elif (REGION.lower() == 'ais'):
+    elif VARIABLE in ('FAC','height','h_a') or (REGION.lower() == 'ais'):
         FILE_VERSION = VERSION.replace('.','_')
         args = (FILE_VERSION,REGION.lower(),suffix)
         hybrid_file = 'gsfc_fdm_{0}_{1}.nc{2}'.format(*args)
@@ -225,7 +227,8 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
     indx,indy = np.nonzero(fd['mask'])
     lon,lat = (gridlon[indx,indy],latitude_geocentric[indx,indy])
     #-- scaled areas
-    ps_scale = scale_areas(lat, flat=flat, ref=reference_latitude)
+    ps_scale = scale_areas(gridlat[indx,indy], flat=flat,
+        ref=reference_latitude)
     scaled_area = ps_scale*fd['area'][indx,indy]
     npts = len(scaled_area)
     #-- densities of meteoric ice [kg/m^3]
@@ -366,7 +369,8 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
         grid.mask[:,:,t] = np.logical_not(point_mask)
         #-- copy date parameters for time step
         grid.time[t] = fd['time'][t].copy()
-        grid.month[t] = np.int64(12.0*(grid.time[t] - 2002.0)) + 1
+        grid.month[t] = gravity_toolkit.time.calendar_to_grace(grid.time[t])
+
     #-- update mask
     grid.update_mask()
     #-- output data file format
@@ -382,6 +386,7 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
 def scale_areas(lat, flat=1.0/298.257223563, ref=70.0):
     """
     Calculates area scaling factors for a polar stereographic projection
+        including special case of at the exact pole
 
     Arguments
     ---------
@@ -412,9 +417,11 @@ def scale_areas(lat, flat=1.0/298.257223563, ref=70.0):
     mref = np.cos(theta_ref)/np.sqrt(1.0 - ecc2*np.sin(theta_ref)**2)
     tref = np.tan(np.pi/4.0 - theta_ref/2.0)/((1.0 - ecc*np.sin(theta_ref)) / \
         (1.0 + ecc*np.sin(theta_ref)))**(ecc/2.0)
-    #-- area scaling
+    #-- distance scaling
     k = (mref/m)*(t/tref)
-    scale = 1.0/(k**2)
+    kp = 0.5*mref*np.sqrt(((1.0+ecc)**(1.0+ecc))*((1.0-ecc)**(1.0-ecc)))/tref
+    #-- area scaling
+    scale = np.where(np.isclose(theta,np.pi/2.0),1.0/(kp**2),1.0/(k**2))
     return scale
 
 #-- Main program that calls merra_hybrid_regrid()
@@ -446,9 +453,9 @@ def main():
         type=str, default='SMB_a', choices=choices, nargs='+',
         help='MERRA-2 hybrid product to calculate')
     #-- years to run
-    now = gravity_toolkit.time.datetime.datetime.now()
+    now = time.gmtime()
     parser.add_argument('--year','-Y',
-        type=int, nargs='+', default=range(2000,now.year+1),
+        type=int, nargs='+', default=range(2000,now.tm_year+1),
         help='Years of model outputs to run')
     #-- mask file for reducing to regions
     parser.add_argument('--mask',

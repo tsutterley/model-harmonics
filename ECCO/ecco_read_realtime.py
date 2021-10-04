@@ -75,6 +75,7 @@ from __future__ import print_function
 
 import os
 import re
+import datetime
 import argparse
 import numpy as np
 import gravity_toolkit.time
@@ -312,7 +313,7 @@ def main():
         default=os.getcwd(),
         help='Working data directory')
     #-- years to run
-    now = gravity_toolkit.time.datetime.datetime.now()
+    now = datetime.datetime.now()
     parser.add_argument('--year','-Y',
         type=int, nargs='+', default=range(2000,now.year+1),
         help='Years of model outputs to run')
