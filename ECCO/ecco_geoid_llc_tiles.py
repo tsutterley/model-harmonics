@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_geoid_llc_tiles.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (10/2021)
 
 Calculates geoid heights for ECCO ocean model LLC tiles using model
     coefficients from the GFZ International Centre for Global Earth
@@ -41,6 +41,7 @@ PROGRAM DEPENDENCIES:
     gauss_weights.py: Computes Gaussian weights as a function of degree
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Written 02/2021
@@ -48,6 +49,7 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import os
+import logging
 import netCDF4
 import datetime
 import argparse
@@ -58,6 +60,10 @@ from geoid_toolkit.geoid_undulation import geoid_undulation
 #-- PURPOSE: read ECCO tiled ocean bottom pressure data and calculate mean
 def ecco_geoid_llc_tiles(input_file, output_file, GEOID=None,
     LMAX=None, VERBOSE=False, MODE=0o775):
+
+    #-- create logger for verbosity level
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
 
     #-- input variable names for each model
     LONNAME = 'XC'
@@ -133,7 +139,7 @@ def ecco_geoid_llc_tiles(input_file, output_file, GEOID=None,
 
     #-- netcdf (.nc)
     ncdf_tile_write(output, attributes, FILENAME=output_file,
-        LONNAME='lon', LATNAME='lat', VARNAME='geoid', VERBOSE=VERBOSE)
+        LONNAME='lon', LATNAME='lat', VARNAME='geoid')
     #-- change the permissions mode of the output file to MODE
     os.chmod(output_file,MODE)
 
@@ -151,7 +157,7 @@ def ncdf_invariant(invariant_file,**kwargs):
 
 #-- PURPOSE: write tiled data to a netCDF4 flie
 def ncdf_tile_write(output, attributes, FILENAME=None, LONNAME=None,
-    LATNAME=None, VARNAME=None, VERBOSE=False):
+    LATNAME=None, VARNAME=None):
 
     #-- opening NetCDF file for writing
     fileID = netCDF4.Dataset(os.path.expanduser(FILENAME),'w')
@@ -189,9 +195,8 @@ def ncdf_tile_write(output, attributes, FILENAME=None, LONNAME=None,
     fileID.earth_gravity_constant = attributes['earth_gravity_constant']
     fileID.max_degree = attributes['max_degree']
     #-- Output NetCDF structure information
-    if VERBOSE:
-        print(FILENAME)
-        print(list(fileID.variables.keys()))
+    logging.info(FILENAME)
+    logging.info(list(fileID.variables.keys()))
     #-- Closing the NetCDF file
     fileID.close()
 

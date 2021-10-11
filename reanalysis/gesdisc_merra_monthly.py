@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_merra_monthly.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (10/2021)
 
 Downloads MERRA-2 products using a links list provided by the Goddard Earth
     Sciences Data and Information Server Center (GES DISC)
@@ -49,6 +49,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 05/2021: added option for connection timeout (in seconds)
         use try/except for retrieving netrc credentials
     Updated 04/2021: set a default netrc file and check access
@@ -69,6 +70,7 @@ import re
 import time
 import netrc
 import getpass
+import logging
 import netCDF4
 import argparse
 import builtins
@@ -85,15 +87,18 @@ def gesdisc_merra_monthly(base_dir, links_list_file, TIMEOUT=None,
         os.makedirs(os.path.join(DIRECTORY), mode=MODE, exist_ok=True)
 
     #-- create log file with list of synchronized files (or print to terminal)
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
     if LOG:
         #-- format: NASA_GESDISC_MERRA2_monthly_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
         LOGFILE = 'NASA_GESDISC_MERRA2_monthly_{0}.log'.format(today)
         fid = open(os.path.join(DIRECTORY,LOGFILE),'w')
-        print('NASA MERRA-2 Sync Log ({0})'.format(today), file=fid)
+        logging.basicConfig(stream=fid, level=loglevel)
+        logging.info('NASA MERRA-2 Sync Log ({0})'.format(today))
     else:
         #-- standard output (terminal output)
         fid = sys.stdout
+        logging.basicConfig(stream=fid, level=loglevel)
 
     #-- read the links list file
     with open(links_list_file,'rb') as fileID:
@@ -210,7 +215,7 @@ def gesdisc_merra_monthly(base_dir, links_list_file, TIMEOUT=None,
         ncdf_model_write(dinput, fill_value, VARNAME=VARNAME, TNAME=TNAME,
             QNAME=QNAME, LONNAME=LONNAME, LATNAME=LATNAME, LEVELNAME=LEVELNAME,
             TIMENAME=TIMENAME,TIME_UNITS=TIME_UNITS,TIME_LONGNAME=TIME_LONGNAME,
-            FILENAME=os.path.join(DIRECTORY,local_file), VERBOSE=VERBOSE)
+            FILENAME=os.path.join(DIRECTORY,local_file))
         #-- set permissions mode to MODE
         os.chmod(os.path.join(DIRECTORY,local_file), MODE)
 
@@ -222,7 +227,7 @@ def gesdisc_merra_monthly(base_dir, links_list_file, TIMEOUT=None,
 #-- PURPOSE: write output model layer fields data to file
 def ncdf_model_write(dinput, fill_value, VARNAME=None, TNAME=None, QNAME=None,
     LONNAME=None, LATNAME=None, LEVELNAME=None, TIMENAME=None, TIME_UNITS=None,
-    TIME_LONGNAME=None, FILENAME=None, VERBOSE=False):
+    TIME_LONGNAME=None, FILENAME=None):
     #-- opening NetCDF4 file for writing
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
@@ -269,9 +274,8 @@ def ncdf_model_write(dinput, fill_value, VARNAME=None, TNAME=None, QNAME=None,
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
     #-- Output NetCDF structure information
-    if VERBOSE:
-        print(os.path.basename(FILENAME))
-        print(list(fileID.variables.keys()))
+    logging.info(os.path.basename(FILENAME))
+    logging.info(list(fileID.variables.keys()))
 
     #-- Closing the NetCDF file
     fileID.close()
@@ -314,10 +318,6 @@ def main():
     parser.add_argument('--log','-l',
         default=False, action='store_true',
         help='Output log file')
-    #-- sync options
-    parser.add_argument('--list','-L',
-        default=False, action='store_true',
-        help='Only print files that could be transferred')
     #-- print information about each output file
     parser.add_argument('--verbose','-V',
         default=False, action='store_true',

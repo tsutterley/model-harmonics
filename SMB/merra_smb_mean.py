@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_mean.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (10/2021)
 Reads monthly MERRA-2 datafiles to calculate multi-annual means
     of derived surface mass balance products
 
@@ -48,6 +48,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
         sort files by month as September 2020 was reprocessed
         https://daac.gsfc.nasa.gov/information/alerts
@@ -63,6 +64,7 @@ from __future__ import print_function
 import sys
 import os
 import re
+import logging
 import netCDF4
 import argparse
 import numpy as np
@@ -102,6 +104,11 @@ def read_merra_variables(merra_flux_file, merra_ice_surface_file):
 #-- PURPOSE: read monthly MERRA-2 datasets to calculate multi-annual means
 def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     VERBOSE=False, MODE=0o775):
+
+    #-- create logger for verbosity level
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- MERRA-2 product subdirectories
     P1 = 'M2TMNXINT.5.12.4'
     P2 = 'M2TMNXGLC.5.12.4'

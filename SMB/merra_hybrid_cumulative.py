@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_cumulative.py
-Written by Tyler Sutterley (08/2021)
+Written by Tyler Sutterley (10/2021)
 Calculates cumulative anomalies of MERRA-2 hybrid surface mass balance products
     MERRA-2 Hybrid model outputs provided by Brooke Medley at GSFC
 
@@ -30,6 +30,7 @@ PYTHON DEPENDENCIES:
          https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 08/2021: output areas to file if applicable
         add verbose option to print input and output file information
         additionally output surface mass balance anomalies
@@ -45,6 +46,7 @@ import re
 import gzip
 import time
 import uuid
+import logging
 import netCDF4
 import argparse
 import numpy as np
@@ -52,6 +54,10 @@ import numpy as np
 #-- PURPOSE: read and interpolate MERRA-2 hybrid surface mass balance variables
 def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
     VERBOSE=False, MODE=0o775):
+
+    #-- create logger for verbosity level
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
 
     #-- MERRA-2 hybrid directory
     DIRECTORY = os.path.join(base_dir,VERSION)
@@ -99,9 +105,8 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
         fileID = netCDF4.Dataset(os.path.join(DIRECTORY,hybrid_file), 'r')
 
     #-- Output NetCDF file information
-    if VERBOSE:
-        print(os.path.join(DIRECTORY,hybrid_file))
-        print(list(fileID.variables.keys()))
+    logging.info(os.path.join(DIRECTORY,hybrid_file))
+    logging.info(list(fileID.variables.keys()))
 
     #-- Get data and attribute from each netCDF variable
     fd = {}
@@ -169,7 +174,7 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
     fileID.close()
 
     #-- Output NetCDF filename
-    print(os.path.join(DIRECTORY,output_file)) if VERBOSE else None
+    logging.info(os.path.join(DIRECTORY,output_file))
 
     #-- output MERRA-2 data file with cumulative data
     if GZIP:
@@ -274,7 +279,7 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
         "[preprint], https://doi.org/10.5194/tc-2020-266, in review, 2020.")
     fileID.institution = "NASA Goddard Space Flight Center (GSFC)"
     #-- Output NetCDF file information
-    print(list(fileID.variables.keys())) if VERBOSE else None
+    logging.info(list(fileID.variables.keys()))
     #-- Closing the NetCDF file and getting the buffer object
     nc_buffer = fileID.close()
 

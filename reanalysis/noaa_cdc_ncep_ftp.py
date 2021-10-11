@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 noaa_cdc_ncep_ftp.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (10/2021)
 
 Syncs NOAA-DOE-2 surface reanalysis outputs with the NOAA CDC ftp server
     ftp://ftp.cdc.noaa.gov/Datasets/ncep.reanalysis2.dailyavgs/surface/
@@ -35,6 +35,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 05/2021: added option for connection timeout (in seconds)
     Updated 03/2021: automatically update years to run based on current time
     Updated 12/2020: using utilities module to list and retrieve from ftp
@@ -46,6 +47,7 @@ import sys
 import os
 import re
 import time
+import logging
 import argparse
 import gravity_toolkit.utilities
 
@@ -64,11 +66,13 @@ def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
         today = time.strftime('%Y-%m-%d',time.localtime())
         LOGFILE = 'NOAA_CDC_NCEP-DOE-2_sync_{0}.log'.format(today)
         fid1 = open(os.path.join(DIRECTORY,LOGFILE),'w')
-        print('NOAA CDC Sync Log ({0})'.format(today), file=fid1)
-        print('PRODUCT: NCEP-DOE-2',file=fid1)
+        logging.basicConfig(stream=fid1, level=logging.INFO)
+        logging.info('NOAA CDC Sync Log ({0})'.format(today))
+        logging.info('PRODUCT: NCEP-DOE-2')
     else:
         #-- standard output (terminal output)
         fid1 = sys.stdout
+        logging.basicConfig(stream=fid1, level=logging.INFO)
 
     #-- remote directory for data
     HOST = ['ftp.cdc.noaa.gov','Datasets','ncep.reanalysis2.dailyavgs','surface']

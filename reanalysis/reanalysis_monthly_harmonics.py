@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_monthly_harmonics.py
-Written by Tyler Sutterley (09/2021)
+Written by Tyler Sutterley (10/2021)
 Reads atmospheric surface pressure fields from reanalysis and calculates sets of
     spherical harmonics using a thin-layer 2D spherical geometry
 
@@ -74,6 +74,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 09/2021: use GRACE/GRACE-FO month to calendar month converters
     Updated 07/2021: can use input files to define command line arguments
         added check for ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
@@ -100,6 +101,7 @@ from __future__ import print_function
 import sys
 import os
 import re
+import logging
 import netCDF4
 import argparse
 import datetime
@@ -116,6 +118,11 @@ from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
 def reanalysis_monthly_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     REDISTRIBUTE=False, LMAX=0, MMAX=None, LOVE_NUMBERS=0, REFERENCE=None,
     DATAFORM=None, VERBOSE=False, MODE=0o775):
+
+    #-- create logger for verbosity level
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- directory setup
     ddir = os.path.join(base_dir,MODEL)
 
@@ -322,7 +329,7 @@ def reanalysis_monthly_harmonics(base_dir, MODEL, YEARS, RANGE=None,
             args = (MODEL.upper(),LMAX,order_str,Ylms.month,suffix[DATAFORM])
             FILE = output_file_format.format(*args)
             #-- output data for month
-            print(os.path.join(ddir,output_sub,FILE)) if VERBOSE else None
+            logging.info(os.path.join(ddir,output_sub,FILE))
             if (DATAFORM == 'ascii'):
                 #-- ascii (.txt)
                 Ylms.to_ascii(os.path.join(ddir,output_sub,FILE))

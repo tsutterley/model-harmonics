@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 jpl_ecco_sync.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (10/2021)
 
 Syncs ECCO Near Real-Time model outputs from the NASA JPL ECCO Drive server:
     https://ecco.jpl.nasa.gov/drive/files/NearRealTime/Readme
@@ -72,6 +72,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 05/2021: added option for connection timeout (in seconds)
         use try/except for retrieving netrc credentials
     Updated 04/2021: set a default netrc file and check access
@@ -113,6 +114,7 @@ import time
 import netrc
 import shutil
 import getpass
+import logging
 import argparse
 import builtins
 import posixpath
@@ -137,14 +139,15 @@ def jpl_ecco_sync(DIRECTORY, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
         today = time.strftime('%Y-%m-%d',time.localtime())
         args = (MODEL,PRODUCT,today)
         LOGFILE = 'JPL_ECCO_{0}_{1}_{2}.log'.format(*args)
-        fid1 = open(os.path.join(DIRECTORY,LOGFILE),'w')
-        print('ECCO Near Real-Time {1} Sync Log ({2})'.format(*args), file=fid1)
+        logging.basicConfig(file=os.path.join(DIRECTORY,LOGFILE),
+            level=logging.INFO)
+        logging.info('ECCO Near Real-Time {1} Sync Log ({2})'.format(*args))
     else:
         #-- standard output (terminal output)
-        fid1 = sys.stdout
+        logging.basicConfig(level=logging.INFO)
 
     #-- print the model synchronized
-    print('MODEL: {0}\n'.format(MODEL), file=fid1)
+    logging.info('MODEL: {0}\n'.format(MODEL))
 
     #-- path to model files
     model_path = {}
@@ -170,7 +173,7 @@ def jpl_ecco_sync(DIRECTORY, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
         timeout=TIMEOUT,build=False,parser=parser,pattern=R1,sort=True)
     for yr in years:
         #-- print string for year
-        print(yr, file=fid1)
+        logging.info(yr)
         #-- add the year directory to the path
         PATH.append(yr)
         #-- open connection with ECCO drive server at remote directory
@@ -196,7 +199,7 @@ def jpl_ecco_sync(DIRECTORY, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
                 #-- remote and local versions of the file
                 remote_file = posixpath.join(remote_dir,colname)
                 local_file = os.path.join(local_dir,colname)
-                http_pull_file(fid1, remote_file, remote_mtime,
+                http_pull_file(remote_file, remote_mtime,
                     local_file, TIMEOUT=TIMEOUT, LIST=LIST,
                     CLOBBER=CLOBBER, CHECKSUM=CHECKSUM, MODE=MODE)
             #-- remove the directory from the path
@@ -206,12 +209,11 @@ def jpl_ecco_sync(DIRECTORY, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
 
     #-- close log file and set permissions level to MODE
     if LOG:
-        fid1.close()
         os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
 
 #-- PURPOSE: pull file from a remote host checking if file exists locally
 #-- and if the remote file is newer than the local file
-def http_pull_file(fid, remote_file, remote_mtime, local_file,
+def http_pull_file(remote_file, remote_mtime, local_file,
     TIMEOUT=None, LIST=False, CLOBBER=False, CHECKSUM=False, MODE=0o775):
     #-- if file exists in file system: check if remote file is newer
     TEST = False
@@ -249,8 +251,8 @@ def http_pull_file(fid, remote_file, remote_mtime, local_file,
     #-- if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         #-- Printing files transferred
-        print('{0} --> '.format(remote_file), file=fid)
-        print('\t{0}{1}\n'.format(local_file,OVERWRITE), file=fid)
+        logging.info('{0} --> '.format(remote_file))
+        logging.info('\t{0}{1}\n'.format(local_file,OVERWRITE))
         #-- if executing copy command (not only printing the files)
         if not LIST:
             #-- chunked transfer encoding size

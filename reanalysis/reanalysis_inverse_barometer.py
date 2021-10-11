@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_inverse_barometer.py
-Written by Tyler Sutterley (07/2021)
+Written by Tyler Sutterley (10/2021)
 Reads hourly mean sea level pressure fields from reanalysis and
     calculates the inverse-barometer response
 
@@ -38,6 +38,7 @@ REFERENCES:
         https://doi.org/10.1007/978-3-211-33545-1
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 07/2021: can use input files to define command line arguments
     Written 03/2021
 """
@@ -45,6 +46,7 @@ from __future__ import print_function
 
 import os
 import re
+import logging
 import netCDF4
 import argparse
 import datetime
@@ -69,6 +71,10 @@ def ncdf_mean_pressure(FILENAME,VARNAME,LONNAME,LATNAME):
 #-- PURPOSE:  calculate the instantaneous inverse barometer response
 def reanalysis_inverse_barometer(base_dir, MODEL, YEAR=None, RANGE=None,
     DENSITY=None, VERBOSE=False, MODE=0o775):
+
+    #-- create logger for verbosity level
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
 
     #-- directory setup for reanalysis model
     ddir = os.path.join(base_dir,MODEL)
@@ -241,12 +247,14 @@ def reanalysis_inverse_barometer(base_dir, MODEL, YEAR=None, RANGE=None,
                 FILENAME=os.path.join(ddir,FILENAME), IBNAME=IBNAME,
                 LONNAME=LONNAME, LATNAME=LATNAME, TIMENAME=TIMENAME,
                 TIME_UNITS=TIME_UNITS, TIME_LONGNAME=TIME_LONGNAME,
-                UNITS=UNITS, DENSITY=DENSITY, VERBOSE=VERBOSE)
+                UNITS=UNITS, DENSITY=DENSITY)
+            #-- change permissions mode
+            os.chmod(os.path.join(ddir,FILENAME),MODE)
 
 #-- PURPOSE: write output inverse barometer fields data to file
 def ncdf_IB_write(dinput, fill_value, FILENAME=None, IBNAME=None,
     LONNAME=None, LATNAME=None, TIMENAME=None, TIME_UNITS=None,
-    TIME_LONGNAME=None, UNITS=None, DENSITY=None, VERBOSE=False):
+    TIME_LONGNAME=None, UNITS=None, DENSITY=None):
     #-- opening NetCDF file for writing
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
@@ -279,9 +287,8 @@ def ncdf_IB_write(dinput, fill_value, FILENAME=None, IBNAME=None,
     nc[IBNAME].density = DENSITY
 
     #-- Output NetCDF structure information
-    if VERBOSE:
-        print(os.path.basename(FILENAME))
-        print(list(fileID.variables.keys()))
+    logging.info(os.path.basename(FILENAME))
+    logging.info(list(fileID.variables.keys()))
 
     #-- Closing the NetCDF file
     fileID.close()

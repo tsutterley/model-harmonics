@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_read_llc_tiles.py
-Written by Tyler Sutterley (03/2021)
+Written by Tyler Sutterley (10/2021)
 
 Calculates monthly ocean bottom pressure anomalies from ECCO LLC tiles
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/nctiles_monthly
@@ -50,6 +50,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 03/2021: automatically update years to run based on current time
     Written 02/2021
 """
@@ -57,6 +58,7 @@ from __future__ import print_function
 
 import os
 import re
+import logging
 import netCDF4
 import datetime
 import argparse
@@ -66,6 +68,11 @@ import gravity_toolkit.time
 #-- PURPOSE: read ECCO tiled ocean bottom pressure data and calculate mean
 def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, VERBOSE=False,
     MODE=0o775):
+
+    #-- create logger for verbosity level
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- input and output subdirectories
     d1=os.path.join(ddir,'ECCO-{0}'.format(MODEL),'nctiles_monthly')
     d2=os.path.join(ddir,'ECCO_{0}_AveRmvd_OBP'.format(MODEL),'nctiles_monthly')
@@ -216,7 +223,7 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, VERBOSE=False,
             #-- netcdf (.nc)
             ncdf_tile_write(obp, attributes, FILENAME=os.path.join(d2,FILE),
                 LONNAME='lon', LATNAME='lat', TIMENAME=TIMENAME,
-                VARNAME=VARNAME, VERBOSE=VERBOSE)
+                VARNAME=VARNAME)
             #-- change the permissions mode of the output file to MODE
             os.chmod(os.path.join(d2,FILE),MODE)
 
@@ -245,7 +252,7 @@ def ncdf_mean(mean_file, VARNAME=None):
 
 #-- PURPOSE: write tiled data to a netCDF4 flie
 def ncdf_tile_write(output, attributes, FILENAME=None, LONNAME=None,
-    LATNAME=None, TIMENAME=None, VARNAME=None, VERBOSE=False):
+    LATNAME=None, TIMENAME=None, VARNAME=None):
 
     #-- opening NetCDF file for writing
     fileID = netCDF4.Dataset(os.path.expanduser(FILENAME),'w')
@@ -280,9 +287,8 @@ def ncdf_tile_write(output, attributes, FILENAME=None, LONNAME=None,
     fileID.date_created = datetime.datetime.now().isoformat()
     fileID.title = attributes['title']
     #-- Output NetCDF structure information
-    if VERBOSE:
-        print(FILENAME)
-        print(list(fileID.variables.keys()))
+    logging.info(FILENAME)
+    logging.info(list(fileID.variables.keys()))
     #-- Closing the NetCDF file
     fileID.close()
 

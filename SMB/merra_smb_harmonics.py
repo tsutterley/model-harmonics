@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 u"""
 merra_smb_harmonics.py
-Written by Tyler Sutterley (09/2021)
+Written by Tyler Sutterley (10/2021)
 Reads monthly MERRA-2 surface mass balance anomalies and
     converts to spherical harmonic coefficients
+
+https://disc.gsfc.nasa.gov/information/documents?title=
+Records%20of%20MERRA-2%20Data%20Reprocessing%20and%20Service%20Changes
 
 INPUTS:
     SMB: Surface Mass Balance
@@ -65,6 +68,8 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
+        added checks for previous versions of reprocessed files
     Updated 09/2021: use GRACE/GRACE-FO month to calendar month converters
     Updated 08/2021: set all points to valid if not using masks
     Updated 07/2021: can use input files to define command line arguments
@@ -88,6 +93,7 @@ from __future__ import print_function
 import sys
 import os
 import re
+import logging
 import netCDF4
 import argparse
 import datetime
@@ -105,6 +111,10 @@ from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
 def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     MASKS=None, LMAX=0, MMAX=None, LOVE_NUMBERS=0, REFERENCE=None,
     DATAFORM=None, VERBOSE=False, MODE=0o775):
+
+    #-- create logger for verbosity level
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
 
     #-- setup subdirectories
     cumul_sub = '{0}.5.12.4.CUMUL.{1:d}.{2:d}'.format(PRODUCT,*RANGE)
@@ -138,7 +148,7 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     gridlon,gridlat = np.meshgrid(glon,glat)
 
     #-- create mask object for reducing data
-    if np.any(MASKS):
+    if bool(MASKS):
         input_mask = np.zeros((nlat,nlon),dtype=bool)
     else:
         input_mask = np.ones((nlat,nlon),dtype=bool)
@@ -183,6 +193,12 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     #-- will be out of order for 2020 due to September reprocessing
     FILES = sorted([fi for fi in os.listdir(os.path.join(ddir,cumul_sub))
         if rx.match(fi)])
+    #-- remove files that needed to be reprocessed
+    INVALID = []
+    INVALID.append('MERRA2_400.tavgM_2d_{0}_cumul_Nx.202009.{2}'.format(*args))
+    if (set(INVALID) & set(FILES)):
+        logging.warning("Reprocessed file found in list")
+        FILES = sorted(set(FILES) - set(INVALID))
 
     #-- for each input file
     for t,fi in enumerate(FILES):
@@ -216,14 +232,14 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
         #-- copy date information
         merra_Ylms.time = np.copy(merra_data.time)
         #-- calculate GRACE/GRACE-FO month
-        merra_Ylms.month[t] = gravity_toolkit.time.calendar_to_grace(
+        merra_Ylms.month = gravity_toolkit.time.calendar_to_grace(
             np.float64(Y1), np.float64(M1))
         #-- output spherical harmonic data file
         args=(MOD,PRODUCT,LMAX,order_str,merra_Ylms.month,suffix[DATAFORM])
         FILE='MERRA2_{0}_tavgM_2d_{1}_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
 
         #-- output data for month
-        print(os.path.join(ddir,output_sub,FILE)) if VERBOSE else None
+        logging.info(os.path.join(ddir,output_sub,FILE))
         if (DATAFORM == 'ascii'):
             #-- ascii (.txt)
             merra_Ylms.to_ascii(os.path.join(ddir,output_sub,FILE))

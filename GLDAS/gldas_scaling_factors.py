@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_scaling_factors.py
-Written by Tyler Sutterley (09/2021)
+Written by Tyler Sutterley (10/2021)
 
 Reads monthly GLDAS total water storage anomalies and monthly
     spherical harmonic coefficients
@@ -83,6 +83,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 09/2021: use GRACE/GRACE-FO month to calendar month converters
     Updated 02/2021: output spatial power of original data
         use GRACE/GRACE-FO months to select range of GLDAS data
@@ -111,6 +112,7 @@ from __future__ import print_function
 import sys
 import os
 import re
+import logging
 import netCDF4
 import argparse
 import numpy as np
@@ -138,6 +140,11 @@ gldas_products['VIC'] = 'GLDAS Variable Infiltration Capacity (VIC) model'
 def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
     SPACING=None, VERSION=None, LMAX=0, MMAX=None, RAD=0, DESTRIPE=False,
     LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None, VERBOSE=False, MODE=0o775):
+
+    #-- create logger for verbosity level
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- Version flags
     V1,V2 = ('_V1','') if (VERSION == '1') else ('','.{0}'.format(VERSION))
     #-- subdirectory for model monthly products at spacing for version

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_read_monthly.py
-Written by Tyler Sutterley (07/2021)
+Written by Tyler Sutterley (10/2021)
 
 Reads GLDAS monthly datafiles from http://ldas.gsfc.nasa.gov/gldas/
 Adding Soil Moisture, snow water equivalent (SWE) and total canopy storage
@@ -82,6 +82,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 07/2021: add try/except for pygrib import
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 03/2021: automatically update years to run based on current time
@@ -110,9 +111,10 @@ from __future__ import print_function
 import sys
 import os
 import re
-import warnings
+import logging
 import netCDF4
 import argparse
+import warnings
 import datetime
 import numpy as np
 import gravity_toolkit.time
@@ -133,6 +135,11 @@ gldas_products['VIC'] = 'GLDAS Variable Infiltration Capacity (VIC) model'
 
 def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
     VERSION=None, DATAFORM=None, CLOBBER=False, VERBOSE=False, MODE=0o775):
+
+    #-- create logger for verbosity level
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- Version flags
     V1,V2 = ('_V1','') if (VERSION == '1') else ('','.{0}'.format(VERSION))
     #-- dimensions of spatial fields from SPATIAL variable
@@ -230,7 +237,8 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
                 #-- output to file
                 if (DATAFORM == 'ascii'):
                     #-- ascii (.txt)
-                    twc.to_ascii(os.path.join(ddir,FILE),date=True)
+                    twc.to_ascii(os.path.join(ddir,FILE),date=True,
+                        verbose=VERBOSE)
                 elif (DATAFORM == 'netCDF4'):
                     #-- netCDF4 (.nc)
                     twc.to_netCDF4(os.path.join(ddir,FILE),verbose=VERBOSE,
@@ -385,8 +393,8 @@ def main():
         #-- run program
         gldas_read_monthly(args.directory, MODEL, args.year,
             VERSION=args.version, SPATIAL=args.spacing, RANGE=args.mean,
-            DATAFORM=args.format, CLOBBER=args.clobber, VERBOSE=args.verbose,
-            MODE=args.mode)
+            DATAFORM=args.format, CLOBBER=args.clobber,
+            VERBOSE=args.verbose, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

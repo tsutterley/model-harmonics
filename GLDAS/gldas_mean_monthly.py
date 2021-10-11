@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mean_monthly.py
-Written by Tyler Sutterley (07/2021)
+Written by Tyler Sutterley (10/2021)
 
 Reads GLDAS monthly datafiles from http://ldas.gsfc.nasa.gov/gldas/
 Adding Soil Moisture, snow water equivalent (SWE) and total canopy storage
@@ -79,6 +79,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 07/2021: add try/except for pygrib import
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
@@ -106,9 +107,10 @@ from __future__ import print_function
 import sys
 import os
 import re
-import warnings
+import logging
 import netCDF4
 import argparse
+import warnings
 import numpy as np
 from gravity_toolkit.time import convert_calendar_decimal
 from gravity_toolkit.spatial import spatial
@@ -128,6 +130,11 @@ gldas_products['VIC'] = 'GLDAS Variable Infiltration Capacity (VIC) model'
 
 def gldas_mean_monthly(base_dir, MODEL, RANGE=None, SPATIAL=None, VERSION=None,
     DATAFORM=None, VERBOSE=False, MODE=0o775):
+
+    #-- create logger for verbosity level
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- Version flags
     V1,V2 = ('_V1','') if (VERSION == '1') else ('','.{0}'.format(VERSION))
     #-- dimensions of spatial fields from SPATIAL variable
@@ -194,7 +201,8 @@ def gldas_mean_monthly(base_dir, MODEL, RANGE=None, SPATIAL=None, VERSION=None,
     FILE = 'GLDAS_{0}{1}_TWC_MEAN_{2:4d}-{3:4d}.{4}'.format(*args)
     if (DATAFORM == 'ascii'):
         #-- ascii (.txt)
-        twc_mean.to_ascii(os.path.join(ddir,FILE),date=False)
+        twc_mean.to_ascii(os.path.join(ddir,FILE),date=False,
+            verbose=VERBOSE)
     elif (DATAFORM == 'netCDF4'):
         #-- netCDF4 (.nc)
         twc_mean.to_netCDF4(os.path.join(ddir,FILE),verbose=VERBOSE,

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_mean_pressure.py
-Written by Tyler Sutterley (07/2021)
+Written by Tyler Sutterley (10/2021)
 Calculates the mean surface pressure fields from reanalysis
 
 INPUTS:
@@ -51,6 +51,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 07/2021: can use input files to define command line arguments
         added check for ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
     Updated 05/2021: define int/float precision to prevent deprecation warning
@@ -68,6 +69,7 @@ from __future__ import print_function
 import sys
 import os
 import re
+import logging
 import netCDF4
 import argparse
 import numpy as np
@@ -78,6 +80,11 @@ import gravity_toolkit.utilities as utilities
 #-- PURPOSE: read atmospheric surface pressure fields and calculates yearly mean
 def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
     VERBOSE=False, MODE=0o775):
+
+    #-- create logger for verbosity level
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- directory setup
     ddir = os.path.join(base_dir,MODEL)
     #-- set model specific parameters

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_read_version4.py
-Written by Tyler Sutterley (03/2021)
+Written by Tyler Sutterley (10/2021)
 
 Calculates monthly ocean bottom pressure anomalies from ECCO Version 4 models
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
@@ -66,6 +66,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 03/2021: automatically update years to run based on current time
     Updated 12/2020: use argparse to set command line parameters
         using spatial module for read/write operations
@@ -79,6 +80,7 @@ from __future__ import print_function
 
 import os
 import re
+import logging
 import datetime
 import argparse
 import numpy as np
@@ -90,6 +92,11 @@ from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
 #-- anomalies in absolute ocean bottom pressure
 def ecco_read_version4(ddir, MODEL, YEARS, RANGE=None,
     DATAFORM=None, VERBOSE=False, MODE=0o775):
+
+    #-- create logger for verbosity level
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- input and output subdirectories
     sd1 = 'ECCO-{0}'.format(MODEL)
     sd2 = 'ECCO_{0}_AveRmvd_OBP'.format(MODEL)

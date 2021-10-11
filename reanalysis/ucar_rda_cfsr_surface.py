@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ucar_rda_cfsr_surface.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (10/2021)
 
 Downloads NCEP-CFSR products using a links list csh file provided by the
     NCAR/UCAR Research Data Archive (RDA): https://rda.ucar.edu/
@@ -57,6 +57,7 @@ PROGRAM DEPENDENCIES:
         hdf5_write.py: writes output spatial data to HDF5
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 05/2021: added option for connection timeout (in seconds)
         use try/except for retrieving netrc credentials
         define int/float precision to prevent deprecation warning
@@ -75,6 +76,7 @@ import io
 import time
 import gzip
 import netrc
+import logging
 import netCDF4
 import getpass
 import builtins
@@ -99,10 +101,13 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
         today = time.strftime('%Y-%m-%d',time.localtime())
         LOGFILE = 'UCAR_RDA_NCEP-CFSR_{0}.log'.format(today)
         fid = open(os.path.join(DIRECTORY,LOGFILE),'w')
-        print('UCAR NCEP-CFSR Sync Log ({0})'.format(today), file=fid)
+        logging.basicConfig(stream=fid, level=logging.INFO)
+        logging.info('UCAR NCEP-CFSR Sync Log ({0})'.format(today))
+        logging.info('PRODUCT: NCEP-DOE-2')
     else:
         #-- standard output (terminal output)
         fid = sys.stdout
+        logging.basicConfig(stream=fid, level=logging.INFO)
 
     #-- read the links list file
     with open(links_list_file,'rb') as fileID:
@@ -211,7 +216,7 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
         ncdf_model_write(output, dinput.fill_value, VARNAME=VARNAME,
             LONNAME=LONNAME, LATNAME=LATNAME, TIMENAME=TIMENAME,
             TIME_UNITS=TIME_UNITS, TIME_LONGNAME=TIME_LONGNAME,
-            FILENAME=os.path.join(DIRECTORY,FILE), VERBOSE=True)
+            FILENAME=os.path.join(DIRECTORY,FILE))
         #-- set permissions mode to MODE
         os.chmod(os.path.join(DIRECTORY,FILE), MODE)
 
@@ -223,7 +228,7 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
 #-- PURPOSE: write output model layer fields data to file
 def ncdf_model_write(dinput, fill_value, VARNAME=None, LONNAME=None,
     LATNAME=None, TIMENAME=None, TIME_UNITS=None, TIME_LONGNAME=None,
-    FILENAME=None, VERBOSE=False):
+    FILENAME=None):
     #-- opening NetCDF file for writing
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
@@ -258,9 +263,8 @@ def ncdf_model_write(dinput, fill_value, VARNAME=None, LONNAME=None,
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
     #-- Output NetCDF structure information
-    if VERBOSE:
-        print(os.path.basename(FILENAME))
-        print(list(fileID.variables.keys()))
+    logging.info(os.path.basename(FILENAME))
+    logging.info(list(fileID.variables.keys()))
 
     #-- Closing the NetCDF file
     fileID.close()

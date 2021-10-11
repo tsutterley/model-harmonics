@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mask_permafrost.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (10/2021)
 
 Creates a mask for GLDAS data based on the permafrost/surface classification
 from the NSIDC Circum-Arctic Map of Permafrost and Ground-Ice Conditions
@@ -46,6 +46,7 @@ REFERENCES:
         ground ice conditions. Boulder, CO: National Snow and Ice Data Center.
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Updated 01/2021: fiona for shapefile read. pyproj for coordinate conversion
     Updated 02/2019: shapely updates for python3 compatibility
@@ -57,6 +58,7 @@ from __future__ import print_function
 import os
 import fiona
 import pyproj
+import logging
 import netCDF4
 import argparse
 import numpy as np
@@ -66,6 +68,11 @@ import shapely.geometry
 #-- and create a mask for continuous/discontinuous permafrost
 def gldas_mask_permafrost(ddir, SPACING=None, SHAPEFILE=None, VERBOSE=False,
     MODE=0o775):
+
+    #-- create logger for verbosity level
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- parameters for each grid spacing
     if (SPACING == '025'):
         nx,ny = (1440,600)
@@ -143,13 +150,12 @@ def gldas_mask_permafrost(ddir, SPACING=None, SHAPEFILE=None, VERBOSE=False,
     dinput['mask'] = np.zeros((ny,nx),dtype=np.uint8)
     dinput['mask'][ii,jj] = intersection_mask[:]
     #-- write to output netCDF4 (.nc)
-    ncdf_mask_write(dinput, FILENAME=os.path.join(ddir,output_file),
-        VERBOSE=VERBOSE)
+    ncdf_mask_write(dinput, FILENAME=os.path.join(ddir,output_file))
     #-- change the permission level to MODE
     os.chmod(os.path.join(ddir,output_file), MODE)
 
 #-- PURPOSE: write permafrost mask to netCDF4 file
-def ncdf_mask_write(output_data, FILENAME=None, VERBOSE=False):
+def ncdf_mask_write(output_data, FILENAME=None):
     #-- opening NetCDF file for writing
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
@@ -183,9 +189,8 @@ def ncdf_mask_write(output_data, FILENAME=None, VERBOSE=False):
     nc['mask'].description = ', '.join(description)
 
     #-- Output NetCDF structure information
-    if VERBOSE:
-        print(os.path.basename(FILENAME))
-        print(list(fileID.variables.keys()))
+    logging.info(os.path.basename(FILENAME))
+    logging.info(list(fileID.variables.keys()))
 
     #-- Closing the NetCDF file
     fileID.close()

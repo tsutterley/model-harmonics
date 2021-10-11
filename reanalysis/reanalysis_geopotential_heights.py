@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_geopotential_heights.py
-Written by Tyler Sutterley (07/2021)
+Written by Tyler Sutterley (10/2021)
 Reads temperature and specific humidity data to calculate geopotential height
     and pressure difference fields at half levels from reanalysis
 
@@ -28,6 +28,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 07/2021: can use input files to define command line arguments
         added check for ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
     Updated 05/2021: define int/float precision to prevent deprecation warning
@@ -46,6 +47,7 @@ from __future__ import print_function
 import os
 import re
 import time
+import logging
 import netCDF4
 import argparse
 import numpy as np
@@ -55,6 +57,11 @@ import gravity_toolkit.utilities as utilities
 #-- geopotential height fields at half levels from reanalysis
 def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None,
     VERBOSE=False, MODE=0o775):
+
+    #-- create logger for verbosity level
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- directory setup
     ddir = os.path.join(base_dir,MODEL)
     #-- set model specific parameters
@@ -225,7 +232,7 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None,
         ncdf_geopotential_write(dinput, fill_value, FILENAME=FILE, ZNAME=ZNAME,
             LEVELNAME=LEVELNAME, DIFFNAME=DIFFNAME, LONNAME=LONNAME,
             LATNAME=LATNAME, TIMENAME=TIMENAME, TIME_UNITS=TIME_UNITS,
-            TIME_LONGNAME=TIME_LONGNAME, UNITS=UNITS, VERBOSE=VERBOSE)
+            TIME_LONGNAME=TIME_LONGNAME, UNITS=UNITS)
         #-- set the permissions level of the output file to MODE
         os.chmod(FILE, MODE)
         #-- clear dinput dictionary variable
@@ -298,7 +305,7 @@ def ncdf_coordinates(FILENAME,LEVELNAME,ANAME,BNAME,AINTERFACE,BINTERFACE):
 #-- PURPOSE: write output geopotential fields data to file
 def ncdf_geopotential_write(dinput, fill_value, FILENAME=None, ZNAME=None,
     DIFFNAME=None, LEVELNAME=None, LONNAME=None, LATNAME=None, TIMENAME=None,
-    TIME_UNITS=None, TIME_LONGNAME=None, UNITS=None, VERBOSE=False):
+    TIME_UNITS=None, TIME_LONGNAME=None, UNITS=None):
     #-- opening NetCDF file for writing
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
@@ -339,9 +346,8 @@ def ncdf_geopotential_write(dinput, fill_value, FILENAME=None, ZNAME=None,
     nc[DIFFNAME].units = 'Pa'
 
     #-- Output NetCDF structure information
-    if VERBOSE:
-        print(os.path.basename(FILENAME))
-        print(list(fileID.variables.keys()))
+    logging.info(os.path.basename(FILENAME))
+    logging.info(list(fileID.variables.keys()))
 
     #-- Closing the NetCDF file
     fileID.close()

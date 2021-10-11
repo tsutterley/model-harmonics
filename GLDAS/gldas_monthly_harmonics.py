@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_monthly_harmonics.py
-Written by Tyler Sutterley (09/2021)
+Written by Tyler Sutterley (10/2021)
 
 Reads monthly GLDAS total water storage anomalies and converts to
     spherical harmonic coefficients
@@ -102,6 +102,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 09/2021: use GRACE/GRACE-FO month to calendar month converters
     Updated 07/2021: can use input files to define command line arguments
     Updated 05/2021: define int/float precision to prevent deprecation warning
@@ -136,6 +137,7 @@ from __future__ import print_function
 import sys
 import os
 import re
+import logging
 import netCDF4
 import argparse
 import datetime
@@ -161,6 +163,11 @@ gldas_products['VIC'] = 'GLDAS Variable Infiltration Capacity (VIC) model'
 def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
     LMAX=0, MMAX=None, LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None,
     VERBOSE=False, MODE=0o775):
+
+    #-- create logger for verbosity level
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- Version flags
     V1,V2 = ('_V1','') if (VERSION == '1') else ('','.{0}'.format(VERSION))
     #-- subdirectory for model monthly products at spacing for version
@@ -313,16 +320,18 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
         args=(MODEL,SPACING,LMAX,order_str,gldas_Ylms.month,suffix[DATAFORM])
         FILE='GLDAS_{0}{1}_TWC_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
         #-- output data for month
-        print(os.path.join(ddir,output_sub,FILE)) if VERBOSE else None
         if (DATAFORM == 'ascii'):
             #-- ascii (.txt)
-            gldas_Ylms.to_ascii(os.path.join(ddir,output_sub,FILE))
+            gldas_Ylms.to_ascii(os.path.join(ddir,output_sub,FILE),
+                verbose=VERBOSE)
         elif (DATAFORM == 'netCDF4'):
             #-- netcdf (.nc)
-            gldas_Ylms.to_netCDF4(os.path.join(ddir,output_sub,FILE))
+            gldas_Ylms.to_netCDF4(os.path.join(ddir,output_sub,FILE),
+                verbose=VERBOSE)
         elif (DATAFORM == 'HDF5'):
             #-- HDF5 (.H5)
-            gldas_Ylms.to_HDF5(os.path.join(ddir,output_sub,FILE))
+            gldas_Ylms.to_HDF5(os.path.join(ddir,output_sub,FILE),
+                verbose=VERBOSE)
         #-- change the permissions mode of the output file to MODE
         os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 
@@ -420,7 +429,7 @@ def load_love_numbers(LMAX, LOVE_NUMBERS=0, REFERENCE='CF'):
     return (hl,kl,ll)
 
 #-- PURPOSE: write combined land sea mask to netCDF4 file
-def ncdf_mask_write(dinput, FILENAME=None, VERBOSE=False):
+def ncdf_mask_write(dinput, FILENAME=None):
     #-- opening NetCDF file for writing
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
@@ -447,9 +456,8 @@ def ncdf_mask_write(dinput, FILENAME=None, VERBOSE=False):
     nc['mask'].long_name = 'land_sea_mask'
 
     #-- Output NetCDF structure information
-    if VERBOSE:
-        print(os.path.basename(FILENAME))
-        print(list(fileID.variables.keys()))
+    logging.info(os.path.basename(FILENAME))
+    logging.info(list(fileID.variables.keys()))
 
     #-- Closing the NetCDF file
     fileID.close()
