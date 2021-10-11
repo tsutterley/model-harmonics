@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_mean_harmonics.py
-Written by Tyler Sutterley (09/2021)
+Written by Tyler Sutterley (10/2021)
 Reads atmospheric geopotential heights fields from reanalysis and calculates
     a multi-annual mean set of spherical harmonics using a 3D geometry
 
@@ -71,6 +71,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 09/2021: use GRACE/GRACE-FO month to calendar month converters
     Updated 07/2021: can use input files to define command line arguments
     Updated 05/2021: define int/float precision to prevent deprecation warning
@@ -94,6 +95,7 @@ from __future__ import print_function
 import sys
 import os
 import re
+import logging
 import netCDF4
 import argparse
 import numpy as np
@@ -110,6 +112,11 @@ from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
 def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
     LMAX=0, MMAX=None,  LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None,
     VERBOSE=False, MODE=0o775):
+
+    #-- create logger for verbosity level
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- directory setup
     ddir = os.path.join(base_dir,MODEL)
 
@@ -285,13 +292,16 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
     #-- output data for month
     if (DATAFORM == 'ascii'):
         #-- ascii (.txt)
-        mean_Ylms.to_ascii(os.path.join(ddir,output_sub,output_mean_file))
+        mean_Ylms.to_ascii(os.path.join(ddir,output_sub,output_mean_file),
+            verbose=VERBOSE)
     elif (DATAFORM == 'netCDF4'):
         #-- netcdf (.nc)
-        mean_Ylms.to_netCDF4(os.path.join(ddir,output_sub,output_mean_file))
+        mean_Ylms.to_netCDF4(os.path.join(ddir,output_sub,output_mean_file),
+            verbose=VERBOSE)
     elif (DATAFORM == 'HDF5'):
         #-- HDF5 (.H5)
-        mean_Ylms.to_HDF5(os.path.join(ddir,output_sub,output_mean_file))
+        mean_Ylms.to_HDF5(os.path.join(ddir,output_sub,output_mean_file),
+            verbose=VERBOSE)
     #-- set the permissions level of the output file to MODE
     os.chmod(os.path.join(ddir,output_sub,output_mean_file), MODE)
 

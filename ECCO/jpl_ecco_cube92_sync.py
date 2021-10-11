@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 jpl_ecco_cube92_sync.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (10/2021)
 
 Converts ECCO2 Cube92 daily model outputs from the NASA JPL ECCO2 server
     into monthly averages
@@ -57,6 +57,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 05/2021: added option for connection timeout (in seconds)
         use try/except for retrieving netrc credentials
     Updated 04/2021: set a default netrc file and check access
@@ -84,6 +85,7 @@ import re
 import time
 import netrc
 import getpass
+import logging
 import argparse
 import builtins
 import lxml.etree
@@ -113,10 +115,12 @@ def jpl_ecco_cube92_sync(ddir, YEAR=None, PRODUCT=None, TIMEOUT=None,
         args = (PRODUCT, today)
         LOGFILE = 'JPL_ECCO2_Cube92_{0}_sync_{1}.log'.format(*args)
         fid1 = open(os.path.join(DIRECTORY,LOGFILE),'w')
-        print('ECCO2 Cube92 {0} Sync Log ({1})'.format(today), file=fid1)
+        logging.basicConfig(stream=fid1,level=logging.INFO)
+        logging.info('ECCO2 Cube92 {0} Sync Log ({1})'.format(today))
     else:
         #-- standard output (terminal output)
         fid1 = sys.stdout
+        logging.basicConfig(stream=fid1,level=logging.INFO)
 
     #-- regular expression for grouping months from daily data
     regex_pattern = r'{0}\.(\d+)x(\d+)\.({1:4})({2:02d})(\d{{2}}).nc$'

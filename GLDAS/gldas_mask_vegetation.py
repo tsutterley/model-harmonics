@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mask_vegetation.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (10/2021)
 
 Creates a mask for GLDAS data using the GLDAS vegetation type binary files
     https://ldas.gsfc.nasa.gov/gldas/GLDASvegetation.php
@@ -23,6 +23,7 @@ PYTHON DEPENDENCIES:
          https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 01/2021: using argparse to set parameters
     Updated 06/2018: using python3 compatible octal and input
     Written 03/2018
@@ -30,12 +31,18 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import os
+import logging
 import netCDF4
 import argparse
 import numpy as np
 
 #-- Read the GLDAS vegetation index and create a mask defining each type
 def gldas_mask_vegetation(ddir, SPACING=None, VERBOSE=False, MODE=0o775):
+
+    #-- create logger for verbosity level
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- parameters for each grid spacing
     if (SPACING == '025'):
         dx,dy = (0.25,0.25)
@@ -62,13 +69,12 @@ def gldas_mask_vegetation(ddir, SPACING=None, VERBOSE=False, MODE=0o775):
     dinput['index'] = np.zeros((ny,nx),dtype=np.uint16)
     dinput['index'][:,:] = mask_input.reshape(ny,nx)
     #-- write to output netCDF4 (.nc)
-    ncdf_index_write(dinput, FILENAME=os.path.join(ddir,output_file),
-        VERBOSE=VERBOSE)
+    ncdf_index_write(dinput, FILENAME=os.path.join(ddir,output_file))
     #-- change the permission level to MODE
     os.chmod(os.path.join(ddir,output_file),MODE)
 
 #-- PURPOSE: write vegetation index data to netCDF4 file
-def ncdf_index_write(dinput, FILENAME=None, VERBOSE=False):
+def ncdf_index_write(dinput, FILENAME=None):
     #-- opening NetCDF file for writing
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
@@ -117,9 +123,8 @@ def ncdf_index_write(dinput, FILENAME=None, VERBOSE=False):
     nc['index'].description = ', '.join(description)
 
     #-- Output NetCDF structure information
-    if VERBOSE:
-        print(os.path.basename(FILENAME))
-        print(list(fileID.variables.keys()))
+    logging.info(os.path.basename(FILENAME))
+    logging.info(list(fileID.variables.keys()))
 
     #-- Closing the NetCDF file
     fileID.close()

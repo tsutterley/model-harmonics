@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_merra_sync.py
-Written by Tyler Sutterley (06/2021)
+Written by Tyler Sutterley (10/2021)
 
 Syncs MERRA-2 surface mass balance (SMB) related products from the Goddard
     Earth Sciences Data and Information Server Center (GES DISC)
@@ -55,6 +55,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 06/2021: new last modified date format on GESDISC servers
     Updated 05/2021: added option for connection timeout (in seconds)
         use try/except for retrieving netrc credentials
@@ -84,6 +85,7 @@ import time
 import netrc
 import shutil
 import getpass
+import logging
 import argparse
 import builtins
 import posixpath
@@ -101,11 +103,12 @@ def gesdisc_merra_sync(DIRECTORY, YEARS, TIMEOUT=None, LOG=False,
         #-- format: NASA_GESDISC_MERRA2_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
         LOGFILE = 'NASA_GESDISC_MERRA2_sync_{0}.log'.format(today)
-        fid = open(os.path.join(DIRECTORY,LOGFILE),'w')
-        print('NASA MERRA-2 Sync Log ({0})'.format(today), file=fid)
+        logging.basicConfig(file=os.path.join(DIRECTORY,LOGFILE),
+            level=logging.INFO)
+        logging.info('NASA MERRA-2 Sync Log ({0})'.format(today))
     else:
         #-- standard output (terminal output)
-        fid = sys.stdout
+        logging.basicConfig(level=logging.INFO)
 
     #-- MERRA-2 data remote base directory
     HOST = ['http://goldsmr4.gesdisc.eosdis.nasa.gov','data','MERRA2_MONTHLY']
@@ -118,6 +121,7 @@ def gesdisc_merra_sync(DIRECTORY, YEARS, TIMEOUT=None, LOG=False,
 
     #-- sync MERRA-2 invariant products
     for PRODUCT in ['M2C0NXASM.5.12.4']:
+        logging.info('PRODUCT={0}'.format(PRODUCT))
         #-- open connection with GESDISC server at remote directory
         #-- find remote yearly directories for PRODUCT
         remote_years,mtimes = model_harmonics.utilities.gesdisc_list(
@@ -135,12 +139,12 @@ def gesdisc_merra_sync(DIRECTORY, YEARS, TIMEOUT=None, LOG=False,
                 local_file = os.path.join(DIRECTORY,colname)
                 remote_file = posixpath.join(*HOST,PRODUCT,Y,colname)
                 #-- copy file from remote directory comparing modified dates
-                http_pull_file(fid, remote_file, remote_mtime, local_file,
+                http_pull_file(remote_file, remote_mtime, local_file,
                     TIMEOUT=TIMEOUT, LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
 
     #-- for each MERRA-2 product to sync
     for PRODUCT in ['M2TMNXINT.5.12.4','M2TMNXGLC.5.12.4']:
-        print('PRODUCT={0}'.format(PRODUCT), file=fid)
+        logging.info('PRODUCT={0}'.format(PRODUCT))
         #-- open connection with GESDISC server at remote directory
         #-- find remote yearly directories for PRODUCT
         remote_years,mtimes = model_harmonics.utilities.gesdisc_list(
@@ -163,17 +167,16 @@ def gesdisc_merra_sync(DIRECTORY, YEARS, TIMEOUT=None, LOG=False,
                 local_file = os.path.join(DIRECTORY,PRODUCT,Y,colname)
                 remote_file = posixpath.join(*HOST,PRODUCT,Y,colname)
                 #-- copy file from remote directory comparing modified dates
-                http_pull_file(fid, remote_file, remote_mtime, local_file,
+                http_pull_file(remote_file, remote_mtime, local_file,
                     TIMEOUT=TIMEOUT, LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
 
     #-- close log file and set permissions level to MODE
     if LOG:
-        fid.close()
         os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
 
 #-- PURPOSE: pull file from a remote host checking if file exists locally
 #-- and if the remote file is newer than the local file
-def http_pull_file(fid, remote_file, remote_mtime, local_file,
+def http_pull_file(remote_file, remote_mtime, local_file,
     TIMEOUT=None, LIST=False, CLOBBER=False, MODE=0o775):
     #-- if file exists in file system: check if remote file is newer
     TEST = False
@@ -193,8 +196,8 @@ def http_pull_file(fid, remote_file, remote_mtime, local_file,
     #-- if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         #-- Printing files transferred
-        print('{0} --> '.format(remote_file), file=fid)
-        print('\t{0}{1}\n'.format(local_file,OVERWRITE), file=fid)
+        logging.info('{0} --> '.format(remote_file))
+        logging.info('\t{0}{1}\n'.format(local_file,OVERWRITE))
         #-- if executing copy command (not only printing the files)
         if not LIST:
             #-- Create and submit request. There are a wide range of exceptions

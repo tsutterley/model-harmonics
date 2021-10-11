@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_monthly_harmonics.py
-Written by Tyler Sutterley (09/2021)
+Written by Tyler Sutterley (10/2021)
 Reads monthly ECCO ocean bottom pressure anomalies and converts to
     spherical harmonic coefficients
 
@@ -70,6 +70,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 09/2021: use GRACE/GRACE-FO month to calendar month converters
     Updated 07/2021: can use input files to define command line arguments
     Updated 05/2021: define int/float precision to prevent deprecation warning
@@ -97,6 +98,7 @@ from __future__ import print_function
 
 import os
 import re
+import logging
 import netCDF4
 import argparse
 import numpy as np
@@ -114,6 +116,11 @@ from geoid_toolkit.norm_gravity import norm_gravity
 def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None, VERBOSE=False,
     MODE=0o775):
+
+    #-- create logger for verbosity level
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- input and output subdirectory
     input_sub = 'ECCO_{0}_AveRmvd_OBP'.format(MODEL)
     output_sub = 'ECCO_{0}_AveRmvd_OBP_CLM_L{1:d}'.format(MODEL,LMAX)
@@ -234,16 +241,18 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
         args = (MODEL, LMAX, order_str, obp_Ylms.month, suffix[DATAFORM])
         FILE = output_file_format.format(*args)
         #-- output data for month
-        print(os.path.join(ddir,output_sub,FILE)) if VERBOSE else None
         if (DATAFORM == 'ascii'):
             #-- ascii (.txt)
-            obp_Ylms.to_ascii(os.path.join(ddir,output_sub,FILE))
+            obp_Ylms.to_ascii(os.path.join(ddir,output_sub,FILE),
+                verbose=VERBOSE)
         elif (DATAFORM == 'netCDF4'):
             #-- netcdf (.nc)
-            obp_Ylms.to_netCDF4(os.path.join(ddir,output_sub,FILE))
+            obp_Ylms.to_netCDF4(os.path.join(ddir,output_sub,FILE),
+                verbose=VERBOSE)
         elif (DATAFORM == 'HDF5'):
             #-- HDF5 (.H5)
-            obp_Ylms.to_HDF5(os.path.join(ddir,output_sub,FILE))
+            obp_Ylms.to_HDF5(os.path.join(ddir,output_sub,FILE),
+                verbose=VERBOSE)
         #-- change the permissions mode of the output file to MODE
         os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 

@@ -53,6 +53,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 10/2021: add pole case in stereographic area scale calculation
+        using python logging for handling verbose output
     Updated 09/2021: use original FDM file for ais products
         use original FDM file for non-mass variables (height and FAC)
     Written 09/2021
@@ -66,6 +67,7 @@ import gzip
 import uuid
 import time
 import pyproj
+import logging
 import netCDF4
 import argparse
 import warnings
@@ -97,6 +99,10 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
     GZIP=False,
     VERBOSE=False,
     MODE=0o775):
+
+    #-- create logger for verbosity level
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
 
     #-- MERRA-2 hybrid directory
     DIRECTORY = os.path.join(base_dir,VERSION)
@@ -131,9 +137,8 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
         fileID = netCDF4.Dataset(os.path.join(DIRECTORY,hybrid_file), 'r')
 
     #-- Output NetCDF file information
-    if VERBOSE:
-        print(os.path.join(DIRECTORY,hybrid_file))
-        print(list(fileID.variables.keys()))
+    logging.info(os.path.join(DIRECTORY,hybrid_file))
+    logging.info(list(fileID.variables.keys()))
 
     #-- Get data from each netCDF variable and remove singleton dimensions
     fd = {}

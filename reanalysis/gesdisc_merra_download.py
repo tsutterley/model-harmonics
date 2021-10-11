@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_merra_download.py
-Written by Tyler Sutterley (07/2021)
+Written by Tyler Sutterley (10/2021)
 
 This program downloads MERRA-2 products using a links list provided by the
     Goddard Earth Sciences Data and Information Server Center
@@ -48,6 +48,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 07/2021: add catch for hyperlinks that are not files
     Updated 05/2021: added option for connection timeout (in seconds)
         use try/except for retrieving netrc credentials
@@ -69,6 +70,7 @@ import re
 import time
 import netrc
 import getpass
+import logging
 import argparse
 import builtins
 import gravity_toolkit.utilities
@@ -83,15 +85,18 @@ def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
         os.makedirs(os.path.join(DIRECTORY), mode=MODE, exist_ok=True)
 
     #-- create log file with list of synchronized files (or print to terminal)
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
     if LOG:
         #-- format: NASA_GESDISC_MERRA2_download_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
         LOGFILE = 'NASA_GESDISC_MERRA2_download_{0}.log'.format(today)
         fid = open(os.path.join(DIRECTORY,LOGFILE),'w')
-        print('NASA MERRA-2 Sync Log ({0})'.format(today), file=fid)
+        logging.basicConfig(stream=fid, level=loglevel)
+        logging.info('NASA MERRA-2 Sync Log ({0})'.format(today))
     else:
         #-- standard output (terminal output)
         fid = sys.stdout
+        logging.basicConfig(stream=fid, level=loglevel)
 
     #-- read the links list file
     with open(links_list_file,'rb') as fileID:
@@ -123,7 +128,7 @@ def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
                 verbose=VERBOSE, mode=MODE)
         except:
             remote_file = gravity_toolkit.utilities.posixpath.join(HOST)
-            print('Link not downloaded: {0}'.format(remote_file))
+            logging.critical('Link not downloaded: {0}'.format(remote_file))
             continue
 
     #-- close log file and set permissions level to MODE

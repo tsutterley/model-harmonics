@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_monthly_pressure.py
-Written by Tyler Sutterley (07/2021)
+Written by Tyler Sutterley (10/2021)
 Reads daily atmospheric pressure fields from reanalysis and outputs monthly averages
 
 INPUTS:
@@ -35,6 +35,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 07/2021: can use input files to define command line arguments
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 03/2021: automatically update years to run based on current time
@@ -48,6 +49,7 @@ from __future__ import print_function
 import sys
 import os
 import re
+import logging
 import netCDF4
 import argparse
 import datetime
@@ -58,6 +60,11 @@ import gravity_toolkit.utilities as utilities
 
 #-- PURPOSE: read atmospheric surface pressure fields and calculate monthly mean
 def reanalysis_monthly_pressure(base_dir,MODEL,YEARS,VERBOSE=False,MODE=0o775):
+
+    #-- create logger for verbosity level
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- directory setup
     ddir = os.path.join(base_dir,MODEL)
     #-- set model specific parameters
@@ -115,14 +122,14 @@ def reanalysis_monthly_pressure(base_dir,MODEL,YEARS,VERBOSE=False,MODE=0o775):
         FILE = os.path.join(ddir,output_file_format.format(YEAR))
         ncdf_pressure_write(dinput, p.fill_value, FILENAME=FILE,
             VARNAME=VARNAME, LONNAME=LONNAME, LATNAME=LATNAME, TIMENAME=TIMENAME,
-            TIME_UNITS=TIME_UNITS, TIME_LONGNAME=TIME_LONGNAME, VERBOSE=VERBOSE)
+            TIME_UNITS=TIME_UNITS, TIME_LONGNAME=TIME_LONGNAME)
         #-- set the permissions level of the output file to MODE
         os.chmod(FILE, MODE)
 
 #-- PURPOSE: write output pressure fields data to file
 def ncdf_pressure_write(dinput, fill_value, FILENAME=None, VARNAME=None,
     LONNAME=None, LATNAME=None, TIMENAME=None, TIME_UNITS=None,
-    TIME_LONGNAME=None, VERBOSE=False):
+    TIME_LONGNAME=None):
     #-- opening netCDF4 file for writing
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
@@ -152,9 +159,8 @@ def ncdf_pressure_write(dinput, fill_value, FILENAME=None, VARNAME=None,
     nc[VARNAME].long_name = 'mean_surface_pressure'
 
     #-- Output NetCDF structure information
-    if VERBOSE:
-        print(os.path.basename(FILENAME))
-        print(list(fileID.variables.keys()))
+    logging.info(os.path.basename(FILENAME))
+    logging.info(list(fileID.variables.keys()))
 
     #-- Closing the NetCDF file
     fileID.close()

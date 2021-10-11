@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_mask.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (10/2021)
 
 Creates a mask for MERRA-2 land ice data using a set of shapefiles
 https://goldsmr4.gesdisc.eosdis.nasa.gov/data/MERRA2_MONTHLY/
@@ -42,6 +42,7 @@ PROGRAM DEPENDENCIES:
         hdf5_write.py: writes output spatial data to HDF5
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 02/2021: use spatial class to read input mask file
         use fiona to read from shapefiles. convert to projection of shapefile
     Updated 01/2020: Using pyproj for coordinate conversion
@@ -55,6 +56,7 @@ from __future__ import print_function
 import os
 import fiona
 import pyproj
+import logging
 import netCDF4
 import argparse
 import numpy as np
@@ -91,6 +93,11 @@ def read_shapefile(input_shapefile, AREA=None, BUFFER=None):
 #-- PURPOSE: create a mask for MERRA-2 surface mass balance
 def merra_smb_mask(input_file, output_file, VARNAME=None,
     SHAPEFILES=None, AREA=None, BUFFER=None, VERBOSE=False, MODE=0o775):
+
+    #-- create logger for verbosity level
+    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
+    logging.basicConfig(level=loglevel)
+
     #-- create output directory if non-existent
     ddir = os.path.dirname(output_file)
     os.makedirs(ddir) if not os.access(ddir, os.F_OK) else None
@@ -129,7 +136,7 @@ def merra_smb_mask(input_file, output_file, VARNAME=None,
     for i,SHAPEFILE in enumerate(SHAPEFILES):
         #-- read shapefile to find points within region
         poly_obj,crs2 = read_shapefile(SHAPEFILE, AREA=AREA, BUFFER=BUFFER)
-        print('Polygon Count: {0:d}'.format(len(poly_obj))) if VERBOSE else None
+        logging.info('Polygon Count: {0:d}'.format(len(poly_obj)))
         #-- pyproj transformer for converting from latitude/longitude
         #-- to projection of input shapefile
         transformer = pyproj.Transformer.from_crs(crs1, crs2, always_xy=True)
@@ -151,12 +158,12 @@ def merra_smb_mask(input_file, output_file, VARNAME=None,
                 int_area = poly_obj.intersection(patch).area
                 output['mask'][indy,indx] = (int_area/patch.area) > 0.15
     #-- write to output netCDF4 (.nc)
-    ncdf_mask_write(output, FILENAME=output_file, VERBOSE=VERBOSE)
+    ncdf_mask_write(output, FILENAME=output_file)
     #-- change the permission level to MODE
     os.chmod(output_file, MODE)
 
 #-- PURPOSE: write land sea mask to netCDF4 file
-def ncdf_mask_write(dinput, FILENAME=None, VERBOSE=False):
+def ncdf_mask_write(dinput, FILENAME=None):
     #-- opening NetCDF file for writing
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
@@ -183,9 +190,8 @@ def ncdf_mask_write(dinput, FILENAME=None, VERBOSE=False):
     nc['mask'].long_name = 'land_sea_mask'
 
     #-- Output NetCDF structure information
-    if VERBOSE:
-        print(os.path.basename(FILENAME))
-        print(list(fileID.variables.keys()))
+    logging.info(os.path.basename(FILENAME))
+    logging.info(list(fileID.variables.keys()))
 
     #-- Closing the NetCDF file
     fileID.close()

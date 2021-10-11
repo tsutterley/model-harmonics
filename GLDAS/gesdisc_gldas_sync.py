@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_gldas_sync.py
-Written by Tyler Sutterley (06/2021)
+Written by Tyler Sutterley (10/2021)
 
 Syncs GLDAS monthly datafiles from the Goddard Earth Sciences Data and
     Information Server Center (GES DISC)
@@ -64,6 +64,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 10/2021: using python logging for handling verbose output
     Updated 06/2021: fixed timeout for monthly GLDAS download
     Updated 05/2021: added option for connection timeout (in seconds)
         use try/except for retrieving netrc credentials
@@ -99,6 +100,7 @@ import time
 import netrc
 import shutil
 import getpass
+import logging
 import argparse
 import builtins
 import posixpath
@@ -125,11 +127,12 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
         #-- format: NASA_GESDISC_GLDAS_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
         LOGFILE = 'NASA_GESDISC_GLDAS_{0}_sync_{1}.log'.format(MODEL,today)
-        fid = open(os.path.join(DIRECTORY,LOGFILE),'w')
-        print('NASA GLDAS Sync Log ({0})'.format(today), file=fid)
+        logging.basicConfig(file=os.path.join(DIRECTORY,LOGFILE),
+            level=logging.INFO)
+        logging.info('NASA GLDAS Sync Log ({0})'.format(today))
     else:
         #-- standard output (terminal output)
-        fid = sys.stdout
+        logging.basicConfig(level=logging.INFO)
 
     #-- Version flags
     V1,V2 = ('_V1','') if (VERSION == '1') else ('','.{0}'.format(VERSION))
@@ -142,9 +145,9 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
     R1 = re.compile(r'({0})'.format(regex_pattern), re.VERBOSE)
 
     #-- print header text to log/standard output
-    print('GLDAS MODEL={0}'.format(gldas_products[MODEL]), file=fid)
-    print('RESOLUTION={0},{1}'.format(TEMPORAL,SPATIAL), file=fid)
-    print('VERSION={0}{1}'.format(VERSION,EP), file=fid)
+    logging.info('GLDAS MODEL={0}'.format(gldas_products[MODEL]))
+    logging.info('RESOLUTION={0},{1}'.format(TEMPORAL,SPATIAL))
+    logging.info('VERSION={0}{1}'.format(VERSION,EP))
     #-- subdirectory for model on GESDISC server
     REMOTE = "GLDAS_{0}{1}_{2}{3}{4}".format(MODEL,SPATIAL,TEMPORAL,EP,V2)
     PRODUCT = "GLDAS_{0}{1}_{2}{3}".format(MODEL,SPATIAL,TEMPORAL,V2)
@@ -173,7 +176,7 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
                 local_file = os.path.join(DIRECTORY,PRODUCT,Y,colname)
                 remote_file = posixpath.join(*HOST,REMOTE,Y,colname)
                 #-- copy file from remote directory comparing modified dates
-                http_pull_file(fid, remote_file, remote_mtime, local_file,
+                http_pull_file(remote_file, remote_mtime, local_file,
                     TIMEOUT=TIMEOUT, LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
     #-- if running daily data
     elif (TEMPORAL == '3H'):
@@ -200,17 +203,16 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
                     local_file = os.path.join(DIRECTORY,PRODUCT,Y,D,colname)
                     remote_file = posixpath.join(*HOST,REMOTE,Y,D,colname)
                     #-- copy file from remote directory comparing modified dates
-                    http_pull_file(fid, remote_file, remote_mtime, local_file,
+                    http_pull_file(remote_file, remote_mtime, local_file,
                         TIMEOUT=TIMEOUT, LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
 
     #-- close log file and set permissions level to MODE
     if LOG:
-        fid.close()
         os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
 
 #-- PURPOSE: pull file from a remote host checking if file exists locally
 #-- and if the remote file is newer than the local file
-def http_pull_file(fid,remote_file,remote_mtime,local_file,
+def http_pull_file(remote_file,remote_mtime,local_file,
     TIMEOUT=0,LIST=False,CLOBBER=False,MODE=0o775):
     #-- if file exists in file system: check if remote file is newer
     TEST = False
@@ -230,8 +232,8 @@ def http_pull_file(fid,remote_file,remote_mtime,local_file,
     #-- if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         #-- Printing files transferred
-        print('{0} --> '.format(remote_file), file=fid)
-        print('\t{0}{1}\n'.format(local_file,OVERWRITE), file=fid)
+        logging.info('{0} --> '.format(remote_file))
+        logging.info('\t{0}{1}\n'.format(local_file,OVERWRITE))
         #-- if executing copy command (not only printing the files)
         if not LIST:
             #-- Create and submit request. There are a wide range of exceptions
