@@ -103,6 +103,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 10/2021: using python logging for handling verbose output
+        use output harmonic file wrapper routine to write to file
     Updated 09/2021: use GRACE/GRACE-FO month to calendar month converters
     Updated 07/2021: can use input files to define command line arguments
     Updated 05/2021: define int/float precision to prevent deprecation warning
@@ -319,19 +320,8 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
         #-- output spherical harmonic data file
         args=(MODEL,SPACING,LMAX,order_str,gldas_Ylms.month,suffix[DATAFORM])
         FILE='GLDAS_{0}{1}_TWC_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
-        #-- output data for month
-        if (DATAFORM == 'ascii'):
-            #-- ascii (.txt)
-            gldas_Ylms.to_ascii(os.path.join(ddir,output_sub,FILE),
-                verbose=VERBOSE)
-        elif (DATAFORM == 'netCDF4'):
-            #-- netcdf (.nc)
-            gldas_Ylms.to_netCDF4(os.path.join(ddir,output_sub,FILE),
-                verbose=VERBOSE)
-        elif (DATAFORM == 'HDF5'):
-            #-- HDF5 (.H5)
-            gldas_Ylms.to_HDF5(os.path.join(ddir,output_sub,FILE),
-                verbose=VERBOSE)
+        logging.info(os.path.join(ddir,output_sub,FILE))
+        gldas_Ylms.to_file(os.path.join(ddir,output_sub,FILE),format=DATAFORM)
         #-- change the permissions mode of the output file to MODE
         os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 
@@ -350,8 +340,6 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
     output_files=[fi for fi in os.listdir(os.path.join(ddir,output_sub))
         if re.match(output_regex,fi)]
     for fi in sorted(output_files):
-        #-- full path to output file
-        full_output_file = os.path.join(ddir,output_sub,fi)
         #-- extract GRACE month
         grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int64)
         YY,MM = gravity_toolkit.time.grace_to_calendar(grace_month)

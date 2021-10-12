@@ -71,6 +71,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 10/2021: using python logging for handling verbose output
+        use output harmonic file wrapper routine to write to file
     Updated 09/2021: use GRACE/GRACE-FO month to calendar month converters
     Updated 07/2021: can use input files to define command line arguments
     Updated 05/2021: define int/float precision to prevent deprecation warning
@@ -240,19 +241,8 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
         #-- output spherical harmonic data file
         args = (MODEL, LMAX, order_str, obp_Ylms.month, suffix[DATAFORM])
         FILE = output_file_format.format(*args)
-        #-- output data for month
-        if (DATAFORM == 'ascii'):
-            #-- ascii (.txt)
-            obp_Ylms.to_ascii(os.path.join(ddir,output_sub,FILE),
-                verbose=VERBOSE)
-        elif (DATAFORM == 'netCDF4'):
-            #-- netcdf (.nc)
-            obp_Ylms.to_netCDF4(os.path.join(ddir,output_sub,FILE),
-                verbose=VERBOSE)
-        elif (DATAFORM == 'HDF5'):
-            #-- HDF5 (.H5)
-            obp_Ylms.to_HDF5(os.path.join(ddir,output_sub,FILE),
-                verbose=VERBOSE)
+        logging.info(os.path.join(ddir,output_sub,FILE))
+        obp_Ylms.to_file(os.path.join(ddir,output_sub,FILE),format=DATAFORM)
         #-- change the permissions mode of the output file to MODE
         os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 
@@ -271,8 +261,6 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     output_files = [fi for fi in os.listdir(os.path.join(ddir,output_sub))
         if re.match(output_regex,fi)]
     for fi in sorted(output_files):
-        #-- full path to output file
-        full_output_file = os.path.join(ddir,output_sub,fi)
         #-- extract GRACE month
         grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int64)
         YY,MM = gravity_toolkit.time.grace_to_calendar(grace_month)

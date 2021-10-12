@@ -72,7 +72,7 @@ Uses `GLDAS model outputs <https://ldas.gsfc.nasa.gov/gldas>`_ from the NASA God
 GLDAS outputs are downloaded using the ``gesdisc_gldas_sync.py`` program.
 GLDAS version 2.1 is forced with a combination of model and observation data.
 Additionally, the GLDAS project produces two months of "early production stream" products that are run without the forcing data.
-Here, monthly terrestrial water storage (TWS) estimates are calculated by combining the GLDAS soil moisture (SM), snow water equivalent (SWE) and total canopy storage outputs.
+Here, monthly terrestrial water storage (TWS) estimates are calculated by combining the GLDAS soil moisture (`SM`), snow water equivalent (`SWE`) and total canopy storage outputs.
 Monthly anomalies in terrestrial water storage are calculated by removing a multi-annual mean (typically 2003 |ndash| 2007).
 Before converting to spherical harmonics, the GLDAS terrestrial water storage estimates are masked to remove
 `urbanized <https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_mask_vegetation.py>`_,
@@ -213,13 +213,17 @@ Anomalies for each reanalysis are calculated relative to a multi-annual mean (su
 SMB
 ===
 
-Uses `MERRA-2 model outputs <https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/s>`_ from the NASA `Global Modeling and Assimilation Office (GMAO) <https://gmao.gsfc.nasa.gov/>`_.
+Uses `MERRA-2 model outputs <https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/s>`_ from the NASA `Global Modeling and Assimilation Office (GMAO) <https://gmao.gsfc.nasa.gov/>`_,
+or `ERA5 model outputs <https://www.ecmwf.int/en/forecasts/datasets/reanalysis-datasets/era5>`_  computed by ECMWF.
 MERRA-2 `Vertically Integrated Diagnostics (M2TMNXINT) <https://disc.gsfc.nasa.gov/datasets/M2TMNXINT_5.12.4/summary>`_ and
 `Land Ice Surface Diagnostics (M2TMNXGLC) <https://disc.gsfc.nasa.gov/datasets/M2TMNXGLC_5.12.4/summary>`_ are downloaded using the ``gesdisc_merra_sync.py`` program.
-Here, monthly surface mass balance (SMB) estimates are calculated by combining the MERRA-2
-convective rain (PRECCU), large-scale rain (PRECLS), snow (PRECSN), evaporation (EVAP), and runoff over glaciated land (RUNOFF) variables.
+ERA5 precipitation and evaporation outputs are downloaded using the ``cds_reanalysis_retrieve.py`` program following using the `cdsapi <https://cds.climate.copernicus.eu/api-how-to>`_ documentation.
+For MERRA-2, monthly surface mass balance (SMB) estimates are calculated by combining the
+convective rain (`PRECCU`), large-scale rain (`PRECLS`), snow (`PRECSN`), evaporation (`EVAP`), and runoff over glaciated land (`RUNOFF`) variables.
+For ERA5,  monthly surface mass balance (SMB) estimates are calculated by combining the total precipitation (`tp`) and evaporation (`e`) variables.
+ERA5 surface mass balance estimates are not including runoff as those variables are presently `inaccurate over glaciated surfaces <https://confluence.ecmwf.int/pages/viewpage.action?pageId=208488132>`_.
 Monthly cumulative anomalies in surface mass balance are calculated by removing a multi-annual mean (typically 1980 |ndash| 1995).
-Before converting to spherical harmonics, the MERRA-2 surface mass balance estimates are masked to isolate regions of interest.
+Before converting to spherical harmonics, the surface mass balance estimates are masked to isolate regions of interest.
 Surface mass balance anomalies are converted to spherical harmonics following [Wahr1998]_ (Equation :eq:`7`).
 
 .. math::
@@ -230,7 +234,7 @@ Surface mass balance anomalies are converted to spherical harmonics following [W
 	\left\{\begin{matrix}\cos{m\phi} \\[-4pt] \sin{m\phi} \end{matrix} \right\}~d\Omega
 
 .. graphviz::
-    :caption: MERRA-2 Spherical Harmonics Framework
+    :caption: Surface Mass Balance Spherical Harmonics Framework
     :align: center
 
     digraph {
