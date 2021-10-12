@@ -70,6 +70,7 @@ PROGRAM DEPENDENCIES:
 UPDATE HISTORY:
     Updated 10/2021: using python logging for handling verbose output
         added checks for previous versions of reprocessed files
+        use output harmonic file wrapper routine to write to file
     Updated 09/2021: use GRACE/GRACE-FO month to calendar month converters
     Updated 08/2021: set all points to valid if not using masks
     Updated 07/2021: can use input files to define command line arguments
@@ -237,18 +238,8 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
         #-- output spherical harmonic data file
         args=(MOD,PRODUCT,LMAX,order_str,merra_Ylms.month,suffix[DATAFORM])
         FILE='MERRA2_{0}_tavgM_2d_{1}_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
-
-        #-- output data for month
-        logging.info(os.path.join(ddir,output_sub,FILE))
-        if (DATAFORM == 'ascii'):
-            #-- ascii (.txt)
-            merra_Ylms.to_ascii(os.path.join(ddir,output_sub,FILE))
-        elif (DATAFORM == 'netCDF4'):
-            #-- netcdf (.nc)
-            merra_Ylms.to_netCDF4(os.path.join(ddir,output_sub,FILE))
-        elif (DATAFORM == 'HDF5'):
-            #-- HDF5 (.H5)
-            merra_Ylms.to_HDF5(os.path.join(ddir,output_sub,FILE))
+        merra_Ylms.to_file(os.path.join(ddir,output_sub,FILE),
+            format=DATAFORM, title=merra_products[PRODUCT])
         #-- change the permissions mode of the output file to MODE
         os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 
@@ -263,13 +254,11 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     #-- find all available output files
     args = (PRODUCT, LMAX, order_str, suffix[DATAFORM])
     output_pattern = r'MERRA2_(\d+)_tavgM_2d_{0}_CLM_L{1:d}{2}_([-]?\d+).{3}'
-    output_regex = re.compile(output_pattern.format(*args))
+    output_regex = re.compile(output_pattern.format(*args), re.VERBOSE)
     #-- find all output ECCO OBP harmonic files (not just ones created in run)
     output_files=[fi for fi in os.listdir(os.path.join(ddir,output_sub))
         if re.match(output_regex,fi)]
     for fi in sorted(output_files):
-        #-- full path to output file
-        full_output_file = os.path.join(ddir,output_sub,fi)
         #-- extract GRACE month
         MOD,grace_month=np.array(re.findall(output_regex,fi).pop(),dtype=np.int64)
         YY,MM = gravity_toolkit.time.grace_to_calendar(grace_month)

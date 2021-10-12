@@ -1,24 +1,16 @@
 #!/usr/bin/env python
 u"""
-ecco_llc_tile_harmonics.py
+era5_smb_harmonics.py
 Written by Tyler Sutterley (10/2021)
-Reads monthly ECCO ocean bottom pressure anomalies from LLC tiles
-    and converts to spherical harmonic coefficients
-
-ECCO Version 4, Revision 4
-    https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/nctiles_monthly
-
-ECCO Version 5, Alpha
-    https://ecco.jpl.nasa.gov/drive/files/Version5/Alpha/nctiles_monthly
-
-INPUTS:
-    ECCO version 4 or 5 models
-        V4r4: Version 4, Revision 4
-        V5alpha: Version 5, Alpha release
+Reads monthly ERA5 surface mass balance anomalies and
+    converts to spherical harmonic coefficients
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
+    -m X, --mean X: Year range for mean
     -Y X, --year X: Years to run
+    -R X, --region X: region name for subdirectory
+    --mask X: netCDF4 mask files for reducing to regions
     -l X, --lmax X: maximum spherical harmonic degree
     -m X, --mmax X: maximum spherical harmonic order
     -n X, --love X: Load Love numbers dataset
@@ -29,12 +21,12 @@ COMMAND LINE OPTIONS:
         CF: Center of Surface Figure (default)
         CM: Center of Mass of Earth System
         CE: Center of Mass of Solid Earth
-    -F X, --format X: Output data format
+    -F X, --format X: Input and output data format
         ascii
         netcdf
         HDF5
-    -V, --verbose: Output information for each output file
     -M X, --mode X: Permission mode of directories and files
+    -V, --verbose: Output information for each output file
 
 PYTHON DEPENDENCIES:
     numpy: Scientific Computing Tools For Python
@@ -43,15 +35,15 @@ PYTHON DEPENDENCIES:
     dateutil: powerful extensions to datetime
         https://dateutil.readthedocs.io/en/stable/
     netCDF4: Python interface to the netCDF C library
-        https://unidata.github.io/netcdf4-python/netCDF4/index.html
-    h5py: Pythonic interface to the HDF5 binary data format.
-        https://www.h5py.org/
+         https://unidata.github.io/netcdf4-python/netCDF4/index.html
+    h5py: Python interface for Hierarchal Data Format 5 (HDF5)
+        https://h5py.org
 
 PROGRAM DEPENDENCIES:
+    plm_holmes.py: computes fully-normalized associated Legendre polynomials
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
     ref_ellipsoid.py: calculate reference parameters for common ellipsoids
-    norm_gravity.py: calculates the normal gravity for locations on an ellipsoid
-    gen_point_pressure.py: converts pressure point values to spherical harmonics
+    gen_stokes.py: converts a spatial field into a series of spherical harmonics
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
         destripe_harmonics.py: calculates the decorrelation (destriping) filter
             and filters the GRACE/GRACE-FO coefficients for striping errors
@@ -68,84 +60,73 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
-    Updated 10/2021: using python logging for handling verbose output
-        use output harmonic file wrapper routine to write to file
-    Updated 09/2021: use GRACE/GRACE-FO month to calendar month converters
-    Updated 07/2021: can use input files to define command line arguments
-    Updated 05/2021: define int/float precision to prevent deprecation warning
-    Updated 03/2021: automatically update years to run based on current time
-    Written 02/2021
+    Written 10/2021
 """
 from __future__ import print_function
 
+import sys
 import os
 import re
 import logging
 import netCDF4
 import argparse
+import datetime
 import numpy as np
 import gravity_toolkit.time
-import gravity_toolkit.spatial
-import gravity_toolkit.harmonics
 import gravity_toolkit.utilities as utilities
 from gravity_toolkit.read_love_numbers import read_love_numbers
+from gravity_toolkit.harmonics import harmonics
+from gravity_toolkit.spatial import spatial
+from gravity_toolkit.plm_holmes import plm_holmes
+from gravity_toolkit.gen_stokes import gen_stokes
 from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
-from geoid_toolkit.norm_gravity import norm_gravity
-from model_harmonics.gen_point_pressure import gen_point_pressure
 
-#-- PURPOSE: convert monthly ECCO OBP data to spherical harmonics
-def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
-    LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None, VERBOSE=False,
-    MODE=0o775):
+#-- PURPOSE: read ERA5 cumulative data and convert to spherical harmonics
+def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
+    MASKS=None, LMAX=0, MMAX=None, LOVE_NUMBERS=0, REFERENCE=None,
+    DATAFORM=None, VERBOSE=False, MODE=0o775):
 
     #-- create logger for verbosity level
     loglevel = logging.INFO if VERBOSE else logging.CRITICAL
     logging.basicConfig(level=loglevel)
 
-    #-- input and output subdirectories
-    input_dir = os.path.join(ddir,'ECCO_{0}_AveRmvd_OBP'.format(MODEL),
-        'nctiles_monthly')
-    output_sub = 'ECCO_{0}_AveRmvd_OBP_CLM_L{1:d}'.format(MODEL,LMAX)
+    #-- setup subdirectories
+    cumul_sub = 'ERA5-Cumul-P-E-{0:4d}-{1:4d}'.format(*RANGE)
+    #-- Creating output subdirectory if it doesn't exist
+    prefix = '{0}_'.format(REGION) if REGION else ''
+    output_sub = '{0}ERA5_CUMUL_P-E_CLM_L{1:d}'.format(prefix,LMAX)
+    if (not os.access(os.path.join(ddir,output_sub), os.F_OK)):
+        os.makedirs(os.path.join(ddir,output_sub),MODE)
+    #-- output data file format and title
+    suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
+    output_file_title = 'ERA5 Precipitation minus Evaporation'
 
     #-- upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
     #-- output string for both LMAX == MMAX and LMAX != MMAX cases
     order_str = 'M{0:d}'.format(MMAX) if (MMAX != LMAX) else ''
-    #-- output file format
-    output_file_format = 'ECCO_{0}_AveRmvd_OBP_CLM_L{1:d}{2}_{3:03d}.{4}'
-    #-- Creating subdirectory if it doesn't exist
-    if (not os.access(os.path.join(ddir,output_sub), os.F_OK)):
-        os.makedirs(os.path.join(ddir,output_sub),MODE)
-    #-- output data file format
-    suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
 
-    #-- input variable names for each model
-    if (MODEL == 'V4r4'):
-        LONNAME = 'XC'
-        LATNAME = 'YC'
-        ZNAME = 'Depth'
-        VARNAME = 'PHIBOT'
-        AREANAME = 'rA'
-        Nt,Nj,Ni = (13,90,90)
-    elif (MODEL == 'V5alpha'):
-        LONNAME = 'XC'
-        LATNAME = 'YC'
-        ZNAME = 'Depth'
-        VARNAME = 'PHIBOT'
-        AREANAME = 'rA'
-        Nt,Nj,Ni = (13,270,270)
+    #-- output dimensions and extents
+    nlat,nlon = (721,1440)
+    extent = [0.0,359.75,-90.0,90.0]
+    #-- grid spacing
+    dlon,dlat = (0.25,0.25)
+    #-- latitude and longitude
+    glon = np.arange(extent[0],extent[1]+dlon,dlon)
+    glat = np.arange(extent[3],extent[2]-dlat,-dlat)
+    #-- create mesh grid of latitude and longitude
+    gridlon,gridlat = np.meshgrid(glon,glat)
 
-    #-- read ECCO tile grid file
-    input_invariant_file = os.path.join(ddir,'ECCO-{0}'.format(MODEL),
-        'nctiles_monthly','ECCO-GRID.nc')
-    invariant = ncdf_invariant(input_invariant_file,
-        lon=LONNAME, lat=LATNAME, depth=ZNAME, area=AREANAME)
-    #-- read ECCO tile geoid height file from ecco_geoid_llc_tiles.py
-    input_geoid_file = os.path.join(ddir,'ECCO-{0}'.format(MODEL),
-        'nctiles_monthly','ECCO-EGM2008.nc')
-    geoid_undulation = ncdf_geoid(input_geoid_file)
-    #-- use geoid and depth to calculate bathymetry
-    bathymetry = geoid_undulation - invariant['depth']
+    #-- create mask object for reducing data
+    if bool(MASKS):
+        input_mask = np.zeros((nlat,nlon),dtype=bool)
+    else:
+        input_mask = np.ones((nlat,nlon),dtype=bool)
+    #-- read masks for reducing regions before converting to harmonics
+    for mask_file in MASKS:
+        fileID = netCDF4.Dataset(mask_file,'r')
+        input_mask |= fileID.variables['mask'][:].astype(bool)
+        fileID.close()
 
     #-- Earth Parameters
     ellipsoid_params = ref_ellipsoid('WGS84')
@@ -154,78 +135,79 @@ def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     #--  first numerical eccentricity
     ecc1 = ellipsoid_params['ecc1']
     #-- convert from geodetic latitude to geocentric latitude
-    #-- geodetic latitude and longitude in radians
-    latitude_geodetic_rad = np.pi*invariant['lat']/180.0
-    longitude_rad = np.pi*invariant['lon']/180.0
+    #-- geodetic latitude in radians
+    latitude_geodetic_rad = np.pi*gridlat/180.0
     #-- prime vertical radius of curvature
     N = a_axis/np.sqrt(1.0 - ecc1**2.*np.sin(latitude_geodetic_rad)**2.)
     #-- calculate X, Y and Z from geodetic latitude and longitude
-    X = (N+bathymetry)*np.cos(latitude_geodetic_rad)*np.cos(longitude_rad)
-    Y = (N+bathymetry)*np.cos(latitude_geodetic_rad)*np.sin(longitude_rad)
-    Z = (N * (1.0 - ecc1**2.0) + bathymetry) * np.sin(latitude_geodetic_rad)
-    R = np.sqrt(X**2.0 + Y**2.0 + Z**2.0)
+    X = N * np.cos(latitude_geodetic_rad) * np.cos(np.pi*gridlon/180.0)
+    Y = N * np.cos(latitude_geodetic_rad) * np.sin(np.pi*gridlon/180.0)
+    Z = (N * (1.0 - ecc1**2.0)) * np.sin(latitude_geodetic_rad)
     #-- calculate geocentric latitude and convert to degrees
     latitude_geocentric = 180.0*np.arctan(Z / np.sqrt(X**2.0 + Y**2.0))/np.pi
     #-- colatitude in radians
-    theta = (90.0 - latitude_geocentric)*np.pi/180.0
-
-    #-- calculate normal gravity at latitudes and bathymetry
-    gamma_h,dgamma_dh = norm_gravity(latitude_geocentric,bathymetry,'WGS84')
+    theta = (90.0 - latitude_geocentric[:,0])*np.pi/180.0
 
     #-- read load love numbers
-    LOVE = load_love_numbers(LMAX,LOVE_NUMBERS=LOVE_NUMBERS,REFERENCE=REFERENCE)
+    LOVE = load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
+        REFERENCE=REFERENCE)
 
-    #-- regular expression pattern to find files and extract dates
-    regex_years = r'\d+' if (YEARS is None) else '|'.join(map(str,YEARS))
-    args = (MODEL, regex_years, suffix[DATAFORM])
-    rx = re.compile(r'ECCO_{0}_AveRmvd_OBP_({1})_(\d+).{2}$'.format(*args))
+    #-- calculate Legendre polynomials
+    PLM,dPLM = plm_holmes(LMAX,np.cos(theta))
 
-    #-- find input ECCO OBP files
-    FILES = [fi for fi in os.listdir(input_dir) if rx.match(fi)]
+    #-- find input files from era5_smb_cumulative.py
+    regex_years = r'\d{4}' if (YEARS is None) else '|'.join(map(str,YEARS))
+    rx = re.compile(r'ERA5\-Cumul\-P-E\-({0})\.nc$'.format(regex_years))
+    #-- will be out of order for 2020 due to September reprocessing
+    FILES = sorted([fi for fi in os.listdir(os.path.join(ddir,cumul_sub))
+        if rx.match(fi)])
+
     #-- for each input file
-    for f in sorted(FILES):
-        #-- extract dates from file
-        year,month = np.array(rx.findall(f).pop(), dtype=np.int64)
-        #-- read input data file
-        obp_data = {}
-        with netCDF4.Dataset(os.path.join(input_dir,f),'r') as fileID:
-            for key,val in fileID.variables.items():
-                obp_data[key] = val[:].copy()
-        #-- allocate for output spherical harmonics
-        obp_Ylms = gravity_toolkit.harmonics(lmax=LMAX, mmax=MMAX)
-        obp_Ylms.clm = np.zeros((LMAX+1,MMAX+1))
-        obp_Ylms.slm = np.zeros((LMAX+1,MMAX+1))
-        #-- copy date information
-        obp_Ylms.time = np.copy(obp_data['time'])
-        obp_Ylms.month = gravity_toolkit.time.calendar_to_grace(year,month)
-        #-- calculate harmonics for each spatial tile
-        #-- add to the total set of harmonics
-        for k in range(Nt):
-            #-- valid indices for for tile
-            indj,indi = np.nonzero(~obp_data[VARNAME].mask[k,:,:])
-            #-- reduce to valid
-            obp_tile = obp_data[VARNAME].data[k,indj,indi]
-            gamma_tile = gamma_h[k,indj,indi]
-            rad_tile = R[k,indi,indj]
-            #-- grid point areas (m^2)
-            area = invariant['area'][k,indj,indi]
-            #-- geocentric latitude and longitude
-            lat = latitude_geocentric[k,indj,indi]
-            lon = invariant['lon'][k,indj,indi]
-            #-- calculate harmonics from pressure/gravity ratio
-            Ylms = gen_point_pressure(obp_tile, gamma_tile, rad_tile,
-                lon, lat, AREA=area, LMAX=LMAX, MMAX=MMAX, LOVE=LOVE)
-            #-- add tile Ylms to total for month
-            obp_Ylms.add(Ylms)
-        #-- output spherical harmonic data file
-        args = (MODEL, LMAX, order_str, obp_Ylms.month, suffix[DATAFORM])
-        FILE = output_file_format.format(*args)
-        obp_Ylms.to_file(os.path.join(ddir,output_sub,FILE),format=DATAFORM)
-        #-- change the permissions mode of the output file to MODE
-        os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
+    for t,fi in enumerate(FILES):
+        #-- extract parameters from input flux file
+        Y1, = rx.findall(fi)
+        #-- read data file for data format
+        if (DATAFORM == 'ascii'):
+            #-- ascii (.txt)
+            era5_data = spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
+                extent=extent).from_ascii(os.path.join(ddir,cumul_sub,fi))
+        elif (DATAFORM == 'netCDF4'):
+            #-- netCDF4 (.nc)
+            era5_data = spatial().from_netCDF4(os.path.join(ddir,cumul_sub,fi),
+                varname='SMB')
+        elif (DATAFORM == 'HDF5'):
+            #-- HDF5 (.H5)
+            era5_data = spatial().from_HDF5(os.path.join(ddir,cumul_sub,fi),
+                varname='SMB')
+
+        #-- if reducing to a region of interest before converting to harmonics
+        if np.any(input_mask):
+            #-- replace fill value points and masked points with 0
+            era5_data.replace_invalid(0.0, mask=np.logical_not(input_mask))
+        else:
+            #-- replace fill value points points with 0
+            era5_data.replace_invalid(0.0)
+
+        #-- for each month of data
+        for i,t in enumerate(era5_data.time):
+            #-- convert to spherical harmonics from m w.e.
+            era5_mmwe = era5_data.index(i).scale(1000.0)
+            era5_Ylms = gen_stokes(era5_mmwe.data, glon,
+                latitude_geocentric[:,0], LMAX=LMAX, MMAX=MMAX,
+                UNITS=3, PLM=PLM, LOVE=LOVE)
+            #-- copy date information
+            era5_Ylms.time = np.copy(era5_mmwe.time)
+            era5_Ylms.month = np.copy(era5_mmwe.month)
+            #-- output spherical harmonic data file
+            args=(LMAX,order_str,era5_Ylms.month,suffix[DATAFORM])
+            FILE='ERA5_CUMUL_P-E_CLM_L{0:d}{1}_{2:03d}.{3}'.format(*args)
+            era5_Ylms.to_file(os.path.join(ddir,output_sub,FILE),
+                format=DATAFORM, title=output_file_title)
+            #-- change the permissions mode of the output file to MODE
+            os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 
     #-- Output date ascii file
-    output_date_file = 'ECCO_{0}_OBP_DATES.txt'.format(MODEL)
+    output_date_file = 'ERA5_SMB_DATES.txt'
     fid1 = open(os.path.join(ddir,output_sub,output_date_file), 'w')
     #-- date file header information
     print('{0:8} {1:^6} {2:^5}'.format('Mid-date','GRACE','Month'), file=fid1)
@@ -233,8 +215,9 @@ def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     output_index_file = 'index.txt'
     fid2 = open(os.path.join(ddir,output_sub,output_index_file),'w')
     #-- find all available output files
-    args = (MODEL, LMAX, suffix[DATAFORM])
-    output_regex=r'ECCO_{0}_AveRmvd_OBP_CLM_L{1:d}_([-]?\d+).{2}'.format(*args)
+    args = (LMAX, order_str, suffix[DATAFORM])
+    output_pattern = r'ERA5_CUMUL_P-E_CLM_L{0:d}{1}_([-]?\d+).{2}'
+    output_regex = re.compile(output_pattern.format(*args), re.VERBOSE)
     #-- find all output ECCO OBP harmonic files (not just ones created in run)
     output_files = [fi for fi in os.listdir(os.path.join(ddir,output_sub))
         if re.match(output_regex,fi)]
@@ -255,24 +238,6 @@ def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     #-- set the permissions level of the output date and index files to MODE
     os.chmod(os.path.join(ddir,output_sub,output_date_file), MODE)
     os.chmod(os.path.join(ddir,output_sub,output_index_file), MODE)
-
-#-- PURPOSE: read ECCO invariant grid file
-def ncdf_invariant(invariant_file,**kwargs):
-    #-- output dictionary with invariant parameters
-    invariant = {}
-    #-- open netCDF4 file for reading
-    with netCDF4.Dataset(os.path.expanduser(invariant_file),'r') as fileID:
-        #-- extract latitude, longitude, depth, area and valid mask
-        for key,val in kwargs.items():
-            invariant[key] = fileID.variables[val][:].copy()
-    #-- return the invariant parameters
-    return invariant
-
-#-- PURPOSE: read geoid height netCDF4 files
-def ncdf_geoid(FILENAME):
-    with netCDF4.Dataset(FILENAME,'r') as fileID:
-        geoid_undulation = fileID.variables['geoid'][:,:,:].copy()
-    return geoid_undulation
 
 #-- PURPOSE: read load love numbers for the range of spherical harmonic degrees
 def load_love_numbers(LMAX, LOVE_NUMBERS=0, REFERENCE='CF'):
@@ -333,33 +298,41 @@ def load_love_numbers(LMAX, LOVE_NUMBERS=0, REFERENCE='CF'):
     #-- return a tuple of load love numbers
     return (hl,kl,ll)
 
-#-- Main program that calls ecco_llc_tile_harmonics()
+#-- Main program that calls era5_monthly_harmonics()
 def main():
     #-- Read the system arguments listed after the program
     parser = argparse.ArgumentParser(
-        description="""Reads monthly ECCO ocean bottom pressure
-            anomalies from LLC tiles and converts to spherical harmonic
-            coefficients
+        description="""Reads monthly ERA5 surface mass balance
+            anomalies and converts to spherical harmonic coefficients
             """,
         fromfile_prefix_chars="@"
     )
     parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
     #-- command line parameters
-    parser.add_argument('model',
-        metavar='MODEL', type=str, nargs='+',
-        default=['V5alpha'],
-        choices=['V4r4','V5alpha'],
-        help='ECCO Version 4 or 5 Model')
     #-- working data directory
     parser.add_argument('--directory','-D',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         default=os.getcwd(),
         help='Working data directory')
+    #-- start and end years to run for mean
+    parser.add_argument('--mean',
+        metavar=('START','END'), type=int, nargs=2,
+        default=[1980,1995],
+        help='Start and end year range for mean')
     #-- years to run
-    now = gravity_toolkit.time.datetime.datetime.now()
+    now = datetime.datetime.now()
     parser.add_argument('--year','-Y',
         type=int, nargs='+', default=range(2000,now.year+1),
         help='Years of model outputs to run')
+    #-- region name for subdirectory
+    parser.add_argument('--region','-R',
+        type=str, default=None,
+        help='Region name for subdirectory')
+    #-- mask file for reducing to regions
+    parser.add_argument('--mask',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        nargs='+', default=[],
+        help='netCDF4 masks file for reducing to regions')
     #-- maximum spherical harmonic degree and order
     parser.add_argument('--lmax','-l',
         type=int, default=60,
@@ -379,10 +352,10 @@ def main():
     parser.add_argument('--reference',
         type=str.upper, default='CF', choices=['CF','CM','CE'],
         help='Reference frame for load Love numbers')
-    #-- Output data format (ascii, netCDF4, HDF5)
+    #-- input and output data format (ascii, netCDF4, HDF5)
     parser.add_argument('--format','-F',
         type=str, default='netCDF4', choices=['ascii','netCDF4','HDF5'],
-        help='Output data format')
+        help='Input and output data format')
     #-- print information about each input and output file
     parser.add_argument('--verbose','-V',
         default=False, action='store_true',
@@ -393,13 +366,11 @@ def main():
         help='Permission mode of directories and files')
     args,_ = parser.parse_known_args()
 
-    #-- for each ECCO model
-    for MODEL in args.model:
-        #-- run program
-        ecco_llc_tile_harmonics(args.directory, MODEL, args.year,
-            LMAX=args.lmax, MMAX=args.mmax, LOVE_NUMBERS=args.love,
-            REFERENCE=args.reference, DATAFORM=args.format,
-            VERBOSE=args.verbose, MODE=args.mode)
+    #-- run program with parameters
+    era5_smb_harmonics(args.directory, args.year, RANGE=args.mean,
+        REGION=args.region, MASKS=args.mask, LMAX=args.lmax, MMAX=args.mmax,
+        LOVE_NUMBERS=args.love, REFERENCE=args.reference,
+        DATAFORM=args.format, VERBOSE=args.verbose, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

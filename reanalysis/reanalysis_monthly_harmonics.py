@@ -75,6 +75,7 @@ REFERENCES:
 
 UPDATE HISTORY:
     Updated 10/2021: using python logging for handling verbose output
+        use output harmonic file wrapper routine to write to file
     Updated 09/2021: use GRACE/GRACE-FO month to calendar month converters
     Updated 07/2021: can use input files to define command line arguments
         added check for ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
@@ -328,17 +329,7 @@ def reanalysis_monthly_harmonics(base_dir, MODEL, YEARS, RANGE=None,
             #-- output data to file
             args = (MODEL.upper(),LMAX,order_str,Ylms.month,suffix[DATAFORM])
             FILE = output_file_format.format(*args)
-            #-- output data for month
-            logging.info(os.path.join(ddir,output_sub,FILE))
-            if (DATAFORM == 'ascii'):
-                #-- ascii (.txt)
-                Ylms.to_ascii(os.path.join(ddir,output_sub,FILE))
-            elif (DATAFORM == 'netCDF4'):
-                #-- netcdf (.nc)
-                Ylms.to_netCDF4(os.path.join(ddir,output_sub,FILE))
-            elif (DATAFORM == 'HDF5'):
-                #-- HDF5 (.H5)
-                Ylms.to_HDF5(os.path.join(ddir,output_sub,FILE))
+            Ylms.to_file(os.path.join(ddir,output_sub,FILE),format=DATAFORM)
             #-- set the permissions level of the output file to MODE
             os.chmod(os.path.join(ddir,output_sub,FILE), MODE)
 
@@ -349,8 +340,6 @@ def reanalysis_monthly_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     output_files = [fi for fi in os.listdir(os.path.join(ddir,output_sub))
         if re.match(output_regex,fi)]
     for fi in sorted(output_files):
-        #-- full path to output file
-        full_output_file = os.path.join(ddir,output_sub,fi)
         #-- extract GRACE month
         grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int64)
         YY,MM = gravity_toolkit.time.grace_to_calendar(grace_month)
@@ -377,6 +366,7 @@ def ncdf_mean_pressure(FILENAME,VARNAME,LONNAME,LATNAME):
     return (mean_pressure,longitude,latitude)
 
 #-- PURPOSE: extract pressure variable from a 4d netCDF4 dataset
+#-- ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
 def ncdf_expver(fileID, VARNAME):
     ntime,nexp,nlat,nlon = fileID.variables[VARNAME].shape
     fill_value = fileID.variables[VARNAME]._FillValue
