@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-cds_reanalysis_retrieve.py (07/2021)
+cds_reanalysis_retrieve.py (10/2021)
 Retrieves ERA5 reanalysis netCDF4 datasets from the CDS Web API
 https://cds.climate.copernicus.eu/user/register
 https://cds.climate.copernicus.eu/cdsapp/#!/terms/licence-to-use-copernicus-products
@@ -20,8 +20,13 @@ COMMAND LINE OPTIONS:
     -K X, --api-key: CDS api key
     -D X, --directory X: Working data directory
     -Y X, --year X: Year to retrieve
-    -I, --invariant: Retrieve the model invariant parameters
+    -S X, --surface X: Retrieve model surface variables
+        MSL: mean sea level pressure field
+        SP: surface pressure field
+        T2m: 2-metre temperature field
+        P-E: precipitation and evaporation fields
     -L, --level: Retrieve the model level variables
+    -I, --invariant: Retrieve the model invariant parameters
     -t X, --timeout X: Timeout in seconds for blocking operations
     -M X, --mode X: Permissions mode of the directories and files
 
@@ -30,6 +35,7 @@ PYTHON DEPENDENCIES:
         https://pypi.org/project/cdsapi/
 
 UPDATE HISTORY:
+    Updated 10/2021: added option to retrieve specific surface variables
     Updated 07/2021: added option for retrieving the model level variables
     Updated 05/2021: added option for connection timeout (in seconds)
     Updated 03/2021: added mean sea level pressure (msl) field as output
@@ -52,12 +58,32 @@ import argparse
 
 #-- PURPOSE: retrieve ERA5 level data for a set of years from CDS server
 def cds_reanalysis_retrieve(base_dir, server, YEAR,
-    LEVEL=False, INVARIANT=True, MODE=0o775):
+    SURFACE=[],
+    LEVEL=False,
+    INVARIANT=True,
+    MODE=0o775):
     #-- parameters for ERA5 dataset
     MODEL = 'ERA5'
     model_class = "ea"
     model_dataset = "era5"
     model_grid = "0.25/0.25"
+    #-- surface variables
+    surface_variable_dict = {}
+    #-- mean sea level pressure field
+    surface_variable_dict['MSL'] = 'mean_sea_level_pressure'
+    #-- surface pressure field
+    surface_variable_dict['SP'] = 'surface_pressure'
+    #-- 2-metre temperature field
+    surface_variable_dict['T2m'] = '2m_temperature'
+    #-- precipitation and evaporation fields
+    surface_variable_dict['P-E'] = [
+        'total_precipitation',
+        'convective_precipitation',
+        'large_scale_precipitation',
+        'snowfall',
+        'evaporation'
+        ]
+    #-- model levels
     model_levelist = "/".join(['{0:d}'.format(l) for l in range(1,137+1)])
     #-- output filename structure
     output_filename = "{0}-Monthly-{1}-{2:4d}.nc"
@@ -72,47 +98,20 @@ def cds_reanalysis_retrieve(base_dir, server, YEAR,
         #-- monthly dates to retrieve
         d = "/".join(['{0:4d}{1}{2:02d}'.format(y,m,1) for m in months])
 
-        #-- retrieve the 2-metre temperature field
-        output_temperature_file = output_filename.format(MODEL,"T2m",y)
-        server.retrieve('reanalysis-era5-single-levels-monthly-means', {
-            "year": str(y),
-            'month': months,
-            'time': '00:00',
-            "grid": model_grid,
-            'variable': '2m_temperature',
-            "format" : "netcdf",
-            'product_type': 'monthly_averaged_reanalysis',
-        }, os.path.join(ddir,output_temperature_file))
-        #-- change the permissions mode to MODE
-        os.chmod(os.path.join(ddir,output_temperature_file), MODE)
-
-        #-- retrieve the surface pressure field
-        output_surface_file = output_filename.format(MODEL,"SP",y)
-        server.retrieve('reanalysis-era5-single-levels-monthly-means', {
-            "year": str(y),
-            'month': months,
-            'time': '00:00',
-            "grid": model_grid,
-            'variable': 'surface_pressure',
-            "format" : "netcdf",
-            'product_type': 'monthly_averaged_reanalysis',
-        }, os.path.join(ddir,output_surface_file))
-        #-- change the permissions mode to MODE
-        os.chmod(os.path.join(ddir,output_surface_file), MODE)
-
-        #-- retrieve the mean sea level pressure field
-        output_pressure_file = output_filename.format(MODEL,"MSL",y)
-        server.retrieve('reanalysis-era5-single-levels-monthly-means', {
-            "year": str(y),
-            'month': months,
-            'time': '00:00',
-            "grid": model_grid,
-            'variable': 'mean_sea_level_pressure',
-            "format" : "netcdf",
-            'product_type': 'monthly_averaged_reanalysis',
-        }, os.path.join(ddir,output_pressure_file))
-        #-- change the permissions mode to MODE
-        os.chmod(os.path.join(ddir,output_pressure_file), MODE)
+        #-- for each surface variable to retrieve
+        for surf in SURFACE:
+            output_surface_file = output_filename.format(MODEL,surf,y)
+            server.retrieve('reanalysis-era5-single-levels-monthly-means', {
+                "year": str(y),
+                'month': months,
+                'time': '00:00',
+                "grid": model_grid,
+                'variable': surface_variable_dict[surf],
+                "format" : "netcdf",
+                'product_type': 'monthly_averaged_reanalysis',
+            }, os.path.join(ddir,output_surface_file))
+            #-- change the permissions mode to MODE
+            os.chmod(os.path.join(ddir,output_surface_file), MODE)
 
         #-- if retrieving the model level data
         if LEVEL:
@@ -186,6 +185,15 @@ def main():
     parser.add_argument('--year','-Y',
         type=int, nargs='+', default=range(2000,now.tm_year+1),
         help='Model years to retrieve')
+    #-- retrieve model surface variables
+    #-- MSL: mean sea level pressure field
+    #-- SP: surface pressure field
+    #-- T2m: 2-metre temperature field
+    #-- P-E: Precipitation and Evaporation fields
+    choices = ['MSL','SP','T2m','P-E']
+    parser.add_argument('--surface','-S',
+        type=str, nargs='+', choices=choices, default=['SP'],
+        help='Retrieve model surface variables')
     #-- retrieve the model level variables
     parser.add_argument('--level','-L',
         default=False, action='store_true',
@@ -209,7 +217,10 @@ def main():
         timeout=args.timeout)
     #-- run program for ERA5
     cds_reanalysis_retrieve(args.directory, server, args.year,
-        LEVEL=args.level, INVARIANT=args.invariant, MODE=args.mode)
+        SURFACE=args.surface,
+        LEVEL=args.level,
+        INVARIANT=args.invariant,
+        MODE=args.mode)
     #-- close connection with CDS api server
     server = None
 
