@@ -224,6 +224,7 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
     os.chmod(os.path.join(ddir,FILE),MODE)
 
 #-- PURPOSE: extract pressure variable from a 4d netCDF4 dataset
+#-- ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
 def ncdf_expver(fileID, VARNAME):
     ntime,nexp,nlat,nlon = fileID.variables[VARNAME].shape
     fill_value = fileID.variables[VARNAME]._FillValue

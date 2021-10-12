@@ -238,7 +238,6 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
         #-- output spherical harmonic data file
         args=(MOD,PRODUCT,LMAX,order_str,merra_Ylms.month,suffix[DATAFORM])
         FILE='MERRA2_{0}_tavgM_2d_{1}_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
-        logging.info(os.path.join(ddir,output_sub,FILE))
         merra_Ylms.to_file(os.path.join(ddir,output_sub,FILE),
             format=DATAFORM, title=merra_products[PRODUCT])
         #-- change the permissions mode of the output file to MODE

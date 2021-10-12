@@ -65,11 +65,35 @@ def read_era5_variables(era5_flux_file):
             epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0) + 2400000.5
         #-- read each variable of interest in ERA5 flux file
         for key in ['tp','e']:
-            #-- Getting the data from each NetCDF variable of interest
-            dinput[key] = np.ma.array(fileID.variables[key][:].squeeze(),
-                fill_value=fileID.variables[key]._FillValue)
+                #-- Getting the data from each NetCDF variable of interest
+            #-- check dimensions for expver slice
+            if (fileID.variables[key].ndim == 4):
+                dinput[key] = ncdf_expver(fileID, key)
+            else:
+                dinput[key] = np.ma.array(fileID.variables[key][:].squeeze(),
+                    fill_value=fileID.variables[key]._FillValue)
             dinput[key].mask = (dinput[key].data == dinput[key].fill_value)
+    #-- return the output variables
     return dinput
+
+#-- PURPOSE: extract variable from a 4d netCDF4 dataset
+#-- ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
+def ncdf_expver(fileID, VARNAME):
+    ntime,nexp,nlat,nlon = fileID.variables[VARNAME].shape
+    fill_value = fileID.variables[VARNAME]._FillValue
+    #-- reduced output
+    output = np.ma.zeros((ntime,nlat,nlon))
+    output.fill_value = fill_value
+    for t in range(ntime):
+        #-- iterate over expver slices to find valid outputs
+        for j in range(nexp):
+            #-- check if any are valid for expver
+            if np.any(fileID.variables[VARNAME][t,j,:,:]):
+                output[t,:,:] = fileID.variables[VARNAME][t,j,:,:]
+    #-- update mask variable
+    output.mask = (output.data == output.fill_value)
+    #-- return the reduced output variable
+    return output
 
 #-- PURPOSE: read monthly ERA5 datasets to calculate multi-annual means
 def era5_smb_mean(DIRECTORY,
@@ -103,6 +127,7 @@ def era5_smb_mean(DIRECTORY,
         #-- full path for flux file
         f1 = 'ERA5-Monthly-P-E-{0:4d}.nc'.format(Y)
         era5_flux_file = os.path.join(DIRECTORY,f1)
+        logging.info(era5_flux_file)
         if not os.access(era5_flux_file,os.F_OK):
             raise Exception('File {0} not in file system'.format(f1))
         #-- read netCDF4 files for variables of interest

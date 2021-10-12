@@ -94,7 +94,7 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     cumul_sub = 'ERA5-Cumul-P-E-{0:4d}-{1:4d}'.format(*RANGE)
     #-- Creating output subdirectory if it doesn't exist
     prefix = '{0}_'.format(REGION) if REGION else ''
-    output_sub = '{0}ERA5_CUMUL_P-E_CLM_L{2:d}'.format(prefix,LMAX)
+    output_sub = '{0}ERA5_CUMUL_P-E_CLM_L{1:d}'.format(prefix,LMAX)
     if (not os.access(os.path.join(ddir,output_sub), os.F_OK)):
         os.makedirs(os.path.join(ddir,output_sub),MODE)
     #-- output data file format and title
@@ -113,7 +113,7 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     dlon,dlat = (0.25,0.25)
     #-- latitude and longitude
     glon = np.arange(extent[0],extent[1]+dlon,dlon)
-    glat = np.arange(extent[2],extent[3]+dlat,dlat)
+    glat = np.arange(extent[3],extent[2]-dlat,-dlat)
     #-- create mesh grid of latitude and longitude
     gridlon,gridlat = np.meshgrid(glon,glat)
 
@@ -156,8 +156,8 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     PLM,dPLM = plm_holmes(LMAX,np.cos(theta))
 
     #-- find input files from era5_smb_cumulative.py
-    regex_years = r'\d+' if (YEARS is None) else '|'.join(map(str,YEARS))
-    rx = re.compile(r'ERA5\-Monthly\-P-E\-({4})\.nc$'.format(regex_years))
+    regex_years = r'\d{4}' if (YEARS is None) else '|'.join(map(str,YEARS))
+    rx = re.compile(r'ERA5\-Cumul\-P-E\-({0})\.nc$'.format(regex_years))
     #-- will be out of order for 2020 due to September reprocessing
     FILES = sorted([fi for fi in os.listdir(os.path.join(ddir,cumul_sub))
         if rx.match(fi)])
@@ -165,7 +165,7 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     #-- for each input file
     for t,fi in enumerate(FILES):
         #-- extract parameters from input flux file
-        Y1, = rx.findall(fi).pop()
+        Y1, = rx.findall(fi)
         #-- read data file for data format
         if (DATAFORM == 'ascii'):
             #-- ascii (.txt)
@@ -174,11 +174,11 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
         elif (DATAFORM == 'netCDF4'):
             #-- netCDF4 (.nc)
             era5_data = spatial().from_netCDF4(os.path.join(ddir,cumul_sub,fi),
-                varname='SMB', verbose=VERBOSE)
+                varname='SMB')
         elif (DATAFORM == 'HDF5'):
             #-- HDF5 (.H5)
             era5_data = spatial().from_HDF5(os.path.join(ddir,cumul_sub,fi),
-                varname='SMB', verbose=VERBOSE)
+                varname='SMB')
 
         #-- if reducing to a region of interest before converting to harmonics
         if np.any(input_mask):
@@ -191,7 +191,7 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
         #-- for each month of data
         for i,t in enumerate(era5_data.time):
             #-- convert to spherical harmonics from m w.e.
-            era5_mmwe = era5_data.index(i).scale(1.0/1000.0)
+            era5_mmwe = era5_data.index(i).scale(1000.0)
             era5_Ylms = gen_stokes(era5_mmwe.data, glon,
                 latitude_geocentric[:,0], LMAX=LMAX, MMAX=MMAX,
                 UNITS=3, PLM=PLM, LOVE=LOVE)
@@ -201,7 +201,6 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
             #-- output spherical harmonic data file
             args=(LMAX,order_str,era5_Ylms.month,suffix[DATAFORM])
             FILE='ERA5_CUMUL_P-E_CLM_L{0:d}{1}_{2:03d}.{3}'.format(*args)
-            logging.info(os.path.join(ddir,output_sub,FILE))
             era5_Ylms.to_file(os.path.join(ddir,output_sub,FILE),
                 format=DATAFORM, title=output_file_title)
             #-- change the permissions mode of the output file to MODE

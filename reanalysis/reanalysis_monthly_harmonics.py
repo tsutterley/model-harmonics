@@ -329,7 +329,6 @@ def reanalysis_monthly_harmonics(base_dir, MODEL, YEARS, RANGE=None,
             #-- output data to file
             args = (MODEL.upper(),LMAX,order_str,Ylms.month,suffix[DATAFORM])
             FILE = output_file_format.format(*args)
-            logging.info(os.path.join(ddir,output_sub,FILE))
             Ylms.to_file(os.path.join(ddir,output_sub,FILE),format=DATAFORM)
             #-- set the permissions level of the output file to MODE
             os.chmod(os.path.join(ddir,output_sub,FILE), MODE)
@@ -367,6 +366,7 @@ def ncdf_mean_pressure(FILENAME,VARNAME,LONNAME,LATNAME):
     return (mean_pressure,longitude,latitude)
 
 #-- PURPOSE: extract pressure variable from a 4d netCDF4 dataset
+#-- ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
 def ncdf_expver(fileID, VARNAME):
     ntime,nexp,nlat,nlon = fileID.variables[VARNAME].shape
     fill_value = fileID.variables[VARNAME]._FillValue

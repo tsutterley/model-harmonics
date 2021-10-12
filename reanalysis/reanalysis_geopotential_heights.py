@@ -262,6 +262,7 @@ def calculate_specific_humidity(P, T, RH):
 
 #-- PURPOSE: extract temperature and specific humidity variables
 #-- from a 5d netCDF4 dataset
+#-- ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
 def ncdf_expver(fileID, slice, TNAME, QNAME):
     ntime,nexp,nlevel,nlat,nlon = fileID.variables[TNAME].shape
     fill_value = fileID.variables[TNAME]._FillValue

@@ -315,7 +315,6 @@ def reanalysis_atmospheric_harmonics(base_dir, MODEL, YEARS, RANGE=None,
             #-- output data to file
             args = (MODEL.upper(),LMAX,order_str,Ylms.month,suffix[DATAFORM])
             FILE = output_file_format.format(*args)
-            logging.info(os.path.join(ddir,output_sub,FILE))
             Ylms.to_file(os.path.join(ddir,output_sub,FILE),format=DATAFORM)
             #-- set the permissions level of the output file to MODE
             os.chmod(os.path.join(ddir,output_sub,FILE), MODE)

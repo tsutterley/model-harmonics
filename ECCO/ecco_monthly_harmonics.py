@@ -241,7 +241,6 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
         #-- output spherical harmonic data file
         args = (MODEL, LMAX, order_str, obp_Ylms.month, suffix[DATAFORM])
         FILE = output_file_format.format(*args)
-        logging.info(os.path.join(ddir,output_sub,FILE))
         obp_Ylms.to_file(os.path.join(ddir,output_sub,FILE),format=DATAFORM)
         #-- change the permissions mode of the output file to MODE
         os.chmod(os.path.join(ddir,output_sub,FILE),MODE)

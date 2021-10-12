@@ -67,10 +67,34 @@ def read_era5_variables(era5_flux_file):
         #-- read each variable of interest in ERA5 flux file
         for key in ['tp','e']:
             #-- Getting the data from each NetCDF variable of interest
-            dinput[key] = np.ma.array(fileID.variables[key][:].squeeze(),
-                fill_value=fileID.variables[key]._FillValue)
+            #-- check dimensions for expver slice
+            if (fileID.variables[key].ndim == 4):
+                dinput[key] = ncdf_expver(fileID, key)
+            else:
+                dinput[key] = np.ma.array(fileID.variables[key][:].squeeze(),
+                    fill_value=fileID.variables[key]._FillValue)
             dinput[key].mask = (dinput[key].data == dinput[key].fill_value)
+    #-- return the output variables
     return dinput
+
+#-- PURPOSE: extract variable from a 4d netCDF4 dataset
+#-- ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
+def ncdf_expver(fileID, VARNAME):
+    ntime,nexp,nlat,nlon = fileID.variables[VARNAME].shape
+    fill_value = fileID.variables[VARNAME]._FillValue
+    #-- reduced output
+    output = np.ma.zeros((ntime,nlat,nlon))
+    output.fill_value = fill_value
+    for t in range(ntime):
+        #-- iterate over expver slices to find valid outputs
+        for j in range(nexp):
+            #-- check if any are valid for expver
+            if np.any(fileID.variables[VARNAME][t,j,:,:]):
+                output[t,:,:] = fileID.variables[VARNAME][t,j,:,:]
+    #-- update mask variable
+    output.mask = (output.data == output.fill_value)
+    #-- return the reduced output variable
+    return output
 
 #-- PURPOSE: read monthly ERA5 datasets to calculate cumulative anomalies
 def era5_smb_cumulative(DIRECTORY,
@@ -145,6 +169,7 @@ def era5_smb_cumulative(DIRECTORY,
         era5_flux_file = os.path.join(DIRECTORY,f1)
         Y1, = rx.findall(f1)
         #-- read netCDF4 files for variables of interest
+        logging.info(era5_flux_file)
         var = read_era5_variables(era5_flux_file)
         #-- output yearly cumulative mass anomalies
         output = gravity_toolkit.spatial(nlat=nlat,nlon=nlon,
@@ -153,8 +178,8 @@ def era5_smb_cumulative(DIRECTORY,
         output.lon = np.copy(era5_mean.lon)
         #-- output data, mask and time
         nt = len(var['time'])
-        output.data = np.zeros((nt,nlat,nlon))
-        output.mask = np.zeros((nt,nlat,nlon),dtype=bool)
+        output.data = np.zeros((nlat,nlon,nt))
+        output.mask = np.zeros((nlat,nlon,nt),dtype=bool)
         output.time = np.zeros((nt))
         #-- for each month of data
         for i,t in enumerate(var['time']):
@@ -186,8 +211,8 @@ def era5_smb_cumulative(DIRECTORY,
             cumul.mask |= dinput.mask
             cumul.update_mask()
             #-- copy variables to output yearly data
-            output.data[i,:,:] = np.copy(cumul.data)
-            output.mask[i,:,:] = np.copy(cumul.mask)
+            output.data[:,:,i] = np.copy(cumul.data)
+            output.mask[:,:,i] = np.copy(cumul.mask)
             output.time[i] = np.copy(dinput.time)
 
         #-- output ERA5 cumulative data file
