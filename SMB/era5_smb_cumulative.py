@@ -5,6 +5,9 @@ Written by Tyler Sutterley (10/2021)
 Reads ERA5 datafiles to calculate monthly cumulative anomalies
     in derived surface mass balance products
 
+ERA5 conversion table for accumulated variables
+https://confluence.ecmwf.int/pages/viewpage.action?pageId=197702790
+
 COMMAND LINE OPTIONS:
     -D X, --directory X: working data directory
     -m X, --mean X: Year range for mean
@@ -168,6 +171,8 @@ def era5_smb_cumulative(DIRECTORY,
         #-- full path for flux files
         era5_flux_file = os.path.join(DIRECTORY,f1)
         Y1, = rx.findall(f1)
+        #-- days per month in year
+        dpm = gravity_toolkit.time.calendar_days(int(Y1))
         #-- read netCDF4 files for variables of interest
         logging.info(era5_flux_file)
         var = read_era5_variables(era5_flux_file)
@@ -202,8 +207,9 @@ def era5_smb_cumulative(DIRECTORY,
             #-- valid indices for all variables
             indy,indx = np.nonzero(np.logical_not(dinput.mask))
             #-- calculate "SMB" as precipitation minus evaporation
+            #-- multiply by number of days to get total per month
             for key in ['tp','e']:
-                dinput.data[indy,indx] += var[key][i,indy,indx]
+                dinput.data[indy,indx] += dpm[i]*var[key][i,indy,indx]
             #-- update masks
             dinput.update_mask()
             #-- subtract mean and add to cumulative anomalies
