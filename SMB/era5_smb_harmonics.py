@@ -166,6 +166,7 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     for t,fi in enumerate(FILES):
         #-- extract parameters from input flux file
         Y1, = rx.findall(fi)
+        calendar_year = int(Y1)
         #-- read data file for data format
         if (DATAFORM == 'ascii'):
             #-- ascii (.txt)
@@ -190,6 +191,8 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
 
         #-- for each month of data
         for i,t in enumerate(era5_data.time):
+            #-- calendar month from indice
+            calendar_month = i+1
             #-- convert to spherical harmonics from m w.e.
             era5_mmwe = era5_data.index(i).scale(1000.0)
             era5_Ylms = gen_stokes(era5_mmwe.data, glon,
@@ -197,7 +200,8 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
                 UNITS=3, PLM=PLM, LOVE=LOVE)
             #-- copy date information
             era5_Ylms.time = np.copy(era5_mmwe.time)
-            era5_Ylms.month = np.copy(era5_mmwe.month)
+            era5_Ylms.month = gravity_toolkit.time.calendar_to_grace(
+                calendar_year,calendar_month)
             #-- output spherical harmonic data file
             args=(LMAX,order_str,era5_Ylms.month,suffix[DATAFORM])
             FILE='ERA5_CUMUL_P-E_CLM_L{0:d}{1}_{2:03d}.{3}'.format(*args)
