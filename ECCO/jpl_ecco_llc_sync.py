@@ -106,7 +106,7 @@ def jpl_ecco_llc_sync(ddir, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
         today = time.strftime('%Y-%m-%d',time.localtime())
         args = (MODEL,PRODUCT,today)
         LOGFILE = 'JPL_ECCO_{0}_{1}_{2}.log'.format(*args)
-        logging.basicConfig(file=os.path.join(DIRECTORY,LOGFILE),
+        logging.basicConfig(filename=os.path.join(DIRECTORY,LOGFILE),
             level=logging.INFO)
         logging.info('ECCO LLC {0} {1} Sync Log ({2})'.format(*args))
     else:
