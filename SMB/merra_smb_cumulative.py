@@ -15,7 +15,10 @@ From tavgM_2d_glc (Land Ice Surface Diagnostics) collection:
 
 INPUTS:
     SMB: Surface Mass Balance
+    ACCUM: Snowfall accumulation
     PRECIP: Total Precipitation
+    RAINFALL: Total Rainfall
+    SUBLIM: Evaporation and Sublimation
     RUNOFF: Meltwater Runoff
 
 COMMAND LINE OPTIONS:
@@ -49,6 +52,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 10/2021: using python logging for handling verbose output
+        add more derived products and include sublimation and condensation
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
         sort files by month as September 2020 was reprocessed
         https://daac.gsfc.nasa.gov/information/alerts
@@ -94,7 +98,7 @@ def read_merra_variables(merra_flux_file, merra_ice_surface_file):
             dinput[key].mask = (dinput[key].data == dinput[key].fill_value)
     #-- read each variable of interest in MERRA-2 ice surface file
     with netCDF4.Dataset(merra_ice_surface_file, 'r') as fid2:
-        for key in ['RUNOFF']:
+        for key in ['RUNOFF','WESNSC']:
             #-- Getting the data from each NetCDF variable of interest
             dinput[key] = np.ma.array(fid2.variables[key][:].squeeze(),
                 fill_value=fid2.variables[key]._FillValue)
@@ -121,12 +125,25 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     #-- regular expression operator to find datafiles (and not the xml files)
     regex_pattern = 'MERRA2_(\d+).{0}.(\d{{4}})(\d{{2}}).nc4(?!.xml)'
     #-- sign for each product to calculate total SMB
-    smb_sign = {'PRECCU':1.0,'PRECLS':1.0,'PRECSN':1.0,'EVAP':1.0,'RUNOFF':-1.0}
+    smb_sign = {'PRECCU':1.0,'PRECLS':1.0,'PRECSN':1.0,'EVAP':-1.0,
+        'RUNOFF':-1.0,'WESNSC':1.0}
     #-- titles for each output data product
     merra_products = {}
     merra_products['SMB'] = 'MERRA-2 Surface Mass Balance'
+    merra_products['ACCUM'] = 'MERRA-2 Snowfall accumulation'
     merra_products['PRECIP'] = 'MERRA-2 Precipitation'
+    merra_products['RAINFALL'] = 'MERRA-2 Rainfall'
+    merra_products['SUBLIM'] = 'MERRA-2 Evaporation and Sublimation'
     merra_products['RUNOFF'] = 'MERRA-2 Meltwater Runoff'
+    #-- source of each output data product
+    merra_sources = {}
+    merra_sources['SMB'] = ['PRECCU','PRECLS','PRECSN','EVAP','RUNOFF','WESNSC']
+    merra_sources['ACCUM'] = ['PRECSN','EVAP']
+    merra_sources['PRECIP'] = ['PRECCU','PRECLS','PRECSN']
+    merra_sources['RAINFALL'] = ['PRECCU','PRECLS']
+    merra_sources['SUBLIM'] = ['EVAP','WESNSC']
+    merra_sources['RUNOFF'] = ['RUNOFF']
+    merra_reference = ', '.join(merra_sources[PRODUCT])
     #-- output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
     #-- output bad value
@@ -211,24 +228,39 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
             #-- output data and mask
             dinput.data = np.zeros((nlat,nlon))
             dinput.mask = np.zeros((nlat,nlon),dtype=bool)
-            for key in ['PRECCU','PRECLS','PRECSN','EVAP','RUNOFF']:
-                dinput.mask |= var[key].mask
+            for p in ['PRECCU','PRECLS','PRECSN','EVAP','RUNOFF','WESNSC']:
+                dinput.mask |= var[p].mask
             #-- valid indices for all variables
             indy,indx = np.nonzero(np.logical_not(dinput.mask))
             if (PRODUCT == 'SMB'):
                 #-- calculate SMB and convert from flux to monthly
-                for key in ['PRECCU','PRECLS','PRECSN','EVAP','RUNOFF']:
-                    tmp = var[key][indy,indx]*seconds*smb_sign[key]
+                for p in ['PRECCU','PRECLS','PRECSN','EVAP','RUNOFF','WESNSC']:
+                    tmp = var[p][indy,indx]*seconds*smb_sign[p]
+                    dinput.data[indy,indx] += tmp
+            elif (PRODUCT == 'ACCUM'):
+                #-- calculate accumulation and convert from flux to monthly
+                for p in ['PRECSN','EVAP','WESNSC']:
+                    tmp = var[p][indy,indx]*seconds*smb_sign[p]
                     dinput.data[indy,indx] += tmp
             elif (PRODUCT == 'PRECIP'):
                 #-- calculate precipitation and convert from flux to monthly
-                for key in ['PRECCU','PRECLS','PRECSN']:
-                    tmp = var[key][indy,indx]*seconds
+                for p in ['PRECCU','PRECLS','PRECSN']:
+                    tmp = var[p][indy,indx]*seconds
+                    dinput.data[indy,indx] += tmp
+            elif (PRODUCT == 'RAINFALL'):
+                #-- calculate rainfall and convert from flux to monthly
+                for p in ['PRECCU','PRECLS']:
+                    tmp = var[p][indy,indx]*seconds
+                    dinput.data[indy,indx] += tmp
+            elif (PRODUCT == 'SUBLIM'):
+                #-- calculate sublimation and convert from flux to monthly
+                for p in ['EVAP','WESNSC']:
+                    tmp = var[p][indy,indx]*seconds
                     dinput.data[indy,indx] += tmp
             elif (PRODUCT == 'RUNOFF'):
                 #-- convert runoff from flux to monthly
-                for key in ['RUNOFF']:
-                    tmp = var[key][indy,indx]*seconds
+                for p in ['RUNOFF']:
+                    tmp = var[p][indy,indx]*seconds
                     dinput.data[indy,indx] += tmp
             #-- update masks
             dinput.update_mask()
@@ -249,13 +281,17 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
                 cumul.to_netCDF4(os.path.join(DIRECTORY,cumul_sub,FILE),
                     varname=PRODUCT, UNITS='mm w.e.',
                     LONGNAME='Equivalent_Water_Thickness',
-                    TITLE=merra_products[PRODUCT], verbose=VERBOSE)
+                    TITLE=merra_products[PRODUCT],
+                    REFERENCE=merra_reference,
+                    verbose=VERBOSE)
             elif (DATAFORM == 'HDF5'):
                 #-- HDF5 (.H5)
                 cumul.to_HDF5(os.path.join(DIRECTORY,cumul_sub,FILE),
                     varname=PRODUCT, UNITS='mm w.e.',
                     LONGNAME='Equivalent_Water_Thickness',
-                    TITLE=merra_products[PRODUCT], verbose=VERBOSE)
+                    TITLE=merra_products[PRODUCT],
+                    REFERENCE=merra_reference,
+                    verbose=VERBOSE)
             #-- change the permissions mode
             os.chmod(os.path.join(DIRECTORY,cumul_sub,FILE), MODE)
 
@@ -269,8 +305,9 @@ def main():
             """
     )
     #-- command line parameters
+    choices = ['SMB','ACCUM','PRECIP','RAINFALL','SUBLIM','RUNOFF']
     parser.add_argument('product',
-        type=str, nargs='+', choices=['SMB','PRECIP','RUNOFF'],
+        type=str, nargs='+', choices=choices,
         help='MERRA-2 derived product')
     #-- working data directory
     parser.add_argument('--directory','-D',

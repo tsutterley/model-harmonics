@@ -9,7 +9,7 @@ Calling Sequence
 
 .. code-block:: bash
 
-    python merra_smb_harmonics.py --directory <path_to_directory> SMB PRECIP RUNOFF
+    python merra_smb_harmonics.py --directory <path_to_directory> SMB
 
 `Source code`__
 
@@ -19,7 +19,10 @@ Inputs
 ######
 
 - ``'SMB'``: Surface Mass Balance
-- ``'PRECIP'``: Precipitation
+- ``'ACCUM'``: Snowfall accumulation
+- ``'PRECIP'``: Total Precipitation
+- ``'RAINFALL'``: Total Rainfall
+- ``'SUBLIM'``: Evaporation and Sublimation
 - ``'RUNOFF'``: Meltwater Runoff
 
 Command Line Options
