@@ -10,7 +10,10 @@ Records%20of%20MERRA-2%20Data%20Reprocessing%20and%20Service%20Changes
 
 INPUTS:
     SMB: Surface Mass Balance
+    ACCUM: Snowfall accumulation
     PRECIP: Total Precipitation
+    RAINFALL: Total Rainfall
+    SUBLIM: Evaporation and Sublimation
     RUNOFF: Meltwater Runoff
 
 COMMAND LINE OPTIONS:
@@ -71,6 +74,7 @@ UPDATE HISTORY:
     Updated 10/2021: using python logging for handling verbose output
         added checks for previous versions of reprocessed files
         use output harmonic file wrapper routine to write to file
+        add more derived products
     Updated 09/2021: use GRACE/GRACE-FO month to calendar month converters
     Updated 08/2021: set all points to valid if not using masks
     Updated 07/2021: can use input files to define command line arguments
@@ -124,11 +128,23 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     output_sub = '{0}{1}_5.12.4_CUMUL_CLM_L{2:d}'.format(prefix,PRODUCT,LMAX)
     if (not os.access(os.path.join(ddir,output_sub), os.F_OK)):
         os.makedirs(os.path.join(ddir,output_sub),MODE)
-    #-- titles for each data product
+    #-- titles for each output data product
     merra_products = {}
     merra_products['SMB'] = 'MERRA-2 Surface Mass Balance'
+    merra_products['ACCUM'] = 'MERRA-2 Snowfall accumulation'
     merra_products['PRECIP'] = 'MERRA-2 Precipitation'
+    merra_products['RAINFALL'] = 'MERRA-2 Rainfall'
+    merra_products['SUBLIM'] = 'MERRA-2 Evaporation and Sublimation'
     merra_products['RUNOFF'] = 'MERRA-2 Meltwater Runoff'
+    #-- source of each output data product
+    merra_sources = {}
+    merra_sources['SMB'] = ['PRECCU','PRECLS','PRECSN','EVAP','RUNOFF','WESNSC']
+    merra_sources['ACCUM'] = ['PRECSN','EVAP']
+    merra_sources['PRECIP'] = ['PRECCU','PRECLS','PRECSN']
+    merra_sources['RAINFALL'] = ['PRECCU','PRECLS']
+    merra_sources['SUBLIM'] = ['EVAP','WESNSC']
+    merra_sources['RUNOFF'] = ['RUNOFF']
+    merra_reference = ', '.join(merra_sources[PRODUCT])
     #-- output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
 
@@ -239,7 +255,8 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
         args=(MOD,PRODUCT,LMAX,order_str,merra_Ylms.month,suffix[DATAFORM])
         FILE='MERRA2_{0}_tavgM_2d_{1}_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
         merra_Ylms.to_file(os.path.join(ddir,output_sub,FILE),
-            format=DATAFORM, title=merra_products[PRODUCT])
+            format=DATAFORM, title=merra_products[PRODUCT],
+            reference=merra_reference)
         #-- change the permissions mode of the output file to MODE
         os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 
@@ -346,8 +363,9 @@ def main():
     )
     parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
     #-- command line parameters
+    choices = ['SMB','ACCUM','PRECIP','RAINFALL','SUBLIM','RUNOFF']
     parser.add_argument('product',
-        type=str, nargs='+', choices=['SMB','PRECIP','RUNOFF'],
+        type=str, nargs='+', choices=choices,
         help='MERRA-2 derived product')
     #-- working data directory
     parser.add_argument('--directory','-D',

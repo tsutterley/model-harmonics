@@ -5,13 +5,16 @@ merra_smb_cumulative.py
 
 #### Calling Sequence
 ```bash
-python merra_smb_cumulative.py --directory <path_to_directory> SMB PRECIP RUNOFF
+python merra_smb_cumulative.py --directory <path_to_directory> SMB
 ```
 [Source code](https://github.com/tsutterley/model-harmonics/blob/main/SMB/merra_smb_cumulative.py)
 
 #### Inputs
 - `'SMB'`: Surface Mass Balance
-- `'PRECIP'`: Precipitation
+- `'ACCUM'`: Snowfall accumulation
+- `'PRECIP'`: Total Precipitation
+- `'RAINFALL'`: Total Rainfall
+- `'SUBLIM'`: Evaporation and Sublimation
 - `'RUNOFF'`: Meltwater Runoff
 
 #### Command Line Options

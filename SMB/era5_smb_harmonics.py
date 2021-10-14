@@ -100,6 +100,8 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     #-- output data file format and title
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
     output_file_title = 'ERA5 Precipitation minus Evaporation'
+    #-- source of each output data product
+    output_reference = ', '.join(['tp','e'])
 
     #-- upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
@@ -206,7 +208,8 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
             args=(LMAX,order_str,era5_Ylms.month,suffix[DATAFORM])
             FILE='ERA5_CUMUL_P-E_CLM_L{0:d}{1}_{2:03d}.{3}'.format(*args)
             era5_Ylms.to_file(os.path.join(ddir,output_sub,FILE),
-                format=DATAFORM, title=output_file_title)
+                format=DATAFORM, title=output_file_title,
+                reference=output_reference)
             #-- change the permissions mode of the output file to MODE
             os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 

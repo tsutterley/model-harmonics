@@ -109,6 +109,8 @@ def era5_smb_mean(DIRECTORY,
     loglevel = logging.INFO if VERBOSE else logging.CRITICAL
     logging.basicConfig(level=loglevel)
 
+    #-- sign for each product to calculate total SMB
+    smb_sign = {'tp':1.0,'e':-1.0}
     #-- output data file format and title
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
     output_file_title = 'ERA5 Precipitation minus Evaporation'
@@ -153,14 +155,14 @@ def era5_smb_mean(DIRECTORY,
             #-- output data and mask
             dinput.data = np.zeros((nlat,nlon))
             dinput.mask = np.zeros((nlat,nlon),dtype=bool)
-            for key in ['tp','e']:
-                dinput.mask |= var[key].mask[i,:,:]
+            for p in ['tp','e']:
+                dinput.mask |= var[p].mask[i,:,:]
             #-- valid indices for all variables
             indy,indx = np.nonzero(np.logical_not(dinput.mask))
             #-- calculate "SMB" as precipitation minus evaporation
             #-- multiply by number of days to get total per month
-            for key in ['tp','e']:
-                dinput.data[indy,indx] += dpm[i]*var[key][i,indy,indx]
+            for p in ['tp','e']:
+                dinput.data[indy,indx] += dpm[i]*var[p][i,indy,indx]*smb_sign[p]
             #-- update mask
             dinput.update_mask()
             #-- add monthly fluxes to total
