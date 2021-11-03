@@ -3,7 +3,7 @@ u"""
 merra_hybrid_harmonics.py
 Written by Tyler Sutterley (10/2021)
 Read MERRA-2 hybrid variables and converts to spherical harmonics
-    MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
+MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
 
 CALLING SEQUENCE:
     python merra_hybrid_harmonics.py --directory <path> --region gris \
@@ -102,9 +102,17 @@ def set_projection(REGION):
     return projection_flag
 
 #-- PURPOSE: read MERRA-2 hybrid SMB estimates and convert to spherical harmonics
-def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS, VERSION='v1',
-    MASKS=None, LMAX=None, MMAX=None, LOVE_NUMBERS=0, REFERENCE=None,
-    DATAFORM=None, GZIP=False, VERBOSE=False, MODE=0o775):
+def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
+    VERSION='v1',
+    MASKS=None,
+    LMAX=None,
+    MMAX=None,
+    LOVE_NUMBERS=0,
+    REFERENCE=None,
+    DATAFORM=None,
+    GZIP=False,
+    VERBOSE=False,
+    MODE=0o775):
 
     #-- create logger for verbosity level
     loglevel = logging.INFO if VERBOSE else logging.CRITICAL

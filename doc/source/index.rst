@@ -109,3 +109,5 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     user_guide/merra_smb_cumulative.md
     user_guide/merra_smb_mask.md
     user_guide/merra_smb_harmonics.rst
+    user_guide/racmo_smb_cumulative.md
+    user_guide/racmo_smb_harmonics.rst
