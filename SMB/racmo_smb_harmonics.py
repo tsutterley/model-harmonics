@@ -241,7 +241,7 @@ def racmo_smb_harmonics(model_file, VARIABLE,
     args = (VERSION,REGION,VARIABLE.upper(),LMAX,order_str,suffix[DATAFORM])
     FILE = '{0}_{1}_{2}_CLM_L{3:d}{4}.{5}'.format(*args)
     Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM,
-        date=True, description=racmo_products[VARIABLE])
+        date=True, title=racmo_products[VARIABLE])
     #-- change the permissions mode of the output file to MODE
     os.chmod(os.path.join(DIRECTORY,FILE),MODE)
 
