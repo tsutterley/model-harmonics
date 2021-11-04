@@ -3,7 +3,7 @@ u"""
 merra_hybrid_regrid.py
 Written by Tyler Sutterley (10/2021)
 Read and regrid MERRA-2 hybrid variables
-    MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
+MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
 
 CALLING SEQUENCE:
     python merra_hybrid_regrid.py --directory <path> --region gris \

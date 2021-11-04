@@ -1,40 +1,31 @@
-=========================
-merra_hybrid_harmonics.py
-=========================
+======================
+racmo_smb_harmonics.py
+======================
 
-- Reads 5-day MERRA-2 hybrid variables and converts to spherical harmonic coefficients [Wahr1998]_
+- Reads monthly RACMO variables and converts to spherical harmonic coefficients [Wahr1998]_
 - Estimates the grid values as point masses for calculating the gravitational spherical harmonic coefficients
-- MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
 
 Calling Sequence
 ################
 
 .. code-block:: bash
 
-    python merra_hybrid_harmonics.py --directory <path_to_directory> --region gris \
-        --version v1.1 --product SMB_a --lmax 60 --verbose
+    python racmo_smb_harmonics.py --product smb --lmax 60 --verbose model_file
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/SMB/merra_hybrid_harmonics.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/SMB/racmo_smb_harmonics.py
 
+
+Inputs
+######
+
+- ``model_file``: full path to input RACMO netCDF4 file
 
 Command Line Options
 ####################
 
-- ``-D X``, ``--directory X``: working data directory
-- ``-R X``, ``--region X``: Region to calculate
-
-   * ``gris``
-   * ``ais``
-- ``-v X``, ``--version X``: Version of firn model to calculate
-
-    * ``v0``
-    * ``v1``
-    * ``v1.0``
-    * ``v1.1``
-- ``-P X``, ``--product X``: MERRA-2 hybrid product to calculate
-- ``-Y X``, ``--year X``: Years to run
+- ``-P X``, ``--product X``: RACMO SMB product to calculate
 - ``--mask X``: netCDF4 mask file for reducing to regions
 - ``-l X``, ``--lmax X``: maximum spherical harmonic degree
 - ``-m X``, ``--mmax X``: maximum spherical harmonic order

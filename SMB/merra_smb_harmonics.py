@@ -427,10 +427,17 @@ def main():
     #-- run program for each input product
     for PRODUCT in args.product:
         #-- run program
-        merra_smb_harmonics(args.directory, PRODUCT, args.year, RANGE=args.mean,
-            REGION=args.region, MASKS=args.mask, LMAX=args.lmax, MMAX=args.mmax,
-            LOVE_NUMBERS=args.love, REFERENCE=args.reference,
-            DATAFORM=args.format, VERBOSE=args.verbose, MODE=args.mode)
+        merra_smb_harmonics(args.directory, PRODUCT, args.year,
+            RANGE=args.mean,
+            REGION=args.region,
+            MASKS=args.mask,
+            LMAX=args.lmax,
+            MMAX=args.mmax,
+            LOVE_NUMBERS=args.love,
+            REFERENCE=args.reference,
+            DATAFORM=args.format,
+            VERBOSE=args.verbose,
+            MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

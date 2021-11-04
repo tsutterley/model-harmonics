@@ -2,8 +2,9 @@
 u"""
 merra_hybrid_cumulative.py
 Written by Tyler Sutterley (10/2021)
-Calculates cumulative anomalies of MERRA-2 hybrid surface mass balance products
-    MERRA-2 Hybrid model outputs provided by Brooke Medley at GSFC
+Reads MERRA-2 hybrid datafiles to calculate cumulative anomalies in
+    derived surface mass balance products
+MERRA-2 Hybrid model outputs provided by Brooke Medley at GSFC
 
 CALLING SEQUENCE:
     python merra_hybrid_cumulative.py --directory <path> --region gris \
