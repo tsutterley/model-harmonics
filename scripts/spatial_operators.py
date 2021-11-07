@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 spatial_operators.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (11/2021)
 Performs basic operations on spatial files
 
 CALLING SEQUENCE:
@@ -52,6 +52,7 @@ PROGRAM DEPENDENCIES:
         hdf5_write.py: writes output spatial data to HDF5
 
 UPDATE HISTORY:
+    Updated 11/2021: using python logging for handling verbose output
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 02/2021: added variance off mean as estimated error
         add options to read from individual index files
@@ -61,14 +62,14 @@ from __future__ import print_function
 
 import sys
 import os
+import logging
 import argparse
 import numpy as np
 from gravity_toolkit.spatial import spatial
 
 #-- PURPOSE: Performs operations on spatial files
 def spatial_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, DDEG=None,
-    INTERVAL=None, HEADER=None, DATAFORM=None, DATE=False, VERBOSE=False,
-    MODE=None):
+    INTERVAL=None, HEADER=None, DATAFORM=None, DATE=False, MODE=None):
 
     #-- number of input spatial files
     n_files = len(INPUT_FILES)
@@ -99,8 +100,7 @@ def spatial_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, DDEG=None,
             #-- netCDF4 (.nc)
             #-- HDF5 (.H5)
             dinput[i] = spatial(spacing=[dlon,dlat],nlat=nlat,
-                nlon=nlon).from_file(fi,format=DATAFORM[i],
-                date=DATE, verbose=VERBOSE)
+                nlon=nlon).from_file(fi,format=DATAFORM[i],date=DATE)
         elif DATAFORM[i] in ('index-ascii','index-netCDF4','index-HDF5'):
             #-- read from index file
             _,dataform = DATAFORM[i].split('-')
@@ -177,17 +177,17 @@ def spatial_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, DDEG=None,
     #-- write spatial file in data format
     if (DATAFORM[-1] == 'ascii'):
         #-- ascii (.txt)
-        output.to_ascii(OUTPUT_FILE,date=DATE,verbose=VERBOSE)
+        output.to_ascii(OUTPUT_FILE,date=DATE)
     elif (DATAFORM[-1] == 'netCDF4'):
         #-- netcdf (.nc)
         attr = dinput[0].attributes['data']
-        output.to_netCDF4(OUTPUT_FILE,date=DATE,verbose=VERBOSE,
+        output.to_netCDF4(OUTPUT_FILE,date=DATE,
             units=attr['units'],longname=attr['long_name'],
             title='Output from {0}'.format(os.path.basename(sys.argv[0])))
     elif (DATAFORM[-1] == 'HDF5'):
         #-- HDF5 (.H5)
         attr = dinput[0].attributes['data']
-        output.to_HDF5(OUTPUT_FILE,date=DATE,verbose=VERBOSE,
+        output.to_HDF5(OUTPUT_FILE,date=DATE,
             units=attr['units'],longname=attr['long_name'],
             title='Output from {0}'.format(os.path.basename(sys.argv[0])))
     #-- change the permissions mode of the output file
@@ -246,11 +246,14 @@ def main():
         help='Permission mode of directories and files')
     args,_ = parser.parse_known_args()
 
+    #-- create logger
+    loglevel = logging.INFO if args.verbose else logging.critical
+    logging.basicConfig(level=loglevel)
+
     #-- run program
     spatial_operators(args.infiles, args.outfile[0], OPERATION=args.operation,
         DDEG=args.spacing, INTERVAL=args.interval, HEADER=args.header,
-        DATAFORM=args.format, DATE=args.date, VERBOSE=args.verbose,
-        MODE=args.mode)
+        DATAFORM=args.format, DATE=args.date, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':
