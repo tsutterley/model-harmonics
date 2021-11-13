@@ -34,7 +34,7 @@ Keyword arguments
 - ``MMAX``: maximum spherical harmonic order of the output harmonics
 - ``ELLIPSOID``: reference ellipsoid name
 - ``GEOID``: geoid height
-- ``PLM``: input Legendre polynomials (for improving computational time)
+- ``PLM``: input Legendre polynomials
 - ``LOVE``: input load Love numbers up to degree of truncation
 - ``METHOD``: method of integrating over pressure levels
 

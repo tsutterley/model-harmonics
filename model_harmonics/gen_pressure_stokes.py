@@ -25,7 +25,7 @@ OUTPUTS:
 OPTIONS:
     LMAX: Upper bound of Spherical Harmonic Degrees (default = 60)
     MMAX: Upper bound of Spherical Harmonic Orders (default = LMAX)
-    PLM: input Legendre polynomials (for improving computational time)
+    PLM: input Legendre polynomials
     LOVE: input load Love numbers up to degree LMAX (hl,kl,ll)
 
 PYTHON DEPENDENCIES:

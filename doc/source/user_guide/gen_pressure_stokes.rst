@@ -32,7 +32,7 @@ Options
 
 - ``LMAX``:  maximum spherical harmonic degree of the output harmonics
 - ``MMAX``: maximum spherical harmonic order of the output harmonics
-- ``PLM``: input Legendre polynomials (for improving computational time)
+- ``PLM``: input Legendre polynomials
 - ``LOVE``: input load Love numbers up to degree of truncation
 
 Returns
