@@ -27,7 +27,7 @@ OPTIONS:
     MMAX: Upper bound of Spherical Harmonic Orders (default = LMAX)
     ELLIPSOID: reference ellipsoid name
     GEOID: geoid height
-    PLM: input Legendre polynomials (for improving computational time)
+    PLM: input Legendre polynomials
     LOVE: input load Love numbers up to degree LMAX (hl,kl,ll)
     METHOD: method of integrating over pressure levels
         SW02: Swenson and Wahr (2002)

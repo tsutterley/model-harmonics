@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 harmonic_operators.py
-Written by Tyler Sutterley (08/2021)
+Written by Tyler Sutterley (11/2021)
 Performs basic operations on spherical harmonic files
 
 CALLING SEQUENCE:
@@ -52,6 +52,7 @@ PROGRAM DEPENDENCIES:
         hdf5_stokes.py: writes output spherical harmonic data to HDF5
 
 UPDATE HISTORY:
+    Updated 11/2021: using python logging for handling verbose output
     Updated 08/2021: added variance off mean as estimated error
     Updated 02/2021: added options to truncate output to a degree or order
         add options to read from individual index files
@@ -61,13 +62,14 @@ from __future__ import print_function
 
 import sys
 import os
+import logging
 import argparse
 import numpy as np
 from gravity_toolkit.harmonics import harmonics
 
 #-- PURPOSE: Performs operations on harmonic files
 def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
-    MMAX=None, DATAFORM=None, DATE=False, VERBOSE=False, MODE=None):
+    MMAX=None, DATAFORM=None, DATE=False, MODE=None):
 
     #-- number of input harmonic files
     n_files = len(INPUT_FILES)
@@ -87,8 +89,7 @@ def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
             #-- ascii (.txt)
             #-- netCDF4 (.nc)
             #-- HDF5 (.H5)
-            dinput[i] = harmonics().from_file(fi,format=DATAFORM[i],
-                date=DATE, verbose=VERBOSE)
+            dinput[i] = harmonics().from_file(fi,format=DATAFORM[i],date=DATE)
         elif DATAFORM[i] in ('index-ascii','index-netCDF4','index-HDF5'):
             #-- read from index file
             _,dataform = DATAFORM[i].split('-')
@@ -159,7 +160,7 @@ def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
     title = 'Output from {0}'.format(os.path.basename(sys.argv[0]))
     #-- write spherical harmonic file in data format
     output.to_file(OUTPUT_FILE, format=DATAFORM[-1],
-        date=DATE, title=title, verbose=VERBOSE)
+        date=DATE, title=title)
     #-- change the permissions mode of the output file
     os.chmod(OUTPUT_FILE, MODE)
 
@@ -214,10 +215,14 @@ def main():
         help='Permission mode of directories and files')
     args,_ = parser.parse_known_args()
 
+    #-- create logger
+    loglevel = logging.INFO if args.verbose else logging.critical
+    logging.basicConfig(level=loglevel)
+
     #-- run program
     harmonic_operators(args.infiles, args.outfile[0], OPERATION=args.operation,
         LMAX=args.lmax, MMAX=args.mmax, DATAFORM=args.format, DATE=args.date,
-        VERBOSE=args.verbose, MODE=args.mode)
+        MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':
