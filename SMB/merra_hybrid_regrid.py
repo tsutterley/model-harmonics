@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_regrid.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (12/2021)
 Read and regrid MERRA-2 hybrid variables
 MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
 
@@ -52,6 +52,7 @@ PROGRAM DEPENDENCIES:
         hdf5_write.py: writes output spatial data to HDF5
 
 UPDATE HISTORY:
+    Updated 12/2021: open MERRA-2 hybrid product command line options
     Updated 10/2021: add pole case in stereographic area scale calculation
         using python logging for handling verbose output
     Updated 09/2021: use original FDM file for ais products
@@ -121,6 +122,8 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
         FILE_VERSION = VERSION.replace('.','_')
         args = (FILE_VERSION,REGION.lower(),suffix)
         hybrid_file = 'gsfc_fdm_smb_cumul_{0}_{1}.nc{2}'.format(*args)
+    else:
+        raise ValueError('Unknown variable {0}'.format(VARIABLE))
     #-- reference for GSFC-FDM model outputs
     reference = ("Medley, B., Neumann, T. A., Zwally, H. J., and "
         "Smith, B. E.: Forty-year Simulations of Firn Processes over the "
@@ -456,9 +459,8 @@ def main():
         type=str, default='v1.1', choices=['v0','v1','v1.0','v1.1'],
         help='Version of firn model to calculate')
     #-- products from firn model
-    choices = ['cum_smb_anomaly','SMB_a','Me_a','Ra_a','Ru_a','Sn-Ev_a']
     parser.add_argument('--product','-P',
-        type=str, default='SMB_a', choices=choices, nargs='+',
+        type=str, default='SMB_a', nargs='+',
         help='MERRA-2 hybrid product to calculate')
     #-- years to run
     now = time.gmtime()
