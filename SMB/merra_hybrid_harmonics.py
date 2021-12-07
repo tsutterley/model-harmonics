@@ -17,6 +17,7 @@ COMMAND LINE OPTIONS:
         v1
         v1.0
         v1.1
+        v1.2
     -P X, --product X: MERRA-2 hybrid product to calculate
     -Y X, --year X: Years to run
     --mask X: netCDF4 mask files for reducing to regions
@@ -65,6 +66,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 12/2021: open MERRA-2 hybrid product command line options
+        added GSFC MERRA-2 Hybrid Greenland v1.2
     Updated 10/2021: add pole case in stereographic area scale calculation
         using python logging for handling verbose output
     Updated 09/2021: use original FDM file for ais products
@@ -408,8 +410,9 @@ def main():
         type=str, default='gris', choices=['gris','ais'],
         help='Region of firn model to calculate')
     #-- version of firn model
+    versions = ['v0','v1','v1.0','v1.1','v1.2']
     parser.add_argument('--version','-v',
-        type=str, default='v1.1', choices=['v0','v1','v1.0','v1.1'],
+        type=str, default='v1.1', choices=versions,
         help='Version of firn model to calculate')
     #-- products from firn model
     parser.add_argument('--product','-P',

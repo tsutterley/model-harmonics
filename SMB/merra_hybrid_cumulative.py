@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_cumulative.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (12/2021)
 Reads MERRA-2 hybrid datafiles to calculate cumulative anomalies in
     derived surface mass balance products
 MERRA-2 Hybrid model outputs provided by Brooke Medley at GSFC
@@ -18,6 +18,7 @@ COMMAND LINE OPTIONS:
         v1
         v1.0
         v1.1
+        v1.2
     --mean: Start and end year of mean
     -G, --gzip: netCDF4 file is locally gzip compressed
     -V, --verbose: Output information for each output file
@@ -31,6 +32,7 @@ PYTHON DEPENDENCIES:
          https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 12/2021: added GSFC MERRA-2 Hybrid Greenland v1.2
     Updated 10/2021: using python logging for handling verbose output
     Updated 08/2021: output areas to file if applicable
         add verbose option to print input and output file information
@@ -313,8 +315,9 @@ def main():
         type=str, default='gris', choices=['gris','ais'],
         help='Region of firn model to calculate')
     #-- version of firn model
+    versions = ['v0','v1','v1.0','v1.1','v1.2']
     parser.add_argument('--version','-v',
-        type=str, default='v1.1', choices=['v0','v1','v1.0','v1.1'],
+        type=str, default='v1.1', choices=versions,
         help='Version of firn model to calculate')
     #-- start and end years to run for mean
     parser.add_argument('--mean','-m',
