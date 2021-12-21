@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mask_vegetation.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (12/2021)
 
 Creates a mask for GLDAS data using the GLDAS vegetation type binary files
     https://ldas.gsfc.nasa.gov/gldas/GLDASvegetation.php
@@ -23,6 +23,7 @@ PYTHON DEPENDENCIES:
          https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
     Updated 01/2021: using argparse to set parameters
     Updated 06/2018: using python3 compatible octal and input
@@ -37,11 +38,7 @@ import argparse
 import numpy as np
 
 #-- Read the GLDAS vegetation index and create a mask defining each type
-def gldas_mask_vegetation(ddir, SPACING=None, VERBOSE=False, MODE=0o775):
-
-    #-- create logger for verbosity level
-    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
-    logging.basicConfig(level=loglevel)
+def gldas_mask_vegetation(ddir, SPACING=None, MODE=0o775):
 
     #-- parameters for each grid spacing
     if (SPACING == '025'):
@@ -152,17 +149,21 @@ def main():
     #-- verbosity settings
     #-- verbose will output information about each output file
     parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
-    #-- permissions mode of the local files (number in octal)
+        action='count', default=0,
+        help='Verbose output of processing run')
+    #-- permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='permissions mode of output files')
     args,_ = parser.parse_known_args()
 
+    #-- create logger
+    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    logging.basicConfig(level=loglevels[args.verbose])
+
     #-- run program
     gldas_mask_vegetation(args.directory, SPACING=args.spacing,
-        VERBOSE=args.verbose, MODE=args.mode)
+        MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

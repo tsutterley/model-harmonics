@@ -33,6 +33,7 @@ PYTHON DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 12/2021: added GSFC MERRA-2 Hybrid Greenland v1.2
+        can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
     Updated 08/2021: output areas to file if applicable
         add verbose option to print input and output file information
@@ -56,11 +57,7 @@ import numpy as np
 
 #-- PURPOSE: read and interpolate MERRA-2 hybrid surface mass balance variables
 def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
-    VERBOSE=False, MODE=0o775):
-
-    #-- create logger for verbosity level
-    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
-    logging.basicConfig(level=loglevel)
+    MODE=0o775):
 
     #-- MERRA-2 hybrid directory
     DIRECTORY = os.path.join(base_dir,VERSION)
@@ -330,18 +327,21 @@ def main():
         help='netCDF4 file is locally gzip compressed')
     #-- print information about each input and output file
     parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
+        action='count', default=0,
+        help='Verbose output of processing run')
     #-- permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
     args,_ = parser.parse_known_args()
 
+    #-- create logger
+    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    logging.basicConfig(level=loglevels[args.verbose])
+
     #-- run program
     merra_hybrid_cumulative(args.directory, args.region, args.version,
-        RANGE=args.mean, GZIP=args.gzip, VERBOSE=args.verbose,
-        MODE=args.mode)
+        RANGE=args.mean, GZIP=args.gzip, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

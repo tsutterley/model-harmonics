@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 era5_smb_harmonics.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (12/2021)
 Reads monthly ERA5 surface mass balance anomalies and
     converts to spherical harmonic coefficients
 
@@ -60,6 +60,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 12/2021: can use variable loglevels for verbose output
     Written 10/2021
 """
 from __future__ import print_function
@@ -84,11 +85,7 @@ from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
 #-- PURPOSE: read ERA5 cumulative data and convert to spherical harmonics
 def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     MASKS=None, LMAX=0, MMAX=None, LOVE_NUMBERS=0, REFERENCE=None,
-    DATAFORM=None, VERBOSE=False, MODE=0o775):
-
-    #-- create logger for verbosity level
-    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
-    logging.basicConfig(level=loglevel)
+    DATAFORM=None, MODE=0o775):
 
     #-- setup subdirectories
     cumul_sub = 'ERA5-Cumul-P-E-{0:4d}-{1:4d}'.format(*RANGE)
@@ -365,19 +362,23 @@ def main():
         help='Input and output data format')
     #-- print information about each input and output file
     parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
+        action='count', default=0,
+        help='Verbose output of processing run')
     #-- permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
     args,_ = parser.parse_known_args()
 
+    #-- create logger
+    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    logging.basicConfig(level=loglevels[args.verbose])
+
     #-- run program with parameters
     era5_smb_harmonics(args.directory, args.year, RANGE=args.mean,
         REGION=args.region, MASKS=args.mask, LMAX=args.lmax, MMAX=args.mmax,
         LOVE_NUMBERS=args.love, REFERENCE=args.reference,
-        DATAFORM=args.format, VERBOSE=args.verbose, MODE=args.mode)
+        DATAFORM=args.format, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

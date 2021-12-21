@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_pressure_harmonics.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (12/2021)
 Reads atmospheric surface pressure fields from reanalysis and calculates sets of
     spherical harmonics using a thin-layer 2D geometry with realistic earth
 
@@ -75,6 +75,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
         use output harmonic file wrapper routine to write to file
     Updated 09/2021: use GRACE/GRACE-FO month to calendar month converters
@@ -121,11 +122,7 @@ from geoid_toolkit.norm_gravity import norm_gravity
 #-- PURPOSE: read atmospheric surface pressure fields and convert to harmonics
 def reanalysis_pressure_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     REDISTRIBUTE=False, LMAX=0, MMAX=None, LOVE_NUMBERS=0, REFERENCE=None,
-    DATAFORM=None, VERBOSE=False, MODE=0o775):
-
-    #-- create logger for verbosity level
-    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
-    logging.basicConfig(level=loglevel)
+    DATAFORM=None, MODE=0o775):
 
     #-- directory setup
     ddir = os.path.join(base_dir,MODEL)
@@ -581,13 +578,17 @@ def main():
         help='Input and output data format')
     #-- print information about each input and output file
     parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
+        action='count', default=0,
+        help='Verbose output of processing run')
     #-- permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
     args,_ = parser.parse_known_args()
+
+    #-- create logger
+    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    logging.basicConfig(level=loglevels[args.verbose])
 
     #-- for each reanalysis model
     for MODEL in args.model:
@@ -595,7 +596,7 @@ def main():
         reanalysis_pressure_harmonics(args.directory, MODEL, args.year,
             RANGE=args.mean, REDISTRIBUTE=args.redistribute, LMAX=args.lmax,
             MMAX=args.mmax, LOVE_NUMBERS=args.love, REFERENCE=args.reference,
-            DATAFORM=args.format, VERBOSE=args.verbose, MODE=args.mode)
+            DATAFORM=args.format, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

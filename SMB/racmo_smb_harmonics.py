@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 racmo_smb_harmonics.py
-Written by Tyler Sutterley (11/2021)
+Written by Tyler Sutterley (12/2021)
 Read RACMO surface mass balance products and converts to spherical harmonics
 Shifts dates of SMB point masses to mid-month values to correspond with GRACE
 
@@ -53,6 +53,7 @@ PROGRAM DEPENDENCIES:
         hdf5_stokes.py: writes output spherical harmonic data to HDF5
 
 UPDATE HISTORY:
+    Updated 12/2021: can use variable loglevels for verbose output
     Updated 11/2021: complete rewrite of program
         dropped old RACMO ascii file read portions
     Updated 06/2018: using python3 compatible octal and input
@@ -90,12 +91,7 @@ def racmo_smb_harmonics(model_file, VARIABLE,
     REFERENCE=None,
     DATAFORM=None,
     GZIP=False,
-    VERBOSE=False,
     MODE=0o775):
-
-    #-- create logger for verbosity level
-    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
-    logging.basicConfig(level=loglevel)
 
     #-- Earth Parameters
     ellipsoid_params = ref_ellipsoid('WGS84')
@@ -354,13 +350,17 @@ def main():
         help='Input and output data format')
     #-- print information about each input and output file
     parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
+        action='count', default=0,
+        help='Verbose output of processing run')
     #-- permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
     args,_ = parser.parse_known_args()
+
+    #-- create logger
+    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    logging.basicConfig(level=loglevels[args.verbose])
 
     #-- run program
     racmo_smb_harmonics(args.infile, args.product,
@@ -370,7 +370,6 @@ def main():
         LOVE_NUMBERS=args.love,
         REFERENCE=args.reference,
         DATAFORM=args.format,
-        VERBOSE=args.verbose,
         MODE=args.mode)
 
 #-- run main program

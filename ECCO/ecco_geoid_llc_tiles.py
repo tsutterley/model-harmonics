@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_geoid_llc_tiles.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (12/2021)
 
 Calculates geoid heights for ECCO ocean model LLC tiles using model
     coefficients from the GFZ International Centre for Global Earth
@@ -41,6 +41,7 @@ PROGRAM DEPENDENCIES:
     gauss_weights.py: Computes Gaussian weights as a function of degree
 
 UPDATE HISTORY:
+    Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
@@ -59,11 +60,7 @@ from geoid_toolkit.geoid_undulation import geoid_undulation
 
 #-- PURPOSE: read ECCO tiled ocean bottom pressure data and calculate mean
 def ecco_geoid_llc_tiles(input_file, output_file, GEOID=None,
-    LMAX=None, VERBOSE=False, MODE=0o775):
-
-    #-- create logger for verbosity level
-    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
-    logging.basicConfig(level=loglevel)
+    LMAX=None, MODE=0o775):
 
     #-- input variable names for each model
     LONNAME = 'XC'
@@ -226,17 +223,21 @@ def main():
         help='Maximum spherical harmonic degree')
     #-- print information about each output file
     parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
+        action='count', default=0,
+        help='Verbose output of processing run')
     #-- permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
     args,_ = parser.parse_known_args()
 
+    #-- create logger
+    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    logging.basicConfig(level=loglevels[args.verbose])
+
     #-- run program
     ecco_geoid_llc_tiles(args.infile, args.outfile, GEOID=args.geoid,
-        LMAX=args.lmax, VERBOSE=args.verbose, MODE=args.mode)
+        LMAX=args.lmax, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

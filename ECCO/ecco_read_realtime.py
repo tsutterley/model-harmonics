@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_read_realtime.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (12/2021)
 
 Reads 12-hour ECCO ocean bottom pressure data from JPL
 Calculates monthly anomalies on an equirectangular grid
@@ -55,6 +55,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
     Updated 03/2021: automatically update years to run based on current time
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
@@ -89,8 +90,8 @@ def ecco_read_realtime(ddir, MODEL, YEARS, RANGE=None, DATAFORM=None,
     VERBOSE=False, MODE=0o775):
 
     #-- create logger for verbosity level
-    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
-    logging.basicConfig(level=loglevel)
+    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    logging.basicConfig(level=loglevels[VERBOSE])
 
     #-- set up regular expression for finding directories to run from YEAR
     regex_year = '|'.join([r'{0:d}'.format(Y) for Y in YEARS])
@@ -334,8 +335,8 @@ def main():
         help='Input and output data format')
     #-- print information about each output file
     parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
+        action='count', default=0,
+        help='Verbose output of processing run')
     #-- permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_inverse_barometer.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (12/2021)
 Reads hourly mean sea level pressure fields from reanalysis and
     calculates the inverse-barometer response
 
@@ -38,6 +38,7 @@ REFERENCES:
         https://doi.org/10.1007/978-3-211-33545-1
 
 UPDATE HISTORY:
+    Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
     Updated 07/2021: can use input files to define command line arguments
     Written 03/2021
@@ -70,11 +71,7 @@ def ncdf_mean_pressure(FILENAME,VARNAME,LONNAME,LATNAME):
 
 #-- PURPOSE:  calculate the instantaneous inverse barometer response
 def reanalysis_inverse_barometer(base_dir, MODEL, YEAR=None, RANGE=None,
-    DENSITY=None, VERBOSE=False, MODE=0o775):
-
-    #-- create logger for verbosity level
-    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
-    logging.basicConfig(level=loglevel)
+    DENSITY=None, MODE=0o775):
 
     #-- directory setup for reanalysis model
     ddir = os.path.join(base_dir,MODEL)
@@ -334,20 +331,23 @@ def main():
     #-- verbosity settings
     #-- verbose will output information about each output file
     parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Output information about each created file')
-    #-- permissions mode of the local files (number in octal)
+        action='count', default=0,
+        help='Verbose output of processing run')
+    #-- permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
-        help='Permission mode of directories and files created')
+        help='Permission mode of directories and files')
     args,_ = parser.parse_known_args()
+
+    #-- create logger
+    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    logging.basicConfig(level=loglevels[args.verbose])
 
     #-- for each reanalysis model
     for MODEL in args.model:
         #-- run program
         reanalysis_inverse_barometer(args.directory, MODEL, YEAR=args.year,
-            RANGE=args.mean, DENSITY=args.density, VERBOSE=args.verbose,
-            MODE=args.mode)
+            RANGE=args.mean, DENSITY=args.density, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

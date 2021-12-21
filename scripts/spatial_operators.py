@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 spatial_operators.py
-Written by Tyler Sutterley (11/2021)
+Written by Tyler Sutterley (12/2021)
 Performs basic operations on spatial files
 
 CALLING SEQUENCE:
@@ -52,6 +52,7 @@ PROGRAM DEPENDENCIES:
         hdf5_write.py: writes output spatial data to HDF5
 
 UPDATE HISTORY:
+    Updated 12/2021: can use variable loglevels for verbose output
     Updated 11/2021: using python logging for handling verbose output
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 02/2021: added variance off mean as estimated error
@@ -238,8 +239,8 @@ def main():
         help='Input and output files have date information')
     #-- print information about each output file
     parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
+        action='count', default=0,
+        help='Verbose output of processing run')
     #-- permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
@@ -247,8 +248,8 @@ def main():
     args,_ = parser.parse_known_args()
 
     #-- create logger
-    loglevel = logging.INFO if args.verbose else logging.critical
-    logging.basicConfig(level=loglevel)
+    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    logging.basicConfig(level=loglevels[args.verbose])
 
     #-- run program
     spatial_operators(args.infiles, args.outfile[0], OPERATION=args.operation,
