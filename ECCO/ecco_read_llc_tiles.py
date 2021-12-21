@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_read_llc_tiles.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (12/2021)
 
 Calculates monthly ocean bottom pressure anomalies from ECCO LLC tiles
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/nctiles_monthly
@@ -50,6 +50,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
     Updated 03/2021: automatically update years to run based on current time
     Written 02/2021
@@ -66,12 +67,7 @@ import numpy as np
 import gravity_toolkit.time
 
 #-- PURPOSE: read ECCO tiled ocean bottom pressure data and calculate mean
-def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, VERBOSE=False,
-    MODE=0o775):
-
-    #-- create logger for verbosity level
-    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
-    logging.basicConfig(level=loglevel)
+def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
 
     #-- input and output subdirectories
     d1=os.path.join(ddir,'ECCO-{0}'.format(MODEL),'nctiles_monthly')
@@ -322,19 +318,23 @@ def main():
         help='Start and end year range for mean')
     #-- print information about each output file
     parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
+        action='count', default=0,
+        help='Verbose output of processing run')
     #-- permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
     args,_ = parser.parse_known_args()
 
+    #-- create logger
+    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    logging.basicConfig(level=loglevels[args.verbose])
+
     #-- for each ECCO LLC tile model
     for MODEL in args.model:
         #-- run program
         ecco_read_llc_tiles(args.directory, MODEL, args.year,
-            RANGE=args.mean, VERBOSE=args.verbose, MODE=args.mode)
+            RANGE=args.mean, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

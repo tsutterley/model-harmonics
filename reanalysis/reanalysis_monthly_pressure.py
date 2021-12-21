@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_monthly_pressure.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (12/2021)
 Reads daily atmospheric pressure fields from reanalysis and outputs monthly averages
 
 INPUTS:
@@ -35,6 +35,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
     Updated 07/2021: can use input files to define command line arguments
     Updated 05/2021: define int/float precision to prevent deprecation warning
@@ -59,11 +60,7 @@ import gravity_toolkit.spatial
 import gravity_toolkit.utilities as utilities
 
 #-- PURPOSE: read atmospheric surface pressure fields and calculate monthly mean
-def reanalysis_monthly_pressure(base_dir,MODEL,YEARS,VERBOSE=False,MODE=0o775):
-
-    #-- create logger for verbosity level
-    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
-    logging.basicConfig(level=loglevel)
+def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
 
     #-- directory setup
     ddir = os.path.join(base_dir,MODEL)
@@ -193,19 +190,23 @@ def main():
         help='Years of model outputs to run')
     #-- print information about each input and output file
     parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
+        action='count', default=0,
+        help='Verbose output of processing run')
     #-- permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
     args,_ = parser.parse_known_args()
 
+    #-- create logger
+    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    logging.basicConfig(level=loglevels[args.verbose])
+
     #-- for each reanalysis model
     for MODEL in args.model:
         #-- run program
         reanalysis_monthly_pressure(args.directory, MODEL, args.year,
-            VERBOSE=args.verbose, MODE=args.mode)
+            MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

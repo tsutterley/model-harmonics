@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mask_arctic.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (12/2021)
 
 Creates a mask for GLDAS data for Greenland, Svalbard, Iceland and the
     Russian High Arctic defined by a set of shapefiles
@@ -32,6 +32,7 @@ PYTHON DEPENDENCIES:
          https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
     Updated 02/2021: convert to projection of each shapefile
         replaced numpy bool to prevent deprecation warning
@@ -80,11 +81,7 @@ def read_shapefile(input_shapefile, AREA=None, BUFFER=None):
 
 #-- PURPOSE: create a mask for Greenland, Svalbard and Iceland
 def gldas_mask_arctic(ddir, SPACING=None, SHAPEFILES=None, AREA=None,
-    BUFFER=None, VERBOSE=False, MODE=0o775):
-
-    #-- create logger for verbosity level
-    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
-    logging.basicConfig(level=loglevel)
+    BUFFER=None, MODE=0o775):
 
     #-- parameters for each grid spacing
     if (SPACING == '025'):
@@ -216,18 +213,22 @@ def main():
     #-- verbosity settings
     #-- verbose will output information about each output file
     parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
-    #-- permissions mode of the local files (number in octal)
+        action='count', default=0,
+        help='Verbose output of processing run')
+    #-- permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='permissions mode of output files')
     args,_ = parser.parse_known_args()
 
+    #-- create logger
+    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    logging.basicConfig(level=loglevels[args.verbose])
+
     #-- run program
     gldas_mask_arctic(args.directory, SPACING=args.spacing,
         SHAPEFILES=args.shapefile, AREA=args.area, BUFFER=args.buffer,
-        VERBOSE=args.verbose, MODE=args.mode)
+        MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

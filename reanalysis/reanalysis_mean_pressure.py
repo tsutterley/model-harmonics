@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_mean_pressure.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (12/2021)
 Calculates the mean surface pressure fields from reanalysis
 
 INPUTS:
@@ -51,6 +51,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
     Updated 07/2021: can use input files to define command line arguments
         added check for ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
@@ -82,8 +83,8 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
     VERBOSE=False, MODE=0o775):
 
     #-- create logger for verbosity level
-    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
-    logging.basicConfig(level=loglevel)
+    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    logging.basicConfig(level=loglevels[VERBOSE])
 
     #-- directory setup
     ddir = os.path.join(base_dir,MODEL)
@@ -278,8 +279,8 @@ def main():
         help='Start and end year range for mean')
     #-- print information about each input and output file
     parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
+        action='count', default=0,
+        help='Verbose output of processing run')
     #-- permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,

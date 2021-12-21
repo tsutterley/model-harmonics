@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_llc_tile_harmonics.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (12/2021)
 Reads monthly ECCO ocean bottom pressure anomalies from LLC tiles
     and converts to spherical harmonic coefficients
 
@@ -68,6 +68,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
         use output harmonic file wrapper routine to write to file
     Updated 09/2021: use GRACE/GRACE-FO month to calendar month converters
@@ -95,12 +96,7 @@ from model_harmonics.gen_point_pressure import gen_point_pressure
 
 #-- PURPOSE: convert monthly ECCO OBP data to spherical harmonics
 def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
-    LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None, VERBOSE=False,
-    MODE=0o775):
-
-    #-- create logger for verbosity level
-    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
-    logging.basicConfig(level=loglevel)
+    LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None, MODE=0o775):
 
     #-- input and output subdirectories
     input_dir = os.path.join(ddir,'ECCO_{0}_AveRmvd_OBP'.format(MODEL),
@@ -385,13 +381,17 @@ def main():
         help='Output data format')
     #-- print information about each input and output file
     parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
+        action='count', default=0,
+        help='Verbose output of processing run')
     #-- permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
     args,_ = parser.parse_known_args()
+
+    #-- create logger
+    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    logging.basicConfig(level=loglevels[args.verbose])
 
     #-- for each ECCO model
     for MODEL in args.model:
@@ -399,7 +399,7 @@ def main():
         ecco_llc_tile_harmonics(args.directory, MODEL, args.year,
             LMAX=args.lmax, MMAX=args.mmax, LOVE_NUMBERS=args.love,
             REFERENCE=args.reference, DATAFORM=args.format,
-            VERBOSE=args.verbose, MODE=args.mode)
+            MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

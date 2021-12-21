@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_mask.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (12/2021)
 
 Creates a mask for MERRA-2 land ice data using a set of shapefiles
 https://goldsmr4.gesdisc.eosdis.nasa.gov/data/MERRA2_MONTHLY/
@@ -42,6 +42,7 @@ PROGRAM DEPENDENCIES:
         hdf5_write.py: writes output spatial data to HDF5
 
 UPDATE HISTORY:
+    Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
     Updated 02/2021: use spatial class to read input mask file
         use fiona to read from shapefiles. convert to projection of shapefile
@@ -92,11 +93,12 @@ def read_shapefile(input_shapefile, AREA=None, BUFFER=None):
 
 #-- PURPOSE: create a mask for MERRA-2 surface mass balance
 def merra_smb_mask(input_file, output_file, VARNAME=None,
-    SHAPEFILES=None, AREA=None, BUFFER=None, VERBOSE=False, MODE=0o775):
+    SHAPEFILES=None, AREA=None, BUFFER=None, VERBOSE=False,
+    MODE=0o775):
 
     #-- create logger for verbosity level
-    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
-    logging.basicConfig(level=loglevel)
+    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    logging.basicConfig(level=loglevels[VERBOSE])
 
     #-- create output directory if non-existent
     ddir = os.path.dirname(output_file)
@@ -104,7 +106,8 @@ def merra_smb_mask(input_file, output_file, VARNAME=None,
 
     #-- read input mask file
     dinput = gravity_toolkit.spatial().from_netCDF4(input_file,
-        lonname='lon', latname='lat', varname=VARNAME, verbose=VERBOSE)
+        lonname='lon', latname='lat', varname=VARNAME,
+        verbose=VERBOSE)
     #-- remove singleton dimensions
     dinput.squeeze()
     #-- update mask and replace fill value
@@ -231,12 +234,12 @@ def main():
     #-- verbosity settings
     #-- verbose will output information about each output file
     parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
-    #-- permissions mode of the local files (number in octal)
+        action='count', default=0,
+        help='Verbose output of processing run')
+    #-- permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
-        help='permissions mode of output files')
+        help='Permission mode of directories and files')
     args,_ = parser.parse_known_args()
 
     #-- run program

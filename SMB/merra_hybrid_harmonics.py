@@ -67,6 +67,7 @@ PROGRAM DEPENDENCIES:
 UPDATE HISTORY:
     Updated 12/2021: open MERRA-2 hybrid product command line options
         added GSFC MERRA-2 Hybrid Greenland v1.2
+        can use variable loglevels for verbose output
     Updated 10/2021: add pole case in stereographic area scale calculation
         using python logging for handling verbose output
     Updated 09/2021: use original FDM file for ais products
@@ -114,12 +115,7 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     REFERENCE=None,
     DATAFORM=None,
     GZIP=False,
-    VERBOSE=False,
     MODE=0o775):
-
-    #-- create logger for verbosity level
-    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
-    logging.basicConfig(level=loglevel)
 
     #-- MERRA-2 hybrid directory
     DIRECTORY = os.path.join(base_dir,VERSION)
@@ -453,8 +449,8 @@ def main():
         help='Input and output data format')
     #-- print information about each input and output file
     parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
+        action='count', default=0,
+        help='Verbose output of processing run')
     #-- netCDF4 files are gzip compressed
     parser.add_argument('--gzip','-G',
         default=False, action='store_true',
@@ -464,6 +460,10 @@ def main():
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
     args,_ = parser.parse_known_args()
+
+    #-- create logger
+    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    logging.basicConfig(level=loglevels[args.verbose])
 
     #-- run program
     for VARIABLE in args.product:
@@ -476,7 +476,6 @@ def main():
             REFERENCE=args.reference,
             DATAFORM=args.format,
             GZIP=args.gzip,
-            VERBOSE=args.verbose,
             MODE=args.mode)
 
 #-- run main program

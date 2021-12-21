@@ -29,6 +29,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 12/2021: can use variable loglevels for verbose output
     Updated 11/2021: complete rewrite of program
         dropped old RACMO ascii file read portions
     Updated 10/2019: changing Y/N flags to True/False
@@ -73,12 +74,7 @@ import gravity_toolkit.time
 def racmo_smb_cumulative(model_file, VARIABLE,
     RANGE=None,
     GZIP=False,
-    VERBOSE=False,
     MODE=0o775):
-
-    #-- create logger for verbosity level
-    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
-    logging.basicConfig(level=loglevel)
 
     #-- RACMO SMB directory
     DIRECTORY = os.path.dirname(model_file)
@@ -273,8 +269,8 @@ def main():
         help='Start and end year range for mean')
     #-- print information about each input and output file
     parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
+        action='count', default=0,
+        help='Verbose output of processing run')
     #-- netCDF4 files are gzip compressed
     parser.add_argument('--gzip','-G',
         default=False, action='store_true',
@@ -285,11 +281,14 @@ def main():
         help='Permission mode of directories and files')
     args,_ = parser.parse_known_args()
 
+    #-- create logger
+    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    logging.basicConfig(level=loglevels[args.verbose])
+
     #-- run program
     racmo_smb_cumulative(args.infile, args.product,
         RANGE=args.mean,
         GZIP=args.gzip,
-        VERBOSE=args.verbose,
         MODE=args.mode)
 
 #-- run main program
