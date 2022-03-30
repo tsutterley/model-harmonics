@@ -32,7 +32,7 @@ COMMAND LINE OPTIONS:
     --help: list the command line options
     -D X, --directory X: Working data directory
     -U X, --user X: Username for UCAR/NCAR RDA login
-    -P X, --password X: Password for UCAR/NCAR RDA login
+    -W X, --password X: Password for UCAR/NCAR RDA login
     -N X, --netrc X: Path to .netrc file for authentication
     -Y X, --year X: Years to download from input links file
     -I, --interpolated: Input data is interpolated to 1.25 degrees
@@ -322,7 +322,7 @@ def main():
     parser.add_argument('--user','-U',
         type=str, default=os.environ.get('UCAR_RDA_USERNAME'),
         help='Username for UCAR/NCAR RDA Login')
-    parser.add_argument('--password','-P',
+    parser.add_argument('--password','-W',
         type=str, default=os.environ.get('UCAR_RDA_PASSWORD'),
         help='Password for UCAR/NCAR RDA Login')
     parser.add_argument('--netrc','-N',

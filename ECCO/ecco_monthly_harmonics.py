@@ -144,7 +144,7 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
         input_depth_file = os.path.join(ddir,'depth.nc')
         input_geoid_file = os.path.join(ddir,'egm_2008.nc')
         #-- indices to read
-        indices = np.arange(1,2*LAT_MAX+2).astype(np.int64)
+        indices = slice(1,int(2*LAT_MAX)+1,1)
     elif MODEL in ('Cube92',):
         #-- grid step size
         dlon,dlat = (0.25,0.25)

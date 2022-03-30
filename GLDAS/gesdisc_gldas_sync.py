@@ -30,7 +30,7 @@ INPUTS:
 COMMAND LINE OPTIONS:
     --help: list the command line options
     -U X, --user X: username for NASA Earthdata Login
-    -P X, --password X: password for NASA Earthdata Login
+    -W X, --password X: password for NASA Earthdata Login
     -N X, --netrc X: path to .netrc file for authentication
     -D X, --directory X: working data directory
     -Y X, --year X: years to sync
@@ -267,7 +267,7 @@ def main():
     parser.add_argument('--user','-U',
         type=str, default=os.environ.get('EARTHDATA_USERNAME'),
         help='Username for NASA Earthdata Login')
-    parser.add_argument('--password','-P',
+    parser.add_argument('--password','-W',
         type=str, default=os.environ.get('EARTHDATA_PASSWORD'),
         help='Password for NASA Earthdata Login')
     parser.add_argument('--netrc','-N',
@@ -348,7 +348,7 @@ def main():
 
     #-- check internet connection before attempting to run program
     HOST = posixpath.join('https://hydro1.gesdisc.eosdis.nasa.gov','data')
-    if model_harmonics.utilities.check_connection(HOST):
+    if model_harmonics.utilities.check_credentials(HOST):
         #-- for each GLDAS model
         for MODEL in args.model:
             gesdisc_gldas_sync(args.directory, MODEL, args.year,
