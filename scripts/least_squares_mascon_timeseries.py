@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 least_squares_mascon_timeseries.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (04/2022)
 
 Calculates a time-series of regional mass anomalies through a
     least-squares mascon procedure procedure from an index of
@@ -99,6 +99,7 @@ REFERENCES:
         https://doi.org/10.1029/2009GL039401
 
 UPDATE HISTORY:
+    Updated 04/2022: use wrapper function for reading load Love numbers
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
     Updated 08/2021: add option for setting input format of the mascon files
@@ -163,7 +164,7 @@ import traceback
 import gravity_toolkit.utilities as utilities
 from gravity_toolkit.harmonics import harmonics
 from gravity_toolkit.units import units
-from gravity_toolkit.read_love_numbers import read_love_numbers
+from gravity_toolkit.read_love_numbers import load_love_numbers
 from gravity_toolkit.gauss_weights import gauss_weights
 from gravity_toolkit.ocean_stokes import ocean_stokes
 
@@ -175,65 +176,6 @@ def info(args):
     if hasattr(os, 'getppid'):
         logging.info('parent process: {0:d}'.format(os.getppid()))
     logging.info('process id: {0:d}'.format(os.getpid()))
-
-#-- PURPOSE: read load love numbers for the range of spherical harmonic degrees
-def load_love_numbers(LMAX, LOVE_NUMBERS=0, REFERENCE='CF'):
-    """
-    Reads PREM load Love numbers for the range of spherical harmonic degrees
-    and applies isomorphic parameters
-
-    Arguments
-    ---------
-    LMAX: maximum spherical harmonic degree
-
-    Keyword arguments
-    -----------------
-    LOVE_NUMBERS: Load Love numbers dataset
-        0: Han and Wahr (1995) values from PREM
-        1: Gegout (2005) values from PREM
-        2: Wang et al. (2012) values from PREM
-    REFERENCE: Reference frame for calculating degree 1 love numbers
-        CF: Center of Surface Figure (default)
-        CM: Center of Mass of Earth System
-        CE: Center of Mass of Solid Earth
-
-    Returns
-    -------
-    kl: Love number of Gravitational Potential
-    hl: Love number of Vertical Displacement
-    ll: Love number of Horizontal Displacement
-    """
-    #-- load love numbers file
-    if (LOVE_NUMBERS == 0):
-        #-- PREM outputs from Han and Wahr (1995)
-        #-- https://doi.org/10.1111/j.1365-246X.1995.tb01819.x
-        love_numbers_file = utilities.get_data_path(
-            ['data','love_numbers'])
-        header = 2
-        columns = ['l','hl','kl','ll']
-    elif (LOVE_NUMBERS == 1):
-        #-- PREM outputs from Gegout (2005)
-        #-- http://gemini.gsfc.nasa.gov/aplo/
-        love_numbers_file = utilities.get_data_path(
-            ['data','Load_Love2_CE.dat'])
-        header = 3
-        columns = ['l','hl','ll','kl']
-    elif (LOVE_NUMBERS == 2):
-        #-- PREM outputs from Wang et al. (2012)
-        #-- https://doi.org/10.1016/j.cageo.2012.06.022
-        love_numbers_file = utilities.get_data_path(
-            ['data','PREM-LLNs-truncated.dat'])
-        header = 1
-        columns = ['l','hl','ll','kl','nl','nk']
-    #-- LMAX of load love numbers from Han and Wahr (1995) is 696.
-    #-- from Wahr (2007) linearly interpolating kl works
-    #-- however, as we are linearly extrapolating out, do not make
-    #-- LMAX too much larger than 696
-    #-- read arrays of kl, hl, and ll Love Numbers
-    hl,kl,ll = read_love_numbers(love_numbers_file, LMAX=LMAX, HEADER=header,
-        COLUMNS=columns, REFERENCE=REFERENCE, FORMAT='tuple')
-    #-- return a tuple of load love numbers
-    return (hl,kl,ll)
 
 #-- PURPOSE: calculate a regional time-series through a least
 #-- squares mascon process

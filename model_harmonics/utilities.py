@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (01/2021)
+Written by Tyler Sutterley (04/2022)
 Download and management utilities for syncing time and auxiliary files
 Adds additional modules to the gravity_toolkit utilities
 
@@ -10,6 +10,7 @@ PYTHON DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 04/2022: updated docstrings to numpy documentation format
     Written 01/2021
 """
 #-- extend gravity_toolkit utilities
@@ -22,26 +23,35 @@ def gesdisc_list(HOST,username=None,password=None,build=False,timeout=None,
     """
     List a directory on NASA GES DISC servers
 
-    Arguments
-    ---------
-    HOST: remote https host path split as list
-
-    Keyword arguments
-    -----------------
-    username: NASA Earthdata username
-    password: NASA Earthdata password
-    build: Build opener with NASA Earthdata credentials
-    timeout: timeout in seconds for blocking operations
-    urs: Earthdata login URS 3 host
-    parser: HTML parser for lxml
-    format: format for input time string
-    pattern: regular expression pattern for reducing list
-    sort: sort output list
+    Parameters
+    ----------
+    HOST: str or list
+        remote https host
+    username: str or NoneType, default None
+        NASA Earthdata username
+    password: str or NoneType, default None
+        NASA Earthdata password
+    build: bool, default True
+        Build opener with NASA Earthdata credentials
+    timeout: int or NoneType, default None
+        timeout in seconds for blocking operations
+    urs: str, default 'urs.earthdata.nasa.gov'
+        Earthdata login URS 3 host
+    parser: obj, default lxml.etree.HTMLParser()
+        HTML parser for lxml
+    format: str, default '%Y-%m-%d %H:%M'
+        format for input time string
+    pattern: str, default ''
+        regular expression pattern for reducing list
+    sort: bool, default False
+        sort output list
 
     Returns
     -------
-    colnames: list of column names in a directory
-    collastmod: list of last modification times for items in the directory
+    colnames: list
+        column names in a directory
+    collastmod: list
+        last modification times for items in the directory
     """
     #-- use netrc credentials
     if build and not (username or password):
@@ -50,6 +60,9 @@ def gesdisc_list(HOST,username=None,password=None,build=False,timeout=None,
     if build:
         build_opener(username, password, password_manager=True,
             authorization_header=False)
+    #-- verify inputs for remote https host
+    if isinstance(HOST, str):
+        HOST = url_split(HOST)
     #-- try listing from https
     try:
         #-- Create and submit request.
