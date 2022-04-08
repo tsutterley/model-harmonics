@@ -27,7 +27,7 @@ COMMAND LINE OPTIONS:
     --help: list the command line options
     -D X, --directory X: Working data directory
     -U X, --user X: Username for UCAR/NCAR RDA login
-    -P X, --password X: Password for UCAR/NCAR RDA login
+    -W X, --password X: Password for UCAR/NCAR RDA login
     -N X, --netrc X: Path to .netrc file for authentication
     -Y X, --year X: Years to download from input links file
     -I, --isentropic: Input data is over isentropic levels
@@ -51,10 +51,6 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
     utilities.py: download and management utilities for files
     spatial.py: spatial data class for reading, writing and processing data
-        ncdf_read.py: reads input spatial data from netCDF4 files
-        hdf5_read.py: reads input spatial data from HDF5 files
-        ncdf_write.py: writes output spatial data to netCDF4
-        hdf5_write.py: writes output spatial data to HDF5
 
 UPDATE HISTORY:
     Updated 10/2021: using python logging for handling verbose output
@@ -285,7 +281,7 @@ def main():
     parser.add_argument('--user','-U',
         type=str, default=os.environ.get('UCAR_RDA_USERNAME'),
         help='Username for UCAR/NCAR RDA Login')
-    parser.add_argument('--password','-P',
+    parser.add_argument('--password','-W',
         type=str, default=os.environ.get('UCAR_RDA_PASSWORD'),
         help='Password for UCAR/NCAR RDA Login')
     parser.add_argument('--netrc','-N',

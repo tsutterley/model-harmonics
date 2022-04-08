@@ -24,7 +24,7 @@ INPUTS:
 COMMAND LINE OPTIONS:
     --help: list the command line options
     -U X, --user X: username for NASA Earthdata Login
-    -P X, --password X: password for NASA Earthdata Login
+    -W X, --password X: password for NASA Earthdata Login
     -N X, --netrc X: path to .netrc file for authentication
     -D X, --directory X: Working data directory
     -t X, --timeout X: Timeout in seconds for blocking operations
@@ -153,7 +153,7 @@ def main():
     parser.add_argument('--user','-U',
         type=str, default=os.environ.get('EARTHDATA_USERNAME'),
         help='Username for NASA Earthdata Login')
-    parser.add_argument('--password','-P',
+    parser.add_argument('--password','-W',
         type=str, default=os.environ.get('EARTHDATA_PASSWORD'),
         help='Password for NASA Earthdata Login')
     parser.add_argument('--netrc','-N',
@@ -206,7 +206,7 @@ def main():
 
     #-- check internet connection before attempting to run program
     HOST = 'http://disc.sci.gsfc.nasa.gov/'
-    if gravity_toolkit.utilities.check_connection(HOST):
+    if gravity_toolkit.utilities.check_credentials(HOST):
         #-- for each links list file from GESDISC
         for FILE in args.file:
             gesdisc_merra_download(args.directory, FILE, TIMEOUT=args.timeout,

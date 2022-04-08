@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gen_point_pressure.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (04/2022)
 Calculates gravitational spherical harmonic coefficients for pressure
     values at individual points assuming a disc geometry
 
@@ -35,12 +35,8 @@ PROGRAM DEPENDENCIES:
     legendre.py: Computes associated Legendre polynomials for degree l
     units.py: class for converting spherical harmonic data to specific units
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
-        destripe_harmonics.py: calculates the decorrelation (destriping) filter
-            and filters the GRACE/GRACE-FO coefficients for striping errors
-        ncdf_read_stokes.py: reads spherical harmonic netcdf files
-        ncdf_stokes.py: writes output spherical harmonic data to netcdf
-        hdf5_read_stokes.py: reads spherical harmonic HDF5 files
-        hdf5_stokes.py: writes output spherical harmonic data to HDF5
+    destripe_harmonics.py: calculates the decorrelation (destriping) filter
+        and filters the GRACE/GRACE-FO coefficients for striping errors
 
 REFERENCES:
     I. M. Longman, Journal of Geophysical Research, 67(2), 1962
@@ -53,6 +49,7 @@ REFERENCES:
         https://doi.org/10.1007/s00190-011-0522-7
 
 UPDATE HISTORY:
+    Updated 04/2022: updated docstrings to numpy documentation format
     Written 02/2021
 """
 import numpy as np
@@ -66,27 +63,62 @@ def gen_point_pressure(P, G, R, lon, lat, AREA=None, LMAX=60, MMAX=None,
     Calculates gravitational spherical harmonic coefficients for pressure
         values at individual points assuming a disc geometry
 
-    Arguments
-    ---------
-    P: Pressure [Pa]
-    G: Gravitational acceleration [m/s^2]
-    R: Radius at point [m]
-    lon: longitude of points
-    lat: latitude of points
-
-    Keyword arguments
-    -----------------
-    AREA: Area of each pressure cell [m^2]
-    LMAX: Upper bound of Spherical Harmonic Degrees
-    MMAX: Upper bound of Spherical Harmonic Orders
-    LOVE: input load Love numbers up to degree LMAX (hl,kl,ll)
+    Parameters
+    ----------
+    P: float
+        Pressure (Pa)
+    G: float
+        Gravitational acceleration (m/s\ :sup:`2`)
+    R: float
+        Radius at point (m)
+    lon: float
+        longitude of points
+    lat: float
+        latitude of points
+    AREA: float or NoneType, default None
+        Area of each pressure cell (m\ :sup:`2`)
+    LMAX: int, defualt 60
+        Upper bound of Spherical Harmonic Degrees
+    MMAX: int or NoneType, default None
+        Upper bound of Spherical Harmonic Orders
+    LOVE: tuple or NoneType, default None
+        Load Love numbers up to degree LMAX (``hl``, ``kl``, ``ll``)
 
     Returns
     -------
-    clm: cosine spherical harmonic coefficients
-    slm: sine spherical harmonic coefficients
-    l: spherical harmonic degree to LMAX
-    m: spherical harmonic order to MMAX
+    clm: float
+        fully-normalized cosine spherical harmonic coefficients
+    slm: float
+        fully-normalized sine spherical harmonic coefficients
+    l: int
+        spherical harmonic degree to LMAX
+    m: int
+        spherical harmonic order to MMAX
+
+    References
+    ----------
+    .. [Boy2005] J.-P. Boy and B. F. Chao, "Precise evaluation of
+        atmospheric loading effects on Earth's time‐variable gravity field",
+        *Journal of Geophysical Research: Solid Earth*, 110(B08412), (2005).
+        `doi: 10.1029/2002JB002333 <https://doi.org/10.1029/2002JB002333>`_
+    .. [Farrell1972] W. E. Farrell, "Deformation of the Earth by surface loads",
+        *Reviews of Geophysics and Space Physics*, 10(3), (1972).
+        `doi: 10.1029/RG010i003p00761 <https://doi.org/10.1029/RG010i003p00761>`_
+    .. [Jacob2012] T. Jacob et al., "Estimating geoid height change in North America:
+        past, present and future", *Journal of Geodesy*, 86, 337-358, (2012).
+        `doi: 10.1007/s00190-011-0522-7 <https://doi.org/10.1007/s00190-011-0522-7>`_
+    .. [Longman1962] I. M. Longman, "A Green's function for determining
+        the deformation of the Earth under surface mass loads: 1. Theory",
+        *Journal of Geophysical Research*, 67(2), (1962).
+        `doi: 10.1029/JZ067i002p00845 <https://doi.org/10.1029/JZ067i002p00845>`_
+    .. [Pollack1973] H. N. Pollack, "Spherical harmonic representation of the
+        gravitational potential of a point mass, a spherical cap, and a
+        spherical rectangle", *Journal of Geophysical Research*, 78(11), (1973).
+        `doi: 10.1029/JB078i011p01760 <https://doi.org/10.1029/JB078i011p01760>`_
+    .. [Swenson2002] S. Swenson and J. Wahr, "Estimated effects of the vertical
+        structure of atmospheric mass on the time‐variable geoid",
+        *Journal of Geophysical Research*, 107(B9), 2194, (2002).
+        `doi: 10.1029/2000JB000024 <https://doi.org/10.1029/2000JB000024>`_
     """
 
     #-- upper bound of spherical harmonic orders (default == LMAX)
@@ -156,17 +188,23 @@ def spherical_harmonic_matrix(l,PGR,phi,theta,coeff):
     """
     Calculates spherical harmonics of degree l evaluated at coordinates
 
-    Arguments
-    ---------
-    l: spherical harmonic degree
-    PGR: pressure/gravity ratio
-    phi: longitude of points in radians
-    theta: colatitude of points in radians
-    coeff: degree-dependent factor for converting units
+    Parameters
+    ----------
+    l: int
+        spherical harmonic degree
+    PGR: float
+        pressure/gravity ratio
+    phi: float
+        longitude of points in radians
+    theta: float
+        colatitude of points in radians
+    coeff: float
+        degree-dependent factor for converting units
 
     Returns
     -------
-    Ylms: spherical harmonic coefficients in Eulerian form
+    Ylms: float
+        spherical harmonic coefficients in Eulerian form
     """
     #-- calculate normalized legendre polynomials (points, order)
     Pl = legendre(l, np.cos(theta), NORMALIZE=True).T

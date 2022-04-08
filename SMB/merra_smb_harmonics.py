@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_harmonics.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (04/2022)
 Reads monthly MERRA-2 surface mass balance anomalies and
     converts to spherical harmonic coefficients
 
@@ -56,21 +56,14 @@ PROGRAM DEPENDENCIES:
     ref_ellipsoid.py: calculate reference parameters for common ellipsoids
     gen_stokes.py: converts a spatial field into a series of spherical harmonics
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
-        destripe_harmonics.py: calculates the decorrelation (destriping) filter
-            and filters the GRACE/GRACE-FO coefficients for striping errors
-        ncdf_read_stokes.py: reads spherical harmonic netcdf files
-        ncdf_stokes.py: writes output spherical harmonic data to netcdf
-        hdf5_read_stokes.py: reads spherical harmonic HDF5 files
-        hdf5_stokes.py: writes output spherical harmonic data to HDF5
+    destripe_harmonics.py: calculates the decorrelation (destriping) filter
+        and filters the GRACE/GRACE-FO coefficients for striping errors
     spatial.py: spatial data class for reading, writing and processing data
-        ncdf_read.py: reads input spatial data from netCDF4 files
-        hdf5_read.py: reads input spatial data from HDF5 files
-        ncdf_write.py: writes output spatial data to netCDF4
-        hdf5_write.py: writes output spatial data to HDF5
     time.py: utilities for calculating time operations
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 04/2022: use wrapper function for reading load Love numbers
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
         added checks for previous versions of reprocessed files
@@ -106,7 +99,7 @@ import datetime
 import numpy as np
 import gravity_toolkit.time
 import gravity_toolkit.utilities as utilities
-from gravity_toolkit.read_love_numbers import read_love_numbers
+from gravity_toolkit.read_love_numbers import load_love_numbers
 from gravity_toolkit.harmonics import harmonics
 from gravity_toolkit.spatial import spatial
 from gravity_toolkit.plm_holmes import plm_holmes
@@ -293,65 +286,6 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     #-- set the permissions level of the output date and index files to MODE
     os.chmod(os.path.join(ddir,output_sub,output_date_file), MODE)
     os.chmod(os.path.join(ddir,output_sub,output_index_file), MODE)
-
-#-- PURPOSE: read load love numbers for the range of spherical harmonic degrees
-def load_love_numbers(LMAX, LOVE_NUMBERS=0, REFERENCE='CF'):
-    """
-    Reads PREM load Love numbers for the range of spherical harmonic degrees
-    and applies isomorphic parameters
-
-    Arguments
-    ---------
-    LMAX: maximum spherical harmonic degree
-
-    Keyword arguments
-    -----------------
-    LOVE_NUMBERS: Load Love numbers dataset
-        0: Han and Wahr (1995) values from PREM
-        1: Gegout (2005) values from PREM
-        2: Wang et al. (2012) values from PREM
-    REFERENCE: Reference frame for calculating degree 1 love numbers
-        CF: Center of Surface Figure (default)
-        CM: Center of Mass of Earth System
-        CE: Center of Mass of Solid Earth
-
-    Returns
-    -------
-    kl: Love number of Gravitational Potential
-    hl: Love number of Vertical Displacement
-    ll: Love number of Horizontal Displacement
-    """
-    #-- load love numbers file
-    if (LOVE_NUMBERS == 0):
-        #-- PREM outputs from Han and Wahr (1995)
-        #-- https://doi.org/10.1111/j.1365-246X.1995.tb01819.x
-        love_numbers_file = utilities.get_data_path(
-            ['data','love_numbers'])
-        header = 2
-        columns = ['l','hl','kl','ll']
-    elif (LOVE_NUMBERS == 1):
-        #-- PREM outputs from Gegout (2005)
-        #-- http://gemini.gsfc.nasa.gov/aplo/
-        love_numbers_file = utilities.get_data_path(
-            ['data','Load_Love2_CE.dat'])
-        header = 3
-        columns = ['l','hl','ll','kl']
-    elif (LOVE_NUMBERS == 2):
-        #-- PREM outputs from Wang et al. (2012)
-        #-- https://doi.org/10.1016/j.cageo.2012.06.022
-        love_numbers_file = utilities.get_data_path(
-            ['data','PREM-LLNs-truncated.dat'])
-        header = 1
-        columns = ['l','hl','ll','kl','nl','nk']
-    #-- LMAX of load love numbers from Han and Wahr (1995) is 696.
-    #-- from Wahr (2007) linearly interpolating kl works
-    #-- however, as we are linearly extrapolating out, do not make
-    #-- LMAX too much larger than 696
-    #-- read arrays of kl, hl, and ll Love Numbers
-    hl,kl,ll = read_love_numbers(love_numbers_file, LMAX=LMAX, HEADER=header,
-        COLUMNS=columns, REFERENCE=REFERENCE, FORMAT='tuple')
-    #-- return a tuple of load love numbers
-    return (hl,kl,ll)
 
 #-- Main program that calls merra_monthly_harmonics()
 def main():

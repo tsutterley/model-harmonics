@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gen_pressure_stokes.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (04/2022)
 Calculates spherical harmonic fields from spatial pressure fields
 
 CALLING SEQUENCE:
@@ -35,12 +35,8 @@ PROGRAM DEPENDENCIES:
     plm_holmes.py: Computes fully normalized associated Legendre polynomials
     units.py: class for converting spherical harmonic data to specific units
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
-        destripe_harmonics.py: calculates the decorrelation (destriping) filter
-            and filters the GRACE/GRACE-FO coefficients for striping errors
-        ncdf_read_stokes.py: reads spherical harmonic netcdf files
-        ncdf_stokes.py: writes output spherical harmonic data to netcdf
-        hdf5_read_stokes.py: reads spherical harmonic HDF5 files
-        hdf5_stokes.py: writes output spherical harmonic data to HDF5
+    destripe_harmonics.py: calculates the decorrelation (destriping) filter
+        and filters the GRACE/GRACE-FO coefficients for striping errors
 
 REFERENCE:
     JP Boy and B Chao, Precise evaluation of atmospheric loading effects on
@@ -57,6 +53,7 @@ REFERENCE:
     76: 279-299, 2002. https://doi.org/10.1007/s00190-002-0216-2
 
 UPDATE HISTORY:
+    Updated 04/2022: updated docstrings to numpy documentation format
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 02/2021: separate pressure and gravitational acceleration inputs
     Updated 01/2021: use harmonics class for spherical harmonic operations
@@ -81,27 +78,48 @@ def gen_pressure_stokes(P, G, R, lon, lat, LMAX=60, MMAX=None,
     Converts pressure fields from the spatial domain to spherical
     harmonic coefficients
 
-    Arguments
-    ---------
-    P: Pressure [Pa]
-    G: Gravitational acceleration [m/s^2]
-    R: Radius at point [m]
-    lon: longitude array
-    lat: latitude array
-
-    Keyword arguments
-    -----------------
-    LMAX: Upper bound of Spherical Harmonic Degrees
-    MMAX: Upper bound of Spherical Harmonic Orders
-    PLM: input Legendre polynomials
-    LOVE: input load Love numbers up to degree LMAX (hl,kl,ll)
+    Parameters
+    ----------
+    P: float
+        Pressure (Pa)
+    G: float
+        Gravitational acceleration (m/s\ :sup:`2`)
+    R: float
+        Radius at point (m)
+    lon: float
+        longitude array
+    lat: float
+        latitude array
+    LMAX: int, default 60
+        Upper bound of Spherical Harmonic Degrees
+    MMAX: int or NoneType, default None
+        Upper bound of Spherical Harmonic Orders
+    PLM: float or NoneType, default None
+        Legendre polynomials
+    LOVE: tuple or NoneType, default None
+        Load Love numbers up to degree LMAX (``hl``, ``kl``, ``ll``)
 
     Returns
     -------
-    clm: cosine spherical harmonic coefficients
-    slm: sine spherical harmonic coefficients
-    l: spherical harmonic degree to LMAX
-    m: spherical harmonic order to MMAX
+    clm: float
+        fully-normalized cosine spherical harmonic coefficients
+    slm: float
+        fully-normalized sine spherical harmonic coefficients
+    l: int
+        spherical harmonic degree to LMAX
+    m: int
+        spherical harmonic order to MMAX
+
+    References
+    ----------
+    .. [Boy2005] J.-P. Boy and B. F. Chao, "Precise evaluation of
+        atmospheric loading effects on Earth's time‐variable gravity field",
+        *Journal of Geophysical Research: Solid Earth*, 110(B08412), (2005).
+        `doi: 10.1029/2002JB002333 <https://doi.org/10.1029/2002JB002333>`_
+    .. [Swenson2002] S. Swenson and J. Wahr, "Estimated effects of the vertical
+        structure of atmospheric mass on the time‐variable geoid",
+        *Journal of Geophysical Research*, 107(B9), 2194, (2002).
+        `doi: 10.1029/2000JB000024 <https://doi.org/10.1029/2000JB000024>`_
     """
 
     #-- converting LMAX to integer

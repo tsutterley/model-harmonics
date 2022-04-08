@@ -342,7 +342,8 @@ def main():
 
     #-- check internet connection before attempting to run program
     #-- check JPL ECCO Drive credentials before attempting to run program
-    if gravity_toolkit.utilities.check_credentials('https://{0}'.format(HOST)):
+    DRIVE = 'https://{0}/drive/files'.format(HOST)
+    if gravity_toolkit.utilities.check_credentials(DRIVE):
         for MODEL in args.model:
             jpl_ecco_llc_sync(args.directory, MODEL, YEAR=args.year,
                 PRODUCT=args.product, TIMEOUT=args.timeout, LOG=args.log,

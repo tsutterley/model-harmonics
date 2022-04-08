@@ -47,10 +47,6 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
     ref_ellipsoid.py: calculate reference parameters for common ellipsoids
     spatial.py: spatial data class for reading, writing and processing data
-        ncdf_read.py: reads input spatial data from netCDF4 files
-        hdf5_read.py: reads input spatial data from HDF5 files
-        ncdf_write.py: writes output spatial data to netCDF4
-        hdf5_write.py: writes output spatial data to HDF5
 
 UPDATE HISTORY:
     Updated 12/2021: open MERRA-2 hybrid product command line options
@@ -397,8 +393,8 @@ def scale_areas(lat, flat=1.0/298.257223563, ref=70.0):
     Calculates area scaling factors for a polar stereographic projection
         including special case of at the exact pole
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     lat: latitude
 
     Keyword arguments

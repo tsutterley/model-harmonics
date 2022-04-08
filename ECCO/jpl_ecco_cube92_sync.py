@@ -50,10 +50,6 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
     spatial.py: spatial data class for reading, writing and processing data
-        ncdf_read.py: reads input spatial data from netCDF4 files
-        hdf5_read.py: reads input spatial data from HDF5 files
-        ncdf_write.py: writes output spatial data to netCDF4
-        hdf5_write.py: writes output spatial data to HDF5
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
@@ -259,7 +255,8 @@ def main():
 
     #-- check internet connection before attempting to run program
     #-- check JPL ECCO Drive credentials before attempting to run program
-    if gravity_toolkit.utilities.check_credentials('https://{0}'.format(HOST)):
+    DRIVE = 'https://{0}/drive/files'.format(HOST)
+    if gravity_toolkit.utilities.check_credentials(DRIVE):
         jpl_ecco_cube92_sync(args.directory, YEAR=args.year,
             PRODUCT=args.product, TIMEOUT=args.timeout, LOG=args.log,
             VERBOSE=args.verbose, MODE=args.mode)
