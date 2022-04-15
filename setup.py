@@ -7,18 +7,18 @@ description = ('Python tools for obtaining and working with model '
     'data from the NASA/DLR GRACE and NASA/GFZ GRACE Follow-on missions')
 keywords = 'gravity synthetics, physical geodesy, spherical harmonics'
 # get long_description from README.rst
-with open("README.rst", "r") as fh:
+with open("README.rst", mode='r', encoding='utf8') as fh:
     long_description = fh.read()
 long_description_content_type = "text/x-rst"
 
 # get install requirements
-with open('requirements.txt') as fh:
+with open('requirements.txt', encoding='utf8') as fh:
     install_requires = fh.read().splitlines()
 # dependency links (data readers)
 dependency_links = ['https://github.com/tsutterley/read-GRACE-harmonics/tarball/main']
 
 # get version
-with open('version.txt') as fh:
+with open('version.txt', encoding='utf8') as fh:
     version = fh.read()
 
 # list of all scripts to be included with package
