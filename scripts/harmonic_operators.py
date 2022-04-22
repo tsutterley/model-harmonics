@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 harmonic_operators.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (04/2022)
 Performs basic operations on spherical harmonic files
 
 CALLING SEQUENCE:
@@ -48,6 +48,7 @@ PROGRAM DEPENDENCIES:
         and filters the GRACE/GRACE-FO coefficients for striping errors
 
 UPDATE HISTORY:
+    Updated 04/2022: can read from GIA models
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 11/2021: using python logging for handling verbose output
     Updated 08/2021: added variance off mean as estimated error
@@ -78,6 +79,8 @@ def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
     if not os.access(DIRECTORY, os.F_OK):
         os.makedirs(DIRECTORY,MODE,exist_ok=True)
 
+    #-- list of available GIA Models
+    GIA = ['IJ05-R2','W12a','SM09','Wu10','AW13-ICE6G','Caron','ICE6G-D']
     #-- read each input file
     dinput = [None]*n_files
     for i,fi in enumerate(INPUT_FILES):
@@ -91,6 +94,12 @@ def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
             #-- read from index file
             _,dataform = DATAFORM[i].split('-')
             dinput[i] = harmonics().from_index(fi,format=dataform,date=DATE)
+        elif (DATAFORM[i] in GIA) and DATE:
+            #-- read from GIA file and calculate drift
+            temp = harmonics().from_GIA(fi,GIA=DATAFORM[i])
+            dinput[i] = temp.drift(dinput[0].time)
+        elif DATAFORM[i] in GIA:
+            dinput[i] = harmonics().from_GIA(fi,GIA=DATAFORM[i])
 
     #-- operate on input files
     if (OPERATION == 'add'):
@@ -194,6 +203,7 @@ def main():
     choices = []
     choices.extend(['ascii','netCDF4','HDF5'])
     choices.extend(['index-ascii','index-netCDF4','index-HDF5'])
+    choices.extend(['IJ05-R2','W12a','SM09','Wu10','AW13-ICE6G','Caron','ICE6G-D'])
     parser.add_argument('--format','-F',
         metavar='FORMAT', type=str, nargs='+',
         default=['netCDF4'], choices=choices,
