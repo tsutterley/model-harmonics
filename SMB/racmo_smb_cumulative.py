@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 racmo_smb_cumulative.py
-Written by Tyler Sutterley (11/2021)
+Written by Tyler Sutterley (04/2022)
 Reads RACMO datafiles to calculate cumulative anomalies in derived surface
     mass balance products
 
@@ -29,6 +29,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 04/2022: deprecation fixes for regular expressions
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 11/2021: complete rewrite of program
         dropped old RACMO ascii file read portions
@@ -79,8 +80,8 @@ def racmo_smb_cumulative(model_file, VARIABLE,
     #-- RACMO SMB directory
     DIRECTORY = os.path.dirname(model_file)
     #-- try to extract region and version from filename
-    R1 = re.compile('[XF]?(ANT27|GRN11|GRN055|PEN055|ASE055)',re.VERBOSE)
-    R2 = re.compile('(RACMO\d+(\.\d+)?(p\d+)?)',re.VERBOSE)
+    R1 = re.compile(r'[XF]?(ANT27|GRN11|GRN055|PEN055|ASE055)',re.VERBOSE)
+    R2 = re.compile(r'(RACMO\d+(\.\d+)?(p\d+)?)',re.VERBOSE)
     REGION = R1.search(os.path.basename(model_file)).group(0)
     VERSION = R2.search(os.path.basename(model_file)).group(0)
     #-- RACMO products

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_merra_sync.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (04/2022)
 
 Syncs MERRA-2 surface mass balance (SMB) related products from the Goddard
     Earth Sciences Data and Information Server Center (GES DISC)
@@ -55,6 +55,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 04/2022: lower case keyword arguments to output spatial
     Updated 10/2021: using python logging for handling verbose output
     Updated 06/2021: new last modified date format on GESDISC servers
     Updated 05/2021: added option for connection timeout (in seconds)
@@ -242,8 +243,9 @@ def main():
         default=os.getcwd(),
         help='Working data directory')
     #-- years to download
+    now = time.gmtime()
     parser.add_argument('--year','-Y',
-        type=int, nargs='+', default=range(1980,2021),
+        type=int, nargs='+', default=range(1980,now.tm_year+1),
         help='Years of model outputs to sync')
     #-- connection timeout
     parser.add_argument('--timeout','-t',

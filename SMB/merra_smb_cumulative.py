@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_cumulative.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (04/2022)
 Reads MERRA-2 datafiles to calculate monthly cumulative anomalies
     in derived surface mass balance products
 
@@ -47,6 +47,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 04/2022: lower case keyword arguments to output spatial
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
         add more derived products and include sublimation and condensation
@@ -120,7 +121,7 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
         os.mkdir(os.path.join(DIRECTORY,cumul_sub), MODE)
 
     #-- regular expression operator to find datafiles (and not the xml files)
-    regex_pattern = 'MERRA2_(\d+).{0}.(\d{{4}})(\d{{2}}).nc4(?!.xml)'
+    regex_pattern = r'MERRA2_(\d+).{0}.(\d{{4}})(\d{{2}}).nc4(?!.xml)'
     #-- sign for each product to calculate total SMB
     smb_sign = {'PRECCU':1.0,'PRECLS':1.0,'PRECSN':1.0,'EVAP':-1.0,
         'RUNOFF':-1.0,'WESNSC':1.0}
@@ -154,23 +155,26 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     #-- read mean data from merra_smb_mean.py
     args=(PRODUCT, RANGE[0], RANGE[1], suffix[DATAFORM])
     mean_file='MERRA2.tavgM_2d_{0}_mean_Nx.{1:4d}-{2:4d}.{3}'.format(*args)
+    #-- remove singleton dimensions
     if (DATAFORM == 'ascii'):
         #-- ascii (.txt)
         merra_mean = gravity_toolkit.spatial(spacing=[dlon,dlat],
             nlat=nlat, nlon=nlon, extent=extent).from_ascii(
-            os.path.join(DIRECTORY,mean_file),date=False)
+            os.path.join(DIRECTORY,mean_file), date=False).squeeze()
     elif (DATAFORM == 'netCDF4'):
         #-- netcdf (.nc)
         merra_mean = gravity_toolkit.spatial().from_netCDF4(
-            os.path.join(DIRECTORY,mean_file),date=False,varname=PRODUCT)
+            os.path.join(DIRECTORY,mean_file),
+            date=False, varname=PRODUCT).squeeze()
     elif (DATAFORM == 'HDF5'):
         #-- HDF5 (.H5)
         merra_mean = gravity_toolkit.spatial().from_HDF5(
-            os.path.join(DIRECTORY,mean_file),date=False,varname=PRODUCT)
+            os.path.join(DIRECTORY,mean_file),
+            date=False, varname=PRODUCT).squeeze()
 
     #-- find years of available data
     YEARS = sorted([d for d in os.listdir(os.path.join(DIRECTORY,P1))
-        if re.match('\d{4}',d)])
+        if re.match(r'\d{4}',d)])
     #-- check that are years are available
     CHECK = [str(Y) in YEARS for Y in range(int(YEARS[0]),int(YEARS[-1])+1)]
     if not np.all(CHECK):
@@ -266,28 +270,30 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
             cumul.mask |= dinput.mask
             cumul.time = np.copy(dinput.time)
             cumul.update_mask()
+            #-- copy cumulative variables to output data
+            output = cumul.copy()
             #-- output MERRA-2 cumulative data file
             args = (MOD,PRODUCT,Y1,M1,suffix[DATAFORM])
             FILE = 'MERRA2_{0}.tavgM_2d_{1}_cumul_Nx.{2}{3}.{4}'.format(*args)
             if (DATAFORM == 'ascii'):
                 #-- ascii (.txt)
-                cumul.to_ascii(os.path.join(DIRECTORY,cumul_sub,FILE),
+                output.to_ascii(os.path.join(DIRECTORY,cumul_sub,FILE),
                     verbose=VERBOSE)
             elif (DATAFORM == 'netCDF4'):
                 #-- netcdf (.nc)
-                cumul.to_netCDF4(os.path.join(DIRECTORY,cumul_sub,FILE),
-                    varname=PRODUCT, UNITS='mm w.e.',
-                    LONGNAME='Equivalent_Water_Thickness',
-                    TITLE=merra_products[PRODUCT],
-                    REFERENCE=merra_reference,
+                output.to_netCDF4(os.path.join(DIRECTORY,cumul_sub,FILE),
+                    varname=PRODUCT, units='mm w.e.',
+                    longname='Equivalent_Water_Thickness',
+                    title=merra_products[PRODUCT],
+                    reference=merra_reference,
                     verbose=VERBOSE)
             elif (DATAFORM == 'HDF5'):
                 #-- HDF5 (.H5)
-                cumul.to_HDF5(os.path.join(DIRECTORY,cumul_sub,FILE),
-                    varname=PRODUCT, UNITS='mm w.e.',
-                    LONGNAME='Equivalent_Water_Thickness',
-                    TITLE=merra_products[PRODUCT],
-                    REFERENCE=merra_reference,
+                output.to_HDF5(os.path.join(DIRECTORY,cumul_sub,FILE),
+                    varname=PRODUCT, units='mm w.e.',
+                    longname='Equivalent_Water_Thickness',
+                    title=merra_products[PRODUCT],
+                    reference=merra_reference,
                     verbose=VERBOSE)
             #-- change the permissions mode
             os.chmod(os.path.join(DIRECTORY,cumul_sub,FILE), MODE)

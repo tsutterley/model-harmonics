@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_mean_version4.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (04/2022)
 
 Calculates mean of ocean bottom pressure data from the ECCO ocean model
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
@@ -61,6 +61,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 04/2022: lower case keyword arguments to output spatial
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
     Updated 05/2021: define int/float precision to prevent deprecation warning
@@ -220,11 +221,11 @@ def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
     elif (DATAFORM == 'netCDF4'):
         #-- netcdf (.nc)
         obp_mean.to_netCDF4(os.path.join(ddir,sd,FILE), verbose=VERBOSE,
-            UNITS='Pa', LONGNAME='pressure_at_sea_floor', TITLE=TITLE)
+            units='Pa', longname='pressure_at_sea_floor', title=TITLE)
     elif (DATAFORM == 'HDF5'):
         #-- HDF5 (.H5)
         obp_mean.to_HDF5(os.path.join(ddir,sd,FILE), verbose=VERBOSE,
-            UNITS='Pa', LONGNAME='pressure_at_sea_floor', TITLE=TITLE)
+            units='Pa', longname='pressure_at_sea_floor', title=TITLE)
     #-- change the permissions mode of the output file to MODE
     os.chmod(os.path.join(ddir,sd,FILE),MODE)
 

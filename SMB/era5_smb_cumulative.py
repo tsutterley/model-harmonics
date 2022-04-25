@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 era5_smb_cumulative.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (04/2022)
 Reads ERA5 datafiles to calculate monthly cumulative anomalies
     in derived surface mass balance products
 
@@ -34,6 +34,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 04/2022: lower case keyword arguments to output spatial
     Updated 12/2021: can use variable loglevels for verbose output
     Written 10/2021
 """
@@ -142,21 +143,22 @@ def era5_smb_cumulative(DIRECTORY,
     #-- read mean data from era5_smb_mean.py
     args=(RANGE[0], RANGE[1], suffix[DATAFORM])
     mean_file = 'ERA5-Mean-P-E-{0:4d}-{1:4d}.{2}'.format(*args)
+    #-- remove singleton dimensions
     if (DATAFORM == 'ascii'):
         #-- ascii (.txt)
         era5_mean = gravity_toolkit.spatial(spacing=[dlon,dlat],
             nlat=nlat, nlon=nlon, extent=extent).from_ascii(
-            os.path.join(DIRECTORY,mean_file),date=False)
+            os.path.join(DIRECTORY,mean_file), date=False).squeeze()
     elif (DATAFORM == 'netCDF4'):
         #-- netcdf (.nc)
         era5_mean = gravity_toolkit.spatial().from_netCDF4(
-            os.path.join(DIRECTORY,mean_file),date=False,
-            varname='SMB')
+            os.path.join(DIRECTORY,mean_file),
+            date=False, varname='SMB').squeeze()
     elif (DATAFORM == 'HDF5'):
         #-- HDF5 (.H5)
         era5_mean = gravity_toolkit.spatial().from_HDF5(
-            os.path.join(DIRECTORY,mean_file),date=False,
-            varname='SMB')
+            os.path.join(DIRECTORY,mean_file),
+            date=False, varname='SMB').squeeze()
 
     #-- cumulative mass anomalies calculated by removing mean balance flux
     cumul = gravity_toolkit.spatial(nlat=nlat,nlon=nlon,fill_value=fill_value)
@@ -230,15 +232,15 @@ def era5_smb_cumulative(DIRECTORY,
         elif (DATAFORM == 'netCDF4'):
             #-- netcdf (.nc)
             output.to_netCDF4(os.path.join(DIRECTORY,cumul_sub,FILE),
-                varname='SMB', UNITS='m w.e.',
-                LONGNAME='Equivalent_Water_Thickness',
-                TITLE=output_file_title, verbose=VERBOSE)
+                varname='SMB', units='m w.e.',
+                longname='Equivalent_Water_Thickness',
+                title=output_file_title, verbose=VERBOSE)
         elif (DATAFORM == 'HDF5'):
             #-- HDF5 (.H5)
             output.to_HDF5(os.path.join(DIRECTORY,cumul_sub,FILE),
-                varname='SMB', UNITS='m w.e.',
-                LONGNAME='Equivalent_Water_Thickness',
-                TITLE=output_file_title, verbose=VERBOSE)
+                varname='SMB', units='m w.e.',
+                longname='Equivalent_Water_Thickness',
+                title=output_file_title, verbose=VERBOSE)
         #-- change the permissions mode
         os.chmod(os.path.join(DIRECTORY,cumul_sub,FILE), MODE)
 

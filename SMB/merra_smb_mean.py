@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_mean.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (04/2022)
 Reads monthly MERRA-2 datafiles to calculate multi-annual means
     of derived surface mass balance products
 
@@ -47,6 +47,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 04/2022: lower case keyword arguments to output spatial
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
         add more derived products and include sublimation and condensation
@@ -85,7 +86,7 @@ def read_merra_variables(merra_flux_file, merra_ice_surface_file):
         date_string = fid1.variables['time'].units
         epoch,to_secs = gravity_toolkit.time.parse_date_string(date_string)
         dinput['time'] = gravity_toolkit.time.convert_delta_time(
-            to_secs*fid1.variables['time'][:],epoch1=epoch,
+            to_secs*fid1.variables['time'][:], epoch1=epoch,
             epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0) + 2400000.5
         #-- read each variable of interest in MERRA-2 flux file
         for key in ['PRECCU','PRECLS','PRECSN','EVAP']:
@@ -114,7 +115,7 @@ def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     P1 = 'M2TMNXINT.5.12.4'
     P2 = 'M2TMNXGLC.5.12.4'
     #-- regular expression operator to find datafiles (and not the xml files)
-    regex_pattern = 'MERRA2_(\d+).{0}.(\d{{4}})(\d{{2}}).nc4(?!.xml)'
+    regex_pattern = r'MERRA2_(\d+).{0}.(\d{{4}})(\d{{2}}).nc4(?!.xml)'
     #-- sign for each product to calculate total SMB
     smb_sign = {'PRECCU':1.0,'PRECLS':1.0,'PRECSN':1.0,'EVAP':-1.0,
         'RUNOFF':-1.0,'WESNSC':1.0}
@@ -260,19 +261,19 @@ def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
         #-- netcdf (.nc)
         merra_mean.to_netCDF4(os.path.join(DIRECTORY,FILE),
             varname=PRODUCT,
-            UNITS='mm w.e.',
-            LONGNAME='Equivalent_Water_Thickness',
-            TITLE=merra_products[PRODUCT],
-            REFERENCE=merra_reference,
+            units='mm w.e.',
+            longname='Equivalent_Water_Thickness',
+            title=merra_products[PRODUCT],
+            refernece=merra_reference,
             verbose=VERBOSE)
     elif (DATAFORM == 'HDF5'):
         #-- HDF5 (.H5)
         merra_mean.to_HDF5(os.path.join(DIRECTORY,FILE),
             varname=PRODUCT,
-            UNITS='mm w.e.',
-            LONGNAME='Equivalent_Water_Thickness',
-            TITLE=merra_products[PRODUCT],
-            REFERENCE=merra_reference,
+            units='mm w.e.',
+            longname='Equivalent_Water_Thickness',
+            title=merra_products[PRODUCT],
+            reference=merra_reference,
             verbose=VERBOSE)
     #-- change the permissions mode
     os.chmod(os.path.join(DIRECTORY,FILE), MODE)
