@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 era5_smb_cumulative.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (04/2022)
 Reads ERA5 datafiles to calculate monthly cumulative anomalies
     in derived surface mass balance products
 
@@ -34,6 +34,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 04/2022: lower case keyword arguments to output spatial
     Updated 12/2021: can use variable loglevels for verbose output
     Written 10/2021
 """
@@ -230,15 +231,15 @@ def era5_smb_cumulative(DIRECTORY,
         elif (DATAFORM == 'netCDF4'):
             #-- netcdf (.nc)
             output.to_netCDF4(os.path.join(DIRECTORY,cumul_sub,FILE),
-                varname='SMB', UNITS='m w.e.',
-                LONGNAME='Equivalent_Water_Thickness',
-                TITLE=output_file_title, verbose=VERBOSE)
+                varname='SMB', units='m w.e.',
+                longname='Equivalent_Water_Thickness',
+                title=output_file_title, verbose=VERBOSE)
         elif (DATAFORM == 'HDF5'):
             #-- HDF5 (.H5)
             output.to_HDF5(os.path.join(DIRECTORY,cumul_sub,FILE),
-                varname='SMB', UNITS='m w.e.',
-                LONGNAME='Equivalent_Water_Thickness',
-                TITLE=output_file_title, verbose=VERBOSE)
+                varname='SMB', units='m w.e.',
+                longname='Equivalent_Water_Thickness',
+                title=output_file_title, verbose=VERBOSE)
         #-- change the permissions mode
         os.chmod(os.path.join(DIRECTORY,cumul_sub,FILE), MODE)
 

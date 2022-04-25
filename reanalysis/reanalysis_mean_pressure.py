@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_mean_pressure.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (04/2022)
 Calculates the mean surface pressure fields from reanalysis
 
 INPUTS:
@@ -47,6 +47,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 04/2022: lower case keyword arguments to output spatial
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
     Updated 07/2021: can use input files to define command line arguments
@@ -216,7 +217,7 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
     #-- netcdf (.nc)
     p_mean.to_netCDF4(os.path.join(ddir,FILE), verbose=VERBOSE,
         varname=VARNAME, timename=TIMENAME, lonname=LONNAME, latname=LATNAME,
-        UNITS='Pa', LONGNAME='surface_pressure', TITLE=TITLE)
+        units='Pa', longname='surface_pressure', title=TITLE)
     #-- change the permissions mode of the output file to MODE
     os.chmod(os.path.join(ddir,FILE),MODE)
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_depth_version4.py
-Written by Tyler Sutterley (02/2021)
+Written by Tyler Sutterley (04/2021)
 
 Interpolates GEBCO bathymetry to ECCO Version 4 interpolated model grids
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
@@ -28,6 +28,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 04/2022: lower case keyword arguments to output spatial
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Updated 12/2020: use argparse to set command line parameters
         using spatial module for read and write routines
@@ -106,8 +107,8 @@ def ecco_depth_version4(ddir, model_file, VERSION='2014', MODE=0o775):
     REFERENCE = ('https://www.gebco.net/data_and_products/'
         'gridded_bathymetry_data/')
     interp.to_netCDF4(os.path.join(ddir,bathymetry_file), date=False,
-        TITLE=TITLE, REFERENCE=REFERENCE, VARNAME='depth',
-        UNITS='m', LONGNAME='Depth')
+        title=TITLE, reference=REFERENCE, varname='depth',
+        units='m', longname='Depth')
     #-- change the permissions mode to MODE
     os.chmod(os.path.join(ddir,bathymetry_file),MODE)
 

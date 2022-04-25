@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_read_version4.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (04/2022)
 
 Calculates monthly ocean bottom pressure anomalies from ECCO Version 4 models
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
@@ -62,6 +62,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 04/2022: lower case keyword arguments to output spatial
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
     Updated 03/2021: automatically update years to run based on current time
@@ -235,8 +236,8 @@ def ecco_read_version4(ddir, MODEL, YEARS, RANGE=None,
             #-- Writing output ocean bottom pressure anomaly file
             args = (MODEL, YY, MM, suffix[DATAFORM])
             FILE = 'ECCO_{0}_AveRmvd_OBP_{1:4.0f}_{2:02.0f}.{3}'.format(*args)
-            output_data(obp_anomaly,MODEL,DATAFORM=DATAFORM,
-                VERBOSE=VERBOSE,FILENAME=os.path.join(ddir,sd2,FILE))
+            output_data(obp_anomaly, MODEL, DATAFORM=DATAFORM,
+                VERBOSE=VERBOSE, FILENAME=os.path.join(ddir,sd2,FILE))
             #-- change the permissions mode of the output file to MODE
             os.chmod(os.path.join(ddir,sd2,FILE),MODE)
 
@@ -252,12 +253,12 @@ def output_data(data,MODEL,FILENAME=None,DATAFORM=None,VERBOSE=False):
         data.to_ascii(FILENAME,verbose=VERBOSE)
     elif (DATAFORM == 'netCDF4'):
         #-- netcdf (.nc)
-        data.to_netCDF4(FILENAME, verbose=VERBOSE, UNITS='Pa',
-            LONGNAME='pressure_at_sea_floor', TITLE=TITLE)
+        data.to_netCDF4(FILENAME, verbose=VERBOSE, units='Pa',
+            longname='pressure_at_sea_floor', title=TITLE)
     elif (DATAFORM == 'HDF5'):
         #-- HDF5 (.H5)
-        data.to_HDF5(FILENAME, verbose=VERBOSE, UNITS='Pa',
-            LONGNAME='pressure_at_sea_floor', TITLE=TITLE)
+        data.to_HDF5(FILENAME, verbose=VERBOSE, units='Pa',
+            longname='pressure_at_sea_floor', title=TITLE)
 
 #-- Main program that calls ecco_read_version4()
 def main():

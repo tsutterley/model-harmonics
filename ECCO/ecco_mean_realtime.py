@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_mean_realtime.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (04/2022)
 
 Reads 12-hour ECCO ocean bottom pressure data from JPL
 Calculates multi-annual means on an equirectangular grid
@@ -49,6 +49,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 04/2022: lower case keyword arguments to output spatial
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
     Updated 05/2021: define int/float precision to prevent deprecation warning
@@ -257,12 +258,12 @@ def output_data(data,MODEL,FILENAME=None,DATAFORM=None,VERBOSE=False):
         data.to_ascii(FILENAME,verbose=VERBOSE)
     elif (DATAFORM == 'netCDF4'):
         #-- netcdf (.nc)
-        data.to_netCDF4(FILENAME, verbose=VERBOSE, UNITS='Pa',
-            LONGNAME='Bottom_Pressure', TITLE=T)
+        data.to_netCDF4(FILENAME, verbose=VERBOSE, units='Pa',
+            longname='Bottom_Pressure', title=T)
     elif (DATAFORM == 'HDF5'):
         #-- HDF5 (.H5)
-        data.to_HDF5(FILENAME, verbose=VERBOSE, UNITS='Pa',
-            LONGNAME='Bottom_Pressure', TITLE=T)
+        data.to_HDF5(FILENAME, verbose=VERBOSE, units='Pa',
+            longname='Bottom_Pressure', title=T)
 
 #-- Main program that calls ecco_mean_realtime()
 def main():

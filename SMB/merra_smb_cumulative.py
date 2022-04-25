@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_cumulative.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (04/2022)
 Reads MERRA-2 datafiles to calculate monthly cumulative anomalies
     in derived surface mass balance products
 
@@ -47,6 +47,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 04/2022: lower case keyword arguments to output spatial
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
         add more derived products and include sublimation and condensation
@@ -120,7 +121,7 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
         os.mkdir(os.path.join(DIRECTORY,cumul_sub), MODE)
 
     #-- regular expression operator to find datafiles (and not the xml files)
-    regex_pattern = 'MERRA2_(\d+).{0}.(\d{{4}})(\d{{2}}).nc4(?!.xml)'
+    regex_pattern = r'MERRA2_(\d+).{0}.(\d{{4}})(\d{{2}}).nc4(?!.xml)'
     #-- sign for each product to calculate total SMB
     smb_sign = {'PRECCU':1.0,'PRECLS':1.0,'PRECSN':1.0,'EVAP':-1.0,
         'RUNOFF':-1.0,'WESNSC':1.0}
@@ -276,18 +277,18 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
             elif (DATAFORM == 'netCDF4'):
                 #-- netcdf (.nc)
                 cumul.to_netCDF4(os.path.join(DIRECTORY,cumul_sub,FILE),
-                    varname=PRODUCT, UNITS='mm w.e.',
-                    LONGNAME='Equivalent_Water_Thickness',
-                    TITLE=merra_products[PRODUCT],
-                    REFERENCE=merra_reference,
+                    varname=PRODUCT, units='mm w.e.',
+                    longname='Equivalent_Water_Thickness',
+                    title=merra_products[PRODUCT],
+                    reference=merra_reference,
                     verbose=VERBOSE)
             elif (DATAFORM == 'HDF5'):
                 #-- HDF5 (.H5)
                 cumul.to_HDF5(os.path.join(DIRECTORY,cumul_sub,FILE),
-                    varname=PRODUCT, UNITS='mm w.e.',
-                    LONGNAME='Equivalent_Water_Thickness',
-                    TITLE=merra_products[PRODUCT],
-                    REFERENCE=merra_reference,
+                    varname=PRODUCT, units='mm w.e.',
+                    longname='Equivalent_Water_Thickness',
+                    title=merra_products[PRODUCT],
+                    reference=merra_reference,
                     verbose=VERBOSE)
             #-- change the permissions mode
             os.chmod(os.path.join(DIRECTORY,cumul_sub,FILE), MODE)
