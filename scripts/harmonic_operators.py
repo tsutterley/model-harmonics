@@ -48,7 +48,7 @@ PROGRAM DEPENDENCIES:
         and filters the GRACE/GRACE-FO coefficients for striping errors
 
 UPDATE HISTORY:
-    Updated 04/2022: can read from GIA models
+    Updated 04/2022: can read from GIA models for merging or correcting
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 11/2021: using python logging for handling verbose output
     Updated 08/2021: added variance off mean as estimated error
@@ -80,7 +80,8 @@ def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
         os.makedirs(DIRECTORY,MODE,exist_ok=True)
 
     #-- list of available GIA Models
-    GIA = ['IJ05-R2','W12a','SM09','Wu10','AW13-ICE6G','Caron','ICE6G-D']
+    GIA = ['IJ05-R2','W12a','SM09','Wu10','AW13-ICE6G','AW13-IJ05',
+        'Caron','ICE6G-D']
     #-- read each input file
     dinput = [None]*n_files
     for i,fi in enumerate(INPUT_FILES):
@@ -203,7 +204,8 @@ def main():
     choices = []
     choices.extend(['ascii','netCDF4','HDF5'])
     choices.extend(['index-ascii','index-netCDF4','index-HDF5'])
-    choices.extend(['IJ05-R2','W12a','SM09','Wu10','AW13-ICE6G','Caron','ICE6G-D'])
+    choices.extend(['IJ05-R2','W12a','SM09','Wu10','AW13-ICE6G',
+        'AW13-IJ05','Caron','ICE6G-D'])
     parser.add_argument('--format','-F',
         metavar='FORMAT', type=str, nargs='+',
         default=['netCDF4'], choices=choices,
