@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_mean_realtime.py
-Written by Tyler Sutterley (04/2022)
+Written by Tyler Sutterley (05/2022)
 
 Reads 12-hour ECCO ocean bottom pressure data from JPL
 Calculates multi-annual means on an equirectangular grid
@@ -49,6 +49,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: lower case keyword arguments to output spatial
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
@@ -265,9 +266,8 @@ def output_data(data,MODEL,FILENAME=None,DATAFORM=None,VERBOSE=False):
         data.to_HDF5(FILENAME, verbose=VERBOSE, units='Pa',
             longname='Bottom_Pressure', title=T)
 
-#-- Main program that calls ecco_mean_realtime()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Reads 12-hour ECCO ocean bottom pressure
             data from JPL and calculates multi-annual means
@@ -276,9 +276,9 @@ def main():
     )
     #-- command line parameters
     parser.add_argument('model',
-        metavar='MODEL', type=str, nargs='+',
+        type=str, nargs='+',
         default=['kf080i','dr080i'], choices=['kf080i','dr080i'],
-        help='ECCO Model')
+        help='ECCO Near Real-Time Model')
     #-- working data directory
     parser.add_argument('--directory','-D',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
@@ -301,6 +301,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- for each ECCO Near Real-Time model

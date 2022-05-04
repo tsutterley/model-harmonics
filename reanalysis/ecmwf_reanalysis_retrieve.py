@@ -35,6 +35,7 @@ PYTHON DEPENDENCIES:
         https://software.ecmwf.int/wiki/display/WEBAPI/Web-API+Downloads
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 07/2021: added option for retrieving the model level variables
     Updated 03/2021: added mean sea level pressure (msl) field as output
         automatically update years to run based on current time
@@ -176,9 +177,8 @@ def ecmwf_reanalysis_retrieve(base_dir, server, MODEL, YEAR, LEVEL=False,
         #-- change the permissions mode to MODE
         os.chmod(os.path.join(ddir,output_invariant_file), MODE)
 
-#-- Main program that calls ecmwf_reanalysis_retrieve()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Retrieves reanalysis netCDF4 datasets
             from the ECMWF Web API
@@ -221,6 +221,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files retrieved')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- open connection with ECMWF server

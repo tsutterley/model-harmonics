@@ -4,56 +4,40 @@ gldas_monthly_harmonics.py
 
 - Reads monthly GLDAS total water storage anomalies and converts to spherical harmonic coefficients [Wahr1998]_
 
-Calling Sequence
-################
-
-.. code-block:: bash
-
-    python gldas_monthly_harmonics.py --directory <path_to_directory> \
-        --lmax 60 --format netCDF4 CLSM NOAH VIC
-
 `Source code`__
 
 .. __: https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_monthly_harmonics.py
 
-Inputs
-######
+Calling Sequence
+################
 
-- ``'CLM'``: GLDAS Common Land Model
-- ``'CLSM'``: GLDAS Catchment Land Surface Model
-- ``'MOS'``: GLDAS Mosaic model
-- ``'NOAH'``: GLDAS Noah model
-- ``'VIC'``: GLDAS Variable Infiltration Capacity model
+.. argparse::
+    :filename: ../GLDAS/gldas_monthly_harmonics.py
+    :func: arguments
+    :prog: gldas_monthly_harmonics.py
+    :nodescription:
+    :nodefault:
 
-Command Line Options
-####################
+    model : @after
+        * ``'CLM'``: GLDAS Common Land Model
+        * ``'CLSM'``: GLDAS Catchment Land Surface Model
+        * ``'MOS'``: GLDAS Mosaic model
+        * ``'NOAH'``: GLDAS Noah model
+        * ``'VIC'``: GLDAS Variable Infiltration Capacity model
 
-- ``-D X``, ``--directory X``: working data directory
-- ``-Y X``, ``--year X``: Years to run
-- ``-S X``, ``--spacing X``: Spatial resolution of models to run
+    --spacing -S : @after
+        * ``'10'``: 1.0 degrees latitude/longitude
+        * ``'025'``: 0.25 degrees latitude/longitude
 
-    * ``'10'``: 1.0 degrees latitude/longitude
-    * ``'025'``: 0.25 degrees latitude/longitude
-- ``-v X``, ``--version X``: GLDAS model version to run
-- ``-l X``, ``--lmax X``: maximum spherical harmonic degree
-- ``-m X``, ``--mmax X``: maximum spherical harmonic order
-- ``-n X``, ``--love X``: Load Love numbers dataset
+    --love -n : @after
+        * ``0``: Han and Wahr (1995) values from PREM [Han1995]_
+        * ``1``: Gegout (2005) values from PREM [Gegout2010]_
+        * ``2``: Wang et al. (2012) values from PREM [Wang2012]_
 
-    * ``0``: Han and Wahr (1995) values from PREM [Han1995]_
-    * ``1``: Gegout (2005) values from PREM [Gegout2010]_
-    * ``2``: Wang et al. (2012) values from PREM [Wang2012]_
-- ``--reference X``: Reference frame for load love numbers
-
-    * ``'CF'``: Center of Surface Figure (default)
-    * ``'CM'``: Center of Mass of Earth System
-    * ``'CE'``: Center of Mass of Solid Earth
-- ``-F X``, ``--format X``: input and output data format
-
-    * ``'ascii'``
-    * ``'netCDF4'``
-    * ``'HDF5'``
-- ``-V``, ``--verbose``: verbose output of processing run
-- ``-M X``, ``--mode X``: Permissions mode of the files created
+    --reference : @after
+        * ``'CF'``: Center of Surface Figure
+        * ``'CM'``: Center of Mass of Earth System
+        * ``'CE'``: Center of Mass of Solid Earth
 
 References
 ##########

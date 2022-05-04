@@ -5,33 +5,23 @@ ecco_read_llc_tiles.py
 - Reads monthly ECCO ocean bottom pressure LLC tile data and calculates multi-annual means
 - Global area average of each ocean bottom pressure map is removed [Greatbatch1994]_
 
-Calling Sequence
-
-.. code-block:: bash
-
-    python ecco_read_llc_tiles.py --directory <path_to_directory> V4r4 V5alpha
-
 `Source code`__
 
 .. __: https://github.com/tsutterley/model-harmonics/blob/main/ECCO/ecco_read_llc_tiles.py
 
+Calling Sequence
+################
 
-Inputs
-######
+.. argparse::
+    :filename: ../ECCO/ecco_read_llc_tiles.py
+    :func: arguments
+    :prog: ecco_read_llc_tiles.py
+    :nodescription:
+    :nodefault:
 
-- ECCO Version 4 or 5 models
-
-    * ``'V4r4'``: Version 4, Revision 4
-    * ``'V5alpha'``: ECCO Version 5, Alpha release
-
-Command Line Options
-####################
-
-- ``-D X``, ``--directory X``: working data directory
-- ``-Y X``, ``--year X``: Years to run
-- ``-m X``, ``--mean X``: Year range for mean
-- ``-M X``, ``--mode X``: Permission mode of directories and files
-- ``-V``, ``--verbose``: Output information for each output file
+    model : @after
+        * ``'V4r4'``: Version 4, Revision 4
+        * ``'V5alpha'``: ECCO Version 5, Alpha release
 
 References
 ##########

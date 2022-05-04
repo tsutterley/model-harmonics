@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_mean_version4.py
-Written by Tyler Sutterley (04/2022)
+Written by Tyler Sutterley (05/2022)
 
 Calculates mean of ocean bottom pressure data from the ECCO ocean model
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
@@ -61,6 +61,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: lower case keyword arguments to output spatial
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
@@ -229,9 +230,8 @@ def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
     #-- change the permissions mode of the output file to MODE
     os.chmod(os.path.join(ddir,sd,FILE),MODE)
 
-#-- Main program that calls ecco_mean_version4()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Reads monthly ECCO ocean bottom pressure
             data from Version 4 models and calculates multi-annual
@@ -240,7 +240,7 @@ def main():
     )
     #-- command line parameters
     parser.add_argument('model',
-        metavar='MODEL', type=str, nargs='+',
+        type=str, nargs='+',
         default=['V4r3','V4r4'], choices=['V4r3','V4r4'],
         help='ECCO Version 4 Model')
     #-- working data directory
@@ -265,6 +265,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- for each ECCO Version 4 model

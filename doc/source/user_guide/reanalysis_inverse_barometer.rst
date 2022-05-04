@@ -4,33 +4,27 @@ reanalysis_inverse_barometer.py
 
 - Reads hourly mean sea level pressure fields from reanalysis and calculates the inverse-barometer response [Wunsch1997]_ [HofmannWellenhof2006]_
 
-Calling Sequence
-################
-
-.. code-block:: bash
-
-    python reanalysis_inverse_barometer.py --directory <path_to_directory> ERA5 MERRA-2
-
 `Source code`__
 
 .. __: https://github.com/tsutterley/model-harmonics/blob/main/reanalysis/reanalysis_inverse_barometer.py
 
-Inputs
-######
+Calling Sequence
+################
 
-- `ERA-Interim <http://apps.ecmwf.int/datasets/data/interim-full-moda>`_
-- `ERA5 <http://apps.ecmwf.int/data-catalogues/era5/?class=ea>`_
-- `MERRA-2 <https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/>`_
+.. argparse::
+    :filename: ../reanalysis/reanalysis_inverse_barometer.py
+    :func: arguments
+    :prog: reanalysis_inverse_barometer.py
+    :nodescription:
+    :nodefault:
 
-Command Line Options
-####################
+    model : @after
+        * `ERA-Interim <http://apps.ecmwf.int/datasets/data/interim-full-moda>`_
+        * `ERA5 <http://apps.ecmwf.int/data-catalogues/era5/?class=ea>`_
+        * `MERRA-2 <https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/>`_
 
-- ``-D X``, ``--directory X``: working data directory
-- ``-Y X``, ``--year X``: Years of model outputs to run
-- ``--mean X``: Start and end year for mean
-- ``-d X``, ``--density X``: Density of seawater in kg/m\ :sup:`3`
-- ``-V``, ``--verbose``:  Output information for each output file
-- ``-M X``, ``--mode X``: Permissions mode of the files created
+    --density -D : @replace
+        Density of seawater in kg/m\ :sup:`3`
 
 References
 ##########

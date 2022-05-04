@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 least_squares_mascons.py
-Written by Tyler Sutterley (04/2022)
+Written by Tyler Sutterley (05/2022)
 
 Calculates regional mass anomalies through a least-squares mascon procedure
     from an index of spherical harmonic coefficient files
@@ -84,6 +84,7 @@ REFERENCES:
         https://doi.org/10.1029/2009GL039401
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
         include utf-8 encoding in reads to be windows compliant
     Updated 12/2021: can use variable loglevels for verbose output
@@ -474,8 +475,8 @@ def output_error_log_file(arguments):
     #-- close the log file
     fid.close()
 
-#-- This is the main part of the program that calls the individual modules
-def main():
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Calculates a time-series of regional mass anomalies
             through a least-squares mascon procedure procedure from an index
@@ -580,6 +581,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='permissions mode of output files')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- create logger

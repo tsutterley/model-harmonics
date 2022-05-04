@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_cumulative.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (05/2022)
 Reads MERRA-2 hybrid datafiles to calculate cumulative anomalies in
     derived surface mass balance products
 MERRA-2 Hybrid model outputs provided by Brooke Medley at GSFC
@@ -32,6 +32,7 @@ PYTHON DEPENDENCIES:
          https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: added GSFC MERRA-2 Hybrid Greenland v1.2
         can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
@@ -292,9 +293,8 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
     #-- change the permissions mode
     os.chmod(os.path.join(DIRECTORY,output_file), MODE)
 
-#-- Main program that calls merra_hybrid_cumulative()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Reads MERRA-2 Hybrid datafiles to
             calculate monthly cumulative anomalies in surface
@@ -333,6 +333,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- create logger

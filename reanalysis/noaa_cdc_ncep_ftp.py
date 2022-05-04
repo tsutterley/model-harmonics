@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 noaa_cdc_ncep_ftp.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (05/2022)
 
 Syncs NOAA-DOE-2 surface reanalysis outputs with the NOAA CDC ftp server
     ftp://ftp.cdc.noaa.gov/Datasets/ncep.reanalysis2.dailyavgs/surface/
@@ -35,6 +35,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
     Updated 05/2021: added option for connection timeout (in seconds)
     Updated 03/2021: automatically update years to run based on current time
@@ -114,9 +115,8 @@ def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
         fid1.close()
         os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
 
-#-- Main program that calls ecmwf_reanalysis_retrieve()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Syncs NOAA-DOE-2 surface reanalysis
             outputs from NOAA CDC ftp server
@@ -154,6 +154,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files retrieved')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- run program for model

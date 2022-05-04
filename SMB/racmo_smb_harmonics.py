@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 racmo_smb_harmonics.py
-Written by Tyler Sutterley (04/2022)
+Written by Tyler Sutterley (05/2022)
 Read RACMO surface mass balance products and converts to spherical harmonics
 Shifts dates of SMB point masses to mid-month values to correspond with GRACE
 
@@ -49,6 +49,7 @@ PROGRAM DEPENDENCIES:
         and filters the GRACE/GRACE-FO coefficients for striping errors
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
         deprecation fixes for regular expressions
     Updated 12/2021: can use variable loglevels for verbose output
@@ -239,9 +240,8 @@ def racmo_smb_harmonics(model_file, VARIABLE,
     #-- change the permissions mode of the output file to MODE
     os.chmod(os.path.join(DIRECTORY,FILE),MODE)
 
-#-- Main program that calls racmo_smb_harmonics()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Read RACMO surface mass balance products and
             converts to spherical harmonics
@@ -295,6 +295,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- create logger

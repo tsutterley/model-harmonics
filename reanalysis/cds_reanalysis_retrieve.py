@@ -35,6 +35,7 @@ PYTHON DEPENDENCIES:
         https://pypi.org/project/cdsapi/
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: added option to retrieve specific surface variables
     Updated 07/2021: added option for retrieving the model level variables
     Updated 05/2021: added option for connection timeout (in seconds)
@@ -159,9 +160,8 @@ def cds_reanalysis_retrieve(base_dir, server, YEAR,
         #-- change the permissions mode to MODE
         os.chmod(os.path.join(ddir,output_invariant_file), MODE)
 
-#-- Main program that calls cds_reanalysis_retrieve()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Retrieves ERA5 reanalysis netCDF4 datasets
             from the CDS Web API
@@ -210,6 +210,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files retrieved')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- open connection with CDS api server

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 jpl_ecco_v4_sync.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (05/2022)
 
 Syncs ECCO Version 4 model outputs from the NASA JPL ECCO Drive server:
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
@@ -62,6 +62,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
     Updated 07/2021: add warning for Version 4, Revision 4
     Updated 05/2021: added option for connection timeout (in seconds)
@@ -258,9 +259,8 @@ def http_pull_file(remote_file, remote_mtime, local_file,
             os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
             os.chmod(local_file, MODE)
 
-#-- Main program that calls jpl_ecco_v4_sync()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Syncs ECCO Version 4 model outputs from the
         NASA JPL ECCO Drive server
@@ -268,7 +268,7 @@ def main():
     )
     #-- command line parameters
     parser.add_argument('model',
-        metavar='MODEL', type=str, nargs='+',
+        type=str, nargs='+',
         default=['V4r3','V4r4'], choices=['V4r3','V4r4'],
         help='ECCO Version 4 Model')
     #-- NASA Earthdata credentials
@@ -318,6 +318,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files synced')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- JPL ECCO drive hostname

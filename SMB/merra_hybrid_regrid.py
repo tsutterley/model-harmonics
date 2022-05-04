@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_regrid.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (05/2022)
 Read and regrid MERRA-2 hybrid variables
 MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
 
@@ -49,6 +49,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: open MERRA-2 hybrid product command line options
         added GSFC MERRA-2 Hybrid Greenland v1.2
         can use variable loglevels for verbose output
@@ -429,9 +430,8 @@ def scale_areas(lat, flat=1.0/298.257223563, ref=70.0):
     scale = np.where(np.isclose(theta,np.pi/2.0),1.0/(kp**2),1.0/(k**2))
     return scale
 
-#-- Main program that calls merra_hybrid_regrid()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Read and regrid MERRA-2 hybrid variables
             """,
@@ -490,6 +490,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- create logger

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_geoid_llc_tiles.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (05/2022)
 
 Calculates geoid heights for ECCO ocean model LLC tiles using model
     coefficients from the GFZ International Centre for Global Earth
@@ -41,6 +41,7 @@ PROGRAM DEPENDENCIES:
     gauss_weights.py: Computes Gaussian weights as a function of degree
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
     Updated 05/2021: define int/float precision to prevent deprecation warning
@@ -197,9 +198,8 @@ def ncdf_tile_write(output, attributes, FILENAME=None, LONNAME=None,
     #-- Closing the NetCDF file
     fileID.close()
 
-#-- Main program that calls ecco_geoid_llc_tiles()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Calculates geoid heights for ECCO ocean
             model LLC tiles
@@ -229,6 +229,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- create logger

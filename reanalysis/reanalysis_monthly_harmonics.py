@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_monthly_harmonics.py
-Written by Tyler Sutterley (04/2022)
+Written by Tyler Sutterley (05/2022)
 Reads atmospheric surface pressure fields from reanalysis and calculates sets of
     spherical harmonics using a thin-layer 2D spherical geometry
 
@@ -70,6 +70,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
@@ -384,9 +385,8 @@ def ncdf_landmask(FILENAME,MASKNAME,OCEAN):
         landsea = np.squeeze(fileID.variables[MASKNAME][:].copy())
     return np.nonzero(landsea == OCEAN)
 
-#-- Main program that calls reanalysis_monthly_harmonics()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Reads atmospheric surface pressure fields from
             reanalysis and calculates sets of spherical harmonics
@@ -398,7 +398,7 @@ def main():
     #-- command line parameters
     choices = ['ERA-Interim','ERA5','MERRA-2','NCEP-DOE-2','NCEP-CFSR','JRA-55']
     parser.add_argument('model',
-        metavar='MODEL', type=str, nargs='+',
+        type=str, nargs='+',
         default=['ERA5','MERRA-2'], choices=choices,
         help='Reanalysis Model')
     #-- working data directory
@@ -451,6 +451,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- create logger

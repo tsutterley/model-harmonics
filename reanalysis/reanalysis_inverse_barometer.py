@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_inverse_barometer.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (05/2022)
 Reads hourly mean sea level pressure fields from reanalysis and
     calculates the inverse-barometer response
 
@@ -38,6 +38,7 @@ REFERENCES:
         https://doi.org/10.1007/978-3-211-33545-1
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
     Updated 07/2021: can use input files to define command line arguments
@@ -292,9 +293,8 @@ def ncdf_IB_write(dinput, fill_value, FILENAME=None, IBNAME=None,
     #-- clear nc dictionary variable
     nc = None
 
-#-- Main program that calls reanalysis_inverse_barometer()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Reads hourly mean sea level pressure
             fields from reanalysis and calculates the
@@ -306,7 +306,7 @@ def main():
     #-- command line parameters
     choices = ['ERA-Interim','ERA5','MERRA-2']
     parser.add_argument('model',
-        metavar='MODEL', type=str, nargs='+',
+        type=str, nargs='+',
         default=['ERA5','MERRA-2'], choices=choices,
         help='Reanalysis Model')
     #-- directory with reanalysis data
@@ -337,6 +337,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- create logger

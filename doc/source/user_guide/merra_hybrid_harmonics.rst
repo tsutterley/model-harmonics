@@ -6,56 +6,29 @@ merra_hybrid_harmonics.py
 - Estimates the grid values as point masses for calculating the gravitational spherical harmonic coefficients
 - MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
 
-Calling Sequence
-################
-
-.. code-block:: bash
-
-    python merra_hybrid_harmonics.py --directory <path_to_directory> --region gris \
-        --version v1.1 --product SMB_a --lmax 60 --verbose
-
 `Source code`__
 
 .. __: https://github.com/tsutterley/model-harmonics/blob/main/SMB/merra_hybrid_harmonics.py
 
+Calling Sequence
+################
 
-Command Line Options
-####################
+.. argparse::
+    :filename: ../SMB/merra_hybrid_harmonics.py
+    :func: arguments
+    :prog: merra_hybrid_harmonics.py
+    :nodescription:
+    :nodefault:
 
-- ``-D X``, ``--directory X``: working data directory
-- ``-R X``, ``--region X``: Region to calculate
+    --love -n : @after
+        * ``0``: Han and Wahr (1995) values from PREM [Han1995]_
+        * ``1``: Gegout (2005) values from PREM [Gegout2010]_
+        * ``2``: Wang et al. (2012) values from PREM [Wang2012]_
 
-   * ``gris``
-   * ``ais``
-- ``-v X``, ``--version X``: Version of firn model to calculate
-
-    * ``v0``
-    * ``v1``
-    * ``v1.0``
-    * ``v1.1``
-- ``-P X``, ``--product X``: MERRA-2 hybrid product to calculate
-- ``-Y X``, ``--year X``: Years to run
-- ``--mask X``: netCDF4 mask file for reducing to regions
-- ``-l X``, ``--lmax X``: maximum spherical harmonic degree
-- ``-m X``, ``--mmax X``: maximum spherical harmonic order
-- ``-n X``, ``--love X``: Load Love numbers dataset
-
-    * ``0``: Han and Wahr (1995) values from PREM [Han1995]_
-    * ``1``: Gegout (2005) values from PREM [Gegout2010]_
-    * ``2``: Wang et al. (2012) values from PREM [Wang2012]_
-- ``--reference X``: Reference frame for load love numbers
-
-    * ``'CF'``: Center of Surface Figure (default)
-    * ``'CM'``: Center of Mass of Earth System
-    * ``'CE'``: Center of Mass of Solid Earth
-- ``-F X``, ``--format X``: Output data format
-
-    * ``'ascii'``
-    * ``'netCDF4'``
-    * ``'HDF5'``
-- ``-G``, ``--gzip``: input netCDF4 file is gzip compressed
-- ``-V``, ``--verbose``: Output information for each output file
-- ``-M X``, ``--mode X``: Permissions mode of the files created
+    --reference : @after
+        * ``'CF'``: Center of Surface Figure
+        * ``'CM'``: Center of Mass of Earth System
+        * ``'CE'``: Center of Mass of Solid Earth
 
 References
 ##########

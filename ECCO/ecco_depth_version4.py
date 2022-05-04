@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_depth_version4.py
-Written by Tyler Sutterley (04/2021)
+Written by Tyler Sutterley (05/2022)
 
 Interpolates GEBCO bathymetry to ECCO Version 4 interpolated model grids
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
@@ -28,6 +28,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: lower case keyword arguments to output spatial
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Updated 12/2020: use argparse to set command line parameters
@@ -131,9 +132,8 @@ def extend_array(input_array,count):
     temp[-count:] = input_array[-1] + step_size*np.arange(1,count+1)
     return temp
 
-#-- Main program that calls ecco_depth_version4()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Interpolates GEBCO bathymetry to ECCO Version 4
             interpolated model grids
@@ -156,6 +156,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- run program

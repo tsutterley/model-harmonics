@@ -5,48 +5,45 @@ racmo_smb_harmonics.py
 - Reads monthly RACMO variables and converts to spherical harmonic coefficients [Wahr1998]_
 - Estimates the grid values as point masses for calculating the gravitational spherical harmonic coefficients
 
-Calling Sequence
-################
-
-.. code-block:: bash
-
-    python racmo_smb_harmonics.py --product smb --lmax 60 --verbose model_file
-
 `Source code`__
 
 .. __: https://github.com/tsutterley/model-harmonics/blob/main/SMB/racmo_smb_harmonics.py
 
-
-Inputs
-######
+Calling Sequence
+################
 
 - ``model_file``: full path to input RACMO netCDF4 file
 
 Command Line Options
 ####################
 
-- ``-P X``, ``--product X``: RACMO SMB product to calculate
-- ``--mask X``: netCDF4 mask file for reducing to regions
-- ``-l X``, ``--lmax X``: maximum spherical harmonic degree
-- ``-m X``, ``--mmax X``: maximum spherical harmonic order
-- ``-n X``, ``--love X``: Load Love numbers dataset
+.. argparse::
+    :filename: ../SMB/racmo_smb_harmonics.py
+    :func: arguments
+    :prog: racmo_smb_harmonics.py
+    :nodescription:
+    :nodefault:
 
-    * ``0``: Han and Wahr (1995) values from PREM [Han1995]_
-    * ``1``: Gegout (2005) values from PREM [Gegout2010]_
-    * ``2``: Wang et al. (2012) values from PREM [Wang2012]_
-- ``--reference X``: Reference frame for load love numbers
+    --product -P : @after
+        * ``'precip'``: Precipitation
+        * ``'rainfall'``: Rainfall
+        * ``'refreeze'``: Meltwater Refreeze
+        * ``'runoff'``: Meltwater Runoff
+        * ``'smb'``: Surface Mass Balance
+        * ``'sndiv'``: Snow Drift Erosion
+        * ``'snowfall'``: Snowfall
+        * ``'snowmelt'``: Snowmelt
+        * ``'subl'``: Sublimation
 
-    * ``'CF'``: Center of Surface Figure (default)
-    * ``'CM'``: Center of Mass of Earth System
-    * ``'CE'``: Center of Mass of Solid Earth
-- ``-F X``, ``--format X``: Output data format
+    --love -n : @after
+        * ``0``: Han and Wahr (1995) values from PREM [Han1995]_
+        * ``1``: Gegout (2005) values from PREM [Gegout2010]_
+        * ``2``: Wang et al. (2012) values from PREM [Wang2012]_
 
-    * ``'ascii'``
-    * ``'netCDF4'``
-    * ``'HDF5'``
-- ``-G``, ``--gzip``: input netCDF4 file is gzip compressed
-- ``-V``, ``--verbose``: Output information for each output file
-- ``-M X``, ``--mode X``: Permissions mode of the files created
+    --reference : @after
+        * ``'CF'``: Center of Surface Figure
+        * ``'CM'``: Center of Mass of Earth System
+        * ``'CE'``: Center of Mass of Solid Earth
 
 References
 ##########

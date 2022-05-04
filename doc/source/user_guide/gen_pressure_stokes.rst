@@ -2,12 +2,12 @@
 gen_pressure_stokes.py
 ======================
 
- - Converts pressure fields from the spatial domain to spherical harmonic coefficients [Boy2005]_ [Swenson2002]_
+- Converts pressure fields from the spatial domain to spherical harmonic coefficients [Boy2005]_ [Swenson2002]_
 
- Calling Sequence
- ################
+Calling Sequence
+################
 
- .. code-block:: python
+.. code-block:: python
 
     from model_harmonics.gen_pressure_stokes import gen_pressure_stokes
     from gravity_toolkit.plm_holmes import plm_holmes

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 racmo_smb_cumulative.py
-Written by Tyler Sutterley (04/2022)
+Written by Tyler Sutterley (05/2022)
 Reads RACMO datafiles to calculate cumulative anomalies in derived surface
     mass balance products
 
@@ -29,6 +29,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: deprecation fixes for regular expressions
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 11/2021: complete rewrite of program
@@ -245,9 +246,8 @@ def racmo_smb_cumulative(model_file, VARIABLE,
     #-- change the permissions mode
     os.chmod(os.path.join(DIRECTORY,FILE), MODE)
 
-#-- Main program that calls racmo_smb_cumulative()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Calculates cumulative anomalies of RACMO
             surface mass balance products
@@ -280,6 +280,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- create logger
