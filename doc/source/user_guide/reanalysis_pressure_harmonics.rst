@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../reanalysis/reanalysis_pressure_harmonics.py
+    :filename: ../../reanalysis/reanalysis_pressure_harmonics.py
     :func: arguments
     :prog: reanalysis_pressure_harmonics.py
     :nodescription:

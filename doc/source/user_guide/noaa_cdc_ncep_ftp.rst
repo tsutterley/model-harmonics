@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../reanalysis/noaa_cdc_ncep_ftp.py
+    :filename: ../../reanalysis/noaa_cdc_ncep_ftp.py
     :func: arguments
     :prog: noaa_cdc_ncep_ftp.py
     :nodescription:

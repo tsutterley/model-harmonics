@@ -14,7 +14,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../reanalysis/ucar_rda_cfsr_surface.py
+    :filename: ../../reanalysis/ucar_rda_cfsr_surface.py
     :func: arguments
     :prog: ucar_rda_cfsr_surface.py
     :nodescription:

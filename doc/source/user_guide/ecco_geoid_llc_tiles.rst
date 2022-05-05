@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../ECCO/ecco_geoid_llc_tiles.py
+    :filename: ../../ECCO/ecco_geoid_llc_tiles.py
     :func: arguments
     :prog: ecco_geoid_llc_tiles.py
     :nodescription:

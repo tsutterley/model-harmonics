@@ -14,7 +14,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../ECCO/ecco_read_realtime.py
+    :filename: ../../ECCO/ecco_read_realtime.py
     :func: arguments
     :prog: ecco_read_realtime.py
     :nodescription:

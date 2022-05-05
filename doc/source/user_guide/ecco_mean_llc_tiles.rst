@@ -13,7 +13,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../ECCO/ecco_mean_llc_tiles.py
+    :filename: ../../ECCO/ecco_mean_llc_tiles.py
     :func: arguments
     :prog: ecco_mean_llc_tiles.py
     :nodescription:

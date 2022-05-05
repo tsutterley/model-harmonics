@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../ECCO/ecco_llc_tile_harmonics.py
+    :filename: ../../ECCO/ecco_llc_tile_harmonics.py
     :func: arguments
     :prog: ecco_llc_tile_harmonics.py
     :nodescription:

@@ -13,7 +13,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../reanalysis/reanalysis_geopotential_heights.py
+    :filename: ../../reanalysis/reanalysis_geopotential_heights.py
     :func: arguments
     :prog: reanalysis_geopotential_heights.py
     :nodescription:

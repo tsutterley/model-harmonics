@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../reanalysis/reanalysis_mean_pressure.py
+    :filename: ../../reanalysis/reanalysis_mean_pressure.py
     :func: arguments
     :prog: reanalysis_mean_pressure.py
     :nodescription:

@@ -33,7 +33,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../GLDAS/gldas_mask_vegetation.py
+    :filename: ../../GLDAS/gldas_mask_vegetation.py
     :func: arguments
     :prog: gldas_mask_vegetation.py
     :nodescription:

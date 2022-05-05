@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../SMB/racmo_smb_cumulative.py
+    :filename: ../../SMB/racmo_smb_cumulative.py
     :func: arguments
     :prog: racmo_smb_cumulative.py
     :nodescription:

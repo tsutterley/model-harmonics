@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../GLDAS/gldas_mean_monthly.py
+    :filename: ../../GLDAS/gldas_mean_monthly.py
     :func: arguments
     :prog: gldas_mean_monthly.py
     :nodescription:

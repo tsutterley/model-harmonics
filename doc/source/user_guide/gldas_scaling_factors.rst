@@ -13,7 +13,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../GLDAS/gldas_scaling_factors.py
+    :filename: ../../GLDAS/gldas_scaling_factors.py
     :func: arguments
     :prog: gldas_scaling_factors.py
     :nodescription:

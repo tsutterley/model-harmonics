@@ -14,7 +14,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../ECCO/ecco_mean_realtime.py
+    :filename: ../../ECCO/ecco_mean_realtime.py
     :func: arguments
     :prog: ecco_mean_realtime.py
     :nodescription:

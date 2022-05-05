@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../ECCO/jpl_ecco_sync.py
+    :filename: ../../ECCO/jpl_ecco_sync.py
     :func: arguments
     :prog: jpl_ecco_sync.py
     :nodescription:

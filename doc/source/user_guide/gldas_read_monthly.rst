@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../GLDAS/gldas_read_monthly.py
+    :filename: ../../GLDAS/gldas_read_monthly.py
     :func: arguments
     :prog: gldas_read_monthly.py
     :nodescription:

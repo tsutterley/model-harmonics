@@ -13,7 +13,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../ECCO/ecco_mean_version4.py
+    :filename: ../../ECCO/ecco_mean_version4.py
     :func: arguments
     :prog: ecco_mean_version4.py
     :nodescription:

@@ -13,7 +13,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../SMB/era5_smb_mean.py
+    :filename: ../../SMB/era5_smb_mean.py
     :func: arguments
     :prog: era5_smb_mean.py
     :nodescription:

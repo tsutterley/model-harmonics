@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../ECCO/ecco_monthly_harmonics.py
+    :filename: ../../ECCO/ecco_monthly_harmonics.py
     :func: arguments
     :prog: ecco_monthly_harmonics.py
     :nodescription:

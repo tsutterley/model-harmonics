@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../scripts/harmonic_operators.py
+    :filename: ../../scripts/harmonic_operators.py
     :func: arguments
     :prog: harmonic_operators.py
     :nodescription:
