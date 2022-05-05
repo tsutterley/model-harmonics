@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 era5_smb_mean.py
-Written by Tyler Sutterley (04/2022)
+Written by Tyler Sutterley (05/2022)
 Reads monthly ERA5 datafiles to calculate multi-annual means
     of derived surface mass balance products
 
@@ -34,6 +34,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: lower case keyword arguments to output spatial
     Updated 12/2021: can use variable loglevels for verbose output
     Written 10/2021
@@ -199,9 +200,8 @@ def era5_smb_mean(DIRECTORY,
     #-- change the permissions mode
     os.chmod(os.path.join(DIRECTORY,FILE), MODE)
 
-#-- Main program that calls era5_smb_mean()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Reads monthly ERA5 datafiles to calculate
             calculate multi-annual means of derived surface mass
@@ -231,6 +231,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- run program with parameters

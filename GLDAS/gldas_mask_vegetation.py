@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mask_vegetation.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (05/2022)
 
 Creates a mask for GLDAS data using the GLDAS vegetation type binary files
     https://ldas.gsfc.nasa.gov/gldas/GLDASvegetation.php
@@ -23,6 +23,7 @@ PYTHON DEPENDENCIES:
          https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
     Updated 01/2021: using argparse to set parameters
@@ -126,9 +127,8 @@ def ncdf_index_write(dinput, FILENAME=None):
     #-- Closing the NetCDF file
     fileID.close()
 
-#-- Main program that calls gldas_mask_vegetation()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Creates a mask for GLDAS data using
             the GLDAS vegetation type binary files
@@ -155,6 +155,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='permissions mode of output files')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- create logger

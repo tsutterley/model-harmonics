@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_mean_llc_tiles.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (05/2022)
 
 Calculates mean of tiled ocean bottom pressure data from the ECCO ocean model
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/nctiles_monthly
@@ -50,6 +50,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
     Written 02/2021
@@ -271,9 +272,8 @@ def ncdf_tile_write(output, attributes, FILENAME=None, LONNAME=None,
     #-- Closing the NetCDF file
     fileID.close()
 
-#-- Main program that calls ecco_mean_llc_tiles()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Reads monthly ECCO ocean bottom pressure
             LLC tile data and calculates multi-annual means
@@ -281,7 +281,7 @@ def main():
     )
     #-- command line parameters
     parser.add_argument('model',
-        metavar='MODEL', type=str, nargs='+',
+        type=str, nargs='+',
         default=['V4r4','V5alpha'], choices=['V4r4','V5alpha'],
         help='ECCO Version 4 or 5 Model')
     #-- working data directory
@@ -302,6 +302,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- create logger

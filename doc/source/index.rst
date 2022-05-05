@@ -31,21 +31,21 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     :hidden:
     :caption: Utilities
 
-    user_guide/harmonic_operators.md
+    user_guide/harmonic_operators.rst
     user_guide/least_squares_mascons.rst
     user_guide/least_squares_mascon_timeseries.rst
-    user_guide/spatial_operators.md
+    user_guide/spatial_operators.rst
 
 .. toctree::
     :maxdepth: 1
     :hidden:
     :caption: ECCO
 
-    user_guide/jpl_ecco_webdav.md
-    user_guide/jpl_ecco_sync.md
-    user_guide/jpl_ecco_cube92_sync.md
-    user_guide/jpl_ecco_llc_sync.md
-    user_guide/jpl_ecco_v4_sync.md
+    user_guide/jpl_ecco_webdav.rst
+    user_guide/jpl_ecco_sync.rst
+    user_guide/jpl_ecco_cube92_sync.rst
+    user_guide/jpl_ecco_llc_sync.rst
+    user_guide/jpl_ecco_v4_sync.rst
     user_guide/ecco_mean_realtime.rst
     user_guide/ecco_mean_llc_tiles.rst
     user_guide/ecco_mean_version4.rst
@@ -62,12 +62,12 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     :hidden:
     :caption: GLDAS
 
-    user_guide/gesdisc_gldas_sync.md
+    user_guide/gesdisc_gldas_sync.rst
     user_guide/gldas_mean_monthly.rst
     user_guide/gldas_read_monthly.rst
-    user_guide/gldas_mask_arctic.md
-    user_guide/gldas_mask_permafrost.md
-    user_guide/gldas_mask_vegetation.md
+    user_guide/gldas_mask_arctic.rst
+    user_guide/gldas_mask_permafrost.rst
+    user_guide/gldas_mask_vegetation.rst
     user_guide/gldas_monthly_harmonics.rst
     user_guide/gldas_scaling_factors.rst
 
@@ -76,19 +76,19 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     :hidden:
     :caption: Reanalysis
 
-    user_guide/cds_reanalysis_retrieve.md
-    user_guide/ecmwf_reanalysis_retrieve.md
-    user_guide/gesdisc_merra_download.md
-    user_guide/gesdisc_merra_monthly.md
-    user_guide/noaa_cdc_ncep_ftp.md
-    user_guide/ucar_rda_cfsr_surface.md
-    user_guide/ucar_rda_jra55_surface.md
+    user_guide/cds_reanalysis_retrieve.rst
+    user_guide/ecmwf_reanalysis_retrieve.rst
+    user_guide/gesdisc_merra_download.rst
+    user_guide/gesdisc_merra_monthly.rst
+    user_guide/noaa_cdc_ncep_ftp.rst
+    user_guide/ucar_rda_cfsr_surface.rst
+    user_guide/ucar_rda_jra55_surface.rst
     user_guide/model_level_coefficients.rst
     user_guide/reanalysis_atmospheric_harmonics.rst
-    user_guide/reanalysis_geopotential_heights.md
+    user_guide/reanalysis_geopotential_heights.rst
     user_guide/reanalysis_inverse_barometer.rst
     user_guide/reanalysis_mean_harmonics.rst
-    user_guide/reanalysis_mean_pressure.md
+    user_guide/reanalysis_mean_pressure.rst
     user_guide/reanalysis_monthly_harmonics.rst
     user_guide/reanalysis_monthly_pressure.rst
     user_guide/reanalysis_pressure_harmonics.rst
@@ -98,16 +98,16 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     :hidden:
     :caption: SMB
 
-    user_guide/era5_smb_mean.md
-    user_guide/era5_smb_cumulative.md
+    user_guide/era5_smb_mean.rst
+    user_guide/era5_smb_cumulative.rst
     user_guide/era5_smb_harmonics.rst
-    user_guide/gesdisc_merra_sync.md
-    user_guide/merra_hybrid_cumulative.md
+    user_guide/gesdisc_merra_sync.rst
+    user_guide/merra_hybrid_cumulative.rst
     user_guide/merra_hybrid_harmonics.rst
-    user_guide/merra_hybrid_regrid.md
-    user_guide/merra_smb_mean.md
-    user_guide/merra_smb_cumulative.md
-    user_guide/merra_smb_mask.md
+    user_guide/merra_hybrid_regrid.rst
+    user_guide/merra_smb_mean.rst
+    user_guide/merra_smb_cumulative.rst
+    user_guide/merra_smb_mask.rst
     user_guide/merra_smb_harmonics.rst
-    user_guide/racmo_smb_cumulative.md
+    user_guide/racmo_smb_cumulative.rst
     user_guide/racmo_smb_harmonics.rst

@@ -4,54 +4,37 @@ merra_smb_harmonics.py
 
 - Reads monthly MERRA-2 surface mass balance anomalies and converts to spherical harmonic coefficients [Wahr1998]_
 
-Calling Sequence
-################
-
-.. code-block:: bash
-
-    python merra_smb_harmonics.py --directory <path_to_directory> SMB
-
 `Source code`__
 
 .. __: https://github.com/tsutterley/model-harmonics/blob/main/SMB/merra_smb_harmonics.py
 
-Inputs
-######
+Calling Sequence
+################
 
-- ``'SMB'``: Surface Mass Balance
-- ``'ACCUM'``: Snowfall accumulation
-- ``'PRECIP'``: Total Precipitation
-- ``'RAINFALL'``: Total Rainfall
-- ``'SUBLIM'``: Evaporation and Sublimation
-- ``'RUNOFF'``: Meltwater Runoff
+.. argparse::
+    :filename: ../../SMB/merra_smb_harmonics.py
+    :func: arguments
+    :prog: merra_smb_harmonics.py
+    :nodescription:
+    :nodefault:
 
-Command Line Options
-####################
+    product : @after
+        * ``'SMB'``: Surface Mass Balance
+        * ``'ACCUM'``: Snowfall accumulation
+        * ``'PRECIP'``: Total Precipitation
+        * ``'RAINFALL'``: Total Rainfall
+        * ``'SUBLIM'``: Evaporation and Sublimation
+        * ``'RUNOFF'``: Meltwater Runoff
 
-- ``-D X``, ``--directory X``: working data directory
-- ``-m X``, ``--mean X``: Year range for mean
-- ``-Y X``, ``--year X``: Years to run
-- ``-R X``, ``--region X``: region name for subdirectory
-- ``--mask X``: netCDF4 mask file for reducing to regions
-- ``-l X``, ``--lmax X``: maximum spherical harmonic degree
-- ``-m X``, ``--mmax X``: maximum spherical harmonic order
-- ``-n X``, ``--love X``: Load Love numbers dataset
+    --love -n : @after
+        * ``0``: Han and Wahr (1995) values from PREM [Han1995]_
+        * ``1``: Gegout (2005) values from PREM [Gegout2010]_
+        * ``2``: Wang et al. (2012) values from PREM [Wang2012]_
 
-    * ``0``: Han and Wahr (1995) values from PREM [Han1995]_
-    * ``1``: Gegout (2005) values from PREM [Gegout2010]_
-    * ``2``: Wang et al. (2012) values from PREM [Wang2012]_
-- ``--reference X``: Reference frame for load love numbers
-
-    * ``'CF'``: Center of Surface Figure (default)
-    * ``'CM'``: Center of Mass of Earth System
-    * ``'CE'``: Center of Mass of Solid Earth
-- ``-F X``, ``--format X``: input and output data format
-
-    * ``'ascii'``
-    * ``'netCDF4'``
-    * ``'HDF5'``
-- ``-V``, ``--verbose``: verbose output of processing run
-- ``-M X``, ``--mode X``: Permissions mode of the files created
+    --reference : @after
+        * ``'CF'``: Center of Surface Figure
+        * ``'CM'``: Center of Mass of Earth System
+        * ``'CE'``: Center of Mass of Solid Earth
 
 References
 ##########

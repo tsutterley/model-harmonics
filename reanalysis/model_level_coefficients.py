@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 model_level_coefficients.py
-Written by Tyler Sutterley (12/2020)
+Written by Tyler Sutterley (05/2022)
 Creates a netCDF4 file of reanalysis A and B coefficients for model levels
 Model level coefficients are obtained using equation 3.17 of
     Simmons and Burridge (1981) and the methodology of Trenberth et al (1993)
@@ -40,6 +40,7 @@ REFERENCES:
         https://doi.org/10.5065/D6HX19NH
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2020: using argparse to set command line options
     Written 03/2018
 """
@@ -151,9 +152,8 @@ def model_level_coefficients(base_dir, MODEL, MODE=0o775):
     #-- change the permissions level to MODE
     os.chmod(os.path.join(ddir,output_coordinate_file), MODE)
 
-#-- Main program that calls model_level_coefficients()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Creates a netCDF4 file of reanalysis
             A and B coefficients for model levels
@@ -162,7 +162,7 @@ def main():
     #-- command line parameters
     choices = ['ERA5','MERRA-2']
     parser.add_argument('model',
-        metavar='MODEL', type=str, nargs='+',
+        type=str, nargs='+',
         default=['ERA5','MERRA-2'], choices=choices,
         help='Reanalysis Model')
     #-- working data directory
@@ -174,6 +174,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files retrieved')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- run program

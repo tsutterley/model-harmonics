@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_read_version4.py
-Written by Tyler Sutterley (04/2022)
+Written by Tyler Sutterley (05/2022)
 
 Calculates monthly ocean bottom pressure anomalies from ECCO Version 4 models
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
@@ -62,6 +62,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: lower case keyword arguments to output spatial
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
@@ -261,9 +262,8 @@ def output_data(data,MODEL,FILENAME=None,DATAFORM=None,VERBOSE=False):
         data.to_HDF5(FILENAME, verbose=VERBOSE, units='Pa',
             longname='pressure_at_sea_floor', title=TITLE)
 
-#-- Main program that calls ecco_read_version4()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Reads monthly ECCO ocean bottom pressure
             data from Version 4 models and calculates monthly
@@ -272,7 +272,7 @@ def main():
     )
     #-- command line parameters
     parser.add_argument('model',
-        metavar='MODEL', type=str, nargs='+',
+        type=str, nargs='+',
         default=['V4r3','V4r4'], choices=['V4r3','V4r4'],
         help='ECCO Version 4 Model')
     #-- working data directory
@@ -302,6 +302,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- for each ECCO Version 4 model

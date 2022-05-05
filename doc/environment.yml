@@ -25,12 +25,11 @@ dependencies:
   - python>=3.6
   - python-dateutil
   - pyyaml
-  - recommonmark
   - scikit-learn
   - scipy
   - shapely
   - sphinx
-  - sphinx-markdown-tables
+  - sphinx-argparse
   - sphinx_rtd_theme
   - texlive-core
   - pip:

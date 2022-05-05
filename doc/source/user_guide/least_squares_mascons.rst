@@ -6,67 +6,33 @@ least_squares_mascons.py
 - Filters and smooths data with specified processing algorithms [Jekeli1981]_ [Swenson2006]_
 - Calculates regional mass anomalies through a least-squares mascon procedure following [Tiwari2009]_ [Jacob2012]_
 
-Calling Sequence
-################
-
-.. code-block:: bash
-
-    python least_squares_mascons.py @default_arguments_file input_index_file
-
 `Source code`__
 
 .. __: https://github.com/tsutterley/model-harmonics/blob/main/scripts/least_squares_mascons.py
 
-Inputs
-######
+Calling Sequence
+################
 
-- input index file for model harmonics
+.. argparse::
+    :filename: ../../scripts/least_squares_mascons.py
+    :func: arguments
+    :prog: least_squares_mascons.py
+    :nodescription:
+    :nodefault:
 
-Command Line Options
-####################
+    --love -n : @after
+        * ``0``: Han and Wahr (1995) values from PREM [Han1995]_
+        * ``1``: Gegout (2005) values from PREM [Gegout2010]_
+        * ``2``: Wang et al. (2012) values from PREM [Wang2012]_
 
-- ``-O X``, ``--output-directory X``: output directory for mascon files
-- ``-P X``, ``--file-prefix X``: prefix string for mascon files
-- ``--lmin X``: minimum spherical harmonic degree
-- ``-l X``, ``--lmax X``: maximum spherical harmonic degree
-- ``-m X``, ``--mmax X``: maximum spherical harmonic order
-- ``-R X``, ``--radius X``: Gaussian smoothing radius (km)
-- ``-d``, ``--destripe``: use decorrelation filter (destriping filter)
-- ``-n X``, ``--love X``: Load Love numbers dataset
+    --reference : @after
+        * ``'CF'``: Center of Surface Figure
+        * ``'CM'``: Center of Mass of Earth System
+        * ``'CE'``: Center of Mass of Solid Earth
 
-     * ``0``: Han and Wahr (1995) values from PREM [Han1995]_
-     * ``1``: Gegout (2005) values from PREM [Gegout2010]_
-     * ``2``: Wang et al. (2012) values from PREM [Wang2012]_
-- ``--reference X``: Reference frame for load love numbers
-
-     * ``'CF'``: Center of Surface Figure (default)
-     * ``'CM'``: Center of Mass of Earth System
-     * ``'CE'``: Center of Mass of Solid Earth
-- ``-F X``, ``--format X``: input data format
-
-     * ``'ascii'``
-     * ``'netCDF4'``
-     * ``'HDF5'``
-     * ``'index-ascii'``
-     * ``'index-netCDF4'``
-     * ``'index-HDF5'``
-- ``--mask X``: Land-sea mask for redistributing mascon mass and land water flux
-- ``--mascon-file X``: index file of mascons spherical harmonics
-- ``--mascon-format X``: Input data format for mascon files
-
-     * ``'ascii'``
-     * ``'netCDF4'``
-     * ``'HDF5'``
-- ``--redistribute-mascons``: redistribute mascon mass over the ocean
-- ``--fit-method X``: method for fitting sensitivity kernel to harmonics
-
-    * ``1``: mass coefficients
-    * ``2``: geoid coefficients
-- ``--redistribute-mass``: redistribute input mass fields over the ocean
-- ``--harmonic-errors``: input spherical harmonic fields are data errors
-- ``-l``, ``--log``: output log file for each job
-- ``-V``, ``--verbose``: Verbose output of processing run
-- ``-M X``, ``--mode X``: permissions mode of output files
+    --fit-method : @after
+        * ``1``: mass coefficients
+        * ``2``: geoid coefficients
 
 References
 ##########

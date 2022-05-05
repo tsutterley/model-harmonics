@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_gldas_sync.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (05/2022)
 
 Syncs GLDAS monthly datafiles from the Goddard Earth Sciences Data and
     Information Server Center (GES DISC)
@@ -64,6 +64,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
     Updated 06/2021: fixed timeout for monthly GLDAS download
     Updated 05/2021: added option for connection timeout (in seconds)
@@ -251,9 +252,8 @@ def http_pull_file(remote_file,remote_mtime,local_file,
             os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
             os.chmod(local_file, MODE)
 
-#-- Main program that calls gesdisc_gldas_sync()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Syncs GLDAS monthly datafiles from the Goddard Earth
             Sciences Data and Information Server Center (GES DISC)
@@ -324,6 +324,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files synced')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- NASA Earthdata hostname

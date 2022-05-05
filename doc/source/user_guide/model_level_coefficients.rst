@@ -5,29 +5,24 @@ model_level_coefficients.py
 - Creates a netCDF4 file of reanalysis A and B coefficients for model levels
 - Model level coefficients are obtained using equation 3.17 of [Simmons1981]_ and the methodology of [Trenberth1993]_
 
-Calling Sequence
-################
-
-.. code-block:: bash
-
-    python model_level_coefficients.py --directory <path_to_directory> ERA5 MERRA-2
-
 `Source code`__
 
 .. __: https://github.com/tsutterley/model-harmonics/blob/main/reanalysis/model_level_coefficients.py
 
-Inputs
-######
+Calling Sequence
+################
 
-- `ERA-Interim <http://apps.ecmwf.int/datasets/data/interim-full-moda>`_
-- `ERA5 <http://apps.ecmwf.int/data-catalogues/era5/?class=ea>`_
-- `MERRA-2 <https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/>`_
+.. argparse::
+    :filename: ../../reanalysis/model_level_coefficients.py
+    :func: arguments
+    :prog: model_level_coefficients.py
+    :nodescription:
+    :nodefault:
 
-Command Line Options
-####################
-
-- ``-D X``, ``--directory X``: Working data directory
-- ``-M X``, ``--mode X``: Permission mode of directories and files
+    model : @after
+        * `ERA-Interim <http://apps.ecmwf.int/datasets/data/interim-full-moda>`_
+        * `ERA5 <http://apps.ecmwf.int/data-catalogues/era5/?class=ea>`_
+        * `MERRA-2 <https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/>`_
 
 References
 ##########

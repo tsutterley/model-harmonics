@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_mask.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (05/2022)
 
 Creates a mask for MERRA-2 land ice data using a set of shapefiles
 https://goldsmr4.gesdisc.eosdis.nasa.gov/data/MERRA2_MONTHLY/
@@ -38,6 +38,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
     Updated 02/2021: use spatial class to read input mask file
@@ -195,9 +196,8 @@ def ncdf_mask_write(dinput, FILENAME=None):
     #-- Closing the NetCDF file
     fileID.close()
 
-#-- Main program that calls merra_smb_mask()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Creates a mask for MERRA-2 land ice data
             using a set of shapefiles
@@ -236,6 +236,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- run program

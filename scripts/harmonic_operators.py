@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 harmonic_operators.py
-Written by Tyler Sutterley (04/2022)
+Written by Tyler Sutterley (05/2022)
 Performs basic operations on spherical harmonic files
 
 CALLING SEQUENCE:
@@ -48,6 +48,7 @@ PROGRAM DEPENDENCIES:
         and filters the GRACE/GRACE-FO coefficients for striping errors
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: can read from GIA models for merging or correcting
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 11/2021: using python logging for handling verbose output
@@ -171,9 +172,8 @@ def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
     #-- change the permissions mode of the output file
     os.chmod(OUTPUT_FILE, MODE)
 
-#-- Main program that calls harmonic_operators()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Performs basic operations on spherical harmonic files
             """
@@ -222,6 +222,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- create logger

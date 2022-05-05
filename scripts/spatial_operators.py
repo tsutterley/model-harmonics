@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 spatial_operators.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (05/2022)
 Performs basic operations on spatial files
 
 CALLING SEQUENCE:
@@ -48,6 +48,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 11/2021: using python logging for handling verbose output
     Updated 05/2021: define int/float precision to prevent deprecation warning
@@ -190,9 +191,8 @@ def spatial_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, DDEG=None,
     #-- change the permissions mode of the output file
     os.chmod(OUTPUT_FILE, MODE)
 
-#-- Main program that calls spatial_operators()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Performs basic operations on spatial files
             """
@@ -241,6 +241,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- create logger

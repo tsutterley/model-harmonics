@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_scaling_factors.py
-Written by Tyler Sutterley (04/2022)
+Written by Tyler Sutterley (05/2022)
 
 Reads monthly GLDAS total water storage anomalies and monthly
     spherical harmonic coefficients
@@ -75,6 +75,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
@@ -345,9 +346,8 @@ def output_data(data, FILENAME=None, KEY='data', DATAFORM=None,
     #-- change the permissions mode of the output file
     os.chmod(FILENAME, MODE)
 
-#-- Main program that calls gldas_scaling_factors()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Reads monthly GLDAS total water storage anomalies
             and monthly spherical harmonic coefficients to compute
@@ -426,6 +426,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- for each GLDAS model

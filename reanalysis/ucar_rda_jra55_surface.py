@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ucar_rda_jra55_surface.py
-Written by Tyler Sutterley (10/2021)
+Written by Tyler Sutterley (05/2022)
 
 Downloads JRA-55 products using a links list csh file provided by the
     NCAR/UCAR Research Data Archive (RDA): https://rda.ucar.edu/
@@ -58,6 +58,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
     Updated 07/2021: adjust ordering of file line search in csh file
     Updated 05/2021: added option for connection timeout (in seconds)
@@ -302,9 +303,8 @@ def ncdf_model_write(dinput, fill_value, VARNAME=None, LONNAME=None,
     #-- Closing the NetCDF file
     fileID.close()
 
-#-- Main program that calls ucar_rda_download()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Downloads JRA-55 products using a links list
             provided by the NCAR/UCAR Research Data Archive (RDA)
@@ -355,6 +355,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files synced')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- UCAR/NCAR RDA hostname

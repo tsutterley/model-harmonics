@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mask_arctic.py
-Written by Tyler Sutterley (12/2021)
+Written by Tyler Sutterley (05/2022)
 
 Creates a mask for GLDAS data for Greenland, Svalbard, Iceland and the
     Russian High Arctic defined by a set of shapefiles
@@ -32,6 +32,7 @@ PYTHON DEPENDENCIES:
          https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
     Updated 02/2021: convert to projection of each shapefile
@@ -177,9 +178,8 @@ def ncdf_mask_write(dinput, FILENAME=None):
     #-- Closing the NetCDF file
     fileID.close()
 
-#-- Main program that calls gldas_mask_arctic()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Creates a mask for GLDAS data for
             Greenland, Svalbard, Iceland and the Russian
@@ -219,6 +219,13 @@ def main():
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='permissions mode of output files')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- create logger

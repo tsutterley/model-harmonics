@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 jpl_ecco_webdav.py
-Written by Tyler Sutterley (05/2021)
+Written by Tyler Sutterley (05/2022)
 
 Retrieves and prints a user's JPL ECCO Drive WebDAV credentials
 
@@ -45,6 +45,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 05/2021: use try/except for retrieving netrc credentials
     Updated 04/2021: set a default netrc file and check access
         default credentials from environmental variables
@@ -92,9 +93,8 @@ def jpl_ecco_webdav(USER, PASSWORD, parser=lxml.etree.HTMLParser()):
     #-- return webdav password
     return WEBDAV
 
-#-- Main program that calls jpl_ecco_webdav()
-def main():
-    #-- Read the system arguments listed after the program
+#-- PURPOSE: create argument parser
+def arguments():
     parser = argparse.ArgumentParser(
         description="""Retrieves and prints a user's JPL ECCO WebDAV
             credentials
@@ -116,6 +116,13 @@ def main():
     parser.add_argument('--append','-A',
         default=False, action='store_true',
         help='Append .netrc file instead of printing')
+    #-- return the parser
+    return parser
+
+#-- This is the main part of the program that calls the individual functions
+def main():
+    #-- Read the system arguments listed after the program
+    parser = arguments()
     args,_ = parser.parse_known_args()
 
     #-- NASA Earthdata hostname
