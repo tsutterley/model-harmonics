@@ -18,3 +18,8 @@ General Methods
 
 .. autofunction:: model_harmonics.utilities.gesdisc_list
 
+.. autofunction:: model_harmonics.utilities.cmr_filter_json
+
+.. autofunction:: model_harmonics.utilities.cmr
+
+.. autofunction:: model_harmonics.utilities.build_request

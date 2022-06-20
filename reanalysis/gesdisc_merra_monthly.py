@@ -98,6 +98,8 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
         fid = open(os.path.join(DIRECTORY,LOGFILE),'w')
         logging.basicConfig(stream=fid, level=loglevel)
         logging.info('NASA MERRA-2 Sync Log ({0})'.format(today))
+        PRODUCT = '{0}.{1}'.format(SHORTNAME,VERSION)
+        logging.info('PRODUCT: {0}'.format(PRODUCT))
     else:
         #-- standard output (terminal output)
         fid = sys.stdout
@@ -115,9 +117,19 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
     LATNAME = 'lat'
     LEVELNAME = 'lev'
     TIMENAME = 'time'
-    TIME_LONGNAME = 'time'
+    time_unit_format = 'minutes since {0}-{1}-01 00:00:00'
     #-- output dimensions
     nlevels,nlat,nlon = (72,361,576)
+    #-- dictionary of variable attributes
+    attributes = dict(ROOT={})
+    #-- file-level attributes to retrieve
+    root_attributes = ['Contact', 'Conventions', 'Institution',
+        'References', 'Format', 'SpatialCoverage', 'VersionID',
+        'identifier_product_doi_authority', 'identifier_product_doi',
+        'ShortName', 'LongName', 'Title', 'DataResolution',
+        'LatitudeResolution', 'LongitudeResolution',
+        'SouthernmostLatitude', 'NorthernmostLatitude',
+        'WesternmostLongitude', 'EasternmostLongitude']
 
     #-- for each unique date
     for YEAR in YEARS:
@@ -151,9 +163,12 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
             count[QNAME] = np.zeros((1,nlevels,nlat,nlon))
             #-- for each url
             for id,url,mtime in zip(ids,urls,mtimes):
+                #-- build subsetting API url for granule
+                request_url = model_harmonics.utilities.build_request(
+                    SHORTNAME, VERSION, url, variables=[VARNAME,TNAME,QNAME])
                 #-- Create and submit request. There are a wide range of exceptions
                 #-- that can be thrown here, including HTTPError and URLError.
-                response = model_harmonics.utilities.from_http(url,
+                response = model_harmonics.utilities.from_http(request_url,
                     timeout=TIMEOUT,
                     context=None,
                     verbose=VERBOSE,
@@ -163,10 +178,11 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
                 fileID = netCDF4.Dataset(id,'r',memory=response.read())
                 MOD,DATASET,Y,M,D,AUX = rx1.findall(id).pop()
                 #-- extract dimension variables
-                dinput[LEVELNAME] = fileID.variables[LEVELNAME][:].copy()
-                dinput[LATNAME] = fileID.variables[LATNAME][:].copy()
-                dinput[LONNAME] = fileID.variables[LONNAME][:].copy()
                 nt, = fileID.variables[TIMENAME].shape
+                for dim in (LEVELNAME,LATNAME,LONNAME):
+                    dinput[dim] = fileID.variables[dim][:].copy()
+                    #-- extract variable attributes
+                    attributes[dim] = ncdf_attributes(fileID,var)
                 #-- bad value
                 fill_value = fileID.variables[VARNAME]._FillValue
                 #-- add over time slices products to monthly output
@@ -189,6 +205,19 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
                     ii,jj,kk = np.nonzero(QV != fill_value)
                     dinput[QNAME][0,ii,jj,kk] += QV[ii,jj,kk]
                     count[QNAME][0,ii,jj,kk] += 1.0
+                    #-- get attributes for each variable
+                    for var in (TIMENAME, VARNAME, TNAME, QNAME):
+                        #-- extract variable attributes
+                        attributes[var] = ncdf_attributes(fileID,var)
+                #-- get each root attribute of interest
+                for att_name in root_attributes:
+                    try:
+                        att_val = fileID.getncattr(att_name)
+                        att_val = re.sub(r'inst\d+_3d',r'instM_3d',att_val)
+                    except Exception as e:
+                        pass
+                    else:
+                        attributes['ROOT'][att_name] = att_val
                 #-- close the input file from remote url
                 fileID.close()
             #-- calculate mean from totals
@@ -202,12 +231,12 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
                 dinput[key][complementary_indices] = fill_value
             #-- output to netCDF4 file (replace hour variable with monthly)
             DATASET = re.sub(r'inst\d+_3d',r'instM_3d',DATASET)
-            TIME_UNITS = 'minutes since {0}-{1}-01 00:00:00'.format(YY,MM)
+            attributes['time']['units'] = time_unit_format.format(YY,MM)
             local_file = 'MERRA2_{0}.{1}.{2}{3}.SUB.nc'.format(MOD,DATASET,YY,MM)
-            ncdf_model_write(dinput, fill_value, VARNAME=VARNAME, TNAME=TNAME,
-                QNAME=QNAME, LONNAME=LONNAME, LATNAME=LATNAME, LEVELNAME=LEVELNAME,
-                TIMENAME=TIMENAME,TIME_UNITS=TIME_UNITS,TIME_LONGNAME=TIME_LONGNAME,
-                FILENAME=os.path.join(DIRECTORY,local_file))
+            ncdf_model_write(dinput, attributes, fill_value,
+                VARNAME=VARNAME, TNAME=TNAME, QNAME=QNAME,
+                LONNAME=LONNAME, LATNAME=LATNAME, LEVELNAME=LEVELNAME,
+                TIMENAME=TIMENAME, FILENAME=os.path.join(DIRECTORY,local_file))
             #-- set permissions mode to MODE
             os.chmod(os.path.join(DIRECTORY,local_file), MODE)
 
@@ -216,10 +245,27 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
         fid.close()
         os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
 
+#-- PURPOSE: get attributes for a variable
+def ncdf_attributes(fileID, var):
+    #-- dictionary of attributes and list of attributes to retrieve
+    attributes = {}
+    attributes_list = ['calendar', 'long_name', 'positive',
+        'standard_name', 'units', 'valid_range']
+    #-- for each potential attribute
+    for att_name in attributes_list:
+        try:
+            att_val = fileID[var].getncattr(att_name)
+        except Exception as e:
+            pass
+        else:
+            attributes[att_name] = att_val
+    #-- return the dictionary of attributes
+    return attributes
+
 #-- PURPOSE: write output model layer fields data to file
-def ncdf_model_write(dinput, fill_value, VARNAME=None, TNAME=None, QNAME=None,
-    LONNAME=None, LATNAME=None, LEVELNAME=None, TIMENAME=None, TIME_UNITS=None,
-    TIME_LONGNAME=None, FILENAME=None):
+def ncdf_model_write(dinput, attributes, fill_value,
+    VARNAME=None, TNAME=None, QNAME=None, LONNAME=None, LATNAME=None,
+    LEVELNAME=None, TIMENAME=None, FILENAME=None):
     #-- opening NetCDF4 file for writing
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
@@ -231,37 +277,24 @@ def ncdf_model_write(dinput, fill_value, VARNAME=None, TNAME=None, QNAME=None,
     #-- creating the layered NetCDF4 variables
     for key in [TNAME,QNAME]:
         nc[key] = fileID.createVariable(key, dinput[key].dtype,
-            (TIMENAME,LEVELNAME,LATNAME,LONNAME,), fill_value=fill_value, zlib=True)
+            (TIMENAME,LEVELNAME,LATNAME,LONNAME,),
+            fill_value=fill_value, zlib=True)
     #-- creating the surface NetCDF4 variables
     for key in [VARNAME]:
         nc[key] = fileID.createVariable(key, dinput[key].dtype,
-            (TIMENAME,LATNAME,LONNAME,), fill_value=fill_value, zlib=True)
+            (TIMENAME,LATNAME,LONNAME,),
+            fill_value=fill_value, zlib=True)
 
     #-- filling NetCDF4 variables
     for key,val in dinput.items():
         nc[key][:] = val.copy()
+        #-- set netCDF4 attributes for variable
+        for att_name,att_val in attributes[key].items():
+            nc[key].setncattr(att_name, att_val)
 
-    #-- Defining attributes for longitude and latitude
-    nc[LONNAME].long_name = 'Longitude'
-    nc[LONNAME].units = 'degrees_east'
-    nc[LATNAME].long_name = 'Latitude'
-    nc[LATNAME].units = 'degrees_north'
-    #-- Defining attributes for time
-    nc[TIMENAME].units = TIME_UNITS
-    nc[TIMENAME].long_name = TIME_LONGNAME
-    #-- Definining attributes for model levels
-    nc[LEVELNAME].long_name = 'vertical_level'
-    nc[LEVELNAME].units = 'layer'
-    nc[LEVELNAME].positive = 'down'
-    #-- Defining attributes for air temperature
-    nc[TNAME].long_name = 'Air_Temperature'
-    nc[TNAME].units = 'K'
-    #-- Defining attributes for specific humidity
-    nc[QNAME].long_name = 'Specific_Humidity'
-    nc[QNAME].units = 'kg/kg'
-    #-- Defining attributes for surface pressure
-    nc[VARNAME].long_name = 'Surface_Air_Pressure'
-    nc[VARNAME].units = 'Pa'
+    #-- Defining file-level attributes
+    for att_name,att_val in attributes['ROOT'].items():
+        fileID.setncattr(att_name, att_val)
     #-- date created
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 

@@ -11,6 +11,7 @@ PYTHON DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 06/2022: add NASA Common Metadata Repository (CMR) queries
+        added function to build GES DISC subsetting API requests
     Updated 04/2022: updated docstrings to numpy documentation format
     Written 01/2021
 """
@@ -263,3 +264,50 @@ def cmr(short_name, version=None, start_date=None, end_date=None,
         granule_mtimes.extend(mtimes)
     #-- return the list of granule ids, urls and modification times
     return (granule_names, granule_urls, granule_mtimes)
+
+#-- PURPOSE: build requests for the GES DISC subsetting API
+def build_request(short_name, dataset_version, url, variables=[],
+    format='bmM0Lw', service='L34RS_MERRA2', version='1.02',
+    bbox=[-90,-180,90,180], **kwargs):
+    """
+    Build requests for the GES DISC subsetting API
+
+    Parameters
+    ----------
+    short_name: str
+        Model shortname in the CMR system
+    url: str
+        url for granule returned by the CMR system
+    variables: list, default []
+        Variables for product to subset
+    format: str, default 'bmM0Lw'
+        Coded output format for GES DISC subsetting API
+    service: str, default 'L34RS_MERRA2'
+        GES DISC subsetting API service
+    version: str, default '1.02'
+        GES DISC subsetting API service version
+    bbox: list, default [-90,-180,90,180]
+        Bounding box to spatially subset
+    **kwargs: dict, default {}
+        Additional parameters for GES DISC subsetting API
+
+    Returns
+    -------
+    request_url: str
+        Formatted url for GES DISC subsetting API
+    """
+    #-- split CMR supplied url for granule
+    HOST,*args = url_split(url)
+    api_host = posixpath.join(HOST,'daac-bin','OTF','HTTP_services.cgi?')
+    #-- create parameters to be encoded
+    kwargs['FILENAME'] = posixpath.join(posixpath.sep, *args)
+    kwargs['FORMAT'] = format
+    kwargs['SERVICE'] = service
+    kwargs['VERSION'] = version
+    kwargs['BBOX'] = ','.join(map(str, bbox))
+    kwargs['SHORTNAME'] = short_name
+    kwargs['DATASET_VERSION'] = dataset_version
+    kwargs['VARIABLES'] = ','.join(variables)
+    #-- return the formatted request url
+    request_url = api_host + urlencode(kwargs)
+    return request_url
