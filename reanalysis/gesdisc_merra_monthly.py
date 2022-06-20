@@ -182,7 +182,7 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
                 for dim in (LEVELNAME,LATNAME,LONNAME):
                     dinput[dim] = fileID.variables[dim][:].copy()
                     #-- extract variable attributes
-                    attributes[dim] = ncdf_attributes(fileID,var)
+                    attributes[dim] = ncdf_attributes(fileID,dim)
                 #-- bad value
                 fill_value = fileID.variables[VARNAME]._FillValue
                 #-- add over time slices products to monthly output
