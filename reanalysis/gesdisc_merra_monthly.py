@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 u"""
 gesdisc_merra_monthly.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (06/2022)
 
-Downloads MERRA-2 products using a links list provided by the Goddard Earth
-    Sciences Data and Information Server Center (GES DISC)
+Creates monthly MERRA-2 3D model level products syncing data from the
+    Goddard Earth Sciences Data and Information Server Center (GES DISC)
     https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/
     https://wiki.earthdata.nasa.gov/display/EL/How+To+Access+Data+With+Python
 Combines daily model level outputs into monthly averages
@@ -16,11 +16,8 @@ Add "NASA GESDISC DATA ARCHIVE" to Earthdata Applications:
     https://urs.earthdata.nasa.gov/approve_app?client_id=e2WVk8Pw6weeLUKZYOxvTQ
 
 CALLING SEQUENCE:
-    python gesdisc_merra_monthly.py --user <username> links_list_file
+    python gesdisc_merra_monthly.py --user <username>
     where <username> is your NASA Earthdata username
-
-INPUTS:
-    links_list_file: GES DISC generated file listing files to download
 
 COMMAND LINE OPTIONS:
     --help: list the command line options
@@ -28,6 +25,9 @@ COMMAND LINE OPTIONS:
     -W X, --password X: password for NASA Earthdata Login
     -N X, --netrc X: path to .netrc file for authentication
     -D X, --directory X: Working data directory
+    -s X, --shortname X: MERRA-2 product shortname
+    -v X, --version X: MERRA-2 version
+    -Y X, --year X: years to sync
     -t X, --timeout X: Timeout in seconds for blocking operations
     -l, --log: output log of files downloaded
     -V, --verbose: Output information for each output file
@@ -49,6 +49,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 06/2022: use CMR queries to find reanalysis granules
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
     Updated 05/2021: added option for connection timeout (in seconds)
@@ -76,11 +77,12 @@ import netCDF4
 import argparse
 import builtins
 import numpy as np
-import gravity_toolkit.utilities
+import gravity_toolkit.time
+import model_harmonics.utilities
 
 #-- PURPOSE: sync local MERRA-2 files with GESDISC server
-def gesdisc_merra_monthly(base_dir, links_list_file, TIMEOUT=None,
-    LOG=False, VERBOSE=False, MODE=None):
+def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
+    TIMEOUT=None, LOG=False, VERBOSE=False, MODE=None):
     #-- full path to MERRA-2 directory
     DIRECTORY = os.path.join(base_dir,'MERRA-2')
     #-- check if DIRECTORY exists and recursively create if not
@@ -96,17 +98,15 @@ def gesdisc_merra_monthly(base_dir, links_list_file, TIMEOUT=None,
         fid = open(os.path.join(DIRECTORY,LOGFILE),'w')
         logging.basicConfig(stream=fid, level=loglevel)
         logging.info('NASA MERRA-2 Sync Log ({0})'.format(today))
+        PRODUCT = '{0}.{1}'.format(SHORTNAME,VERSION)
+        logging.info('PRODUCT: {0}'.format(PRODUCT))
     else:
         #-- standard output (terminal output)
         fid = sys.stdout
         logging.basicConfig(stream=fid, level=loglevel)
 
-    #-- read the links list file
-    with open(links_list_file,'rb') as fileID:
-        lines = fileID.read().decode("utf-8-sig").encode("utf-8").splitlines()
-
     #-- regular expression for grouping months from daily data
-    regex_pattern = rb'MERRA2_(\d+).(.*?).(\d{4})(\d{2})(\d{2})(.*?).nc[4]?'
+    regex_pattern = r'MERRA2_(\d+).(.*?).(\d{4})(\d{2})(\d{2})(.*?).nc[4]?$'
     rx1 = re.compile(regex_pattern, re.VERBOSE)
 
     #-- output variable names
@@ -117,118 +117,155 @@ def gesdisc_merra_monthly(base_dir, links_list_file, TIMEOUT=None,
     LATNAME = 'lat'
     LEVELNAME = 'lev'
     TIMENAME = 'time'
-    TIME_LONGNAME = 'time'
+    time_unit_format = 'minutes since {0}-{1}-01 00:00:00'
     #-- output dimensions
     nlevels,nlat,nlon = (72,361,576)
-
-    #-- output arrays with year and month for each file
-    valid_lines = []
-    valid_files = []
-    year = []
-    month = []
-    #-- for each line in the links_list_file
-    for i,remote_file in enumerate(lines):
-        #-- extract filename from url
-        if re.search(rb'LABEL\=(.*?)\&SHORTNAME',remote_file):
-            match_object = re.match(rb'LABEL\=(.*?)\&SHORTNAME', remote_file)
-            valid_lines.append(remote_file.strip().decode('utf-8'))
-            valid_files.append(match_object.group(0).strip().decode('utf-8'))
-            year.append(match_object.group(3))
-            month.append(match_object.group(4))
-        elif rx1.search(remote_file):
-            search_object = rx1.search(remote_file)
-            valid_lines.append(remote_file.strip().decode('utf-8'))
-            valid_files.append(search_object.group(0).strip().decode('utf-8'))
-            year.append(search_object.group(3).decode('utf-8'))
-            month.append(search_object.group(4).decode('utf-8'))
+    #-- dictionary of variable attributes
+    attributes = dict(ROOT={})
+    #-- file-level attributes to retrieve
+    root_attributes = ['Contact', 'Conventions', 'Institution',
+        'References', 'Format', 'SpatialCoverage', 'VersionID',
+        'identifier_product_doi_authority', 'identifier_product_doi',
+        'ShortName', 'LongName', 'Title', 'DataResolution',
+        'LatitudeResolution', 'LongitudeResolution',
+        'SouthernmostLatitude', 'NorthernmostLatitude',
+        'WesternmostLongitude', 'EasternmostLongitude']
 
     #-- for each unique date
-    DATES = sorted(set(zip(year,month)))
-    for YY,MM in DATES:
-        #-- regular expression for finding data in year and month
-        regex_pattern = r'MERRA2_(\d+).(.*?).({0})({1})(\d{{2}})(.*?).nc[4]?$'
-        rx2 = re.compile(regex_pattern.format(YY,MM),re.VERBOSE)
-        remote_lines = [i for i,fi in enumerate(valid_files) if rx2.search(fi)]
-        #-- python dictionary with output data
-        dinput = {}
-        dinput[TIMENAME] = np.zeros((1))
-        dinput[VARNAME] = np.zeros((1,nlat,nlon))
-        dinput[TNAME] = np.zeros((1,nlevels,nlat,nlon))
-        dinput[QNAME] = np.zeros((1,nlevels,nlat,nlon))
-        #-- python dictionary with count for converting totals to means
-        count = {}
-        count[TIMENAME] = np.zeros((1))
-        count[VARNAME] = np.zeros((1,nlat,nlon))
-        count[TNAME] = np.zeros((1,nlevels,nlat,nlon))
-        count[QNAME] = np.zeros((1,nlevels,nlat,nlon))
-        #-- for each file in the month
-        for i in remote_lines:
-            #-- Create and submit request. There are a wide range of exceptions
-            #-- that can be thrown here, including HTTPError and URLError.
-            URL = gravity_toolkit.utilities.url_split(valid_lines[i])
-            response = gravity_toolkit.utilities.from_http(URL, timeout=TIMEOUT,
-                context=None, verbose=VERBOSE, fid=fid)
-            response.seek(0)
-            #-- open remote file with netCDF4
-            fileID = netCDF4.Dataset(valid_files[i],'r',memory=response.read())
-            MOD,DATASET,Y,M,D,AUX = rx2.findall(valid_files[i]).pop()
-            #-- extract dimension variables
-            dinput[LEVELNAME] = fileID.variables[LEVELNAME][:].copy()
-            dinput[LATNAME] = fileID.variables[LATNAME][:].copy()
-            dinput[LONNAME] = fileID.variables[LONNAME][:].copy()
-            nt, = fileID.variables[TIMENAME].shape
-            #-- bad value
-            fill_value = fileID.variables[VARNAME]._FillValue
-            #-- add over time slices products to monthly output
-            for t in range(nt):
-                dinput[TIMENAME][0] += fileID.variables[TIMENAME][t].astype('f')
-                count[TIMENAME][0] += 1.0
-                #-- surface pressure
-                PS = fileID.variables[VARNAME][t,:,:].copy()
-                ii,jj = np.nonzero(PS != fill_value)
-                dinput[VARNAME][0,ii,jj] += PS[ii,jj]
-                count[VARNAME][0,ii,jj] += 1.0
-                #-- air temperature
-                T = fileID.variables[TNAME][t,:,:,:].copy()
-                ii,jj,kk = np.nonzero(T != fill_value)
-                dinput[TNAME][0,ii,jj,kk] += T[ii,jj,kk]
-                count[TNAME][0,ii,jj,kk] += 1.0
-                #-- specific humidity
-                QV = fileID.variables[QNAME][t,:,:,:].copy()
-                ii,jj,kk = np.nonzero(QV != fill_value)
-                dinput[QNAME][0,ii,jj,kk] += QV[ii,jj,kk]
-                count[QNAME][0,ii,jj,kk] += 1.0
-            #-- close the input file from remote url
-            fileID.close()
-        #-- calculate mean from totals
-        dinput[TIMENAME] /= count[TIMENAME]
-        for key in [VARNAME,TNAME,QNAME]:
-            #-- find valid values
-            valid_indices = np.nonzero(count[key] > 0)
-            dinput[key][valid_indices] /= count[key][valid_indices]
-            #-- replace points where no values with fill_value
-            complementary_indices = np.nonzero(count[key] == 0)
-            dinput[key][complementary_indices] = fill_value
-        #-- output to netCDF4 file (replace hour variable with monthly)
-        DATASET = re.sub(r'inst\d+_3d',r'instM_3d',DATASET)
-        TIME_UNITS = 'minutes since {0}-{1}-01 00:00:00'.format(YY,MM)
-        local_file = 'MERRA2_{0}.{1}.{2}{3}.SUB.nc'.format(MOD,DATASET,YY,MM)
-        ncdf_model_write(dinput, fill_value, VARNAME=VARNAME, TNAME=TNAME,
-            QNAME=QNAME, LONNAME=LONNAME, LATNAME=LATNAME, LEVELNAME=LEVELNAME,
-            TIMENAME=TIMENAME,TIME_UNITS=TIME_UNITS,TIME_LONGNAME=TIME_LONGNAME,
-            FILENAME=os.path.join(DIRECTORY,local_file))
-        #-- set permissions mode to MODE
-        os.chmod(os.path.join(DIRECTORY,local_file), MODE)
+    for YEAR in YEARS:
+        dpm = gravity_toolkit.time.calendar_days(YEAR)
+        #-- for each month of the year
+        for i,days_per_month in enumerate(dpm):
+            #-- year and month as strings
+            YY = '{0:4d}'.format(YEAR)
+            MM = '{0:02d}'.format(i+1)
+            #-- start and end date for query
+            start_date = '{0}-{1}-{2:02.0f}'.format(YY,MM,1.0)
+            end_date = '{0}-{1}-{2:02.0f}'.format(YY,MM,days_per_month)
+            #-- query for data
+            ids,urls,mtimes = model_harmonics.utilities.cmr(SHORTNAME,
+                version=VERSION, start_date=start_date, end_date=end_date,
+                provider='GES_DISC', verbose=VERBOSE)
+            #-- skip years and months without any data
+            if not ids:
+                continue
+            #-- python dictionary with output data
+            dinput = {}
+            dinput[TIMENAME] = np.zeros((1))
+            dinput[VARNAME] = np.zeros((1,nlat,nlon))
+            dinput[TNAME] = np.zeros((1,nlevels,nlat,nlon))
+            dinput[QNAME] = np.zeros((1,nlevels,nlat,nlon))
+            #-- python dictionary with count for converting totals to means
+            count = {}
+            count[TIMENAME] = np.zeros((1))
+            count[VARNAME] = np.zeros((1,nlat,nlon))
+            count[TNAME] = np.zeros((1,nlevels,nlat,nlon))
+            count[QNAME] = np.zeros((1,nlevels,nlat,nlon))
+            #-- for each url
+            for id,url,mtime in zip(ids,urls,mtimes):
+                #-- build subsetting API url for granule
+                request_url = model_harmonics.utilities.build_request(
+                    SHORTNAME, VERSION, url, variables=[VARNAME,TNAME,QNAME])
+                #-- Create and submit request. There are a wide range of exceptions
+                #-- that can be thrown here, including HTTPError and URLError.
+                response = model_harmonics.utilities.from_http(request_url,
+                    timeout=TIMEOUT,
+                    context=None,
+                    verbose=VERBOSE,
+                    fid=fid)
+                response.seek(0)
+                #-- open remote file with netCDF4
+                fileID = netCDF4.Dataset(id,'r',memory=response.read())
+                MOD,DATASET,Y,M,D,AUX = rx1.findall(id).pop()
+                #-- extract dimension variables
+                nt, = fileID.variables[TIMENAME].shape
+                for dim in (LEVELNAME,LATNAME,LONNAME):
+                    dinput[dim] = fileID.variables[dim][:].copy()
+                    #-- extract variable attributes
+                    attributes[dim] = ncdf_attributes(fileID,dim)
+                #-- bad value
+                fill_value = fileID.variables[VARNAME]._FillValue
+                #-- add over time slices products to monthly output
+                for t in range(nt):
+                    TIME = fileID.variables[TIMENAME][t].astype('f')
+                    dinput[TIMENAME][0] += TIME
+                    count[TIMENAME][0] += 1.0
+                    #-- surface pressure
+                    PS = fileID.variables[VARNAME][t,:,:].copy()
+                    ii,jj = np.nonzero(PS != fill_value)
+                    dinput[VARNAME][0,ii,jj] += PS[ii,jj]
+                    count[VARNAME][0,ii,jj] += 1.0
+                    #-- air temperature
+                    T = fileID.variables[TNAME][t,:,:,:].copy()
+                    ii,jj,kk = np.nonzero(T != fill_value)
+                    dinput[TNAME][0,ii,jj,kk] += T[ii,jj,kk]
+                    count[TNAME][0,ii,jj,kk] += 1.0
+                    #-- specific humidity
+                    QV = fileID.variables[QNAME][t,:,:,:].copy()
+                    ii,jj,kk = np.nonzero(QV != fill_value)
+                    dinput[QNAME][0,ii,jj,kk] += QV[ii,jj,kk]
+                    count[QNAME][0,ii,jj,kk] += 1.0
+                    #-- get attributes for each variable
+                    for var in (TIMENAME, VARNAME, TNAME, QNAME):
+                        #-- extract variable attributes
+                        attributes[var] = ncdf_attributes(fileID,var)
+                #-- get each root attribute of interest
+                for att_name in root_attributes:
+                    try:
+                        att_val = fileID.getncattr(att_name)
+                        att_val = re.sub(r'inst\d+_3d',r'instM_3d',att_val)
+                    except Exception as e:
+                        pass
+                    else:
+                        attributes['ROOT'][att_name] = att_val
+                #-- close the input file from remote url
+                fileID.close()
+            #-- calculate mean from totals
+            dinput[TIMENAME] /= count[TIMENAME]
+            for key in [VARNAME,TNAME,QNAME]:
+                #-- find valid values
+                valid_indices = np.nonzero(count[key] > 0)
+                dinput[key][valid_indices] /= count[key][valid_indices]
+                #-- replace points where no values with fill_value
+                complementary_indices = np.nonzero(count[key] == 0)
+                dinput[key][complementary_indices] = fill_value
+            #-- output to netCDF4 file (replace hour variable with monthly)
+            DATASET = re.sub(r'inst\d+_3d',r'instM_3d',DATASET)
+            attributes['time']['units'] = time_unit_format.format(YY,MM)
+            local_file = 'MERRA2_{0}.{1}.{2}{3}.SUB.nc'.format(MOD,DATASET,YY,MM)
+            ncdf_model_write(dinput, attributes, fill_value,
+                VARNAME=VARNAME, TNAME=TNAME, QNAME=QNAME,
+                LONNAME=LONNAME, LATNAME=LATNAME, LEVELNAME=LEVELNAME,
+                TIMENAME=TIMENAME, FILENAME=os.path.join(DIRECTORY,local_file))
+            #-- set permissions mode to MODE
+            os.chmod(os.path.join(DIRECTORY,local_file), MODE)
 
     #-- close log file and set permissions level to MODE
     if LOG:
         fid.close()
         os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
 
+#-- PURPOSE: get attributes for a variable
+def ncdf_attributes(fileID, var):
+    #-- dictionary of attributes and list of attributes to retrieve
+    attributes = {}
+    attributes_list = ['calendar', 'long_name', 'positive',
+        'standard_name', 'units', 'valid_range']
+    #-- for each potential attribute
+    for att_name in attributes_list:
+        try:
+            att_val = fileID[var].getncattr(att_name)
+        except Exception as e:
+            pass
+        else:
+            attributes[att_name] = att_val
+    #-- return the dictionary of attributes
+    return attributes
+
 #-- PURPOSE: write output model layer fields data to file
-def ncdf_model_write(dinput, fill_value, VARNAME=None, TNAME=None, QNAME=None,
-    LONNAME=None, LATNAME=None, LEVELNAME=None, TIMENAME=None, TIME_UNITS=None,
-    TIME_LONGNAME=None, FILENAME=None):
+def ncdf_model_write(dinput, attributes, fill_value,
+    VARNAME=None, TNAME=None, QNAME=None, LONNAME=None, LATNAME=None,
+    LEVELNAME=None, TIMENAME=None, FILENAME=None):
     #-- opening NetCDF4 file for writing
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
@@ -240,37 +277,24 @@ def ncdf_model_write(dinput, fill_value, VARNAME=None, TNAME=None, QNAME=None,
     #-- creating the layered NetCDF4 variables
     for key in [TNAME,QNAME]:
         nc[key] = fileID.createVariable(key, dinput[key].dtype,
-            (TIMENAME,LEVELNAME,LATNAME,LONNAME,), fill_value=fill_value, zlib=True)
+            (TIMENAME,LEVELNAME,LATNAME,LONNAME,),
+            fill_value=fill_value, zlib=True)
     #-- creating the surface NetCDF4 variables
     for key in [VARNAME]:
         nc[key] = fileID.createVariable(key, dinput[key].dtype,
-            (TIMENAME,LATNAME,LONNAME,), fill_value=fill_value, zlib=True)
+            (TIMENAME,LATNAME,LONNAME,),
+            fill_value=fill_value, zlib=True)
 
     #-- filling NetCDF4 variables
     for key,val in dinput.items():
         nc[key][:] = val.copy()
+        #-- set netCDF4 attributes for variable
+        for att_name,att_val in attributes[key].items():
+            nc[key].setncattr(att_name, att_val)
 
-    #-- Defining attributes for longitude and latitude
-    nc[LONNAME].long_name = 'Longitude'
-    nc[LONNAME].units = 'degrees_east'
-    nc[LATNAME].long_name = 'Latitude'
-    nc[LATNAME].units = 'degrees_north'
-    #-- Defining attributes for time
-    nc[TIMENAME].units = TIME_UNITS
-    nc[TIMENAME].long_name = TIME_LONGNAME
-    #-- Definining attributes for model levels
-    nc[LEVELNAME].long_name = 'vertical_level'
-    nc[LEVELNAME].units = 'layer'
-    nc[LEVELNAME].positive = 'down'
-    #-- Defining attributes for air temperature
-    nc[TNAME].long_name = 'Air_Temperature'
-    nc[TNAME].units = 'K'
-    #-- Defining attributes for specific humidity
-    nc[QNAME].long_name = 'Specific_Humidity'
-    nc[QNAME].units = 'kg/kg'
-    #-- Defining attributes for surface pressure
-    nc[VARNAME].long_name = 'Surface_Air_Pressure'
-    nc[VARNAME].units = 'Pa'
+    #-- Defining file-level attributes
+    for att_name,att_val in attributes['ROOT'].items():
+        fileID.setncattr(att_name, att_val)
     #-- date created
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
@@ -284,15 +308,12 @@ def ncdf_model_write(dinput, fill_value, VARNAME=None, TNAME=None, QNAME=None,
 #-- PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
-        description="""Downloads MERRA-2 products using a links list
-            provided by the Goddard Earth Sciences Data and Information
-            Server Center (GES DISC)
+        description="""Creates monthly MERRA-2 3D model level
+            products syncing data from the Goddard Earth Sciences
+            Data and Information Server Center (GES DISC)
             """
     )
     #-- command line parameters
-    parser.add_argument('file',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='+',
-        help='GESDISC links list file')
     #-- NASA Earthdata credentials
     parser.add_argument('--user','-U',
         type=str, default=os.environ.get('EARTHDATA_USERNAME'),
@@ -309,6 +330,19 @@ def arguments():
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         default=os.getcwd(),
         help='Working data directory')
+    #-- MERRA-2 product shortname
+    parser.add_argument('--shortname','-s',
+        type=str, default='M2I3NVASM',
+        help='MERRA-2 product shortname')
+    #-- MERRA-2 version
+    parser.add_argument('--version','-v',
+        type=str, default='5.12.4',
+        help='MERRA-2 version')
+    #-- years to download
+    now = time.gmtime()
+    parser.add_argument('--year','-Y',
+        type=int, nargs='+', default=range(2000,now.tm_year+1),
+        help='Years of model outputs to sync')
     #-- connection timeout
     parser.add_argument('--timeout','-t',
         type=int, default=360,
@@ -352,16 +386,19 @@ def main():
 
     #-- build a urllib opener for NASA GESDISC
     #-- Add the username and password for NASA Earthdata Login system
-    gravity_toolkit.utilities.build_opener(args.user, args.password,
+    model_harmonics.utilities.build_opener(args.user, args.password,
         password_manager=True, authorization_header=False)
 
     #-- check internet connection before attempting to run program
-    HOST = 'http://disc.sci.gsfc.nasa.gov/'
-    if gravity_toolkit.utilities.check_credentials(HOST):
-        #-- for each links list file from GESDISC
-        for FILE in args.file:
-            gesdisc_merra_monthly(args.directory, FILE, TIMEOUT=args.timeout,
-                LOG=args.log, VERBOSE=args.verbose, MODE=args.mode)
+    HOST = 'https://goldsmr5.gesdisc.eosdis.nasa.gov/'
+    if model_harmonics.utilities.check_credentials(HOST):
+        gesdisc_merra_monthly(args.directory, args.shortname,
+            VERSION=args.version,
+            YEARS=args.year,
+            TIMEOUT=args.timeout,
+            LOG=args.log,
+            VERBOSE=args.verbose,
+            MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

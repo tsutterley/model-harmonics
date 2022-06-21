@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_gldas_sync.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (06/2022)
 
 Syncs GLDAS monthly datafiles from the Goddard Earth Sciences Data and
     Information Server Center (GES DISC)
@@ -64,6 +64,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 06/2022: use CMR queries to find model granules
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
     Updated 06/2021: fixed timeout for monthly GLDAS download
@@ -135,77 +136,38 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
         #-- standard output (terminal output)
         logging.basicConfig(level=logging.INFO)
 
-    #-- Version flags
+    #-- Version and product flags
     V1,V2 = ('_V1','') if (VERSION == '1') else ('','.{0}'.format(VERSION))
+    PRODUCT = "GLDAS_{0}{1}_{2}{3}".format(MODEL,SPATIAL,TEMPORAL,V2)
     EP = '_EP' if EARLY else ''
-    #-- GLDAS model remote base directory
-    HOST = ['https://hydro1.gesdisc.eosdis.nasa.gov','data','GLDAS{0}'.format(V1)]
-
-    #-- compile regular expression operator for years to sync
-    regex_pattern = '|'.join('{0:d}'.format(y) for y in YEARS)
-    R1 = re.compile(r'({0})'.format(regex_pattern), re.VERBOSE)
+    #-- shortname for model on GESDISC server
+    SHORTNAME = "GLDAS_{0}{1}_{2}{3}".format(MODEL,SPATIAL,TEMPORAL,EP)
 
     #-- print header text to log/standard output
     logging.info('GLDAS MODEL={0}'.format(gldas_products[MODEL]))
     logging.info('RESOLUTION={0},{1}'.format(TEMPORAL,SPATIAL))
     logging.info('VERSION={0}{1}'.format(VERSION,EP))
-    #-- subdirectory for model on GESDISC server
-    REMOTE = "GLDAS_{0}{1}_{2}{3}{4}".format(MODEL,SPATIAL,TEMPORAL,EP,V2)
-    PRODUCT = "GLDAS_{0}{1}_{2}{3}".format(MODEL,SPATIAL,TEMPORAL,V2)
 
-    #-- open connection with GESDISC server at remote directory
-    #-- find remote yearly directories for MODEL
-    remote_years,mtimes = model_harmonics.utilities.gesdisc_list(
-        [*HOST,REMOTE],timeout=TIMEOUT,pattern=R1,sort=True)
-    #-- compile regular expression operator for model on GESDISC server
-    args = (MODEL,SPATIAL)
-    R2 = re.compile(r'GLDAS_{0}{1}_(.*?).(nc4|grb)(.xml)?$'.format(*args))
-    #-- if running monthly data
-    if (TEMPORAL == 'M'):
-        #-- for each yearly subdirectory
-        for Y in remote_years:
-            #-- check if local directory exists and recursively create if not
-            if (not os.access(os.path.join(DIRECTORY,PRODUCT,Y), os.F_OK)):
-                os.makedirs(os.path.join(DIRECTORY,PRODUCT,Y), MODE)
-            #-- open connection with GESDISC server at remote directory
-            #-- read and parse request for files (names and modified dates)
-            #-- find remote files for MODEL and YEAR
-            files,mtimes = model_harmonics.utilities.gesdisc_list(
-                [*HOST,REMOTE,Y],timeout=TIMEOUT,pattern=R2,sort=True)
-            for colname,remote_mtime in zip(files,mtimes):
-                #-- local and remote versions of the file
-                local_file = os.path.join(DIRECTORY,PRODUCT,Y,colname)
-                remote_file = posixpath.join(*HOST,REMOTE,Y,colname)
-                #-- copy file from remote directory comparing modified dates
-                http_pull_file(remote_file, remote_mtime, local_file,
-                    TIMEOUT=TIMEOUT, LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
-    #-- if running daily data
-    elif (TEMPORAL == '3H'):
-        #-- for each yearly subdirectory
-        for Y in remote_years:
-            #-- compile regular expression operator for days
-            R3 = re.compile(r'\d+',re.VERBOSE)
-            #-- open connection with GESDISC server at remote directory
-            #-- find remote daily directories for MODEL
-            remote_days,mtimes = model_harmonics.utilities.gesdisc_list(
-                [*HOST,REMOTE,Y],timeout=TIMEOUT,pattern=R3,sort=True)
-            #-- for each daily subdirectory
-            for D in remote_days:
-                #-- check if local directory exists and recursively create if not
-                if (not os.access(os.path.join(DIRECTORY,PRODUCT,Y,D),os.F_OK)):
-                    os.makedirs(os.path.join(DIRECTORY,PRODUCT,Y,D), MODE)
-                #-- open connection with GESDISC server at remote directory
-                #-- read and parse request for files (names and modified dates)
-                #-- find remote files for MODEL and YEAR
-                files,mtimes = model_harmonics.utilities.gesdisc_list(
-                    [*HOST,REMOTE,Y,D],timeout=TIMEOUT,pattern=R2,sort=True)
-                for colname,remote_mtime in zip(files,mtimes):
-                    #-- local and remote versions of the file
-                    local_file = os.path.join(DIRECTORY,PRODUCT,Y,D,colname)
-                    remote_file = posixpath.join(*HOST,REMOTE,Y,D,colname)
-                    #-- copy file from remote directory comparing modified dates
-                    http_pull_file(remote_file, remote_mtime, local_file,
-                        TIMEOUT=TIMEOUT, LIST=LIST, CLOBBER=CLOBBER, MODE=MODE)
+    #-- for each year to sync
+    for Y in map(str,YEARS):
+        #-- start and end date for query
+        start_date = '{0}-01-01'.format(Y)
+        end_date = '{0}-12-31'.format(Y)
+        #-- query CMR for model granules
+        ids,urls,mtimes = model_harmonics.utilities.cmr(SHORTNAME,
+            version=VERSION, start_date=start_date, end_date=end_date,
+            provider='GES_DISC', verbose=True)
+        #-- recursively create local directory for data
+        if not os.access(os.path.join(DIRECTORY,PRODUCT,Y), os.F_OK):
+            os.makedirs(os.path.join(DIRECTORY,PRODUCT,Y), mode=MODE)
+        #-- sync model granules
+        for id,url,mtime in zip(ids,urls,mtimes):
+            #-- local version of the granule
+            local_file = os.path.join(DIRECTORY,PRODUCT,Y,id)
+            #-- copy file from remote directory comparing modified dates
+            http_pull_file(url, mtime, local_file,
+                TIMEOUT=TIMEOUT, LIST=LIST, CLOBBER=CLOBBER,
+                MODE=MODE)
 
     #-- close log file and set permissions level to MODE
     if LOG:
@@ -234,7 +196,7 @@ def http_pull_file(remote_file,remote_mtime,local_file,
     if TEST or CLOBBER:
         #-- Printing files transferred
         logging.info('{0} --> '.format(remote_file))
-        logging.info('\t{0}{1}\n'.format(local_file,OVERWRITE))
+        logging.info('\t{0}{1}\n'.format(local_file, OVERWRITE))
         #-- if executing copy command (not only printing the files)
         if not LIST:
             #-- Create and submit request. There are a wide range of exceptions
