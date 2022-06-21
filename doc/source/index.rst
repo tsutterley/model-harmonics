@@ -80,6 +80,7 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     user_guide/ecmwf_reanalysis_retrieve.rst
     user_guide/gesdisc_merra_download.rst
     user_guide/gesdisc_merra_monthly.rst
+    user_guide/gesdisc_merra_subset.rst
     user_guide/noaa_cdc_ncep_ftp.rst
     user_guide/ucar_rda_cfsr_surface.rst
     user_guide/ucar_rda_jra55_surface.rst
