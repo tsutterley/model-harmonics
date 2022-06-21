@@ -4,14 +4,18 @@ model-harmonics
 
 |Language|
 |License|
+|PyPI Version|
 |Documentation Status|
 |zenodo|
 
-.. |Language| image:: https://img.shields.io/badge/python-v3.8-green.svg
+.. |Language| image:: https://img.shields.io/pypi/pyversions/model-harmonics?color=green
    :target: https://www.python.org/
 
 .. |License| image:: https://img.shields.io/github/license/tsutterley/model-harmonics
    :target: https://github.com/tsutterley/model-harmonics/blob/main/LICENSE
+
+.. |PyPI Version| image:: https://img.shields.io/pypi/v/model-harmonics.svg
+   :target: https://pypi.python.org/pypi/model-harmonics/
 
 .. |Documentation Status| image:: https://readthedocs.org/projects/model-harmonics/badge/?version=latest
    :target: https://read-grace-harmonics.readthedocs.io/projects/model-harmonics/en/latest/?badge=latest

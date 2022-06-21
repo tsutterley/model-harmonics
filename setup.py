@@ -14,8 +14,6 @@ long_description_content_type = "text/x-rst"
 # get install requirements
 with open('requirements.txt', encoding='utf8') as fh:
     install_requires = fh.read().splitlines()
-# dependency links (data readers)
-dependency_links = ['https://github.com/tsutterley/read-GRACE-harmonics/tarball/main']
 
 # get version
 with open('version.txt', encoding='utf8') as fh:
@@ -50,6 +48,5 @@ setup(
     keywords=keywords,
     packages=find_packages(),
     install_requires=install_requires,
-    dependency_links=dependency_links,
     scripts=scripts,
 )

@@ -23,6 +23,5 @@ dependencies:
   - scipy
   - pip
   - pip:
-     - git+https://github.com/tsutterley/geoid-toolkit.git
-     - git+https://github.com/tsutterley/read-GRACE-geocenter.git
-     - git+https://github.com/tsutterley/read-GRACE-harmonics.git
+     - geoid-toolkit
+     - gravity-toolkit

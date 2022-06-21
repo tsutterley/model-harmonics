@@ -2,7 +2,8 @@
 Installation
 ============
 
-Presently ``model-harmonics`` is only available for use as a `GitHub repository <https://github.com/tsutterley/model-harmonics>`_.
+``model-harmonics`` is available for download from the `GitHub repository <https://github.com/tsutterley/model-harmonics>`_,
+and the `Python Package Index (pypi) <https://pypi.org/project/model-harmonics/>`_
 The contents of the repository can be download as a `zipped file <https://github.com/tsutterley/model-harmonics/archive/main.zip>`_  or cloned.
 
 To use this repository, please fork into your own account and then clone onto your system:
