@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_harmonics.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (06/2022)
 Read MERRA-2 hybrid variables and converts to spherical harmonics
 MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
 
@@ -61,6 +61,7 @@ PROGRAM DEPENDENCIES:
         and filters the GRACE/GRACE-FO coefficients for striping errors
 
 UPDATE HISTORY:
+    Updated 06/2022: change default variables to include firn height anomaly
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
     Updated 12/2021: open MERRA-2 hybrid product command line options
@@ -350,7 +351,7 @@ def arguments():
         help='Version of firn model to calculate')
     #-- products from firn model
     parser.add_argument('--product','-P',
-        type=str, default='SMB_a', nargs='+',
+        type=str, default=('SMB_a','h_a'), nargs='+',
         help='MERRA-2 hybrid product to calculate')
     #-- years to run
     now = datetime.datetime.now()

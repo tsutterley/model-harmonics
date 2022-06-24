@@ -14,9 +14,16 @@ NASA Earthdata uses `OAuth2 <https://wiki.earthdata.nasa.gov/pages/viewpage.acti
 - https://urs.earthdata.nasa.gov/documentation
 - https://wiki.earthdata.nasa.gov/display/EL/Knowledge+Base
 
+
 GES DISC
 ########
-The `Goddard Earth Sciences Data and Information Server Center (GES DISC) <https://disc.gsfc.nasa.gov/>`_ provides access to a wide range of global climate data, concentrated primarily in the areas of atmospheric composition, atmospheric dynamics, global precipitation, and solar irradiance.
+The `Goddard Earth Sciences Data and Information Server Center (GES DISC) <https://disc.gsfc.nasa.gov/>`_
+provides access to a wide range of global climate data, concentrated primarily in the areas of
+atmospheric composition, atmospheric dynamics, global precipitation, and solar irradiance.
+
+GES DISC is `migrating its data archive to the Earthdata Cloud <https://disc.gsfc.nasa.gov/information/documents?title=Migrating%20to%20the%20Cloud>`_,
+which is hosted in Amazon Web Services (AWS).
+
 If any problems contact GES DISC Help Desk at `gsfc-help-disc@lists.nasa.gov <mailto:gsfc-help-disc@lists.nasa.gov>`_ or the NASA EOSDIS support team `support@earthdata.nasa.gov <mailto:support@earthdata.nasa.gov>`_.
 GES DISC support requests that you `include as much of the information as possible <https://disc.gsfc.nasa.gov/information/documents?title=Contact%20Us#email>`_ in your contact email.
 
@@ -24,8 +31,16 @@ GES DISC support requests that you `include as much of the information as possib
 ECCO Drive via PO.DAAC
 ######################
 
-The `Physical Oceanography Distributed Active Archive Center (PO.DAAC) <https://podaac.jpl.nasa.gov/>`_ provides data and related information pertaining to the physical processes and conditions of the global oceans, including measurements of ocean winds, temperature, topography, salinity, circulation and currents, and sea ice.
-If any problems contact JPL PO.DAAC support at `podaac@podaac.jpl.nasa.gov <mailto:podaac@podaac.jpl.nasa.gov>`_ or the NASA EOSDIS support team `support@earthdata.nasa.gov <mailto:support@earthdata.nasa.gov>`_.
+The `Physical Oceanography Distributed Active Archive Center (PO.DAAC) <https://podaac.jpl.nasa.gov/>`_
+provides data and related information pertaining to the physical processes and conditions of the global oceans,
+including measurements of ocean winds, temperature, topography, salinity, circulation and currents, and sea ice.
+
+PO.DAAC is `migrating its data archive to the Earthdata Cloud <https://podaac.jpl.nasa.gov/cloud-datasets/migration>`_,
+which is hosted in Amazon Web Services (AWS).
+
+If any problems contact JPL PO.DAAC support at `podaac@podaac.jpl.nasa.gov <mailto:podaac@podaac.jpl.nasa.gov>`_
+or the NASA EOSDIS support team `support@earthdata.nasa.gov <mailto:support@earthdata.nasa.gov>`_.
+
 
 WebDAV
 ------
@@ -59,6 +74,19 @@ Or set environmental variables for your NASA Earthdata and JPL WebDAV credential
     export EARTHDATA_USERNAME=<uid>
     export EARTHDATA_PASSWORD=<password>
     export ECCO_PASSWORD=<webdav>
+
+NASA Common Metadata Repository
+###############################
+
+The NASA Common Metadata Repository (CMR) is a catalog of all data
+and service metadata records contained as part of NASA's Earth
+Observing System Data and Information System (EOSDIS).
+Querying the CMR system is a way of quickly performing a search
+through the NASA Earthdata archive.
+Basic queries for the granule names, URLs and modification times
+of NASA granules held in DAACs are available through the ``cmr``
+routine in the ``utilities`` module.
+For AWS instances in ``us-west-2``, CMR queries can access urls for S3 endpoints.
 
 Other Data Access Examples
 ##########################

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_regrid.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (06/2022)
 Read and regrid MERRA-2 hybrid variables
 MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
 
@@ -49,6 +49,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 06/2022: change default variables to include firn height anomaly
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: open MERRA-2 hybrid product command line options
         added GSFC MERRA-2 Hybrid Greenland v1.2
@@ -455,7 +456,7 @@ def arguments():
         help='Version of firn model to calculate')
     #-- products from firn model
     parser.add_argument('--product','-P',
-        type=str, default='SMB_a', nargs='+',
+        type=str, default=('SMB_a','h_a'), nargs='+',
         help='MERRA-2 hybrid product to calculate')
     #-- years to run
     now = time.gmtime()
