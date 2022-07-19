@@ -33,7 +33,7 @@ dependencies:
   - sphinx_rtd_theme
   - texlive-core
   - pip:
-     - --no-deps geoid-toolkit
-     - --no-deps gravity-toolkit
+     - geoid-toolkit --install-option="--no-deps"
+     - gravity-toolkit --install-option="--no-deps"
      - ..
 
