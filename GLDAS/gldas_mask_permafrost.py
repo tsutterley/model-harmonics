@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mask_permafrost.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (07/2022)
 
 Creates a mask for GLDAS data based on the permafrost/surface classification
 from the NSIDC Circum-Arctic Map of Permafrost and Ground-Ice Conditions
@@ -46,6 +46,7 @@ REFERENCES:
         ground ice conditions. Boulder, CO: National Snow and Ice Data Center.
 
 UPDATE HISTORY:
+    Updated 07/2022: place some imports behind try/except statements
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
@@ -58,13 +59,28 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import os
-import fiona
 import pyproj
 import logging
 import netCDF4
 import argparse
+import warnings
 import numpy as np
-import shapely.geometry
+
+#-- attempt imports
+try:
+    import fiona
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("fiona not available")
+    warnings.warn("Some functions will throw an exception if called")
+try:
+    import shapely.geometry
+except ModuleNotFoundError:
+    warnings.filterwarnings("always")
+    warnings.warn("shapely not available")
+    warnings.warn("Some functions will throw an exception if called")
+#-- ignore warnings
+warnings.filterwarnings("ignore")
 
 #-- Read the NSIDC Circum-Arctic Map of Permafrost and Ground-Ice Conditions
 #-- and create a mask for continuous/discontinuous permafrost
