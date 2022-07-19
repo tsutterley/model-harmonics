@@ -6,7 +6,6 @@ dependencies:
   - cdsapi
   - docutils<0.18
   - ecmwf-api-client
-  - fiona
   - fontconfig
   - freetype
   - future
@@ -27,13 +26,11 @@ dependencies:
   - pyyaml
   - scikit-learn
   - scipy
-  - shapely
   - sphinx
   - sphinx-argparse
   - sphinx_rtd_theme
   - texlive-core
   - pip:
      - geoid-toolkit
-     - gravity-toolkit
+     - git+https://github.com/tsutterley/read-GRACE-harmonics.git
      - ..
-

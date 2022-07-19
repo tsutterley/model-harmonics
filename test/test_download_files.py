@@ -13,6 +13,7 @@ filename = inspect.getframeinfo(inspect.currentframe()).filename
 filepath = os.path.dirname(os.path.abspath(filename))
 
 #-- PURPOSE: Download an ECCO realtime file from JPL ECCO Drive
+@pytest.mark.skip(reason='Need to update to PO.DAAC Cumulus')
 def test_ECCO_realtime_download(username,webdav):
     HOST = ['https://ecco.jpl.nasa.gov','drive','files','NearRealTime',
         'KalmanFilter','kf080i_1993','n10day_01_09',
