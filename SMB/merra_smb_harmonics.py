@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_harmonics.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (08/2022)
 Reads monthly MERRA-2 surface mass balance anomalies and
     converts to spherical harmonic coefficients
 
@@ -63,6 +63,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 08/2022: convert to mid-month averages to correspond with GRACE
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
     Updated 12/2021: can use variable loglevels for verbose output
@@ -110,11 +111,7 @@ from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
 #-- PURPOSE: read Merra-2 cumulative data and convert to spherical harmonics
 def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     MASKS=None, LMAX=0, MMAX=None, LOVE_NUMBERS=0, REFERENCE=None,
-    DATAFORM=None, VERBOSE=False, MODE=0o775):
-
-    #-- create logger for verbosity level
-    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
-    logging.basicConfig(level=loglevels[VERBOSE])
+    DATAFORM=None, MODE=0o775):
 
     #-- setup subdirectories
     cumul_sub = '{0}.5.12.4.CUMUL.{1:d}.{2:d}'.format(PRODUCT,*RANGE)
@@ -198,13 +195,16 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     PLM,dPLM = plm_holmes(LMAX,np.cos(theta))
 
     #-- find input files from merra_smb_cumulative.py
-    regex_years = r'\d+' if (YEARS is None) else '|'.join(map(str,YEARS))
+    regex_years = r'\d{4}' if (YEARS is None) else '|'.join(map(str,YEARS))
     args = (PRODUCT, regex_years, suffix[DATAFORM])
-    regex_pattern = r'MERRA2_(\d+).tavgM_2d_{0}_cumul_Nx.({1})(\d+).{2}$'
+    regex_pattern = r'MERRA2_(\d+).tavgM_2d_{0}_cumul_Nx.(({1})(\d{{2}})).{2}$'
     rx = re.compile(regex_pattern.format(*args), re.VERBOSE)
     #-- will be out of order for 2020 due to September reprocessing
     FILES = sorted([fi for fi in os.listdir(os.path.join(ddir,cumul_sub))
         if rx.match(fi)])
+    #-- sort files by month
+    indices = np.argsort([rx.match(f1).group(2) for f1 in FILES])
+    FILES = [FILES[indice] for indice in indices]
     #-- remove files that needed to be reprocessed
     INVALID = []
     INVALID.append('MERRA2_400.tavgM_2d_{0}_cumul_Nx.202009.{2}'.format(*args))
@@ -213,39 +213,52 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
         FILES = sorted(set(FILES) - set(INVALID))
 
     #-- for each input file
-    for t,fi in enumerate(FILES):
+    for t,fi in enumerate(FILES[:-1]):
         #-- extract parameters from input flux file
-        MOD,Y1,M1 = rx.findall(fi).pop()
+        MOD,_,YY,MM = rx.findall(fi).pop()
         #-- read data file for data format
         if (DATAFORM == 'ascii'):
             #-- ascii (.txt)
-            merra_data = spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
+            M1 = spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
                 extent=extent).from_ascii(os.path.join(ddir,cumul_sub,fi))
+            M2 = spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
+                extent=extent).from_ascii(os.path.join(ddir,cumul_sub,FILES[t+1]))
         elif (DATAFORM == 'netCDF4'):
             #-- netCDF4 (.nc)
-            merra_data = spatial().from_netCDF4(os.path.join(ddir,cumul_sub,fi),
-                varname=PRODUCT, verbose=VERBOSE)
+            M1 = spatial().from_netCDF4(os.path.join(ddir,cumul_sub,fi),
+                varname=PRODUCT)
+            M2 = spatial().from_netCDF4(os.path.join(ddir,cumul_sub,FILES[t+1]),
+                varname=PRODUCT)
         elif (DATAFORM == 'HDF5'):
             #-- HDF5 (.H5)
-            merra_data = spatial().from_HDF5(os.path.join(ddir,cumul_sub,fi),
-                varname=PRODUCT, verbose=VERBOSE)
+            M1 = spatial().from_HDF5(os.path.join(ddir,cumul_sub,fi),
+                varname=PRODUCT)
+            M2 = spatial().from_HDF5(os.path.join(ddir,cumul_sub,FILES[t+1]),
+                varname=PRODUCT)
 
         #-- if reducing to a region of interest before converting to harmonics
         if np.any(input_mask):
             #-- replace fill value points and masked points with 0
-            merra_data.replace_invalid(0.0, mask=np.logical_not(input_mask))
+            M1.replace_invalid(0.0, mask=np.logical_not(input_mask))
+            M2.replace_invalid(0.0, mask=np.logical_not(input_mask))
         else:
             #-- replace fill value points points with 0
-            merra_data.replace_invalid(0.0)
+            M1.replace_invalid(0.0)
+            M2.replace_invalid(0.0)
 
+        #-- calculate 2-month moving average
+        #-- weighting by number of days in each month
+        dpm = gravity_toolkit.time.calendar_days(int(YY))
+        W = np.float64(dpm[(t+1) % 12] + dpm[t % 12])
+        MASS = (dpm[t % 12]*M1.data + dpm[(t+1) % 12]*M2.data)/W
         #-- convert to spherical harmonics from mm w.e.
-        merra_Ylms = gen_stokes(merra_data.data, glon, latitude_geocentric[:,0],
+        merra_Ylms = gen_stokes(MASS, glon, latitude_geocentric[:,0],
             LMAX=LMAX, MMAX=MMAX, UNITS=3, PLM=PLM, LOVE=LOVE)
         #-- copy date information
-        merra_Ylms.time = np.copy(merra_data.time)
+        merra_Ylms.time = np.mean([M1.time, M2.time])
         #-- calculate GRACE/GRACE-FO month
         merra_Ylms.month = gravity_toolkit.time.calendar_to_grace(
-            np.float64(Y1), np.float64(M1))
+            np.float64(YY), np.float64(MM))
         #-- output spherical harmonic data file
         args=(MOD,PRODUCT,LMAX,order_str,merra_Ylms.month,suffix[DATAFORM])
         FILE='MERRA2_{0}_tavgM_2d_{1}_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
@@ -366,6 +379,10 @@ def main():
     parser = arguments()
     args,_ = parser.parse_known_args()
 
+    #-- create logger for verbosity level
+    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    logging.basicConfig(level=loglevels[args.verbose])
+
     #-- run program for each input product
     for PRODUCT in args.product:
         #-- run program
@@ -378,7 +395,6 @@ def main():
             LOVE_NUMBERS=args.love,
             REFERENCE=args.reference,
             DATAFORM=args.format,
-            VERBOSE=args.verbose,
             MODE=args.mode)
 
 #-- run main program

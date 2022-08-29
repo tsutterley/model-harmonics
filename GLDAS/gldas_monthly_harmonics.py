@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_monthly_harmonics.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (08/2022)
 
 Reads monthly GLDAS total water storage anomalies and converts to
     spherical harmonic coefficients
@@ -94,6 +94,8 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 08/2022: convert to mid-month averages to correspond with GRACE
+        can use variable loglevels for verbose output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
     Updated 10/2021: using python logging for handling verbose output
@@ -157,11 +159,7 @@ gldas_products['VIC'] = 'GLDAS Variable Infiltration Capacity (VIC) model'
 #-- PURPOSE: convert GLDAS terrestrial water storage data to spherical harmonics
 def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
     LMAX=0, MMAX=None, LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None,
-    VERBOSE=False, MODE=0o775):
-
-    #-- create logger for verbosity level
-    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
-    logging.basicConfig(level=loglevel)
+    MODE=0o775):
 
     #-- Version flags
     V1,V2 = ('_V1','') if (VERSION == '1') else ('','.{0}'.format(VERSION))
@@ -267,44 +265,55 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
     #-- calculate Legendre polynomials
     PLM,dPLM = plm_holmes(LMAX,np.cos(theta))
 
-    #-- find input files from read_gldas_monthly.py
+    #-- find input terrestrial water storage files
     regex_years = r'\d+' if (YEARS is None) else '|'.join(map(str,YEARS))
     args = (MODEL, SPACING, regex_years, suffix[DATAFORM])
     rx = re.compile(r'GLDAS_{0}{1}_TWC_({2})_(\d+)\.{3}$'.format(*args))
-    FILES = [fi for fi in os.listdir(os.path.join(ddir,subdir)) if rx.match(fi)]
+    FILES = sorted([fi for fi in os.listdir(os.path.join(ddir,subdir))
+        if rx.match(fi)])
 
     #-- for each input file
-    for t,fi in enumerate(sorted(FILES)):
+    for t,fi in enumerate(FILES[:-1]):
         #-- extract year and month from file
         YY,MM = np.array(rx.findall(fi).pop(), dtype=np.float64)
 
         #-- read data file for data format
         if (DATAFORM == 'ascii'):
             #-- ascii (.txt)
-            gldas_data = spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
+            M1 = spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
                 extent=extent).from_ascii(os.path.join(ddir,subdir,fi))
+            M2 = spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
+                extent=extent).from_ascii(os.path.join(ddir,subdir,FILES[t+1]))
         elif (DATAFORM == 'netCDF4'):
             #-- netCDF4 (.nc)
-            gldas_data = spatial().from_netCDF4(os.path.join(ddir,subdir,fi))
+            M1 = spatial().from_netCDF4(os.path.join(ddir,subdir,fi))
+            M2 = spatial().from_netCDF4(os.path.join(ddir,subdir,FILES[t+1]))
         elif (DATAFORM == 'HDF5'):
             #-- HDF5 (.H5)
-            gldas_data = spatial().from_HDF5(os.path.join(ddir,subdir,fi))
+            M1 = spatial().from_HDF5(os.path.join(ddir,subdir,fi))
+            M2 = spatial().from_HDF5(os.path.join(ddir,subdir,FILES[t+1]))
 
         #-- write combined mask file to netCDF4 (.nc)
         if not os.access(os.path.join(ddir,combined_file), os.F_OK):
             #-- replace fill value points and certain vegetation types with 0
             complement_mask = np.ones((nlat,nlon), dtype=np.uint8)
-            ii,jj = np.nonzero((~gldas_data.mask) | combined_mask)
+            ii,jj = np.nonzero(np.logical_not(M1.mask) | combined_mask)
             complement_mask[ii,jj] = 0.0
-            output = dict(mask=complement_mask,longitude=glon,latitude=glat)
+            output = dict(mask=complement_mask, longitude=glon, latitude=glat)
             ncdf_mask_write(output, FILENAME=os.path.join(ddir,combined_file))
             os.chmod(os.path.join(ddir,combined_file),MODE)
 
         #-- replace fill value points and certain vegetation types with 0
-        gldas_data.replace_invalid(0.0, mask=combined_mask)
+        M1.replace_invalid(0.0, mask=combined_mask)
+        M2.replace_invalid(0.0, mask=combined_mask)
+        #-- calculate 2-month moving average
+        #-- weighting by number of days in each month
+        dpm = gravity_toolkit.time.calendar_days(int(YY))
+        W = np.float64(dpm[(t+1) % 12] + dpm[t % 12])
+        MASS = (dpm[t % 12]*M1.data + dpm[(t+1) % 12]*M2.data)/W
 
         #-- convert to spherical harmonics
-        gldas_Ylms = gen_stokes(gldas_data.data, glon, latitude_geocentric[:,0],
+        gldas_Ylms = gen_stokes(MASS, glon, latitude_geocentric[:,0],
             LMAX=LMAX, MMAX=MMAX, PLM=PLM, LOVE=LOVE)
         #-- calculate date information
         gldas_Ylms.time, = gravity_toolkit.time.convert_calendar_decimal(YY,MM)
@@ -442,8 +451,8 @@ def arguments():
         help='Input and output data format')
     #-- print information about each input and output file
     parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
+        action='count', default=0,
+        help='Verbose output of processing run')
     #-- permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
@@ -456,6 +465,10 @@ def main():
     #-- Read the system arguments listed after the program
     parser = arguments()
     args,_ = parser.parse_known_args()
+
+    #-- create logger
+    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    logging.basicConfig(level=loglevels[args.verbose])
 
     #-- for each GLDAS model
     for MODEL in args.model:

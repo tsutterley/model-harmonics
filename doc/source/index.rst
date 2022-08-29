@@ -60,6 +60,13 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
 .. toctree::
     :maxdepth: 1
     :hidden:
+    :caption: GIA
+
+    api_reference/GIA_GSFC_mascons.rst
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
     :caption: GLDAS
 
     api_reference/gesdisc_gldas_sync.rst

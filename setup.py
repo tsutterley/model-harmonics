@@ -21,7 +21,7 @@ with open('version.txt', encoding='utf8') as fh:
 
 # list of all scripts to be included with package
 scripts=[]
-for s in ['scripts','ECCO','GLDAS','reanalysis','SMB']:
+for s in ['scripts','ECCO','GIA','GLDAS','reanalysis','SMB']:
     scripts.extend([os.path.join(s,f) for f in os.listdir(s) if f.endswith('.py')])
 
 setup(

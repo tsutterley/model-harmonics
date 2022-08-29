@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 era5_smb_harmonics.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (08/2022)
 Reads monthly ERA5 surface mass balance anomalies and
     converts to spherical harmonic coefficients
 
@@ -52,6 +52,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 08/2022: convert to mid-month averages to correspond with GRACE
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
     Updated 12/2021: can use variable loglevels for verbose output
@@ -151,29 +152,25 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     #-- find input files from era5_smb_cumulative.py
     regex_years = r'\d{4}' if (YEARS is None) else '|'.join(map(str,YEARS))
     rx = re.compile(r'ERA5\-Cumul\-P-E\-({0})\.nc$'.format(regex_years))
-    #-- will be out of order for 2020 due to September reprocessing
-    FILES = sorted([fi for fi in os.listdir(os.path.join(ddir,cumul_sub))
-        if rx.match(fi)])
+    FILES = [f for f in os.listdir(os.path.join(ddir,cumul_sub)) if rx.match(f)]
 
+    #-- create list of yearly ERA5 files
+    spatial_list = []
     #-- for each input file
     for t,fi in enumerate(FILES):
-        #-- extract parameters from input flux file
-        Y1, = rx.findall(fi)
-        calendar_year = int(Y1)
         #-- read data file for data format
         if (DATAFORM == 'ascii'):
             #-- ascii (.txt)
             era5_data = spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
                 extent=extent).from_ascii(os.path.join(ddir,cumul_sub,fi))
         elif (DATAFORM == 'netCDF4'):
-            #-- netCDF4 (.nc)
+            #-- netCDF4 (.nc)444444444
             era5_data = spatial().from_netCDF4(os.path.join(ddir,cumul_sub,fi),
                 varname='SMB')
         elif (DATAFORM == 'HDF5'):
             #-- HDF5 (.H5)
             era5_data = spatial().from_HDF5(os.path.join(ddir,cumul_sub,fi),
                 varname='SMB')
-
         #-- if reducing to a region of interest before converting to harmonics
         if np.any(input_mask):
             #-- replace fill value points and masked points with 0
@@ -181,28 +178,37 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
         else:
             #-- replace fill value points points with 0
             era5_data.replace_invalid(0.0)
+        #-- append to spatial list
+        spatial_list.append(era5_data)
+    #-- convert to combined data cube and clear memory from spatial list
+    era5_data = spatial().from_list(spatial_list, clear=True)
+    nlat,nlon,nt = era5_data.shape
 
-        #-- for each month of data
-        for i,t in enumerate(era5_data.time):
-            #-- calendar month from indice
-            calendar_month = i+1
-            #-- convert to spherical harmonics from m w.e.
-            era5_mmwe = era5_data.index(i).scale(1000.0)
-            era5_Ylms = gen_stokes(era5_mmwe.data, glon,
-                latitude_geocentric[:,0], LMAX=LMAX, MMAX=MMAX,
-                UNITS=3, PLM=PLM, LOVE=LOVE)
-            #-- copy date information
-            era5_Ylms.time = np.copy(era5_mmwe.time)
-            era5_Ylms.month = gravity_toolkit.time.calendar_to_grace(
-                calendar_year,calendar_month)
-            #-- output spherical harmonic data file
-            args=(LMAX,order_str,era5_Ylms.month,suffix[DATAFORM])
-            FILE='ERA5_CUMUL_P-E_CLM_L{0:d}{1}_{2:03d}.{3}'.format(*args)
-            era5_Ylms.to_file(os.path.join(ddir,output_sub,FILE),
-                format=DATAFORM, title=output_file_title,
-                reference=output_reference)
-            #-- change the permissions mode of the output file to MODE
-            os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
+    #-- for each month of data
+    for i in range(nt-1):
+        #-- convert data to m w.e.
+        M1 = era5_data.index(i).scale(1000.0)
+        M2 = era5_data.index(i+1).scale(1000.0)
+        #-- calculate 2-month moving average
+        #-- weighting by number of days in each month
+        dpm = gravity_toolkit.time.calendar_days(np.floor(M1.time))
+        W = np.float64(dpm[(t+1) % 12] + dpm[t % 12])
+        MASS = (dpm[t % 12]*M1.data + dpm[(t+1) % 12]*M2.data)/W
+        #-- convert to spherical harmonics
+        era5_Ylms = gen_stokes(MASS, glon, latitude_geocentric[:,0],
+            LMAX=LMAX, MMAX=MMAX, UNITS=3, PLM=PLM, LOVE=LOVE)
+        #-- copy date information
+        era5_Ylms.time = np.mean([M1.time, M2.time])
+        era5_Ylms.month = gravity_toolkit.time.calendar_to_grace(
+            era5_Ylms.time)
+        #-- output spherical harmonic data file
+        args = (LMAX, order_str, era5_Ylms.month, suffix[DATAFORM])
+        FILE = 'ERA5_CUMUL_P-E_CLM_L{0:d}{1}_{2:03d}.{3}'.format(*args)
+        era5_Ylms.to_file(os.path.join(ddir,output_sub,FILE),
+            format=DATAFORM, title=output_file_title,
+            reference=output_reference)
+        #-- change the permissions mode of the output file to MODE
+        os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 
     #-- Output date ascii file
     output_date_file = 'ERA5_SMB_DATES.txt'
