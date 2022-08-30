@@ -249,7 +249,7 @@ def reanalysis_monthly_harmonics(base_dir, MODEL, YEARS, RANGE=None,
 
     #-- read load love numbers and calculate Legendre polynomials
     LOVE = load_love_numbers(LMAX,LOVE_NUMBERS=LOVE_NUMBERS,REFERENCE=REFERENCE)
-    PLM,dPLM = plm_holmes(LMAX,np.cos(theta))
+    PLM, dPLM = plm_holmes(LMAX, np.cos(theta))
 
     #-- Earth Parameters
     ellipsoid_params = ref_ellipsoid(ELLIPSOID)

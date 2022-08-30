@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_scaling_factors.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (08/2022)
 
 Reads monthly GLDAS total water storage anomalies and monthly
     spherical harmonic coefficients
@@ -75,6 +75,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 08/2022: create verbose logger within main definition
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
     Updated 12/2021: can use variable loglevels for verbose output
@@ -134,11 +135,7 @@ gldas_products['VIC'] = 'GLDAS Variable Infiltration Capacity (VIC) model'
 #-- calculate the point scaling factors following Landerer and Swenson (2012)
 def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
     SPACING=None, VERSION=None, LMAX=0, MMAX=None, RAD=0, DESTRIPE=False,
-    LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None, VERBOSE=False, MODE=0o775):
-
-    #-- create logger for verbosity level
-    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
-    logging.basicConfig(level=loglevels[VERBOSE])
+    LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None, MODE=0o775):
 
     #-- Version flags
     V1,V2 = ('_V1','') if (VERSION == '1') else ('','.{0}'.format(VERSION))
@@ -243,7 +240,7 @@ def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
         REFERENCE=REFERENCE)
 
     #-- calculate Legendre polynomials
-    PLM,dPLM = plm_holmes(LMAX,np.cos(theta))
+    PLM, dPLM = plm_holmes(LMAX, np.cos(theta))
 
     #-- Setting units factor for cmwe: centimeters water equivalent
     #-- dfactor computes the degree dependent coefficients
@@ -319,30 +316,30 @@ def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
         ds_str,grace_month[0],grace_month[-1],suffix[DATAFORM])
     output_data(gldas_kfactor, FILENAME=os.path.join(ddir,sub2,f3),
         DATAFORM=DATAFORM, UNITS='unitless', LONGNAME='Scaling Factor',
-        TITLE=gldas_products[MODEL], KEY='data', VERBOSE=VERBOSE, MODE=MODE)
+        TITLE=gldas_products[MODEL], KEY='data', MODE=MODE)
     output_data(gldas_kfactor, FILENAME=os.path.join(ddir,sub2,f4),
         DATAFORM=DATAFORM, UNITS='cmwe', LONGNAME='Scaling Factor Error',
-        TITLE=gldas_products[MODEL], KEY='error', VERBOSE=VERBOSE, MODE=MODE)
+        TITLE=gldas_products[MODEL], KEY='error', MODE=MODE)
     output_data(gldas_power, FILENAME=os.path.join(ddir,sub2,f5),
         DATAFORM=DATAFORM, UNITS='cmwe', LONGNAME='Power',
-        TITLE=gldas_products[MODEL], KEY='data', VERBOSE=VERBOSE, MODE=MODE)
+        TITLE=gldas_products[MODEL], KEY='data', MODE=MODE)
 
 #-- PURPOSE: wrapper function for outputting data to file
 def output_data(data, FILENAME=None, KEY='data', DATAFORM=None,
-    UNITS=None, LONGNAME=None, TITLE=None, VERBOSE=False, MODE=0o775):
+    UNITS=None, LONGNAME=None, TITLE=None, MODE=0o775):
     output = data.copy()
     setattr(output,'data',getattr(data,KEY))
     if (DATAFORM == 'ascii'):
         #-- ascii (.txt)
-        output.to_ascii(FILENAME,date=False,verbose=VERBOSE)
+        output.to_ascii(FILENAME, date=False)
     elif (DATAFORM == 'netCDF4'):
         #-- netcdf (.nc)
-        output.to_netCDF4(FILENAME,date=False,verbose=VERBOSE,
-            units=UNITS,longname=LONGNAME,title=TITLE)
+        output.to_netCDF4(FILENAME, date=False,
+            units=UNITS, longname=LONGNAME, title=TITLE)
     elif (DATAFORM == 'HDF5'):
         #-- HDF5 (.H5)
-        output.to_HDF5(FILENAME,date=False,verbose=VERBOSE,
-            units=UNITS,longname=LONGNAME,title=TITLE)
+        output.to_HDF5(FILENAME,date=False,
+            units=UNITS, longname=LONGNAME, title=TITLE)
     #-- change the permissions mode of the output file
     os.chmod(FILENAME, MODE)
 
@@ -401,7 +398,7 @@ def arguments():
     #-- Use a decorrelation (destriping) filter
     parser.add_argument('--destripe','-d',
         default=False, action='store_true',
-        help='Verbose output of run')
+        help='Use decorrelation (destriping) filter')
     #-- different treatments of the load Love numbers
     #-- 0: Han and Wahr (1995) values from PREM
     #-- 1: Gegout (2005) values from PREM
@@ -435,6 +432,10 @@ def main():
     parser = arguments()
     args,_ = parser.parse_known_args()
 
+    #-- create logger for verbosity level
+    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    logging.basicConfig(level=loglevels[args.verbose])
+
     #-- for each GLDAS model
     for MODEL in args.model:
         #-- run program
@@ -443,7 +444,7 @@ def main():
             VERSION=args.version, SPACING=args.spacing, LMAX=args.lmax,
             MMAX=args.mmax, RAD=args.radius, DESTRIPE=args.destripe,
             LOVE_NUMBERS=args.love, REFERENCE=args.reference,
-            DATAFORM=args.format, VERBOSE=args.verbose, MODE=args.mode)
+            DATAFORM=args.format, MODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

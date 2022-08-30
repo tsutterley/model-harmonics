@@ -210,7 +210,7 @@ def reanalysis_atmospheric_harmonics(base_dir, MODEL, YEARS, RANGE=None,
 
     #-- read load love numbers and calculate Legendre polynomials
     LOVE = load_love_numbers(LMAX,LOVE_NUMBERS=LOVE_NUMBERS,REFERENCE=REFERENCE)
-    PLM,dPLM = plm_holmes(LMAX,np.cos(theta))
+    PLM, dPLM = plm_holmes(LMAX, np.cos(theta))
     #-- read geoid heights and grid step size
     geoid,gridstep = ncdf_geoid(os.path.join(ddir,input_geoid_file))
     nlat,nlon = np.shape(geoid)

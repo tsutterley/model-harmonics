@@ -176,7 +176,7 @@ def gen_pressure_stokes(P, G, R, lon, lat, LMAX=60, MMAX=None,
     #-- added option to precompute plms to improve computational speed
     if PLM is None:
         #-- if plms are not pre-computed: calculate Legendre polynomials
-        PLM,dPLM = plm_holmes(LMAX,np.cos(th))
+        PLM, dPLM = plm_holmes(LMAX, np.cos(th))
 
     #-- Multiplying by integration factors [sin(theta)*dtheta*dphi]
     #-- truncate legendre polynomials to spherical harmonic order MMAX
