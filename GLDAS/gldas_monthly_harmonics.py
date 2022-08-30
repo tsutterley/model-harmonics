@@ -49,10 +49,11 @@ INPUTS:
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
     -Y X, --year X: Years to run
+    -v X, --version X: GLDAS model version
     -S X, --spacing X: spatial resolution of models to run
         10: 1.0 degrees latitude/longitude
         025: 0.25 degrees latitude/longitude
-    -v X, --version X: GLDAS model version
+    --mask X: netCDF4 mask files for reducing to regions
     -l X, --lmax X: maximum spherical harmonic degree
     -m X, --mmax X: maximum spherical harmonic order
     -n X, --love X: Load Love numbers dataset
@@ -95,6 +96,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 08/2022: convert to mid-month averages to correspond with GRACE
+        can use a custom set of masks to reduce terrestrial water storage
         can use variable loglevels for verbose output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
@@ -157,8 +159,15 @@ gldas_products['NOAH'] = 'GLDAS Noah model'
 gldas_products['VIC'] = 'GLDAS Variable Infiltration Capacity (VIC) model'
 
 #-- PURPOSE: convert GLDAS terrestrial water storage data to spherical harmonics
-def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
-    LMAX=0, MMAX=None, LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None,
+def gldas_monthly_harmonics(ddir, MODEL, YEARS,
+    SPACING=None,
+    VERSION=None,
+    MASKS=None,
+    LMAX=0,
+    MMAX=None,
+    LOVE_NUMBERS=0,
+    REFERENCE=None,
+    DATAFORM=None,
     MODE=0o775):
 
     #-- Version flags
@@ -180,63 +189,64 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
 
     #-- parameters for each grid spacing
     if (SPACING == '025'):
-        nlon,nlat = (1440,600)
-        dlon,dlat = (0.25,0.25)
-        extent = [-179.875,179.875,-59.875,89.875]
+        nlon, nlat = (1440, 600)
+        dlon,dlat = (0.25, 0.25)
+        extent = [-179.875, 179.875, -59.875, 89.875]
     elif (SPACING == '10'):
-        nlon,nlat = (360,150)
-        dlon,dlat = (1.0,1.0)
-        extent = [-179.5,179.5,-59.5,89.5]
+        nlon,nlat = (360, 150)
+        dlon,dlat = (1.0, 1.0)
+        extent = [-179.5, 179.5, -59.5, 89.5]
+
     #-- GLDAS MOD44W land mask modified for HYMAP
     landmask_file = 'GLDASp5_landmask_{0}d.nc4'.format(SPACING)
-    #-- mask files for vegetation type, arctic regions, permafrost
-    vegetation_file = 'modmodis_domveg20_{0}.nc'.format(SPACING)
-    arctic_file = 'arcticmask_mod44w_{0}.nc'.format(SPACING)
-    permafrost_file = 'permafrost_mod44w_{0}.nc'.format(SPACING)
-    #-- output combined mask file
-    combined_file = 'combinedmask_mod44w_{0}.nc'.format(SPACING)
-
-    #-- read GLDAS land mask file
     with netCDF4.Dataset(os.path.join(ddir,landmask_file),'r') as fileID:
         GLDAS_mask = fileID.variables['GLDAS_mask'][:].squeeze()
-
-    #-- read vegetation index file from gldas_mask_vegetation.py
-    with netCDF4.Dataset(os.path.join(ddir,vegetation_file),'r') as fileID:
-        vegetation_index = fileID.variables['index'][:].copy()
-        glon = fileID.variables['longitude'][:].copy()
-        glat = fileID.variables['latitude'][:].copy()
-
-    #-- read Permafrost index file from gldas_mask_permafrost.py
-    with netCDF4.Dataset(os.path.join(ddir,permafrost_file),'r') as fileID:
-        permafrost_index = fileID.variables['mask'][:]
-
-    #-- read Arctic mask file from gldas_mask_arctic.py
-    with netCDF4.Dataset(os.path.join(ddir,arctic_file),'r') as fileID:
-        arctic_mask = fileID.variables['mask'][:].astype(bool)
-
-    #-- shape of the input vegetation_index file
-    nlat,nlon = np.shape(vegetation_index)
+        glon = fileID.variables['lon'][:].copy()
+        glat = fileID.variables['lat'][:].copy()
     #-- create mesh grid of latitude and longitude
     gridlon,gridlat = np.meshgrid(glon,glat)
-    #-- create mask combining vegetation index, permafrost index and Arctic mask
+    #-- create combined mask
     combined_mask = np.logical_not(GLDAS_mask)
-    combined_mask |= arctic_mask[:,:]
-    # 0: missing value
-    # 13: Urban and Built-Up
-    # 15: Snow and Ice
-    # 17: Ocean
-    # 18: Wooded Tundra
-    # 19: Mixed Tundra
-    # 20: Bare Ground Tundra
-    for invalid_keys in (0,13,15,17,18,19,20):
-        combined_mask |= (vegetation_index == invalid_keys)
-    #-- 1: Continuous Permafrost
-    #-- 2: Discontinuous Permafrost
-    #-- 3: Isolated Permafrost
-    #-- 4: Sporadic Permafrost
-    #-- 5: Glaciated Area
-    for invalid_keys in (1,5):
-        combined_mask |= (permafrost_index == invalid_keys)
+
+    if MASKS:
+        #-- read masks for reducing regions before converting to harmonics
+        for mask_file in MASKS:
+            fileID = netCDF4.Dataset(mask_file,'r')
+            combined_mask |= fileID.variables['mask'][:].astype(bool)
+            fileID.close()
+    else:
+        #-- use default masks for reducing regions before converting to harmonics
+        #-- mask combining vegetation index, permafrost index and Arctic mask
+        #-- read vegetation index file
+        vegetation_file = 'modmodis_domveg20_{0}.nc'.format(SPACING)
+        with netCDF4.Dataset(os.path.join(ddir,vegetation_file),'r') as fileID:
+            vegetation_index = fileID.variables['index'][:].copy()
+        #-- 0: missing value
+        #-- 13: Urban and Built-Up
+        #-- 15: Snow and Ice
+        #-- 17: Ocean
+        #-- 18: Wooded Tundra
+        #-- 19: Mixed Tundra
+        #-- 20: Bare Ground Tundra
+        for invalid_keys in (0,13,15,17,18,19,20):
+            combined_mask |= (vegetation_index == invalid_keys)
+        #-- read Permafrost index file
+        permafrost_file = 'permafrost_mod44w_{0}.nc'.format(SPACING)
+        with netCDF4.Dataset(os.path.join(ddir,permafrost_file),'r') as fileID:
+            permafrost_index = fileID.variables['mask'][:]
+        #-- 1: Continuous Permafrost
+        #-- 2: Discontinuous Permafrost
+        #-- 3: Isolated Permafrost
+        #-- 4: Sporadic Permafrost
+        #-- 5: Glaciated Area
+        for invalid_keys in (1,5):
+            combined_mask |= (permafrost_index == invalid_keys)
+        #-- read Arctic mask file
+        arctic_file = 'arcticmask_mod44w_{0}.nc'.format(SPACING)
+        with netCDF4.Dataset(os.path.join(ddir,arctic_file),'r') as fileID:
+            arctic_mask = fileID.variables['mask'][:].astype(bool)
+        #-- arctic mask
+        combined_mask |= arctic_mask[:,:]
 
     #-- Earth Parameters
     ellipsoid_params = ref_ellipsoid('WGS84')
@@ -263,7 +273,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
         REFERENCE=REFERENCE)
 
     #-- calculate Legendre polynomials
-    PLM,dPLM = plm_holmes(LMAX,np.cos(theta))
+    PLM, dPLM = plm_holmes(LMAX, np.cos(theta))
 
     #-- find input terrestrial water storage files
     regex_years = r'\d+' if (YEARS is None) else '|'.join(map(str,YEARS))
@@ -292,16 +302,6 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS, SPACING=None, VERSION=None,
             #-- HDF5 (.H5)
             M1 = spatial().from_HDF5(os.path.join(ddir,subdir,fi))
             M2 = spatial().from_HDF5(os.path.join(ddir,subdir,FILES[t+1]))
-
-        #-- write combined mask file to netCDF4 (.nc)
-        if not os.access(os.path.join(ddir,combined_file), os.F_OK):
-            #-- replace fill value points and certain vegetation types with 0
-            complement_mask = np.ones((nlat,nlon), dtype=np.uint8)
-            ii,jj = np.nonzero(np.logical_not(M1.mask) | combined_mask)
-            complement_mask[ii,jj] = 0.0
-            output = dict(mask=complement_mask, longitude=glon, latitude=glat)
-            ncdf_mask_write(output, FILENAME=os.path.join(ddir,combined_file))
-            os.chmod(os.path.join(ddir,combined_file),MODE)
 
         #-- replace fill value points and certain vegetation types with 0
         M1.replace_invalid(0.0, mask=combined_mask)
@@ -426,6 +426,11 @@ def arguments():
     parser.add_argument('--spacing','-S',
         type=str, default='10', choices=['10','025'],
         help='Spatial resolution of models to run')
+    #-- mask file for reducing to regions
+    parser.add_argument('--mask',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        nargs='+', default=[],
+        help='netCDF4 masks file for reducing to regions')
     #-- maximum spherical harmonic degree and order
     parser.add_argument('--lmax','-l',
         type=int, default=60,
@@ -474,9 +479,15 @@ def main():
     for MODEL in args.model:
         #-- run program
         gldas_monthly_harmonics(args.directory, MODEL, args.year,
-            VERSION=args.version, SPACING=args.spacing, LMAX=args.lmax,
-            MMAX=args.mmax, LOVE_NUMBERS=args.love, REFERENCE=args.reference,
-            DATAFORM=args.format, VERBOSE=args.verbose, MODE=args.mode)
+            VERSION=args.version,
+            SPACING=args.spacing,
+            MASKS=args.mask,
+            LMAX=args.lmax,
+            MMAX=args.mmax,
+            LOVE_NUMBERS=args.love,
+            REFERENCE=args.reference,
+            DATAFORM=args.format,
+            sMODE=args.mode)
 
 #-- run main program
 if __name__ == '__main__':

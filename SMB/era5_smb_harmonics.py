@@ -147,7 +147,7 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
         REFERENCE=REFERENCE)
 
     #-- calculate Legendre polynomials
-    PLM,dPLM = plm_holmes(LMAX,np.cos(theta))
+    PLM, dPLM = plm_holmes(LMAX, np.cos(theta))
 
     #-- find input files from era5_smb_cumulative.py
     regex_years = r'\d{4}' if (YEARS is None) else '|'.join(map(str,YEARS))

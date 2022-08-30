@@ -11,7 +11,7 @@ Calling Sequence
 
     from model_harmonics.gen_atmosphere_stokes import gen_atmosphere_stokes
     from gravity_toolkit.plm_holmes import plm_holmes
-    PLM,dPLM = plm_holmes(LMAX, np.cos(th))
+    PLM, dPLM = plm_holmes(LMAX, np.cos(th))
     Ylms = gen_atmosphere_stokes(GPH, pressure, lon, lat, LMAX=LMAX,
         ELLIPSOID='WGS84', GEOID=geoid, PLM=PLM, LOVE=(hl,kl,ll))
 

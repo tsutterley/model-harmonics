@@ -240,7 +240,7 @@ def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
         REFERENCE=REFERENCE)
 
     #-- calculate Legendre polynomials
-    PLM,dPLM = plm_holmes(LMAX,np.cos(theta))
+    PLM, dPLM = plm_holmes(LMAX, np.cos(theta))
 
     #-- Setting units factor for cmwe: centimeters water equivalent
     #-- dfactor computes the degree dependent coefficients

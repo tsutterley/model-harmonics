@@ -196,7 +196,7 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     LOVE = load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
         REFERENCE=REFERENCE)
     #-- calculate Legendre polynomials
-    PLM,dPLM = plm_holmes(LMAX,np.cos(theta[:,0]))
+    PLM, dPLM = plm_holmes(LMAX,np.cos(theta[:,0]))
 
     #-- regular expression pattern to find files and extract dates
     regex_years = r'\d+' if (YEARS is None) else '|'.join(map(str,YEARS))

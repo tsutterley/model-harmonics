@@ -192,7 +192,7 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
         REFERENCE=REFERENCE)
 
     #-- calculate Legendre polynomials
-    PLM,dPLM = plm_holmes(LMAX,np.cos(theta))
+    PLM, dPLM = plm_holmes(LMAX, np.cos(theta))
 
     #-- find input files from merra_smb_cumulative.py
     regex_years = r'\d{4}' if (YEARS is None) else '|'.join(map(str,YEARS))
