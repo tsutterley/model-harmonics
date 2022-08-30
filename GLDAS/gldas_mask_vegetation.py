@@ -51,7 +51,7 @@ def gldas_mask_vegetation(ddir, SPACING=None, MODE=0o775):
         output_file = 'modmodis_domveg20_{0}.nc'.format(SPACING)
     elif (SPACING == '10'):
         dx, dy = (1.0, 1.0)
-        nx, ny = (360,1 50)
+        nx, ny = (360, 150)
         latlimit_south = -59.5
         longlimit_west = -179.5
         input_file = 'modmodis_domveg20_{0:3.1f}.bin'.format(dx)
