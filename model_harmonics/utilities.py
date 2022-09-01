@@ -15,10 +15,10 @@ UPDATE HISTORY:
     Updated 04/2022: updated docstrings to numpy documentation format
     Written 01/2021
 """
-#-- extend gravity_toolkit utilities
+# extend gravity_toolkit utilities
 from gravity_toolkit.utilities import *
 
-#-- PURPOSE: list a directory on NASA GES DISC https server
+# PURPOSE: list a directory on NASA GES DISC https server
 def gesdisc_list(HOST,username=None,password=None,build=False,timeout=None,
     urs='urs.earthdata.nasa.gov',parser=lxml.etree.HTMLParser(),
     format='%Y-%m-%d %H:%M',pattern='',sort=False):
@@ -55,46 +55,46 @@ def gesdisc_list(HOST,username=None,password=None,build=False,timeout=None,
     collastmod: list
         last modification times for items in the directory
     """
-    #-- use netrc credentials
+    # use netrc credentials
     if build and not (username or password):
         username,_,password = netrc.netrc().authenticators(urs)
-    #-- build urllib2 opener with credentials
+    # build urllib2 opener with credentials
     if build:
         build_opener(username, password, password_manager=True,
             authorization_header=False)
-    #-- verify inputs for remote https host
+    # verify inputs for remote https host
     if isinstance(HOST, str):
         HOST = url_split(HOST)
-    #-- try listing from https
+    # try listing from https
     try:
-        #-- Create and submit request.
+        # Create and submit request.
         request=urllib2.Request(posixpath.join(*HOST))
         response=urllib2.urlopen(request,timeout=timeout)
     except (urllib2.HTTPError, urllib2.URLError):
         raise Exception('List error from {0}'.format(posixpath.join(*HOST)))
     else:
-        #-- read and parse request for files (column names and modified times)
+        # read and parse request for files (column names and modified times)
         tree = lxml.etree.parse(response,parser)
         colnames = tree.xpath('//tr/td[not(@*)]//a/@href')
-        #-- get the Unix timestamp value for a modification time
+        # get the Unix timestamp value for a modification time
         lastmod = [get_unix_time(i,format=format)
             for i in tree.xpath('//tr/td[@align="right"][1]/text()')]
-        #-- reduce using regular expression pattern
+        # reduce using regular expression pattern
         if pattern:
             i = [i for i,f in enumerate(colnames) if re.search(pattern,f)]
-            #-- reduce list of column names and last modified times
+            # reduce list of column names and last modified times
             colnames = [colnames[indice] for indice in i]
             lastmod = [lastmod[indice] for indice in i]
-        #-- sort the list
+        # sort the list
         if sort:
             i = [i for i,j in sorted(enumerate(colnames), key=lambda i: i[1])]
-            #-- sort list of column names and last modified times
+            # sort list of column names and last modified times
             colnames = [colnames[indice] for indice in i]
             lastmod = [lastmod[indice] for indice in i]
-        #-- return the list of column names and last modified times
+        # return the list of column names and last modified times
         return (colnames,lastmod)
 
-#-- PURPOSE: filter the CMR json response for desired data files
+# PURPOSE: filter the CMR json response for desired data files
 def cmr_filter_json(search_results, endpoint="data",
     request_type="application/x-netcdf"):
     """
@@ -122,11 +122,11 @@ def cmr_filter_json(search_results, endpoint="data",
     granule_mtimes: list
         Model granule modification times
     """
-    #-- output list of granule ids, urls and modified times
+    # output list of granule ids, urls and modified times
     granule_names = []
     granule_urls = []
     granule_mtimes = []
-    #-- check that there are urls for request
+    # check that there are urls for request
     if ('feed' not in search_results) or ('entry' not in search_results['feed']):
         return (granule_names,granule_urls)
     # descriptor links for each endpoint
@@ -134,7 +134,7 @@ def cmr_filter_json(search_results, endpoint="data",
     rel['data'] = "http://esipfed.org/ns/fedsearch/1.1/data#"
     rel['opendap'] = "http://esipfed.org/ns/fedsearch/1.1/service#"
     rel['s3'] = "http://esipfed.org/ns/fedsearch/1.1/s3#"
-    #-- iterate over references and get cmr location
+    # iterate over references and get cmr location
     for entry in search_results['feed']['entry']:
         granule_names.append(entry['producer_granule_id'])
         granule_mtimes.append(get_unix_time(entry['updated'],
@@ -153,10 +153,10 @@ def cmr_filter_json(search_results, endpoint="data",
             if (link['type'] == request_type):
                 granule_urls.append(link['href'])
                 break
-    #-- return the list of urls, granule ids and modified times
+    # return the list of urls, granule ids and modified times
     return (granule_names, granule_urls, granule_mtimes)
 
-#-- PURPOSE: cmr queries for GRACE/GRACE-FO products
+# PURPOSE: cmr queries for GRACE/GRACE-FO products
 def cmr(short_name, version=None, start_date=None, end_date=None,
     provider='GES_DISC', endpoint='data', request_type='application/x-netcdf',
     verbose=False, fid=sys.stdout):
@@ -202,43 +202,43 @@ def cmr(short_name, version=None, start_date=None, end_date=None,
     granule_mtimes: list
         Model granule modification times
     """
-    #-- create logger
+    # create logger
     loglevel = logging.INFO if verbose else logging.CRITICAL
     logging.basicConfig(stream=fid, level=loglevel)
-    #-- build urllib2 opener with SSL context
-    #-- https://docs.python.org/3/howto/urllib2.html#id5
+    # build urllib2 opener with SSL context
+    # https://docs.python.org/3/howto/urllib2.html#id5
     handler = []
-    #-- Create cookie jar for storing cookies
+    # Create cookie jar for storing cookies
     cookie_jar = CookieJar()
     handler.append(urllib2.HTTPCookieProcessor(cookie_jar))
     handler.append(urllib2.HTTPSHandler(context=ssl.SSLContext()))
-    #-- create "opener" (OpenerDirector instance)
+    # create "opener" (OpenerDirector instance)
     opener = urllib2.build_opener(*handler)
-    #-- build CMR query
+    # build CMR query
     cmr_format = 'json'
     cmr_page_size = 2000
     CMR_HOST = ['https://cmr.earthdata.nasa.gov','search',
         'granules.{0}'.format(cmr_format)]
-    #-- build list of CMR query parameters
+    # build list of CMR query parameters
     CMR_KEYS = []
     CMR_KEYS.append('?provider={0}'.format(provider))
     CMR_KEYS.append('&sort_key[]=start_date')
     CMR_KEYS.append('&sort_key[]=producer_granule_id')
     CMR_KEYS.append('&scroll=true')
     CMR_KEYS.append('&page_size={0}'.format(cmr_page_size))
-    #-- dictionary of product shortnames and version
+    # dictionary of product shortnames and version
     CMR_KEYS.append('&short_name={0}'.format(short_name))
     if version:
         CMR_KEYS.append('&version={0}'.format(version))
-    #-- append keys for start and end time
-    #-- verify that start and end times are in ISO format
+    # append keys for start and end time
+    # verify that start and end times are in ISO format
     start_date = isoformat(start_date) if start_date else ''
     end_date = isoformat(end_date) if end_date else ''
     CMR_KEYS.append('&temporal={0},{1}'.format(start_date, end_date))
-    #-- full CMR query url
+    # full CMR query url
     cmr_query_url = "".join([posixpath.join(*CMR_HOST),*CMR_KEYS])
     logging.info('CMR request={0}'.format(cmr_query_url))
-    #-- output list of granule names and urls
+    # output list of granule names and urls
     granule_names = []
     granule_urls = []
     granule_mtimes = []
@@ -248,24 +248,24 @@ def cmr(short_name, version=None, start_date=None, end_date=None,
         if cmr_scroll_id:
             req.add_header('cmr-scroll-id', cmr_scroll_id)
         response = opener.open(req)
-        #-- get scroll id for next iteration
+        # get scroll id for next iteration
         if not cmr_scroll_id:
             headers = {k.lower():v for k,v in dict(response.info()).items()}
             cmr_scroll_id = headers['cmr-scroll-id']
-        #-- read the CMR search as JSON
+        # read the CMR search as JSON
         search_page = json.loads(response.read().decode('utf8'))
         ids,urls,mtimes = cmr_filter_json(search_page,
             endpoint=endpoint, request_type=request_type)
         if not urls:
             break
-        #-- extend lists
+        # extend lists
         granule_names.extend(ids)
         granule_urls.extend(urls)
         granule_mtimes.extend(mtimes)
-    #-- return the list of granule ids, urls and modification times
+    # return the list of granule ids, urls and modification times
     return (granule_names, granule_urls, granule_mtimes)
 
-#-- PURPOSE: build requests for the GES DISC subsetting API
+# PURPOSE: build requests for the GES DISC subsetting API
 def build_request(short_name, dataset_version, url, variables=[],
     format='bmM0Lw', service='L34RS_MERRA2', version='1.02',
     bbox=[-90,-180,90,180], **kwargs):
@@ -296,10 +296,11 @@ def build_request(short_name, dataset_version, url, variables=[],
     request_url: str
         Formatted url for GES DISC subsetting API
     """
-    #-- split CMR supplied url for granule
-    HOST,*args = url_split(url)
-    api_host = posixpath.join(HOST,'daac-bin','OTF','HTTP_services.cgi?')
-    #-- create parameters to be encoded
+    # split CMR supplied url for granule
+    _,*args = url_split(url)
+    api_host = posixpath.join('https://goldsmr5.gesdisc.eosdis.nasa.gov',
+        'daac-bin','OTF','HTTP_services.cgi?')
+    # create parameters to be encoded
     kwargs['FILENAME'] = posixpath.join(posixpath.sep, *args)
     kwargs['FORMAT'] = format
     kwargs['SERVICE'] = service
@@ -308,6 +309,6 @@ def build_request(short_name, dataset_version, url, variables=[],
     kwargs['SHORTNAME'] = short_name
     kwargs['DATASET_VERSION'] = dataset_version
     kwargs['VARIABLES'] = ','.join(variables)
-    #-- return the formatted request url
+    # return the formatted request url
     request_url = api_host + urlencode(kwargs)
     return request_url
