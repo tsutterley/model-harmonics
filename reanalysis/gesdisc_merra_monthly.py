@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_merra_monthly.py
-Written by Tyler Sutterley (06/2022)
+Written by Tyler Sutterley (08/2022)
 
 Creates monthly MERRA-2 3D model level products syncing data from the
     Goddard Earth Sciences Data and Information Server Center (GES DISC)
@@ -49,6 +49,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 08/2022: adjust time range for CMR queries
     Updated 06/2022: use CMR queries to find reanalysis granules
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
@@ -118,6 +119,8 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
     LEVELNAME = 'lev'
     TIMENAME = 'time'
     time_unit_format = 'minutes since {0}-{1}-01 00:00:00'
+    #-- time format for CMR queries
+    isotime_format = '{0}-{1}-{2:02.0f}T{3:02.0f}:{4:02.0f}:{5:02.0f}'
     #-- output dimensions
     nlevels,nlat,nlon = (72,361,576)
     #-- dictionary of variable attributes
@@ -140,8 +143,8 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
             YY = '{0:4d}'.format(YEAR)
             MM = '{0:02d}'.format(i+1)
             #-- start and end date for query
-            start_date = '{0}-{1}-{2:02.0f}'.format(YY,MM,1.0)
-            end_date = '{0}-{1}-{2:02.0f}'.format(YY,MM,days_per_month)
+            start_date = isotime_format.format(YY,MM,1.0,0.0,0.0,0.0)
+            end_date = isotime_format.format(YY,MM,days_per_month,23.0,59.0,59.0)
             #-- query for data
             ids,urls,mtimes = model_harmonics.utilities.cmr(SHORTNAME,
                 version=VERSION, start_date=start_date, end_date=end_date,

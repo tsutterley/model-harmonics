@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (06/2022)
+Written by Tyler Sutterley (08/2022)
 Download and management utilities for syncing time and auxiliary files
 Adds additional modules to the gravity_toolkit utilities
 
@@ -10,6 +10,7 @@ PYTHON DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 08/2022: hardcode GES DISC subsetting API hostname
     Updated 06/2022: add NASA Common Metadata Repository (CMR) queries
         added function to build GES DISC subsetting API requests
     Updated 04/2022: updated docstrings to numpy documentation format
