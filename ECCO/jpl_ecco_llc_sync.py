@@ -130,7 +130,7 @@ def jpl_ecco_llc_sync(ddir, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
     #-- remote subdirectory for MODEL on JPL ECCO data server
     PATH = [HOST,'drive','files',*grid_path[MODEL]]
     colnames,mtimes = gravity_toolkit.utilities.drive_list(PATH,
-        timeout=120,build=False,parser=parser,pattern=r'ECCO-GRID.nc$')
+        timeout=TIMEOUT,build=False,parser=parser,pattern=r'ECCO-GRID.nc$')
     #-- full path to remote directory
     remote_dir = posixpath.join(*PATH)
     #-- remote and local versions of the file
@@ -138,7 +138,8 @@ def jpl_ecco_llc_sync(ddir, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
         remote_file = posixpath.join(remote_dir,colname)
         local_file = os.path.join(DIRECTORY,colname)
         http_pull_file(remote_file, remote_mtime, local_file,
-            LIST, CLOBBER, CHECKSUM, MODE)
+            TIMEOUT=TIMEOUT, LIST=LIST, CLOBBER=CLOBBER,
+            CHECKSUM=CHECKSUM, MODE=MODE)
 
     #-- path to model llc tile files
     model_path = {}
@@ -175,16 +176,16 @@ def jpl_ecco_llc_sync(ddir, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
         #-- full path to remote directory
         remote_dir = posixpath.join(*PATH)
         #-- read and parse request for files (find names and modified dates)
-        colnames,mtimes=gravity_toolkit.utilities.drive_list(PATH,
+        colnames,mtimes = gravity_toolkit.utilities.drive_list(PATH,
             timeout=TIMEOUT,build=False,parser=parser,pattern=R3,sort=True)
         #-- for each file on the remote server
         for colname,remote_mtime in zip(colnames,mtimes):
             #-- remote and local versions of the file
             remote_file = posixpath.join(remote_dir,colname)
             local_file = os.path.join(DIRECTORY,colname)
-            http_pull_file(remote_file, remote_mtime,
-                local_file, TIMEOUT=TIMEOUT, LIST=LIST,
-                CLOBBER=CLOBBER, CHECKSUM=CHECKSUM, MODE=MODE)
+            http_pull_file(remote_file, remote_mtime, local_file,
+                TIMEOUT=TIMEOUT, LIST=LIST, CLOBBER=CLOBBER,
+                CHECKSUM=CHECKSUM, MODE=MODE)
         #-- remove the year directory from the path
         if MODEL in ('V4r4',):
             PATH.remove(yr)
