@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_merra_monthly.py
-Written by Tyler Sutterley (08/2022)
+Written by Tyler Sutterley (10/2022)
 
 Creates monthly MERRA-2 3D model level products syncing data from the
     Goddard Earth Sciences Data and Information Server Center (GES DISC)
@@ -49,6 +49,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 10/2022: add hard coded GES DISC subsetting api host option
     Updated 08/2022: adjust time range for CMR queries
     Updated 06/2022: use CMR queries to find reanalysis granules
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -95,12 +96,12 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
     if LOG:
         #-- format: NASA_GESDISC_MERRA2_monthly_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = 'NASA_GESDISC_MERRA2_monthly_{0}.log'.format(today)
+        LOGFILE = f'NASA_GESDISC_MERRA2_monthly_{today}.log'
         fid = open(os.path.join(DIRECTORY,LOGFILE),'w')
         logging.basicConfig(stream=fid, level=loglevel)
-        logging.info('NASA MERRA-2 Sync Log ({0})'.format(today))
-        PRODUCT = '{0}.{1}'.format(SHORTNAME,VERSION)
-        logging.info('PRODUCT: {0}'.format(PRODUCT))
+        logging.info(f'NASA MERRA-2 Sync Log ({today})')
+        PRODUCT = f'{SHORTNAME}.{VERSION}'
+        logging.info(f'PRODUCT: {PRODUCT}')
     else:
         #-- standard output (terminal output)
         fid = sys.stdout
@@ -167,8 +168,9 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
             #-- for each url
             for id,url,mtime in zip(ids,urls,mtimes):
                 #-- build subsetting API url for granule
-                request_url = model_harmonics.utilities.build_request(
-                    SHORTNAME, VERSION, url, variables=[VARNAME,TNAME,QNAME])
+                request_url = model_harmonics.utilities.build_request(SHORTNAME,
+                    VERSION, url, host='https://goldsmr5.gesdisc.eosdis.nasa.gov',
+                    variables=[VARNAME,TNAME,QNAME])
                 #-- Create and submit request. There are a wide range of exceptions
                 #-- that can be thrown here, including HTTPError and URLError.
                 response = model_harmonics.utilities.from_http(request_url,
