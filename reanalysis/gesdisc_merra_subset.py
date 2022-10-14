@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_merra_subset.py
-Written by Tyler Sutterley (06/2022)
+Written by Tyler Sutterley (10/2022)
 
 Subsets monthly MERRA-2 products for specific variables from the
     Goddard Earth Sciences Data and Information Server Center (GES DISC)
@@ -29,6 +29,7 @@ COMMAND LINE OPTIONS:
     -Y X, --year X: years to sync
     -V X, --variables X: variables to subset
     -t X, --timeout X: Timeout in seconds for blocking operations
+    -F, --flatten: Do not create subdirectories
     -l, --log: output log of files downloaded
     -C, --clobber: Overwrite existing files
     -M X, --mode X: Local permissions mode of the files created
@@ -50,6 +51,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 10/2022: added flatten option to not create output subdirectories
     Written 06/2022
 """
 from __future__ import print_function
@@ -68,25 +70,29 @@ import model_harmonics.utilities
 
 #-- PURPOSE: subsets MERRA-2 files for specific variables
 def gesdisc_merra_subset(base_dir, SHORTNAME, VERSION=None, YEARS=None,
-    VARIABLES=None, TIMEOUT=None, LOG=False, CLOBBER=False, MODE=None):
-    #-- full path to MERRA-2 directory
-    DIRECTORY = os.path.join(base_dir,'MERRA-2')
-    #-- output file format
-    file_format = '{0}.SUB.nc'
+    VARIABLES=None, TIMEOUT=None, FLATTEN=False, LOG=False, CLOBBER=False,
+    MODE=None):
+    #-- set up data directory
+    if FLATTEN:
+        DIRECTORY = os.path.expanduser(base_dir)
+    else:
+        DIRECTORY = os.path.join(base_dir, f'{SHORTNAME}.{VERSION}')
     #-- check if DIRECTORY exists and recursively create if not
     if not os.access(os.path.join(DIRECTORY), os.F_OK):
         os.makedirs(os.path.join(DIRECTORY), mode=MODE, exist_ok=True)
+    #-- output file format
+    file_format = '{0}.SUB.nc'
 
     #-- create log file with list of synchronized files (or print to terminal)
     if LOG:
         #-- format: NASA_GESDISC_MERRA2_subset_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = 'NASA_GESDISC_MERRA2_subset_{0}.log'.format(today)
+        LOGFILE = f'NASA_GESDISC_MERRA2_subset_{today}.log'
         fid = open(os.path.join(DIRECTORY,LOGFILE),'w')
         logging.basicConfig(stream=fid, level=logging.INFO)
-        logging.info('NASA MERRA-2 Sync Log ({0})'.format(today))
+        logging.info(f'NASA MERRA-2 Sync Log ({today})')
         PRODUCT = '{0}.{1}'.format(SHORTNAME,VERSION)
-        logging.info('PRODUCT: {0}'.format(PRODUCT))
+        logging.info(f'PRODUCT: {PRODUCT}')
     else:
         #-- standard output (terminal output)
         fid = sys.stdout
@@ -151,8 +157,8 @@ def http_pull_file(remote_file, remote_mtime, local_file,
     #-- if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         #-- Printing files transferred
-        logging.info('{0} --> '.format(remote_file))
-        logging.info('\t{0}{1}\n'.format(local_file,OVERWRITE))
+        logging.info(f'{remote_file} -->')
+        logging.info(f'\t{local_file}{OVERWRITE}\n')
         #-- Create and submit request. There are a wide range of exceptions
         #-- that can be thrown here, including HTTPError and URLError.
         request = model_harmonics.utilities.urllib2.Request(remote_file)
@@ -214,6 +220,10 @@ def arguments():
     parser.add_argument('--timeout','-t',
         type=int, default=360,
         help='Timeout in seconds for blocking operations')
+    #-- output subdirectories
+    parser.add_argument('--flatten','-F',
+        default=False, action='store_true',
+        help='Do not create subdirectories')
     #-- Output log file in form
     #-- NASA_GESDISC_MERRA2_subset_2002-04-01.log
     parser.add_argument('--log','-l',
@@ -241,7 +251,7 @@ def main():
     #-- get NASA Earthdata credentials
     try:
         args.user,_,args.password = netrc.netrc(args.netrc).authenticators(URS)
-    except:
+    except Exception as e:
         #-- check that NASA Earthdata credentials were entered
         if not args.user:
             prompt = 'Username for {0}: '.format(URS)
@@ -264,6 +274,7 @@ def main():
             YEARS=args.year,
             VARIABLES=args.variables,
             TIMEOUT=args.timeout,
+            FLATTEN=args.flatten,
             LOG=args.log,
             CLOBBER=args.clobber,
             MODE=args.mode)

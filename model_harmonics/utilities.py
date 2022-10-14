@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (08/2022)
+Written by Tyler Sutterley (10/2022)
 Download and management utilities for syncing time and auxiliary files
 Adds additional modules to the gravity_toolkit utilities
 
@@ -10,6 +10,7 @@ PYTHON DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 10/2022: added option to use CMR provided GES DISC subsetting host
     Updated 08/2022: hardcode GES DISC subsetting API hostname
     Updated 06/2022: add NASA Common Metadata Repository (CMR) queries
         added function to build GES DISC subsetting API requests
@@ -267,9 +268,9 @@ def cmr(short_name, version=None, start_date=None, end_date=None,
     return (granule_names, granule_urls, granule_mtimes)
 
 # PURPOSE: build requests for the GES DISC subsetting API
-def build_request(short_name, dataset_version, url, variables=[],
-    format='bmM0Lw', service='L34RS_MERRA2', version='1.02',
-    bbox=[-90,-180,90,180], **kwargs):
+def build_request(short_name, dataset_version, url,
+    host=None, variables=[], format='bmM0Lw', service='L34RS_MERRA2',
+    version='1.02', bbox=[-90,-180,90,180], **kwargs):
     """
     Build requests for the GES DISC subsetting API
 
@@ -277,8 +278,14 @@ def build_request(short_name, dataset_version, url, variables=[],
     ----------
     short_name: str
         Model shortname in the CMR system
+    dataset_version: str
+        Model version
     url: str
         url for granule returned by the CMR system
+    host: str or NoneType, default None
+        Override host provider for GES DISC subsetting
+
+        Default is host provider given by CMR request
     variables: list, default []
         Variables for product to subset
     format: str, default 'bmM0Lw'
@@ -298,9 +305,9 @@ def build_request(short_name, dataset_version, url, variables=[],
         Formatted url for GES DISC subsetting API
     """
     # split CMR supplied url for granule
-    _,*args = url_split(url)
-    api_host = posixpath.join('https://goldsmr5.gesdisc.eosdis.nasa.gov',
-        'daac-bin','OTF','HTTP_services.cgi?')
+    HOST,*args = url_split(url)
+    host = HOST if (host is None) else host
+    api_host = posixpath.join(host,'daac-bin','OTF','HTTP_services.cgi?')
     # create parameters to be encoded
     kwargs['FILENAME'] = posixpath.join(posixpath.sep, *args)
     kwargs['FORMAT'] = format
