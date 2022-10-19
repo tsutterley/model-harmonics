@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_regrid.py
-Written by Tyler Sutterley (06/2022)
+Written by Tyler Sutterley (10/2022)
 Read and regrid MERRA-2 hybrid variables
 MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
 
@@ -49,6 +49,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 10/2022: move polar stereographic scaling function to spatial
     Updated 06/2022: change default variables to include firn height anomaly
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: open MERRA-2 hybrid product command line options
@@ -80,6 +81,7 @@ import gravity_toolkit.time
 import gravity_toolkit.utilities as utilities
 from gravity_toolkit.spatial import spatial
 from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
+from model_harmonics.spatial import scale_areas
 #-- ignore pyproj and divide by zero warnings
 warnings.filterwarnings("ignore")
 
@@ -389,47 +391,6 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
         longname='Equivalent Water Thickness', reference=reference)
     #-- change the permissions mode
     os.chmod(os.path.join(DIRECTORY,FILE), MODE)
-
-def scale_areas(lat, flat=1.0/298.257223563, ref=70.0):
-    """
-    Calculates area scaling factors for a polar stereographic projection
-        including special case of at the exact pole
-
-    Parameters
-    ----------
-    lat: latitude
-
-    Keyword arguments
-    -----------------
-    flat: ellipsoidal flattening
-    ref: reference latitude
-
-    Returns
-    -------
-    scale: area scaling factors at input latitudes
-    """
-    #-- convert latitude from degrees to positive radians
-    theta = np.abs(lat)*np.pi/180.0
-    theta_ref = np.abs(ref)*np.pi/180.0
-    #-- square of the eccentricity of the ellipsoid
-    #-- ecc2 = (1-b**2/a**2) = 2.0*flat - flat^2
-    ecc2 = 2.0*flat - flat**2
-    #-- eccentricity of the ellipsoid
-    ecc = np.sqrt(ecc2)
-    #-- calculate ratio at input latitudes
-    m = np.cos(theta)/np.sqrt(1.0 - ecc2*np.sin(theta)**2)
-    t = np.tan(np.pi/4.0 - theta/2.0)/((1.0 - ecc*np.sin(theta)) / \
-        (1.0 + ecc*np.sin(theta)))**(ecc/2.0)
-    #-- calculate ratio at reference latitude
-    mref = np.cos(theta_ref)/np.sqrt(1.0 - ecc2*np.sin(theta_ref)**2)
-    tref = np.tan(np.pi/4.0 - theta_ref/2.0)/((1.0 - ecc*np.sin(theta_ref)) / \
-        (1.0 + ecc*np.sin(theta_ref)))**(ecc/2.0)
-    #-- distance scaling
-    k = (mref/m)*(t/tref)
-    kp = 0.5*mref*np.sqrt(((1.0+ecc)**(1.0+ecc))*((1.0-ecc)**(1.0-ecc)))/tref
-    #-- area scaling
-    scale = np.where(np.isclose(theta,np.pi/2.0),1.0/(kp**2),1.0/(k**2))
-    return scale
 
 #-- PURPOSE: create argument parser
 def arguments():
