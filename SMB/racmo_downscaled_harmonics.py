@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 u"""
-racmo_smb_harmonics.py
-Written by Tyler Sutterley (05/2022)
+racmo_downscaled_harmonics.py
+Written by Tyler Sutterley (10/2022)
 Read RACMO surface mass balance products and converts to spherical harmonics
 Shifts dates of SMB point masses to mid-month values to correspond with GRACE
 
 CALLING SEQUENCE:
-    python racmo_smb_harmonics.py --product smb --verbose <path_to_racmo_file>
+    python racmo_downscaled_harmonics.py --product SMB --verbose <path_to_racmo_file>
 
 COMMAND LINE OPTIONS:
     -P X, --product X: RACMO SMB product to calculate
@@ -47,21 +47,10 @@ PROGRAM DEPENDENCIES:
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
     destripe_harmonics.py: calculates the decorrelation (destriping) filter
         and filters the GRACE/GRACE-FO coefficients for striping errors
+    spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
-    Updated 05/2022: use argparse descriptions within sphinx documentation
-    Updated 04/2022: use wrapper function for reading load Love numbers
-        deprecation fixes for regular expressions
-    Updated 12/2021: can use variable loglevels for verbose output
-    Updated 11/2021: complete rewrite of program
-        dropped old RACMO ascii file read portions
-    Updated 06/2018: using python3 compatible octal and input
-    Updated 04/2015: minor code update (os)
-    Updated 10/2014: code update to improve computational times
-    Updated 06/2014 added main definition
-        can now run from command line or parameter file
-    Updated 02/2014: more general code updates
-    Written 10/2011
+    Written 10/2022
 """
 from __future__ import print_function
 
@@ -80,9 +69,25 @@ from gravity_toolkit.harmonics import harmonics
 from gravity_toolkit.read_love_numbers import load_love_numbers
 from gravity_toolkit.gen_point_load import gen_point_load
 from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
+from model_harmonics.spatial import scale_areas
+
+#-- data product longnames
+longname = {}
+longname['SMB'] = 'Cumulative Surface Mass Balance Anomalies'
+longname['PRECIP'] = 'Cumulative Precipitation Anomalies'
+longname['RUNOFF'] = 'Cumulative Runoff Anomalies'
+longname['SNOWMELT'] = 'Cumulative Snowmelt Anomalies'
+longname['REFREEZE'] = 'Cumulative Melt Water Refreeze Anomalies'
+#-- netcdf variable names
+input_products = {}
+input_products['SMB'] = 'SMB_rec'
+input_products['PRECIP'] = 'precip'
+input_products['RUNOFF'] = 'runoff'
+input_products['SNOWMELT'] = 'snowmelt'
+input_products['REFREEZE'] = 'refreeze'
 
 #-- PURPOSE: convert RACMO surface mass balance products to spherical harmonics
-def racmo_smb_harmonics(model_file, VARIABLE,
+def racmo_downscaled_harmonics(model_file, VARIABLE,
     MASKS=None,
     LMAX=None,
     MMAX=None,
@@ -92,31 +97,28 @@ def racmo_smb_harmonics(model_file, VARIABLE,
     GZIP=False,
     MODE=0o775):
 
-    #-- Earth Parameters
-    ellipsoid_params = ref_ellipsoid('WGS84')
-    #-- semimajor axis of ellipsoid [m]
-    a_axis = ellipsoid_params['a']
-    #--  first numerical eccentricity
-    ecc1 = ellipsoid_params['ecc1']
-
     #-- RACMO SMB directory
     DIRECTORY = os.path.dirname(model_file)
     #-- try to extract region and version from filename
-    R1 = re.compile(r'[XF]?(ANT27|GRN11|GRN055|PEN055|ASE055)',re.VERBOSE)
-    R2 = re.compile(r'(RACMO\d+(\.\d+)?(p\d+)?)',re.VERBOSE)
-    REGION = R1.search(os.path.basename(model_file)).group(0)
-    VERSION = R2.search(os.path.basename(model_file)).group(0)
-    #-- RACMO products
-    racmo_products = {}
-    racmo_products['precip'] = 'Precipitation'
-    racmo_products['rainfall'] = 'Rainfall'
-    racmo_products['refreeze'] = 'Meltwater Refreeze'
-    racmo_products['runoff'] = 'Meltwater Runoff'
-    racmo_products['smb'] = 'Surface Mass Balance'
-    racmo_products['sndiv'] = 'Snow Drift Erosion'
-    racmo_products['snowfall'] = 'Snowfall'
-    racmo_products['snowmelt'] = 'Snowmelt'
-    racmo_products['subl'] = 'Sublimation'
+    R1 = re.compile(r'[XF]?(GRN11|GRN055)', re.VERBOSE)
+    R2 = re.compile(r'(RACMO\d+(\.\d+)?(p\d+)?)', re.VERBOSE)
+    R3 = re.compile(r'DS1km_v(\d(\.\d+)?)', re.VERBOSE)
+    MODEL_REGION = R1.search(os.path.basename(model_file)).group(0)
+    MODEL_VERSION = R2.search(os.path.basename(model_file)).group(0)
+    VERSION = R3.search(os.path.basename(model_file)).group(1)
+
+    #-- versions 1 and 4 are in separate files for each year
+    if (VERSION == '1.0'):
+        VARNAME = input_products[VARIABLE]
+    elif (VERSION == '2.0'):
+        var = input_products[VARIABLE]
+        VARNAME = var if VARIABLE in ('SMB','PRECIP') else '{0}corr'.format(var)
+    elif (VERSION == '3.0'):
+        var = input_products[VARIABLE]
+        VARNAME = var if (VARIABLE == 'SMB') else '{0}corr'.format(var)
+    elif (VERSION == '4.0'):
+        var = input_products[VARIABLE]
+        VARNAME = var if (VARIABLE == 'SMB') else '{0}corr'.format(var)
 
     #-- Open the RACMO SMB NetCDF file for reading
     if GZIP:
@@ -133,39 +135,12 @@ def racmo_smb_harmonics(model_file, VARIABLE,
 
     #-- Get data from each netCDF variable and remove singleton dimensions
     fd = {}
-    #-- extract data variable
-    fd[VARIABLE] = np.squeeze(fileID.variables[VARIABLE][:].copy())
-    fv = np.float(fileID.variables[VARIABLE]._FillValue)
-    #-- read latitude, longitude and rotated pole coordinates
-    fd['lon'] = fileID.variables['lon'][:,:].copy()
-    gridlat = fileID.variables['lat'][:,:].copy()
-    rlon = fileID.variables['rlon'][:].copy()
-    rlat = fileID.variables['rlat'][:].copy()
-    #-- time within netCDF files is days since epoch
-    TIME = fileID.variables['time'][:].copy()
-    time_string = fileID.variables['time'].units
-    epoch1,to_secs = gravity_toolkit.time.parse_date_string(time_string)
-    #-- calculate Julian day by converting to MJD and adding offset
-    JD = gravity_toolkit.time.convert_delta_time(TIME*to_secs,
-        epoch1=epoch1, epoch2=(1858,11,17,0,0,0),
-        scale=1.0/86400.0) + 2400000.5
-    #-- convert from Julian days to calendar dates
-    YY,MM,DD,hh,mm,ss = gravity_toolkit.time.convert_julian(JD,
-        FORMAT='tuple')
-    #-- convert from calendar dates to year-decimal
-    fd['time'] = gravity_toolkit.time.convert_calendar_decimal(YY,MM,
-        day=DD,hour=hh,minute=mm,second=ss)
-    #-- invalid data value
-    fv = np.float64(fileID.variables[VARIABLE]._FillValue)
-    #-- input shape of RACMO SMB firn data
-    nt,ny,nx = np.shape(fd[VARIABLE])
-    #-- calculate grid areas (assume fully ice covered)
-    dlon = np.pi*np.abs(rlon[1] - rlon[0])/180.0
-    dlat = np.pi*np.abs(rlat[1] - rlat[0])/180.0
-    _,gridrlat = np.meshgrid(rlon,rlat)
-    fd['area'] = np.cos(gridrlat*np.pi/180.0)*(a_axis**2)*dlon*dlat
-    #-- close the NetCDF files
-    fileID.close()
+    #-- read latitude, longitude and time
+    fd['lon'] = fileID.variables['LON'][:,:].copy()
+    gridlat = fileID.variables['LAT'][:,:].copy()
+    fd['time'] = fileID.variables['TIME'][:].copy()
+    #-- input shape of RACMO SMB data
+    nt,ny,nx = fileID.variables[VARNAME].shape
 
     #-- create mask object for reducing data
     if not MASKS:
@@ -175,10 +150,21 @@ def racmo_smb_harmonics(model_file, VARIABLE,
     #-- read masks for reducing regions before converting to harmonics
     for mask_file in MASKS:
         fileID = netCDF4.Dataset(mask_file,'r')
-        fd['mask'] |= fileID.variables['maskgrounded2d'][:].astype(bool)
+        fd['mask'] |= fileID.variables['mask'][:].astype(bool)
         fileID.close()
     #-- indices of valid RACMO data
-    fd['mask'] &= (fd[VARIABLE].data[0,:,:] != fv)
+    fd['mask'] &= np.isfinite(fileID.variables[VARNAME][0,:,:])
+    #-- valid mask values
+    fd['mask'] &= fileID.variables['MASK'][:,:].astype(bool)
+
+    #-- Earth Parameters
+    ellipsoid_params = ref_ellipsoid('WGS84')
+    #-- semimajor axis of ellipsoid [m]
+    a_axis = ellipsoid_params['a']
+    #--  first numerical eccentricity
+    ecc1 = ellipsoid_params['ecc1']
+    #-- flattening of the ellipsoid
+    flat = ellipsoid_params['f']
 
     #-- convert from geodetic latitude to geocentric latitude
     #-- geodetic latitude in radians
@@ -195,6 +181,13 @@ def racmo_smb_harmonics(model_file, VARIABLE,
     #-- reduce latitude and longitude to valid and masked points
     indy,indx = np.nonzero(fd['mask'])
     lon,lat = (fd['lon'][indy,indx],fd['lat'][indy,indx])
+    #-- calculate grid areas (assume fully ice covered)
+    dx = np.abs(fileID['x'][1] - fileID['x'][0])
+    dy = np.abs(fileID['y'][1] - fileID['y'][0])
+    fd['area'] = dx*dy*np.ones((ny,nx))
+    #-- calculate scaled areas
+    ps_scale = scale_areas(gridlat[indy,indx], flat=flat, ref=70.0)
+    scaled_area = ps_scale*fd['area'][indy,indx]
     #-- read load love numbers
     LOVE = load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
         REFERENCE=REFERENCE)
@@ -217,11 +210,11 @@ def racmo_smb_harmonics(model_file, VARIABLE,
         dpm = gravity_toolkit.time.calendar_days(np.floor(Ylms.time[t]))
         #-- calculate 2-month moving average
         #-- weighting by number of days in each month
-        M1 = dpm[t % 12]*fd[VARIABLE][t,indy,indx]
-        M2 = dpm[(t+1) % 12]*fd[VARIABLE][t+1,indy,indx]
+        M1 = dpm[t % 12]*fileID[VARNAME][t,:,:]
+        M2 = dpm[(t+1) % 12]*fileID[VARNAME][t+1,:,:]
         W = np.float64(dpm[(t+1) % 12] + dpm[t % 12])
         #-- reduce data for date and convert to mass (g)
-        ptms = 1000.0*fd['area'][indy,indx]*(M1+M2)/W
+        ptms = 1000.0*scaled_area*(M1[indy,indx] + M2[indy,indx])/W
         racmo_Ylms = gen_point_load(ptms, lon, lat, LMAX=LMAX,
             MMAX=MMAX, UNITS=1, LOVE=LOVE)
         #-- copy harmonics for time step
@@ -229,22 +222,25 @@ def racmo_smb_harmonics(model_file, VARIABLE,
         Ylms.slm[:,:,t] = racmo_Ylms.slm[:,:].copy()
     #-- adjust months to be consistent
     Ylms.month = gravity_toolkit.time.adjust_months(Ylms.month)
+    #-- close the netCDF4 file
+    fileID.close()
 
     #-- output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
     #-- output spherical harmonic data file
-    args = (VERSION,REGION,VARIABLE.upper(),LMAX,order_str,suffix[DATAFORM])
-    FILE = '{0}_{1}_{2}_CLM_L{3:d}{4}.{5}'.format(*args)
+    args = (MODEL_VERSION, MODEL_REGION, VERSION, VARIABLE.upper(),
+        LMAX, order_str, suffix[DATAFORM])
+    FILE = '{0}_{1}_DS1km_v{2}_{3}_CLM_L{4:d}{5}.{6}'.format(*args)
     Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM,
-        date=True, title=racmo_products[VARIABLE])
+        date=True, title=input_products[VARIABLE])
     #-- change the permissions mode of the output file to MODE
     os.chmod(os.path.join(DIRECTORY,FILE),MODE)
 
 #-- PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
-        description="""Read RACMO surface mass balance products and
-            converts to spherical harmonics
+        description="""Read RACMO downscaled surface mass balance products
+            and converts to spherical harmonics
             """,
         fromfile_prefix_chars="@"
     )
@@ -253,11 +249,9 @@ def arguments():
     parser.add_argument('infile',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         help='RACMO SMB file to run')
-    #-- products from SMB model
-    choices = ['precip','rainfall','refreeze','runoff','smb',
-        'sndiv','snowfall','snowmelt','subl']
-    parser.add_argument('--product','-P',
-        type=str, metavar='PRODUCT', default='smb', choices=choices,
+    #-- Products to calculate cumulative
+    parser.add_argument('--product','-p',
+        type=str, metavar='PRODUCT', default='SMB', choices=input_products.keys(),
         help='RACMO SMB product to calculate')
     #-- mask file for reducing to regions
     parser.add_argument('--mask',
@@ -309,7 +303,7 @@ def main():
     logging.basicConfig(level=loglevels[args.verbose])
 
     #-- run program
-    racmo_smb_harmonics(args.infile, args.product,
+    racmo_downscaled_harmonics(args.infile, args.product,
         MASKS=args.mask,
         LMAX=args.lmax,
         MMAX=args.mmax,
