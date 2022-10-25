@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_cumulative.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (10/2022)
 Reads MERRA-2 hybrid datafiles to calculate cumulative anomalies in
     derived surface mass balance products
 MERRA-2 Hybrid model outputs provided by Brooke Medley at GSFC
@@ -19,6 +19,7 @@ COMMAND LINE OPTIONS:
         v1.0
         v1.1
         v1.2
+        v1.2.1
     --mean: Start and end year of mean
     -G, --gzip: netCDF4 file is locally gzip compressed
     -V, --verbose: Output information for each output file
@@ -32,6 +33,7 @@ PYTHON DEPENDENCIES:
          https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 10/2022: add Greenland and Antarctic versions v1.2.1
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: added GSFC MERRA-2 Hybrid Greenland v1.2
         can use variable loglevels for verbose output
@@ -274,10 +276,10 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
         'to {1:4d}-{2:4d}').format(VERSION,RANGE[0],RANGE[1])
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
     fileID.source = 'version {0}'.format(VERSION)
-    fileID.references = ("Medley, B., Neumann, T. A., Zwally, H. J., and "
-        "Smith, B. E.: Forty-year Simulations of Firn Processes over the "
-        "Greenland and Antarctic Ice Sheets, The Cryosphere Discuss. "
-        "[preprint], https://doi.org/10.5194/tc-2020-266, in review, 2020.")
+    fileID.references = ("Medley, B., Neumann, T. A., Zwally, H. J., "
+        "Smith, B. E., and Stevens, C. M.: Simulations of Firn Processes "
+        "over the Greenland and Antarctic Ice Sheets: 1980--2021, "
+        "The Cryosphere, https://doi.org/10.5194/tc-2020-266, 2022.")
     fileID.institution = "NASA Goddard Space Flight Center (GSFC)"
     #-- Output NetCDF file information
     logging.info(list(fileID.variables.keys()))
@@ -312,9 +314,9 @@ def arguments():
         type=str, default='gris', choices=['gris','ais'],
         help='Region of firn model to calculate')
     #-- version of firn model
-    versions = ['v0','v1','v1.0','v1.1','v1.2']
+    versions = ['v0','v1','v1.0','v1.1','v1.2','v1.2.1']
     parser.add_argument('--version','-v',
-        type=str, default='v1.1', choices=versions,
+        type=str, default='v1.2.1', choices=versions,
         help='Version of firn model to calculate')
     #-- start and end years to run for mean
     parser.add_argument('--mean','-m',
