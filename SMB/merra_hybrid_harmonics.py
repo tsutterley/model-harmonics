@@ -160,7 +160,7 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     time_step = 5.0/365.25
     #-- reduce grids to time period of input buffered by time steps
     tmin = np.min(YEARS) - 2.0*time_step
-    tmax = np.max(YEARS) + 2.0*time_step
+    tmax = np.max(YEARS) + 1.0 + 2.0*time_step
     #-- find indices to times
     nt, = fileID.variables['time'].shape
     f = scipy.interpolate.interp1d(fileID.variables['time'][:],
