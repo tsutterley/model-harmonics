@@ -18,6 +18,7 @@ COMMAND LINE OPTIONS:
         v1.0
         v1.1
         v1.2
+        v1.2.1
     -P X, --product X: MERRA-2 hybrid product to calculate
     -Y X, --year X: Years to run
     --mask X: netCDF4 mask files for reducing to regions
@@ -50,6 +51,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 10/2022: move polar stereographic scaling function to spatial
+        add Greenland and Antarctic versions v1.2.1
     Updated 06/2022: change default variables to include firn height anomaly
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: open MERRA-2 hybrid product command line options
@@ -123,11 +125,10 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
     else:
         raise ValueError('Unknown variable {0}'.format(VARIABLE))
     #-- reference for GSFC-FDM model outputs
-    reference = ("Medley, B., Neumann, T. A., Zwally, H. J., and "
-        "Smith, B. E.: Forty-year Simulations of Firn Processes over the "
-        "Greenland and Antarctic Ice Sheets, The Cryosphere Discuss. "
-        "[preprint], https://doi.org/10.5194/tc-2020-266, in review, 2020.")
-
+    reference = ("Medley, B., Neumann, T. A., Zwally, H. J., "
+        "Smith, B. E., and Stevens, C. M.: Simulations of Firn Processes "
+        "over the Greenland and Antarctic Ice Sheets: 1980--2021, "
+        "The Cryosphere, https://doi.org/10.5194/tc-2020-266, 2022.")
     #-- Open the MERRA-2 Hybrid NetCDF file for reading
     if GZIP:
         #-- read as in-memory (diskless) netCDF4 dataset
@@ -411,9 +412,9 @@ def arguments():
         type=str, default='gris', choices=['gris','ais'],
         help='Region of firn model to calculate')
     #-- version of firn model
-    versions = ['v0','v1','v1.0','v1.1','v1.2']
+    versions = ['v0','v1','v1.0','v1.1','v1.2','v1.2.1']
     parser.add_argument('--version','-v',
-        type=str, default='v1.1', choices=versions,
+        type=str, default='v1.2.1', choices=versions,
         help='Version of firn model to calculate')
     #-- products from firn model
     parser.add_argument('--product','-P',

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_cumulative.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (10/2022)
 Reads MERRA-2 hybrid datafiles to calculate cumulative anomalies in
     derived surface mass balance products
 MERRA-2 Hybrid model outputs provided by Brooke Medley at GSFC
@@ -19,6 +19,7 @@ COMMAND LINE OPTIONS:
         v1.0
         v1.1
         v1.2
+        v1.2.1
     --mean: Start and end year of mean
     -G, --gzip: netCDF4 file is locally gzip compressed
     -V, --verbose: Output information for each output file
@@ -32,6 +33,7 @@ PYTHON DEPENDENCIES:
          https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 10/2022: add Greenland and Antarctic versions v1.2.1
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: added GSFC MERRA-2 Hybrid Greenland v1.2
         can use variable loglevels for verbose output
@@ -88,6 +90,7 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
         #-- input and output netCDF4 files
         FILE_VERSION = VERSION.replace('.','_')
         args = (FILE_VERSION,REGION.lower(),suffix)
+        firn_height_file = 'gsfc_fdm_{0}_{1}.nc{2}'.format(*args)
         hybrid_file = 'gsfc_fdm_smb_{0}_{1}.nc{2}'.format(*args)
         output_file = 'gsfc_fdm_smb_cumul_{0}_{1}.nc{2}'.format(*args)
         #-- names of variables to read
@@ -114,14 +117,33 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
     attrs = {}
     #-- input time (year-decimal)
     fd['time'] = fileID.variables['time'][:].copy()
-    #-- extract areas
-    if AREA:
+    #-- extract areas from SMB or firn height file
+    if AREA and (AREA in fileID.variables):
         fd[AREA] = fileID.variables[AREA][:].copy()
         #-- get each attribute for area variable if applicable
         attrs[AREA] = {}
         for att_name in ['units','long_name','standard_name']:
             if hasattr(fileID.variables[AREA],att_name):
                 attrs[AREA][att_name]=fileID.variables[AREA].getncattr(att_name)
+    elif AREA:
+        #-- Open the MERRA-2 Hybrid firn height file for reading
+        if GZIP:
+            #-- read as in-memory (diskless) netCDF4 dataset
+            with gzip.open(os.path.join(DIRECTORY,firn_height_file),'r') as f:
+                fid1 = netCDF4.Dataset(uuid.uuid4().hex, memory=f.read())
+        else:
+            #-- read netCDF4 dataset
+            fid1 = netCDF4.Dataset(os.path.join(DIRECTORY,firn_height_file), 'r')
+        #-- copy area from firn height file
+        fd[AREA] = fid1.variables[AREA][:].copy()
+        #-- get each attribute for area variable if applicable
+        attrs[AREA] = {}
+        for att_name in ['units','long_name','standard_name']:
+            if hasattr(fid1.variables[AREA],att_name):
+                attrs[AREA][att_name]=fid1.variables[AREA].getncattr(att_name)
+        #-- close the firn height file
+        fid1.close()
+
     #-- extract x and y coordinate arrays from grids if applicable
     #-- else create meshgrids of coordinate arrays
     if (np.ndim(fileID.variables['x'][:]) == 2):
@@ -274,10 +296,10 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
         'to {1:4d}-{2:4d}').format(VERSION,RANGE[0],RANGE[1])
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
     fileID.source = 'version {0}'.format(VERSION)
-    fileID.references = ("Medley, B., Neumann, T. A., Zwally, H. J., and "
-        "Smith, B. E.: Forty-year Simulations of Firn Processes over the "
-        "Greenland and Antarctic Ice Sheets, The Cryosphere Discuss. "
-        "[preprint], https://doi.org/10.5194/tc-2020-266, in review, 2020.")
+    fileID.references = ("Medley, B., Neumann, T. A., Zwally, H. J., "
+        "Smith, B. E., and Stevens, C. M.: Simulations of Firn Processes "
+        "over the Greenland and Antarctic Ice Sheets: 1980--2021, "
+        "The Cryosphere, https://doi.org/10.5194/tc-2020-266, 2022.")
     fileID.institution = "NASA Goddard Space Flight Center (GSFC)"
     #-- Output NetCDF file information
     logging.info(list(fileID.variables.keys()))
@@ -312,9 +334,9 @@ def arguments():
         type=str, default='gris', choices=['gris','ais'],
         help='Region of firn model to calculate')
     #-- version of firn model
-    versions = ['v0','v1','v1.0','v1.1','v1.2']
+    versions = ['v0','v1','v1.0','v1.1','v1.2','v1.2.1']
     parser.add_argument('--version','-v',
-        type=str, default='v1.1', choices=versions,
+        type=str, default='v1.2.1', choices=versions,
         help='Version of firn model to calculate')
     #-- start and end years to run for mean
     parser.add_argument('--mean','-m',

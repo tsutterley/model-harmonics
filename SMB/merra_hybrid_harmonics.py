@@ -18,6 +18,7 @@ COMMAND LINE OPTIONS:
         v1.0
         v1.1
         v1.2
+        v1.2.1
     -P X, --product X: MERRA-2 hybrid product to calculate
     -Y X, --year X: Years to run
     --mask X: netCDF4 mask files for reducing to regions
@@ -63,6 +64,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 10/2022: move polar stereographic scaling function to spatial
+        add Greenland and Antarctic versions v1.2.1
     Updated 06/2022: change default variables to include firn height anomaly
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
@@ -158,7 +160,7 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     time_step = 5.0/365.25
     #-- reduce grids to time period of input buffered by time steps
     tmin = np.min(YEARS) - 2.0*time_step
-    tmax = np.max(YEARS) + 2.0*time_step
+    tmax = np.max(YEARS) + 1.0 + 2.0*time_step
     #-- find indices to times
     nt, = fileID.variables['time'].shape
     f = scipy.interpolate.interp1d(fileID.variables['time'][:],
@@ -307,9 +309,9 @@ def arguments():
         type=str, default='gris', choices=['gris','ais'],
         help='Region of firn model to calculate')
     #-- version of firn model
-    versions = ['v0','v1','v1.0','v1.1','v1.2']
+    versions = ['v0','v1','v1.0','v1.1','v1.2','v1.2.1']
     parser.add_argument('--version','-v',
-        type=str, default='v1.1', choices=versions,
+        type=str, default='v1.2.1', choices=versions,
         help='Version of firn model to calculate')
     #-- products from firn model
     parser.add_argument('--product','-P',
