@@ -98,7 +98,7 @@ def get_dimensions(input_dir, VERSION, PRODUCT, GZIP=False):
     if VERSION in ('1.0','4.0'):
         #-- find input files
         pattern = r'{0}.(\d+).BN_(.*?).MM.nc(\.gz)?'.format(VARIABLE)
-        rx = re.compile(pattern, re.VERBOSE)
+        rx = re.compile(pattern, re.VERBOSE | re.IGNORECASE)
         infiles = sorted([f for f in os.listdir(input_dir) if rx.match(f)])
         nt = 12*len(infiles)
         #-- read netCDF file for dataset (could also set memory=None)
@@ -217,7 +217,14 @@ def yearly_file_mean(input_dir, VERSION, PRODUCT, START, END, GZIP=False):
     #-- for each file of interest
     for t in range(n_files):
         #-- Open the NetCDF file for reading
-        fileID = netCDF4.Dataset(os.path.join(input_dir,input_files[t]), 'r')
+        if GZIP:
+            #-- read bytes from compressed file
+            fd = gzip.open(os.path.join(input_dir,input_files[t]),'rb')
+            #-- read netCDF file for dataset from bytes
+            fileID = netCDF4.Dataset(uuid.uuid4().hex, mode='r', memory=fd.read())
+        else:
+            #-- read netCDF file for dataset (could also set memory=None)
+            fileID = netCDF4.Dataset(os.path.join(input_dir,input_files[t]), 'r')
         #-- Getting the data from each netCDF variable
         if (VERSION == '1.0'):
             dinput['LON'][:,:] = fileID.variables['LON'][:,:].copy()

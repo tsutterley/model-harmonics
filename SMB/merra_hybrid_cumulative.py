@@ -266,11 +266,11 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
         crs.spatial_epsg = '3031'
 
     #-- Defining attributes for x and y coordinates
-    nc['x'].long_name = 'polar stereographic x coordinate, 12.5km resolution'
+    nc['x'].long_name = 'Easting'
     nc['x'].standard_name = 'projection_x_coordinate'
     nc['x'].grid_mapping = 'Polar_Stereographic'
     nc['x'].units = 'meters'
-    nc['y'].long_name = 'polar stereographic y coordinate, 12.5km resolution'
+    nc['y'].long_name = 'Northing'
     nc['y'].standard_name = 'projection_y_coordinate'
     nc['y'].grid_mapping = 'Polar_Stereographic'
     nc['y'].units = 'meters'
@@ -319,7 +319,7 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
 def arguments():
     parser = argparse.ArgumentParser(
         description="""Reads MERRA-2 Hybrid datafiles to
-            calculate monthly cumulative anomalies in surface
+            calculate cumulative anomalies in surface
             mass balance products
             """
     )
