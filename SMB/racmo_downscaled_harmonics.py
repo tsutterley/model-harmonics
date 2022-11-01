@@ -149,6 +149,7 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
         fd['mask'] = np.zeros((ny,nx),dtype=bool)
     #-- read masks for reducing regions before converting to harmonics
     for mask_file in MASKS:
+        logging.info(mask_file)
         fileID = netCDF4.Dataset(mask_file,'r')
         fd['mask'] |= fileID.variables['mask'][:].astype(bool)
         fileID.close()
