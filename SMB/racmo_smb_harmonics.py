@@ -174,6 +174,7 @@ def racmo_smb_harmonics(model_file, VARIABLE,
         fd['mask'] = np.zeros((ny,nx),dtype=bool)
     #-- read masks for reducing regions before converting to harmonics
     for mask_file in MASKS:
+        logging.info(mask_file)
         fileID = netCDF4.Dataset(mask_file,'r')
         fd['mask'] |= fileID.variables['maskgrounded2d'][:].astype(bool)
         fileID.close()

@@ -163,6 +163,7 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
         input_mask = np.ones((nlat,nlon),dtype=bool)
     #-- read masks for reducing regions before converting to harmonics
     for mask_file in MASKS:
+        logging.info(mask_file)
         fileID = netCDF4.Dataset(mask_file,'r')
         input_mask |= fileID.variables['mask'][:].astype(bool)
         fileID.close()
