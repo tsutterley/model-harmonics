@@ -3,6 +3,7 @@ u"""
 gemb_smb_harmonics.py
 Written by Tyler Sutterley (11/2022)
 Read GEMB SMB variables and convert to spherical harmonics
+Shifts dates of SMB point masses to mid-month values to correspond with GRACE
 
 CALLING SEQUENCE:
     python gemb_smb_harmonics.py --lmax 60 --verbose <path_to_gemb_file>
@@ -194,23 +195,29 @@ def gemb_smb_harmonics(model_file,
 
     #-- allocate for output spherical harmonics
     Ylms = harmonics(lmax=LMAX, mmax=MMAX)
-    Ylms.clm = np.zeros((LMAX+1,MMAX+1,nt))
-    Ylms.slm = np.zeros((LMAX+1,MMAX+1,nt))
-    Ylms.time = np.zeros((nt))
-    Ylms.month = np.zeros((nt),dtype=np.int64)
+    Ylms.clm = np.zeros((LMAX+1,MMAX+1,nt-1))
+    Ylms.slm = np.zeros((LMAX+1,MMAX+1,nt-1))
+    Ylms.time = np.zeros((nt-1))
+    Ylms.month = np.zeros((nt-1),dtype=np.int64)
     #-- for each time step
-    for t in range(nt):
+    for t in range(nt-1):
+        #-- calculate date parameters for time step
+        Ylms.time[t] = np.mean([fd['time'][t],fd['time'][t+1]])
+        Ylms.month[t] = gravity_toolkit.time.calendar_to_grace(Ylms.time[t])
+        dpm = gravity_toolkit.time.calendar_days(np.floor(Ylms.time[t]))
+        #-- calculate 2-month moving average
+        #-- weighting by number of days in each month
+        M1 = dpm[t % 12]*fd['accum_SMB'][t,indy,indx]
+        M2 = dpm[(t+1) % 12]*fd['accum_SMB'][t+1,indy,indx]
+        W = np.float64(dpm[(t+1) % 12] + dpm[t % 12])
         #-- reduce data for date and convert to mass (g)
-        GEMB_mass = 1000.0*rho_ice*scaled_area*fd['accum_SMB'][t,indy,indx]
+        GEMB_mass = 1000.0*rho_ice*scaled_area*(M1+M2)/W
         #-- convert to spherical harmonics
         GEMB_Ylms = gen_point_load(GEMB_mass, lon, lat, LMAX=LMAX,
             MMAX=MMAX, UNITS=1, LOVE=LOVE)
         #-- copy harmonics for time step
         Ylms.clm[:,:,t] = GEMB_Ylms.clm[:,:].copy()
         Ylms.slm[:,:,t] = GEMB_Ylms.slm[:,:].copy()
-        #-- copy date parameters for time step
-        Ylms.time[t] = fd['time'][t].copy()
-        Ylms.month[t] = gravity_toolkit.time.calendar_to_grace(Ylms.time[t])
 
     #-- output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
