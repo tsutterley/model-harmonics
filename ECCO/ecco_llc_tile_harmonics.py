@@ -93,14 +93,13 @@ def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None, MODE=0o775):
 
     #-- input and output subdirectories
-    input_dir = os.path.join(ddir,'ECCO_{0}_AveRmvd_OBP'.format(MODEL),
-        'nctiles_monthly')
-    output_sub = 'ECCO_{0}_AveRmvd_OBP_CLM_L{1:d}'.format(MODEL,LMAX)
+    input_dir = os.path.join(ddir,f'ECCO_{MODEL}_AveRmvd_OBP','nctiles_monthly')
+    output_sub = f'ECCO_{MODEL}_AveRmvd_OBP_CLM_L{LMAX:d}'
 
     #-- upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
     #-- output string for both LMAX == MMAX and LMAX != MMAX cases
-    order_str = 'M{0:d}'.format(MMAX) if (MMAX != LMAX) else ''
+    order_str = 'M{MMAX:d}' if (MMAX != LMAX) else ''
     #-- output file format
     output_file_format = 'ECCO_{0}_AveRmvd_OBP_CLM_L{1:d}{2}_{3:03d}.{4}'
     #-- Creating subdirectory if it doesn't exist
@@ -126,13 +125,13 @@ def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
         Nt,Nj,Ni = (13,270,270)
 
     #-- read ECCO tile grid file
-    input_invariant_file = os.path.join(ddir,'ECCO-{0}'.format(MODEL),
-        'nctiles_monthly','ECCO-GRID.nc')
+    input_invariant_file = os.path.join(ddir, f'ECCO-{MODEL}',
+        'nctiles_monthly', 'ECCO-GRID.nc')
     invariant = ncdf_invariant(input_invariant_file,
         lon=LONNAME, lat=LATNAME, depth=ZNAME, area=AREANAME)
     #-- read ECCO tile geoid height file from ecco_geoid_llc_tiles.py
-    input_geoid_file = os.path.join(ddir,'ECCO-{0}'.format(MODEL),
-        'nctiles_monthly','ECCO-EGM2008.nc')
+    input_geoid_file = os.path.join(ddir, f'ECCO-{MODEL}',
+        'nctiles_monthly', 'ECCO-EGM2008.nc')
     geoid_undulation = ncdf_geoid(input_geoid_file)
     #-- use geoid and depth to calculate bathymetry
     bathymetry = geoid_undulation - invariant['depth']
@@ -216,13 +215,15 @@ def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
         os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 
     #-- Output date ascii file
-    output_date_file = 'ECCO_{0}_OBP_DATES.txt'.format(MODEL)
-    fid1 = open(os.path.join(ddir,output_sub,output_date_file), 'w')
+    output_date_file = f'ECCO_{MODEL}_OBP_DATES.txt'
+    fid1 = open(os.path.join(ddir,output_sub,output_date_file),
+        mode='w', encoding='utf8')
     #-- date file header information
     print('{0:8} {1:^6} {2:^5}'.format('Mid-date','GRACE','Month'), file=fid1)
     #-- index file listing all output spherical harmonic files
     output_index_file = 'index.txt'
-    fid2 = open(os.path.join(ddir,output_sub,output_index_file),'w')
+    fid2 = open(os.path.join(ddir,output_sub,output_index_file),
+        mode='w', encoding='utf8')
     #-- find all available output files
     args = (MODEL, LMAX, suffix[DATAFORM])
     output_regex=r'ECCO_{0}_AveRmvd_OBP_CLM_L{1:d}_([-]?\d+).{2}'.format(*args)

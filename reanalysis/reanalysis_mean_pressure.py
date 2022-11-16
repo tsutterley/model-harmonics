@@ -165,7 +165,7 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
         LONNAME,LATNAME,ZNAME)
     nlat,nlon = np.shape(geopotential)
     #-- read each reanalysis pressure field and calculate mean
-    regex_years = '|'.join(['{0:4d}'.format(Y) for Y in range(RANGE[0],RANGE[1]+1)])
+    regex_years = r'|'.join([rf'{Y:4d}' for Y in range(RANGE[0],RANGE[1]+1)])
     rx = re.compile(regex_pattern.format(regex_years))
     input_files = [fi for fi in os.listdir(ddir) if rx.match(fi)]
     #-- output mean pressure field
@@ -214,7 +214,7 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
 
     #-- output to file
     FILE = output_file_format.format(RANGE[0], RANGE[1])
-    TITLE = 'Mean_Surface_Pressure_from_{0}_Model'.format(MODEL)
+    TITLE = f'Mean_Surface_Pressure_from_{MODEL}_Model'
     #-- netcdf (.nc)
     p_mean.to_netCDF4(os.path.join(ddir,FILE), verbose=VERBOSE,
         varname=VARNAME, timename=TIMENAME, lonname=LONNAME, latname=LATNAME,

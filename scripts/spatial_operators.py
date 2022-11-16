@@ -181,13 +181,13 @@ def spatial_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, DDEG=None,
         attr = dinput[0].attributes['data']
         output.to_netCDF4(OUTPUT_FILE,date=DATE,
             units=attr['units'],longname=attr['long_name'],
-            title='Output from {0}'.format(os.path.basename(sys.argv[0])))
+            title=f'Output from {os.path.basename(sys.argv[0])}')
     elif (DATAFORM[-1] == 'HDF5'):
         #-- HDF5 (.H5)
         attr = dinput[0].attributes['data']
         output.to_HDF5(OUTPUT_FILE,date=DATE,
             units=attr['units'],longname=attr['long_name'],
-            title='Output from {0}'.format(os.path.basename(sys.argv[0])))
+            title=f'Output from {os.path.basename(sys.argv[0])}')
     #-- change the permissions mode of the output file
     os.chmod(OUTPUT_FILE, MODE)
 

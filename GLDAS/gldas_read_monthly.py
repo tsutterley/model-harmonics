@@ -139,7 +139,9 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
     logging.basicConfig(level=loglevels[VERBOSE])
 
     #-- Version flags
-    V1,V2 = ('_V1','') if (VERSION == '1') else ('','.{0}'.format(VERSION))
+    V1,V2 = (f'_V{VERSION}','') if (VERSION == '1') else ('',f'.{VERSION}')
+    #-- use GLDAS monthly products
+    TEMPORAL = 'M'
     #-- dimensions of spatial fields from SPATIAL variable
     if (SPATIAL == '025'):
         nlon,nlat = (1440,600)
@@ -150,7 +152,7 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
         dlon,dlat = (1.0,1.0)
         extent = [-179.5,179.5,-59.5,89.5]
     #-- subdirectory for model monthly products at spacing for version
-    subdir = "GLDAS_{0}{1}_{2}{3}".format(MODEL,SPATIAL,'M',V2)
+    subdir = f'GLDAS_{MODEL}{SPATIAL}_{TEMPORAL}{V2}'
     #-- directory for GLDAS model
     ddir = os.path.join(base_dir, subdir)
     #-- output data file format
@@ -174,7 +176,7 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
             date=False)
 
     #-- find directories for each year within directory
-    year_dir=[y for y in map(str,YEARS) if os.path.isdir(os.path.join(ddir,y))]
+    year_dir = [y for y in map(str,YEARS) if os.path.isdir(os.path.join(ddir,y))]
     #-- compile regular expression pattern for finding files
     GLDAS_SUFFIX = r'nc4|grb|grb\.SUB\.nc4'
     regex_pattern = r'GLDAS_{0}{1}_{2}\.A(\d{{4}})(\d{{2}})\.(\d+)\.({3})$'

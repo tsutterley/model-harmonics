@@ -39,6 +39,21 @@ def gemb_smb_cumulative(model_file,
     RANGE=None,
     FILL_VALUE=np.nan,
     MODE=0o775):
+    """
+    Calculates cumulative anomalies of GEMB
+    surface mass balance products
+
+    Parameters
+    ----------
+    model_file: str
+        input GEMB file
+    RANGE: list
+        Start and end year for mean
+    FILL_VALUE: float, default np.nan
+        Output invalid value
+    MODE: oct, default 0o775
+        Permission mode of directories and files created
+    """
 
     #-- GEMB directory
     DIRECTORY = os.path.dirname(model_file)
@@ -103,7 +118,6 @@ def gemb_smb_cumulative(model_file,
     SMB.data[SMB.mask] = SMB.fill_value
 
     #-- cumulative mass anomalies calculated by removing mean balance flux
-    #-- mean of data for variable (converted from yearly rate)
     MEAN = np.mean(SMB[tt,:,:], axis=0)
     #-- allocate for output variable
     fd['accum_SMB'] = np.ma.zeros((nt,ny,nx), fill_value=FILL_VALUE)
@@ -111,7 +125,6 @@ def gemb_smb_cumulative(model_file,
     CUMULATIVE = np.zeros((valid_count))
     #-- calculate output cumulative anomalies for variable
     for t in range(nt):
-        #-- convert mass flux from yearly rate and
         #-- calculate cumulative anomalies at time t
         CUMULATIVE += (SMB.data[t,i,j] - MEAN[i,j])
         fd['accum_SMB'].data[t,i,j] = CUMULATIVE.copy()

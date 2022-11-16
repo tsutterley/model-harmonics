@@ -134,24 +134,34 @@ gldas_products['VIC'] = 'GLDAS Variable Infiltration Capacity (VIC) model'
 #-- PURPOSE: read GLDAS terrestrial water storage data and spherical harmonics
 #-- calculate the point scaling factors following Landerer and Swenson (2012)
 def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
-    SPACING=None, VERSION=None, LMAX=0, MMAX=None, RAD=0, DESTRIPE=False,
-    LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None, MODE=0o775):
+    SPACING=None,
+    VERSION=None,
+    MASKS=None,
+    LMAX=0,
+    MMAX=None,
+    RAD=0,
+    DESTRIPE=False,
+    LOVE_NUMBERS=0,
+    REFERENCE=None,
+    DATAFORM=None,
+    MODE=0o775):
 
     #-- Version flags
-    V1,V2 = ('_V1','') if (VERSION == '1') else ('','.{0}'.format(VERSION))
+    V1,V2 = (f'_V{VERSION}','') if (VERSION == '1') else ('',f'.{VERSION}')
+    #-- use GLDAS monthly products
+    TEMPORAL = 'M'
     #-- subdirectory for model monthly products at spacing for version
-    sub1 = "GLDAS_{0}{1}_{2}{3}".format(MODEL,SPACING,'M',V2)
+    sub1 = f'GLDAS_{MODEL}{SPACING}_{TEMPORAL}{V2}'
     #-- Creating output subdirectory if it doesn't exist
-    args = (MODEL,SPACING,V1,LMAX)
-    sub2 = 'GLDAS_{0}{1}{2}_TWC_CLM_L{3:d}'.format(*args)
+    sub2 = f'GLDAS_{MODEL}{SPACING}{V1}_TWC_CLM_L{LMAX:d}'
     if (not os.access(os.path.join(ddir,sub2), os.F_OK)):
         os.makedirs(os.path.join(ddir,sub2),MODE)
     #-- upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
     #-- output string for both LMAX == MMAX and LMAX != MMAX cases
-    order_str = 'M{0:d}'.format(MMAX) if (MMAX != LMAX) else ''
+    order_str = 'M{MMAX:d}' if (MMAX != LMAX) else ''
     #-- Calculating the Gaussian smoothing for radius RAD
-    gw_str = '_r{0:0.0f}km'.format(RAD) if (RAD != 0) else ''
+    gw_str = f'_r{RAD:0.0f}km' if (RAD != 0) else ''
     #-- destriped GRACE/GRACE-FO coefficients
     ds_str = '_FL' if DESTRIPE else ''
     #-- output data file format
@@ -166,54 +176,57 @@ def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
         nlon,nlat = (360,150)
         dlon,dlat = (1.0,1.0)
         extent = [-179.5,179.5,-59.5,89.5]
-    #-- GLDAS MOD44W land mask modified for HYMAP
-    landmask_file = 'GLDASp5_landmask_{0}d.nc4'.format(SPACING)
-    #-- mask files for vegetation type, arctic regions, permafrost
-    vegetation_file = 'modmodis_domveg20_{0}.nc'.format(SPACING)
-    arctic_file = 'arcticmask_mod44w_{0}.nc'.format(SPACING)
-    permafrost_file = 'permafrost_mod44w_{0}.nc'.format(SPACING)
 
-    #-- read GLDAS land mask file
+    #-- GLDAS MOD44W land mask modified for HYMAP
+    landmask_file = f'GLDASp5_landmask_{SPACING}d.nc4'
     with netCDF4.Dataset(os.path.join(ddir,landmask_file),'r') as fileID:
         GLDAS_mask = fileID.variables['GLDAS_mask'][:].squeeze()
-
-    #-- read vegetation index file from gldas_mask_vegetation.py
-    with netCDF4.Dataset(os.path.join(ddir,vegetation_file),'r') as fileID:
-        vegetation_index = fileID.variables['index'][:].copy()
-        glon = fileID.variables['longitude'][:].copy()
-        glat = fileID.variables['latitude'][:].copy()
-
-    #-- read Permafrost index file from gldas_mask_permafrost.py
-    with netCDF4.Dataset(os.path.join(ddir,permafrost_file),'r') as fileID:
-        permafrost_index = fileID.variables['mask'][:]
-
-    #-- read Arctic mask file from gldas_mask_arctic.py
-    with netCDF4.Dataset(os.path.join(ddir,arctic_file),'r') as fileID:
-        arctic_mask = fileID.variables['mask'][:].astype(bool)
-
-    #-- shape of the input vegetation_index file
-    nlat,nlon = np.shape(vegetation_index)
+        glon = fileID.variables['lon'][:].copy()
+        glat = fileID.variables['lat'][:].copy()
     #-- create mesh grid of latitude and longitude
     gridlon,gridlat = np.meshgrid(glon,glat)
-    #-- create mask combining vegetation index, permafrost index and Arctic mask
+    #-- create combined mask
     combined_mask = np.logical_not(GLDAS_mask)
-    combined_mask |= arctic_mask[:,:]
-    # 0: missing value
-    # 13: Urban and Built-Up
-    # 15: Snow and Ice
-    # 17: Ocean
-    # 18: Wooded Tundra
-    # 19: Mixed Tundra
-    # 20: Bare Ground Tundra
-    for invalid_keys in (0,13,15,17,18,19,20):
-        combined_mask |= (vegetation_index == invalid_keys)
-    #-- 1: Continuous Permafrost
-    #-- 2: Discontinuous Permafrost
-    #-- 3: Isolated Permafrost
-    #-- 4: Sporadic Permafrost
-    #-- 5: Glaciated Area
-    for invalid_keys in (1,5):
-        combined_mask |= (permafrost_index == invalid_keys)
+
+    if MASKS:
+        #-- read masks for reducing regions before converting to harmonics
+        for mask_file in MASKS:
+            fileID = netCDF4.Dataset(mask_file,'r')
+            combined_mask |= fileID.variables['mask'][:].astype(bool)
+            fileID.close()
+    else:
+        #-- use default masks for reducing regions before converting to harmonics
+        #-- mask combining vegetation index, permafrost index and Arctic mask
+        #-- read vegetation index file
+        vegetation_file = f'modmodis_domveg20_{SPACING}.nc'
+        with netCDF4.Dataset(os.path.join(ddir,vegetation_file),'r') as fileID:
+            vegetation_index = fileID.variables['index'][:].copy()
+        #-- 0: missing value
+        #-- 13: Urban and Built-Up
+        #-- 15: Snow and Ice
+        #-- 17: Ocean
+        #-- 18: Wooded Tundra
+        #-- 19: Mixed Tundra
+        #-- 20: Bare Ground Tundra
+        for invalid_keys in (0,13,15,17,18,19,20):
+            combined_mask |= (vegetation_index == invalid_keys)
+        #-- read Permafrost index file
+        permafrost_file = f'permafrost_mod44w_{SPACING}.nc'
+        with netCDF4.Dataset(os.path.join(ddir,permafrost_file),'r') as fileID:
+            permafrost_index = fileID.variables['mask'][:]
+        #-- 1: Continuous Permafrost
+        #-- 2: Discontinuous Permafrost
+        #-- 3: Isolated Permafrost
+        #-- 4: Sporadic Permafrost
+        #-- 5: Glaciated Area
+        for invalid_keys in (1,5):
+            combined_mask |= (permafrost_index == invalid_keys)
+        #-- read Arctic mask file
+        arctic_file = f'arcticmask_mod44w_{SPACING}.nc'
+        with netCDF4.Dataset(os.path.join(ddir,arctic_file),'r') as fileID:
+            arctic_mask = fileID.variables['mask'][:].astype(bool)
+        #-- arctic mask
+        combined_mask |= arctic_mask[:,:]
 
     #-- Earth Parameters
     ellipsoid_params = ref_ellipsoid('WGS84')

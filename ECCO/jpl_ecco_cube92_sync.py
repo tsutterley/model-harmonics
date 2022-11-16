@@ -101,7 +101,7 @@ def jpl_ecco_cube92_sync(ddir, YEAR=None, PRODUCT=None, TIMEOUT=None,
 
     #-- remote subdirectory for Cube92 data on JPL ECCO data server
     PATH = ['https://ecco.jpl.nasa.gov','drive','files','ECCO2',
-        'cube92_latlon_quart_90S90N','{0}.nc'.format(PRODUCT)]
+        'cube92_latlon_quart_90S90N',f'{PRODUCT}.nc']
     #-- compile HTML parser for lxml
     parser = lxml.etree.HTMLParser()
 
@@ -110,10 +110,10 @@ def jpl_ecco_cube92_sync(ddir, YEAR=None, PRODUCT=None, TIMEOUT=None,
         #-- format: JPL_ECCO2_Cube92_PHIBOT_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
         args = (PRODUCT, today)
-        LOGFILE = 'JPL_ECCO2_Cube92_{0}_sync_{1}.log'.format(*args)
-        fid1 = open(os.path.join(DIRECTORY,LOGFILE),'w')
+        LOGFILE = f'JPL_ECCO2_Cube92_{PRODUCT}_sync_{today}.log'
+        fid1 = open(os.path.join(DIRECTORY,LOGFILE), mode='w', encoding='utf8')
         logging.basicConfig(stream=fid1,level=logging.INFO)
-        logging.info('ECCO2 Cube92 {0} Sync Log ({1})'.format(today))
+        logging.info(f'ECCO2 Cube92 {PRODUCT} Sync Log ({today})')
     else:
         #-- standard output (terminal output)
         fid1 = sys.stdout
@@ -170,8 +170,7 @@ def jpl_ecco_cube92_sync(ddir, YEAR=None, PRODUCT=None, TIMEOUT=None,
             #-- calculate monthly mean from list of daily files
             monthly = gravity_toolkit.spatial().from_list(daily).mean()
             #-- output to netCDF4 file
-            args = (PRODUCT,dim1,dim2,YY,MM+1)
-            FILE = '{0}.{1}x{2}.{3}{4:02d}.nc'.format(*args)
+            FILE = f'{PRODUCT}.{dim1}x{dim2}.{YY}{MM+1:02d}.nc'
             monthly.to_netCDF4(os.path.join(DIRECTORY,FILE),
                 date=True, verbose=VERBOSE, **kwargs)
             #-- set permissions mode to MODE
@@ -249,11 +248,11 @@ def main():
     except:
         #-- check that NASA Earthdata credentials were entered
         if not args.user:
-            prompt = 'Username for {0}: '.format(HOST)
+            prompt = f'Username for {HOST}: '
             args.user = builtins.input(prompt)
         #-- enter WebDAV password securely from command-line
         if not args.webdav:
-            prompt = 'Password for {0}@{1}: '.format(args.user,HOST)
+            prompt = f'Password for {args.user}@{HOST}: '
             args.webdav = getpass.getpass(prompt)
 
     #-- build a urllib opener for JPL ECCO Drive
@@ -262,7 +261,7 @@ def main():
 
     #-- check internet connection before attempting to run program
     #-- check JPL ECCO Drive credentials before attempting to run program
-    DRIVE = 'https://{0}/drive/files'.format(HOST)
+    DRIVE = f'https://{HOST}/drive/files'
     if gravity_toolkit.utilities.check_credentials(DRIVE):
         jpl_ecco_cube92_sync(args.directory, YEAR=args.year,
             PRODUCT=args.product, TIMEOUT=args.timeout, LOG=args.log,

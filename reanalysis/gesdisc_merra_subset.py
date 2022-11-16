@@ -80,19 +80,16 @@ def gesdisc_merra_subset(base_dir, SHORTNAME, VERSION=None, YEARS=None,
     #-- check if DIRECTORY exists and recursively create if not
     if not os.access(os.path.join(DIRECTORY), os.F_OK):
         os.makedirs(os.path.join(DIRECTORY), mode=MODE, exist_ok=True)
-    #-- output file format
-    file_format = '{0}.SUB.nc'
 
     #-- create log file with list of synchronized files (or print to terminal)
     if LOG:
         #-- format: NASA_GESDISC_MERRA2_subset_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
         LOGFILE = f'NASA_GESDISC_MERRA2_subset_{today}.log'
-        fid = open(os.path.join(DIRECTORY,LOGFILE),'w')
+        fid = open(os.path.join(DIRECTORY,LOGFILE), mode='w', encoding='utf8')
         logging.basicConfig(stream=fid, level=logging.INFO)
         logging.info(f'NASA MERRA-2 Sync Log ({today})')
-        PRODUCT = '{0}.{1}'.format(SHORTNAME,VERSION)
-        logging.info(f'PRODUCT: {PRODUCT}')
+        logging.info(f'PRODUCT: {SHORTNAME}.{VERSION}')
     else:
         #-- standard output (terminal output)
         fid = sys.stdout
@@ -104,11 +101,11 @@ def gesdisc_merra_subset(base_dir, SHORTNAME, VERSION=None, YEARS=None,
         #-- for each month of the year
         for i,days_per_month in enumerate(dpm):
             #-- year and month as strings
-            YY = '{0:4d}'.format(YEAR)
-            MM = '{0:02d}'.format(i+1)
+            YY = f'{YEAR:4d}'
+            MM = f'{i+1:02d}'
             #-- start and end date for query
-            start_date = '{0}-{1}-{2:02.0f}'.format(YY,MM,1.0)
-            end_date = '{0}-{1}-{2:02.0f}'.format(YY,MM,days_per_month)
+            start_date = f'{YY}-{MM}-{1:02.0f}'
+            end_date = f'{YY}-{MM}-{days_per_month:02.0f}'
             #-- query for data
             ids,urls,mtimes = model_harmonics.utilities.cmr(SHORTNAME,
                 version=VERSION, start_date=start_date, end_date=end_date,
@@ -120,7 +117,7 @@ def gesdisc_merra_subset(base_dir, SHORTNAME, VERSION=None, YEARS=None,
             for id,url,mtime in zip(ids,urls,mtimes):
                 #-- build filename for output
                 fileBasename,_ = os.path.splitext(id)
-                FILE = file_format.format(fileBasename)
+                FILE = f'{fileBasename}.SUB.nc'
                 local_file = os.path.join(DIRECTORY, FILE)
                 #-- get subsetting API url for granule
                 request_url = model_harmonics.utilities.build_request(
@@ -254,11 +251,11 @@ def main():
     except Exception as e:
         #-- check that NASA Earthdata credentials were entered
         if not args.user:
-            prompt = 'Username for {0}: '.format(URS)
+            prompt = f'Username for {URS}: '
             args.user = builtins.input(prompt)
         #-- enter password securely from command-line
         if not args.password:
-            prompt = 'Password for {0}@{1}: '.format(args.user,URS)
+            prompt = f'Password for {args.user}@{URS}: '
             args.password = getpass.getpass(prompt)
 
     #-- build a urllib opener for NASA GESDISC

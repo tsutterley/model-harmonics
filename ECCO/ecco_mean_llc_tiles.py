@@ -70,7 +70,7 @@ import gravity_toolkit.time
 def ecco_mean_llc_tiles(ddir, MODEL, RANGE=None, MODE=0o775):
 
     #-- input and output subdirectories
-    DIRECTORY = os.path.join(ddir,'ECCO-{0}'.format(MODEL),'nctiles_monthly')
+    DIRECTORY = os.path.join(ddir,f'ECCO-{MODEL}','nctiles_monthly')
 
     #-- input variable names for each model
     if (MODEL == 'V4r4'):
@@ -102,8 +102,8 @@ def ecco_mean_llc_tiles(ddir, MODEL, RANGE=None, MODE=0o775):
     rhonil = 1029
 
     #-- compile regular expression operator for finding files for years
-    year_regex = '|'.join('{0:d}'.format(y) for y in range(RANGE[0],RANGE[1]+1))
-    rx1 = re.compile(r'PHIBOT([\.\_])({0})(_(\d+))?.nc$'.format(year_regex))
+    regex_years = r'|'.join(rf'{y:d}' for y in range(RANGE[0],RANGE[1]+1))
+    rx1 = re.compile(rf'PHIBOT([\.\_])({regex_years})(_(\d+))?.nc$')
     #-- find input files
     input_files = [fi for fi in os.listdir(DIRECTORY) if rx1.match(fi)]
 
@@ -181,8 +181,7 @@ def ecco_mean_llc_tiles(ddir, MODEL, RANGE=None, MODE=0o775):
 
     #-- Defining output attributes
     attributes = {}
-    TITLE = 'Mean_Ocean_Bottom_Pressure_from_ECCO_{0}_Model'
-    attributes['title'] = TITLE.format(MODEL)
+    attributes['title'] = f'Mean_Ocean_Bottom_Pressure_from_ECCO_{MODEL}_Model'
     #-- dimension attributes
     attributes['i'] = {}
     attributes['i']['long_name'] = 'x-dimension of the t grid'
@@ -208,8 +207,7 @@ def ecco_mean_llc_tiles(ddir, MODEL, RANGE=None, MODE=0o775):
     attributes[VARNAME]['units'] = 'Pa'
 
     #-- output to file
-    args = (MODEL, RANGE[0], RANGE[1])
-    FILE = 'ECCO_{0}_OBP_MEAN_{1:4d}-{2:4d}.nc'.format(*args)
+    FILE = f'ECCO_{MODEL}_OBP_MEAN_{RANGE[0]:4d}-{RANGE[1]:4d}.nc'
     #-- netcdf (.nc)
     ncdf_tile_write(obp_mean, attributes,
         FILENAME=os.path.join(DIRECTORY,FILE),

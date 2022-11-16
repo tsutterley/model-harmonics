@@ -96,10 +96,10 @@ from gravity_toolkit.clenshaw_summation import clenshaw_summation
 def info(args):
     logging.info(os.path.basename(sys.argv[0]))
     logging.info(args)
-    logging.info('module name: {0}'.format(__name__))
+    logging.info(f'module name: {__name__}')
     if hasattr(os, 'getppid'):
-        logging.info('parent process: {0:d}'.format(os.getppid()))
-    logging.info('process id: {0:d}'.format(os.getpid()))
+        logging.info(f'parent process: {os.getppid():d}')
+    logging.info(f'process id: {os.getpid():d}')
 
 #-- PURPOSE: calculate GIA corrections at locations of GSFC mascons
 def GIA_GSFC_mascons(grace_file, GIA=None, GIA_FILE=None, LMAX=0,
@@ -113,7 +113,7 @@ def GIA_GSFC_mascons(grace_file, GIA=None, GIA_FILE=None, LMAX=0,
     PROC,SY,SM,EY,EM,VERSION,AUX = rx.findall(grace_file).pop()
     #-- read the HDF5 file
     output_data = {}
-    logging.info('{0} -->'.format(grace_file))
+    logging.info(f'{grace_file} -->')
     with h5py.File(grace_file,'r') as fileID:
         for key in ['lat_center','lon_center','lat_span','lon_span']:
             output_data[key] = fileID['mascon'][key][:].flatten()
@@ -131,7 +131,7 @@ def GIA_GSFC_mascons(grace_file, GIA=None, GIA_FILE=None, LMAX=0,
     output_data['gia'] = gia_output.astype(np.float64)
 
     #-- output to file
-    FILE = 'GIA_{0}_L{1:d}_GSFC_mascons.h5'.format(GIA_Ylms['title'], LMAX)
+    FILE = f'GIA_{GIA_Ylms["title"]}_L{LMAX:d}_GSFC_mascons.h5'
     logging.info('\t{0}'.format(os.path.join(grace_dir, FILE)))
     HDF5_GSFC_mascons(output_data, GIA_Ylms,
         VERSION=VERSION,
@@ -193,7 +193,7 @@ def HDF5_GSFC_mascons(output_data, GIA,
     h5 = {}
     for key,val in output_data.items():
         #-- Defining the HDF5 dataset variables
-        h5[key] = fileID.create_dataset('{0}/{1}'.format(groups[key],key),
+        h5[key] = fileID.create_dataset(f'{groups[key]}/{key}',
             (nmas,), data=val, dtype=val.dtype, compression='gzip')
         #-- add HDF5 variable attributes
         for att_name,att_val in attrib[key].items():
@@ -307,7 +307,7 @@ def main():
             #-- if there has been an error exception
             #-- print the type, value, and stack trace of the
             #-- current exception being handled
-            logging.critical('process id {0:d} failed'.format(os.getpid()))
+            logging.critical(f'process id {os.getpid():d} failed')
             logging.error(traceback.format_exc())
 
 #-- run main program

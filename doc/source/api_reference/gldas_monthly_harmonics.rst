@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../GLDAS/gldas_monthly_harmonics.py
+    :filename: gldas_monthly_harmonics.py
     :func: arguments
     :prog: gldas_monthly_harmonics.py
     :nodescription:

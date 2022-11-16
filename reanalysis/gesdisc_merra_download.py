@@ -90,10 +90,10 @@ def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
     if LOG:
         #-- format: NASA_GESDISC_MERRA2_download_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = 'NASA_GESDISC_MERRA2_download_{0}.log'.format(today)
-        fid = open(os.path.join(DIRECTORY,LOGFILE),'w')
+        LOGFILE = f'NASA_GESDISC_MERRA2_download_{today}.log'
+        fid = open(os.path.join(DIRECTORY,LOGFILE), mode='w', encoding='utf8')
         logging.basicConfig(stream=fid, level=loglevel)
-        logging.info('NASA MERRA-2 Sync Log ({0})'.format(today))
+        logging.info(f'NASA MERRA-2 Sync Log ({today})')
     else:
         #-- standard output (terminal output)
         fid = sys.stdout
@@ -112,7 +112,7 @@ def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
         elif re.search(rb'MERRA2_(\d+)\.(.*?)\.(\d+)\.(.*?).nc',f):
             rx = re.compile(r'MERRA2_(\d+)\.(.*?)\.(\d+)\.(.*?).nc')
             MOD,DSET,YMD,AUX = rx.findall(f.decode('utf-8')).pop()
-            FILE = 'MERRA2_{0}.{1}.{2}.SUB.nc'.format(MOD,DSET,YMD)
+            FILE = f'MERRA2_{MOD}.{DSET}.{YMD}.SUB.nc'
         elif re.search(rb'FAQ',f,re.IGNORECASE):
             #-- skip frequently asked questions hyperlinks
             continue
@@ -129,7 +129,7 @@ def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
                 verbose=VERBOSE, mode=MODE)
         except:
             remote_file = gravity_toolkit.utilities.posixpath.join(HOST)
-            logging.critical('Link not downloaded: {0}'.format(remote_file))
+            logging.critical(f'Link not downloaded: {remote_file}')
             continue
 
     #-- close log file and set permissions level to MODE
@@ -199,11 +199,11 @@ def main():
     except:
         #-- check that NASA Earthdata credentials were entered
         if not args.user:
-            prompt = 'Username for {0}: '.format(URS)
+            prompt = f'Username for {URS}: '
             args.user = builtins.input(prompt)
         #-- enter password securely from command-line
         if not args.password:
-            prompt = 'Password for {0}@{1}: '.format(args.user,URS)
+            prompt = f'Password for {args.user}@{URS}: '
             args.password = getpass.getpass(prompt)
 
     #-- build a urllib opener for NASA GESDISC

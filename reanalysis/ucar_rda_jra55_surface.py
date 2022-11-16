@@ -105,10 +105,10 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
     if LOG:
         #-- format: UCAR_RDA_JRA-55_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = 'UCAR_RDA_JRA-55_{0}.log'.format(today)
-        fid = open(os.path.join(DIRECTORY,LOGFILE),'w')
+        LOGFILE = f'UCAR_RDA_JRA-55_{today}.log'
+        fid = open(os.path.join(DIRECTORY,LOGFILE), mode='w', encoding='utf8')
         logging.basicConfig(stream=fid, level=logging.INFO)
-        logging.info('UCAR JRA-55 Sync Log ({0})'.format(today))
+        logging.info(f'UCAR JRA-55 Sync Log ({today})')
     else:
         #-- standard output (terminal output)
         fid = sys.stdout
@@ -201,9 +201,9 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
                 fd = io.BytesIO(response.read()).seek(0)
             #-- open remote file with netCDF4
             dinput = spatial().from_netCDF4(fd, compression='bytes',
-                varname='PRES_GDS{0:d}_SFC'.format(var),
-                latname='g{0:d}_lat_1'.format(var),
-                lonname='g{0:d}_lon_2'.format(var),
+                varname=f'PRES_GDS{var:d}_SFC',
+                latname=f'g{var:d}_lat_1',
+                lonname=f'g{var:d}_lon_2',
                 timename='initial_time0_hours',
                 verbose=False).transpose(axes=(1,2,0))
             #-- read variable for hours since start of file
@@ -243,9 +243,9 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
 
         #-- output netCDF4 filename
         if INTERPOLATED:
-            FILE = 'anl_surf125.001_pres.{0:4d}.nc'.format(YY)
+            FILE = f'anl_surf125.001_pres.{YY:4d}.nc'
         else:
-            FILE = 'anl_surf.001_pres.reg_tl319.{0:4d}.nc'.format(YY)
+            FILE = f'anl_surf.001_pres.reg_tl319.{YY:4d}.nc'
         #-- hours since 1800-01-01 00:00:0.0
         TIME_UNITS = 'hours since 1800-01-01 00:00:0.0'
         TIME_LONGNAME = 'Time'
@@ -372,11 +372,11 @@ def main():
     except:
         #-- check that UCAR/NCAR RDA credentials were entered
         if not args.user:
-            prompt = 'Username for {0}: '.format(HOST)
+            prompt = f'Username for {HOST}: '
             args.user = builtins.input(prompt)
         #-- enter password securely from command-line
         if not args.password:
-            prompt = 'Password for {0}@{1}: '.format(args.user,HOST)
+            prompt = f'Password for {args.user}@{HOST}: '
             args.password = getpass.getpass(prompt)
 
     #-- Build opener with cookie jar for storing cookies

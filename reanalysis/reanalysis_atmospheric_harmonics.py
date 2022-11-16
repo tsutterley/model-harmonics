@@ -186,7 +186,7 @@ def reanalysis_atmospheric_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     #-- upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
     #-- output string for both LMAX == MMAX and LMAX != MMAX cases
-    order_str = 'M{0:d}'.format(MMAX) if (MMAX != LMAX) else ''
+    order_str = 'M{MMAX:d}' if (MMAX != LMAX) else ''
     #-- if redistributing oceanic values to a mean value
     ocean_str = '_OCN' if REDISTRIBUTE else ''
     #-- output suffix for data formats
@@ -245,10 +245,12 @@ def reanalysis_atmospheric_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     rx = re.compile(regex_pattern.format(regex_years),re.VERBOSE)
     input_files = sorted([fi for fi in os.listdir(ddir) if rx.match(fi)])
     #-- open output date and index files
-    output_date_file = '{0}_DATES.txt'.format(MODEL.upper())
-    fid1 = open(os.path.join(ddir,output_sub,output_date_file),'w')
-    output_index_file = '{0}_index.txt'.format(MODEL)
-    fid2 = open(os.path.join(ddir,output_sub,output_index_file),'w')
+    output_date_file = f'{MODEL.upper()}_DATES.txt'
+    fid1 = open(os.path.join(ddir,output_sub,output_date_file),
+        mode='w', encoding='utf8')
+    output_index_file = f'{MODEL}_index.txt'
+    fid2 = open(os.path.join(ddir,output_sub,output_index_file),
+        mode='w', encoding='utf8')
     #-- date file header information
     print('{0:8} {1:10}'.format('Month','Date'), file=fid1)
     #-- output file format for spherical harmonic data

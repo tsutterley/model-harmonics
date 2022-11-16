@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../GLDAS/gesdisc_gldas_sync.py
+    :filename: gesdisc_gldas_sync.py
     :func: arguments
     :prog: gesdisc_gldas_sync.py
     :nodescription:

@@ -89,8 +89,8 @@ def ecco_mean_realtime(ddir, MODEL, RANGE=None, DATAFORM=None,
     logging.basicConfig(level=loglevels[VERBOSE])
 
     #-- set up regular expression for finding directories to run from RANGE
-    regex_year='|'.join(['{0:d}'.format(Y) for Y in range(RANGE[0],RANGE[1]+1)])
-    rx = re.compile(r'{0}_({1})'.format(MODEL,regex_year), re.VERBOSE)
+    regex_years = r'|'.join([rf'{y:d}' for y in range(RANGE[0],RANGE[1]+1)])
+    rx = re.compile(rf'{MODEL}_({regex_years})', re.VERBOSE)
     #-- Finding subdirectories
     input_dir = sorted([sd for sd in os.listdir(ddir) if \
         (os.path.isdir(os.path.join(ddir,sd)) & bool(rx.match(sd)))])
@@ -253,7 +253,7 @@ def ecco_mean_realtime(ddir, MODEL, RANGE=None, DATAFORM=None,
 
 #-- PURPOSE: wrapper function for outputting data to file
 def output_data(data,MODEL,FILENAME=None,DATAFORM=None,VERBOSE=False):
-    T = 'Mean_Ocean_Bottom_Pressure_from_ECCO-JPL_{0}_Model'.format(MODEL)
+    T = f'Mean_Ocean_Bottom_Pressure_from_ECCO-JPL_{MODEL}_Model'
     if (DATAFORM == 'ascii'):
         #-- ascii (.txt)
         data.to_ascii(FILENAME,verbose=VERBOSE)

@@ -184,7 +184,7 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
     #-- upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
     #-- output string for both LMAX == MMAX and LMAX != MMAX cases
-    order_str = 'M{0:d}'.format(MMAX) if (MMAX != LMAX) else ''
+    order_str = 'M{MMAX:d}' if (MMAX != LMAX) else ''
     #-- if redistributing oceanic values to a mean value
     ocean_str = '_OCN' if REDISTRIBUTE else ''
     #-- output suffix for data formats
@@ -239,7 +239,7 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
 
     #-- read each reanalysis pressure field and convert to spherical harmonics
     #-- then calculate mean of the spherical harmonic fields
-    regex_years = '|'.join(['{0:4d}'.format(Y) for Y in range(RANGE[0],RANGE[1]+1)])
+    regex_years = r'|'.join([rf'{Y:4d}' for Y in range(RANGE[0],RANGE[1]+1)])
     rx = re.compile(regex_pattern.format(regex_years),re.VERBOSE)
     input_files = sorted([fi for fi in os.listdir(ddir) if rx.match(fi)])
 

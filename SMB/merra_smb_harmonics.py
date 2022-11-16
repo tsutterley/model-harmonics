@@ -114,10 +114,10 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     DATAFORM=None, MODE=0o775):
 
     #-- setup subdirectories
-    cumul_sub = '{0}.5.12.4.CUMUL.{1:d}.{2:d}'.format(PRODUCT,*RANGE)
+    cumul_sub = f'{PRODUCT}.5.12.4.CUMUL.{RANGE[0]:d}.{RANGE[1]:d}'
     #-- Creating output subdirectory if it doesn't exist
-    prefix = '{0}_'.format(REGION) if REGION else ''
-    output_sub = '{0}{1}_5.12.4_CUMUL_CLM_L{2:d}'.format(prefix,PRODUCT,LMAX)
+    prefix = f'{REGION}_' if REGION else ''
+    output_sub = f'{prefix}{PRODUCT}_5.12.4_CUMUL_CLM_L{LMAX:d}'
     if (not os.access(os.path.join(ddir,output_sub), os.F_OK)):
         os.makedirs(os.path.join(ddir,output_sub),MODE)
     #-- titles for each output data product
@@ -143,7 +143,7 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     #-- upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
     #-- output string for both LMAX == MMAX and LMAX != MMAX cases
-    order_str = 'M{0:d}'.format(MMAX) if (MMAX != LMAX) else ''
+    order_str = 'M{MMAX:d}' if (MMAX != LMAX) else ''
 
     #-- output dimensions and extents
     nlat,nlon = (361,576)
@@ -270,13 +270,15 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
         os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 
     #-- Output date ascii file
-    output_date_file = 'MERRA2_{0}_DATES.txt'.format(PRODUCT)
-    fid1 = open(os.path.join(ddir,output_sub,output_date_file), 'w')
+    output_date_file = f'MERRA2_{PRODUCT}_DATES.txt'
+    fid1 = open(os.path.join(ddir,output_sub,output_date_file),
+        mode='w', encoding='utf8')
     #-- date file header information
     print('{0:8} {1:^6} {2:^5}'.format('Mid-date','GRACE','Month'), file=fid1)
     #-- index file listing all output spherical harmonic files
     output_index_file = 'index.txt'
-    fid2 = open(os.path.join(ddir,output_sub,output_index_file),'w')
+    fid2 = open(os.path.join(ddir,output_sub,output_index_file),
+        mode='w', encoding='utf8')
     #-- find all available output files
     args = (PRODUCT, LMAX, order_str, suffix[DATAFORM])
     output_pattern = r'MERRA2_(\d+)_tavgM_2d_{0}_CLM_L{1:d}{2}_([-]?\d+).{3}'

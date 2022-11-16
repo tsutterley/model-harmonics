@@ -83,7 +83,7 @@ def jpl_ecco_webdav(USER, PASSWORD, parser=lxml.etree.HTMLParser()):
     )
     #-- retrieve cookies from NASA Earthdata URS
     request = gravity_toolkit.utilities.urllib2.Request(
-        url=posixpath.join(URS,'oauth','authorize?{0}'.format(parameters)))
+        url=posixpath.join(URS,'oauth',f'authorize?{parameters}'))
     gravity_toolkit.utilities.urllib2.urlopen(request)
     #-- read and parse request for webdav password
     request = gravity_toolkit.utilities.urllib2.Request(url=HOST)
@@ -135,11 +135,11 @@ def main():
     except:
         #-- check that NASA Earthdata credentials were entered
         if not args.user:
-            prompt = 'Username for {0}: '.format(URS)
+            prompt = f'Username for {URS}: '
             args.user = builtins.input(prompt)
         #-- enter password securely from command-line
         if not args.password:
-            prompt = 'Password for {0}@{1}: '.format(args.user,URS)
+            prompt = f'Password for {args.user}@{URS}: '
             args.password = getpass.getpass(prompt)
 
     #-- check internet connection before attempting to run program
@@ -148,14 +148,13 @@ def main():
         #-- compile HTML parser for lxml
         WEBDAV = jpl_ecco_webdav(args.user, args.password)
         #-- output to terminal or append to netrc file
-        a = (args.user,HOST,WEBDAV)
         if args.append:
             #-- append to netrc file and set permissions level
             with open(args.netrc,'a+') as f:
-                f.write('machine {1} login {0} password {2}\n'.format(*a))
+                f.write(f'machine {args.user} login {HOST} password {WEBDAV}\n')
                 os.chmod(args.netrc, 0o600)
         else:
-            print('\nWebDAV Password for {0}@{1}:\n\t{2}'.format(*a))
+            print(f'\nWebDAV Password for {args.user}@{HOST}:\n\t{WEBDAV}')
 
 #-- run main program
 if __name__ == '__main__':

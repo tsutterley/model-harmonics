@@ -13,7 +13,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../reanalysis/model_level_coefficients.py
+    :filename: model_level_coefficients.py
     :func: arguments
     :prog: model_level_coefficients.py
     :nodescription:

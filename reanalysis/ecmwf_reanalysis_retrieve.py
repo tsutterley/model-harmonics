@@ -61,13 +61,13 @@ def ecmwf_reanalysis_retrieve(base_dir, server, MODEL, YEAR, LEVEL=False,
         model_class = "ei"
         model_dataset = "interim"
         model_grid = "0.75/0.75"
-        model_levelist = "/".join(['{0:d}'.format(l) for l in range(1,60+1)])
+        model_levelist = "/".join([f'{l:d}' for l in range(1,60+1)])
         model_invariant_date = "1989-01-01"
     elif (MODEL == 'ERA5'):
         model_class = "ea"
         model_dataset = "era5"
         model_grid = "0.25/0.25"
-        model_levelist = "/".join(['{0:d}'.format(l) for l in range(1,137+1)])
+        model_levelist = "/".join([f'{l:d}' for l in range(1,137+1)])
         model_invariant_date = "2010-01-01"
     #-- output filename structure
     output_filename = "{0}-Monthly-{1}-{2:4d}.nc"
@@ -78,7 +78,7 @@ def ecmwf_reanalysis_retrieve(base_dir, server, MODEL, YEAR, LEVEL=False,
     #-- for each year
     for y in YEAR:
         #-- monthly dates to retrieve
-        d="/".join(['{0:4d}{1:02d}{2:02d}'.format(y,m+1,1) for m in range(12)])
+        d = "/".join([f'{y:4d}{m+1:02d}{1:02d}' for m in range(12)])
 
         #-- retrieve the 2-metre temperature field
         output_temperature_file = output_filename.format(MODEL,"T2m",y)
@@ -157,7 +157,7 @@ def ecmwf_reanalysis_retrieve(base_dir, server, MODEL, YEAR, LEVEL=False,
 
     #-- if retrieving the model invariant parameters
     if INVARIANT:
-        output_invariant_file = '{0}-Invariant-Parameters.nc'.format(MODEL)
+        output_invariant_file = f'{MODEL}-Invariant-Parameters.nc'
         server.retrieve({
             "class": model_class,
             "dataset": model_dataset,

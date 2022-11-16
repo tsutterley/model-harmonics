@@ -71,8 +71,8 @@ import gravity_toolkit.time
 def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
 
     #-- input and output subdirectories
-    d1=os.path.join(ddir,'ECCO-{0}'.format(MODEL),'nctiles_monthly')
-    d2=os.path.join(ddir,'ECCO_{0}_AveRmvd_OBP'.format(MODEL),'nctiles_monthly')
+    d1=os.path.join(ddir,f'ECCO-{MODEL}','nctiles_monthly')
+    d2=os.path.join(ddir,f'ECCO_{MODEL}_AveRmvd_OBP','nctiles_monthly')
     #-- recursively create subdirectory if it doesn't exist
     os.makedirs(d2,MODE) if (not os.access(d2, os.F_OK)) else None
 
@@ -106,24 +106,24 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
     rhonil = 1029
 
     #-- read mean data from ecco_mean_llc_tiles.py
-    args = (MODEL, RANGE[0], RANGE[1])
-    mean_file = 'ECCO_{0}_OBP_MEAN_{1:4d}-{2:4d}.nc'.format(*args)
+    mean_file = f'ECCO_{MODEL}_OBP_MEAN_{RANGE[0]:4d}-{RANGE[1]:4d}.nc'
     obp_mean = ncdf_mean(os.path.join(d1,mean_file),VARNAME=VARNAME)
 
     #-- output average ocean bottom pressure to file
-    output_average_file = 'ECCO_{0}_Global_Average_OBP.txt'.format(MODEL)
-    fid = open(os.path.join(d1,output_average_file),'w')
+    output_average_file = f'ECCO_{MODEL}_Global_Average_OBP.txt'
+    fid = open(os.path.join(d1,output_average_file),
+        mode='w', encoding='utf8')
 
     #-- compile regular expression operator for finding files for years
-    year_regex = '|'.join('{0:d}'.format(y) for y in YEARS)
-    rx1 = re.compile(r'PHIBOT([\.\_])({0})(_(\d+))?.nc$'.format(year_regex))
+    regex_years = r'|'.join(rf'{y:d}' for y in YEARS)
+    rx1 = re.compile(rf'PHIBOT([\.\_])({regex_years})(_(\d+))?.nc$')
     #-- find input files
     input_files = [fi for fi in os.listdir(d1) if rx1.match(fi)]
 
     #-- Defining output attributes
     attributes = {}
-    TITLE = 'Ocean_Bottom_Pressure_Anomalies_from_ECCO_{0}_Model'
-    attributes['title'] = TITLE.format(MODEL)
+    TITLE = f'Ocean_Bottom_Pressure_Anomalies_from_ECCO_{MODEL}_Model'
+    attributes['title'] = TITLE
     #-- dimension attributes
     attributes['i'] = {}
     attributes['i']['long_name'] = 'x-dimension of the t grid'
@@ -215,8 +215,7 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
             fid.write('{0:10.4f} {1:21.14e} {2:21.14e}\n'.format(*args))
 
             #-- output to file
-            args = (MODEL, YY, MM)
-            FILE='ECCO_{0}_AveRmvd_OBP_{1:4.0f}_{2:02.0f}.nc'.format(*args)
+            FILE = f'ECCO_{MODEL}_AveRmvd_OBP_{YY:4.0f}_{MM:02.0f}.nc'
             #-- netcdf (.nc)
             ncdf_tile_write(obp, attributes, FILENAME=os.path.join(d2,FILE),
                 LONNAME='lon', LATNAME='lat', TIMENAME=TIMENAME,

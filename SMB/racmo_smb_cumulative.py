@@ -175,7 +175,7 @@ def racmo_smb_cumulative(model_file, VARIABLE,
     fd[VARIABLE].data[fd[VARIABLE].mask] = fd[VARIABLE].fill_value
 
     #-- Output NetCDF filename
-    FILE = '{0}_{1}_{2}_cumul.nc'.format(VERSION,REGION,VARIABLE.upper())
+    FILE = f'{VERSION}_{REGION}_{VARIABLE.upper()}_cumul.nc'
     logging.info(os.path.join(DIRECTORY,FILE))
 
     #-- output MERRA-2 data file with cumulative data
@@ -227,8 +227,8 @@ def racmo_smb_cumulative(model_file, VARIABLE,
         else:
             f_out.setncattr(att_name,attribute)
     #-- output attribute for mean
-    f_out.description = ('Cumulative anomalies in {0} {1} variables relative '
-        'to {2:4d}-{3:4d}').format(VERSION,REGION,RANGE[0],RANGE[1])
+    f_out.description = (f'Cumulative anomalies in {VERSION} {REGION} variables '
+        f'relative to {RANGE[0]:4d}-{RANGE[1]:4d}')
 
     #-- Output NetCDF file information
     logging.info(list(f_out.variables.keys()))

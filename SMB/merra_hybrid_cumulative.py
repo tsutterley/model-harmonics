@@ -58,9 +58,34 @@ import netCDF4
 import argparse
 import numpy as np
 
-#-- PURPOSE: read and interpolate MERRA-2 hybrid surface mass balance variables
-def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
-    MODE=0o775):
+#-- PURPOSE: calculate cumulative anomalies in MERRA-2 hybrid
+#-- surface mass balance variables
+def merra_hybrid_cumulative(base_dir, REGION, VERSION,
+    RANGE=None, GZIP=False, MODE=0o775):
+    """
+    Calculates cumulative anomalies of MERRA-2 hybrid
+    surface mass balance products
+
+    Parameters
+    ----------
+    base_dir: str
+        Working data directory
+    REGION: str
+        MERRA-2 region to interpolate
+
+            - ``ais``: Antarctica
+            - ``gris``: Greenland
+    VERSION: str
+        MERRA-2 hybrid model version
+    RANGE: list
+        Start and end year for mean
+    GZIP: bool, default False
+        netCDF4 file is gzip compressed
+    VERBOSE: bool, default False
+        Verbose output of netCDF4 variables
+    MODE: oct, default 0o775
+        Permission mode of directories and files created
+    """
 
     #-- MERRA-2 hybrid directory
     DIRECTORY = os.path.join(base_dir,VERSION)
@@ -227,7 +252,7 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
     #-- for each output variable
     for v in VARIABLES:
         #-- append anomaly flag
-        var = '{0}{1}'.format(v,anomaly_flag)
+        var = f'{v}{anomaly_flag}'
         nc[v] = fileID.createVariable(var, fd[v].dtype, ('time','x','y',),
             fill_value=fd[v].fill_value, zlib=True)
 
@@ -292,10 +317,10 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION, RANGE=None, GZIP=False,
     nc['time'].long_name = 'time, 5-daily resolution'
     nc['time'].units = 'decimal years, 5-daily resolution'
     #-- global attributes of NetCDF file
-    fileID.title = ('Cumulative anomalies in GSFC-FDM{0} variables relative '
-        'to {1:4d}-{2:4d}').format(VERSION,RANGE[0],RANGE[1])
+    fileID.title = (f'Cumulative anomalies in GSFC-FDM{VERSION} variables '
+        f'relative to {RANGE[0]:4d}-{RANGE[1]:4d}')
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
-    fileID.source = 'version {0}'.format(VERSION)
+    fileID.source = f'version {VERSION}'
     fileID.references = ("Medley, B., Neumann, T. A., Zwally, H. J., "
         "Smith, B. E., and Stevens, C. M.: Simulations of Firn Processes "
         "over the Greenland and Antarctic Ice Sheets: 1980--2021, "

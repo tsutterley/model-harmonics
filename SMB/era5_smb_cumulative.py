@@ -116,7 +116,7 @@ def era5_smb_cumulative(DIRECTORY,
         os.mkdir(os.path.join(DIRECTORY,cumul_sub), MODE)
 
     #-- regular expression pattern for finding files
-    rx = re.compile(r'ERA5\-Monthly\-P-E\-(\d{4})\.nc$',re.VERBOSE)
+    rx = re.compile(r'ERA5\-Monthly\-P-E\-(\d{4})\.nc$', re.VERBOSE)
     input_files = sorted([f for f in os.listdir(DIRECTORY) if rx.match(f)])
     #-- sign for each product to calculate total SMB
     smb_sign = {'tp':1.0,'e':-1.0}
@@ -136,10 +136,9 @@ def era5_smb_cumulative(DIRECTORY,
     end_year, = rx.findall(input_files[-1])
     for Y in range(int(start_year),int(end_year)+1):
         #-- full path for flux file
-        f1 = 'ERA5-Monthly-P-E-{0:4d}.nc'.format(Y)
-        era5_flux_file = os.path.join(DIRECTORY,f1)
-        if not os.access(era5_flux_file,os.F_OK):
-            raise Exception('File {0} not in file system'.format(f1))
+        f1 = f'ERA5-Monthly-P-E-{Y:4d}.nc'
+        if not os.access(os.path.join(DIRECTORY,f1), os.F_OK):
+            raise FileNotFoundError(f'File {f1} not in file system')
 
     #-- read mean data from era5_smb_mean.py
     args=(RANGE[0], RANGE[1], suffix[DATAFORM])

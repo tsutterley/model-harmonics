@@ -171,19 +171,20 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
     MODE=0o775):
 
     #-- Version flags
-    V1,V2 = ('_V1','') if (VERSION == '1') else ('','.{0}'.format(VERSION))
+    V1,V2 = (f'_V{VERSION}','') if (VERSION == '1') else ('',f'.{VERSION}')
+    #-- use GLDAS monthly products
+    TEMPORAL = 'M'
     #-- subdirectory for model monthly products at spacing for version
-    subdir = "GLDAS_{0}{1}_{2}{3}".format(MODEL,SPACING,'M',V2)
+    subdir = f'GLDAS_{MODEL}{SPACING}_{TEMPORAL}{V2}'
     #-- Creating output subdirectory if it doesn't exist
-    args = (MODEL,SPACING,V1,LMAX)
-    output_sub = 'GLDAS_{0}{1}{2}_TWC_CLM_L{3:d}'.format(*args)
+    output_sub = f'GLDAS_{MODEL}{SPACING}{V1}_TWC_CLM_L{LMAX:d}'
     if (not os.access(os.path.join(ddir,output_sub), os.F_OK)):
         os.makedirs(os.path.join(ddir,output_sub),MODE)
 
     #-- upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
     #-- output string for both LMAX == MMAX and LMAX != MMAX cases
-    order_str = 'M{0:d}'.format(MMAX) if (MMAX != LMAX) else ''
+    order_str = 'M{MMAX:d}' if (MMAX != LMAX) else ''
     #-- output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
 
@@ -198,7 +199,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
         extent = [-179.5, 179.5, -59.5, 89.5]
 
     #-- GLDAS MOD44W land mask modified for HYMAP
-    landmask_file = 'GLDASp5_landmask_{0}d.nc4'.format(SPACING)
+    landmask_file = f'GLDASp5_landmask_{SPACING}d.nc4'
     with netCDF4.Dataset(os.path.join(ddir,landmask_file),'r') as fileID:
         GLDAS_mask = fileID.variables['GLDAS_mask'][:].squeeze()
         glon = fileID.variables['lon'][:].copy()
@@ -218,7 +219,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
         #-- use default masks for reducing regions before converting to harmonics
         #-- mask combining vegetation index, permafrost index and Arctic mask
         #-- read vegetation index file
-        vegetation_file = 'modmodis_domveg20_{0}.nc'.format(SPACING)
+        vegetation_file = f'modmodis_domveg20_{SPACING}.nc'
         with netCDF4.Dataset(os.path.join(ddir,vegetation_file),'r') as fileID:
             vegetation_index = fileID.variables['index'][:].copy()
         #-- 0: missing value
@@ -231,7 +232,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
         for invalid_keys in (0,13,15,17,18,19,20):
             combined_mask |= (vegetation_index == invalid_keys)
         #-- read Permafrost index file
-        permafrost_file = 'permafrost_mod44w_{0}.nc'.format(SPACING)
+        permafrost_file = f'permafrost_mod44w_{SPACING}.nc'
         with netCDF4.Dataset(os.path.join(ddir,permafrost_file),'r') as fileID:
             permafrost_index = fileID.variables['mask'][:]
         #-- 1: Continuous Permafrost
@@ -242,7 +243,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
         for invalid_keys in (1,5):
             combined_mask |= (permafrost_index == invalid_keys)
         #-- read Arctic mask file
-        arctic_file = 'arcticmask_mod44w_{0}.nc'.format(SPACING)
+        arctic_file = f'arcticmask_mod44w_{SPACING}.nc'
         with netCDF4.Dataset(os.path.join(ddir,arctic_file),'r') as fileID:
             arctic_mask = fileID.variables['mask'][:].astype(bool)
         #-- arctic mask
@@ -276,7 +277,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
     PLM, dPLM = plm_holmes(LMAX, np.cos(theta))
 
     #-- find input terrestrial water storage files
-    regex_years = r'\d+' if (YEARS is None) else '|'.join(map(str,YEARS))
+    regex_years = r'\d+' if (YEARS is None) else r'|'.join(map(str,YEARS))
     args = (MODEL, SPACING, regex_years, suffix[DATAFORM])
     rx = re.compile(r'GLDAS_{0}{1}_TWC_({2})_(\d+)\.{3}$'.format(*args))
     FILES = sorted([fi for fi in os.listdir(os.path.join(ddir,subdir))
@@ -328,13 +329,15 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
         os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 
     #-- Output date ascii file
-    output_date_file = 'GLDAS_{0}{1}_TWC_DATES.txt'.format(MODEL,SPACING)
-    fid1 = open(os.path.join(ddir,output_sub,output_date_file), 'w')
+    output_date_file = f'GLDAS_{MODEL}{SPACING}_TWC_DATES.txt'
+    fid1 = open(os.path.join(ddir,output_sub,output_date_file),
+        mode='w', encoding='utf8')
     #-- date file header information
     print('{0:8} {1:^6} {2:^5}'.format('Mid-date','GRACE','Month'), file=fid1)
     #-- index file listing all output spherical harmonic files
     output_index_file = 'index.txt'
-    fid2 = open(os.path.join(ddir,output_sub,output_index_file),'w')
+    fid2 = open(os.path.join(ddir,output_sub,output_index_file),
+        mode='w', encoding='utf8')
     #-- find all available output files
     args = (MODEL, SPACING, LMAX, order_str, suffix[DATAFORM])
     output_regex=r'GLDAS_{0}{1}_TWC_CLM_L{2:d}{3}_([-]?\d+).{4}'.format(*args)
@@ -358,40 +361,6 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
     #-- set the permissions level of the output date and index files to MODE
     os.chmod(os.path.join(ddir,output_sub,output_date_file), MODE)
     os.chmod(os.path.join(ddir,output_sub,output_index_file), MODE)
-
-#-- PURPOSE: write combined land sea mask to netCDF4 file
-def ncdf_mask_write(dinput, FILENAME=None):
-    #-- opening NetCDF file for writing
-    fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
-
-    #-- Defining the NetCDF dimensions
-    LATNAME,LONNAME = ('latitude','longitude')
-    for key in [LONNAME,LATNAME]:
-        fileID.createDimension(key, len(dinput[key]))
-
-    #-- defining the NetCDF variables
-    nc = {}
-    nc[LATNAME]=fileID.createVariable(LATNAME,dinput[LATNAME].dtype,(LATNAME,))
-    nc[LONNAME]=fileID.createVariable(LONNAME,dinput[LONNAME].dtype,(LONNAME,))
-    nc['mask'] = fileID.createVariable('mask', dinput['mask'].dtype,
-        (LATNAME,LONNAME,), fill_value=0, zlib=True)
-    #-- filling NetCDF variables
-    for key,val in dinput.items():
-        nc[key][:] = dinput[key]
-
-    #-- Defining attributes for longitude and latitude
-    nc[LONNAME].long_name = 'longitude'
-    nc[LONNAME].units = 'degrees_east'
-    nc[LATNAME].long_name = 'latitude'
-    nc[LATNAME].units = 'degrees_north'
-    nc['mask'].long_name = 'land_sea_mask'
-
-    #-- Output NetCDF structure information
-    logging.info(os.path.basename(FILENAME))
-    logging.info(list(fileID.variables.keys()))
-
-    #-- Closing the NetCDF file
-    fileID.close()
 
 #-- PURPOSE: create argument parser
 def arguments():

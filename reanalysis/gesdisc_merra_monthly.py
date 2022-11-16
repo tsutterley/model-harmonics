@@ -97,7 +97,7 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
         #-- format: NASA_GESDISC_MERRA2_monthly_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
         LOGFILE = f'NASA_GESDISC_MERRA2_monthly_{today}.log'
-        fid = open(os.path.join(DIRECTORY,LOGFILE),'w')
+        fid = open(os.path.join(DIRECTORY,LOGFILE), mode='w', encoding='utf8')
         logging.basicConfig(stream=fid, level=loglevel)
         logging.info(f'NASA MERRA-2 Sync Log ({today})')
         PRODUCT = f'{SHORTNAME}.{VERSION}'
@@ -119,7 +119,6 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
     LATNAME = 'lat'
     LEVELNAME = 'lev'
     TIMENAME = 'time'
-    time_unit_format = 'minutes since {0}-{1}-01 00:00:00'
     #-- time format for CMR queries
     isotime_format = '{0}-{1}-{2:02.0f}T{3:02.0f}:{4:02.0f}:{5:02.0f}'
     #-- output dimensions
@@ -141,8 +140,8 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
         #-- for each month of the year
         for i,days_per_month in enumerate(dpm):
             #-- year and month as strings
-            YY = '{0:4d}'.format(YEAR)
-            MM = '{0:02d}'.format(i+1)
+            YY = f'{YEAR:4d}'
+            MM = f'{i+1:02d}'
             #-- start and end date for query
             start_date = isotime_format.format(YY,MM,1.0,0.0,0.0,0.0)
             end_date = isotime_format.format(YY,MM,days_per_month,23.0,59.0,59.0)
@@ -236,8 +235,8 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
                 dinput[key][complementary_indices] = fill_value
             #-- output to netCDF4 file (replace hour variable with monthly)
             DATASET = re.sub(r'inst\d+_3d',r'instM_3d',DATASET)
-            attributes['time']['units'] = time_unit_format.format(YY,MM)
-            local_file = 'MERRA2_{0}.{1}.{2}{3}.SUB.nc'.format(MOD,DATASET,YY,MM)
+            attributes['time']['units'] = f'minutes since {YY}-{MM}-01 00:00:00'
+            local_file = f'MERRA2_{MOD}.{DATASET}.{YY}{MM}.SUB.nc'
             ncdf_model_write(dinput, attributes, fill_value,
                 VARNAME=VARNAME, TNAME=TNAME, QNAME=QNAME,
                 LONNAME=LONNAME, LATNAME=LATNAME, LEVELNAME=LEVELNAME,
@@ -382,11 +381,11 @@ def main():
     except:
         #-- check that NASA Earthdata credentials were entered
         if not args.user:
-            prompt = 'Username for {0}: '.format(URS)
+            prompt = f'Username for {URS}: '
             args.user = builtins.input(prompt)
         #-- enter password securely from command-line
         if not args.password:
-            prompt = 'Password for {0}@{1}: '.format(args.user,URS)
+            prompt = f'Password for {args.user}@{URS}: '
             args.password = getpass.getpass(prompt)
 
     #-- build a urllib opener for NASA GESDISC

@@ -123,7 +123,8 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
         args = (FILE_VERSION,REGION.lower(),suffix)
         hybrid_file = 'gsfc_fdm_smb_cumul_{0}_{1}.nc{2}'.format(*args)
     else:
-        raise ValueError('Unknown variable {0}'.format(VARIABLE))
+        raise ValueError(f'Unknown variable {VARIABLE}')
+
     #-- reference for GSFC-FDM model outputs
     reference = ("Medley, B., Neumann, T. A., Zwally, H. J., "
         "Smith, B. E., and Stevens, C. M.: Simulations of Firn Processes "
@@ -346,7 +347,7 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
         nc['area'].units = 'meters squared'
         #-- global variable of netCDF file
         fileID.title = 'GSFC-FDM remapping'
-        fileID.source = 'version {0}'.format(VERSION)
+        fileID.source = f'version {VERSION}'
         fileID.reference = copy.copy(reference)
         #-- date created
         fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())

@@ -128,31 +128,30 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
         #-- output to log file
         #-- format: NASA_GESDISC_GLDAS_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = 'NASA_GESDISC_GLDAS_{0}_sync_{1}.log'.format(MODEL,today)
+        LOGFILE = f'NASA_GESDISC_GLDAS_{MODEL}_sync_{today}.log'
         logging.basicConfig(filename=os.path.join(DIRECTORY,LOGFILE),
             level=logging.INFO)
-        logging.info('NASA GLDAS Sync Log ({0})'.format(today))
+        logging.info(f'NASA GLDAS Sync Log ({today})')
     else:
         #-- standard output (terminal output)
         logging.basicConfig(level=logging.INFO)
 
     #-- Version and product flags
-    V1,V2 = ('_V1','') if (VERSION == '1') else ('','.{0}'.format(VERSION))
-    PRODUCT = "GLDAS_{0}{1}_{2}{3}".format(MODEL,SPATIAL,TEMPORAL,V2)
+    V1,V2 = (f'_V{VERSION}','') if (VERSION == '1') else ('',f'.{VERSION}')
+    PRODUCT = f'GLDAS_{MODEL}{SPATIAL}_{TEMPORAL}{V2}'
     EP = '_EP' if EARLY else ''
     #-- shortname for model on GESDISC server
-    SHORTNAME = "GLDAS_{0}{1}_{2}{3}".format(MODEL,SPATIAL,TEMPORAL,EP)
+    SHORTNAME = f'GLDAS_{MODEL}{SPATIAL}_{TEMPORAL}{EP}'
 
     #-- print header text to log/standard output
-    logging.info('GLDAS MODEL={0}'.format(gldas_products[MODEL]))
-    logging.info('RESOLUTION={0},{1}'.format(TEMPORAL,SPATIAL))
-    logging.info('VERSION={0}{1}'.format(VERSION,EP))
+    logging.info(f'GLDAS MODEL={gldas_products[MODEL]}')
+    logging.info(f'RESOLUTION={TEMPORAL},{SPATIAL}')
+    logging.info(f'VERSION={VERSION}{EP}')
 
     #-- for each year to sync
     for Y in map(str,YEARS):
         #-- start and end date for query
-        start_date = '{0}-01-01'.format(Y)
-        end_date = '{0}-12-31'.format(Y)
+        start_date,end_date = (f'{Y}-01-01',  f'{Y}-12-31')
         #-- query CMR for model granules
         ids,urls,mtimes = model_harmonics.utilities.cmr(SHORTNAME,
             version=VERSION, start_date=start_date, end_date=end_date,
@@ -195,8 +194,8 @@ def http_pull_file(remote_file,remote_mtime,local_file,
     #-- if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         #-- Printing files transferred
-        logging.info('{0} --> '.format(remote_file))
-        logging.info('\t{0}{1}\n'.format(local_file, OVERWRITE))
+        logging.info(f'{remote_file} --> ')
+        logging.info(f'\t{local_file}{OVERWRITE}\n')
         #-- if executing copy command (not only printing the files)
         if not LIST:
             #-- Create and submit request. There are a wide range of exceptions
@@ -303,11 +302,11 @@ def main():
     except:
         #-- check that NASA Earthdata credentials were entered
         if not args.user:
-            prompt = 'Username for {0}: '.format(URS)
+            prompt = f'Username for {URS}: '
             args.user = builtins.input(prompt)
         #-- enter password securely from command-line
         if not args.password:
-            prompt = 'Password for {0}@{1}: '.format(args.user,URS)
+            prompt = f'Password for {args.user}@{URS}: '
             args.password = getpass.getpass(prompt)
 
     #-- build a urllib opener for NASA GESDISC

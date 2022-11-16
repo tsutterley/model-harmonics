@@ -96,10 +96,10 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
     if LOG:
         #-- format: UCAR_RDA_NCEP-CFSR_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = 'UCAR_RDA_NCEP-CFSR_{0}.log'.format(today)
-        fid = open(os.path.join(DIRECTORY,LOGFILE),'w')
+        LOGFILE = f'UCAR_RDA_NCEP-CFSR_{today}.log'
+        fid = open(os.path.join(DIRECTORY,LOGFILE), mode='w', encoding='utf8')
         logging.basicConfig(stream=fid, level=logging.INFO)
-        logging.info('UCAR NCEP-CFSR Sync Log ({0})'.format(today))
+        logging.info(f'UCAR NCEP-CFSR Sync Log ({today})')
         logging.info('PRODUCT: NCEP-DOE-2')
     else:
         #-- standard output (terminal output)
@@ -205,9 +205,9 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
             output[VARNAME].mask[m,:,:] = p_mean.mask.copy()
             output[TIMENAME][m] = p_mean.time.copy()
         #-- output netCDF4 filename
-        FILE = '{0}.{1}.{2:4.0f}.nc'.format(prefix,OP,YY)
+        FILE = f'{prefix}.{OP}.{YY:4.0f}.nc'
         #-- output time format: hours since start of file
-        TIME_UNITS = 'hours since {0:4.0f}-01-01 00:00:0.0'.format(YY)
+        TIME_UNITS = f'hours since {YY:4.0f}-01-01 00:00:0.0'
         TIME_LONGNAME = 'time'
         #-- output to netCDF4 file
         ncdf_model_write(output, dinput.fill_value, VARNAME=VARNAME,
@@ -335,11 +335,11 @@ def main():
     except:
         #-- check that UCAR/NCAR RDA credentials were entered
         if not args.user:
-            prompt = 'Username for {0}: '.format(HOST)
+            prompt = f'Username for {HOST}: '
             args.user = builtins.input(prompt)
         #-- enter password securely from command-line
         if not args.password:
-            prompt = 'Password for {0}@{1}: '.format(args.user,HOST)
+            prompt = f'Password for {args.user}@{HOST}: '
             args.password = getpass.getpass(prompt)
 
     #-- Build opener with cookie jar for storing cookies

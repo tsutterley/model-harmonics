@@ -85,8 +85,8 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     #-- setup subdirectories
     cumul_sub = 'ERA5-Cumul-P-E-{0:4d}-{1:4d}'.format(*RANGE)
     #-- Creating output subdirectory if it doesn't exist
-    prefix = '{0}_'.format(REGION) if REGION else ''
-    output_sub = '{0}ERA5_CUMUL_P-E_CLM_L{1:d}'.format(prefix,LMAX)
+    prefix = f'{REGION}_' if REGION else ''
+    output_sub = f'{prefix}ERA5_CUMUL_P-E_CLM_L{LMAX:d}'
     if (not os.access(os.path.join(ddir,output_sub), os.F_OK)):
         os.makedirs(os.path.join(ddir,output_sub),MODE)
     #-- output data file format and title
@@ -98,7 +98,7 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     #-- upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
     #-- output string for both LMAX == MMAX and LMAX != MMAX cases
-    order_str = 'M{0:d}'.format(MMAX) if (MMAX != LMAX) else ''
+    order_str = 'M{MMAX:d}' if (MMAX != LMAX) else ''
 
     #-- output dimensions and extents
     nlat,nlon = (721,1440)
@@ -165,7 +165,7 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
             era5_data = spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
                 extent=extent).from_ascii(os.path.join(ddir,cumul_sub,fi))
         elif (DATAFORM == 'netCDF4'):
-            #-- netCDF4 (.nc)444444444
+            #-- netCDF4 (.nc)
             era5_data = spatial().from_netCDF4(os.path.join(ddir,cumul_sub,fi),
                 varname='SMB')
         elif (DATAFORM == 'HDF5'):
@@ -213,12 +213,14 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
 
     #-- Output date ascii file
     output_date_file = 'ERA5_SMB_DATES.txt'
-    fid1 = open(os.path.join(ddir,output_sub,output_date_file), 'w')
+    fid1 = open(os.path.join(ddir,output_sub,output_date_file),
+        mode='w', encoding='utf8')
     #-- date file header information
     print('{0:8} {1:^6} {2:^5}'.format('Mid-date','GRACE','Month'), file=fid1)
     #-- index file listing all output spherical harmonic files
     output_index_file = 'index.txt'
-    fid2 = open(os.path.join(ddir,output_sub,output_index_file),'w')
+    fid2 = open(os.path.join(ddir,output_sub,output_index_file),
+        mode='w', encoding='utf8')
     #-- find all available output files
     args = (LMAX, order_str, suffix[DATAFORM])
     output_pattern = r'ERA5_CUMUL_P-E_CLM_L{0:d}{1}_([-]?\d+).{2}'

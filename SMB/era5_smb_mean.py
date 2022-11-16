@@ -130,11 +130,11 @@ def era5_smb_mean(DIRECTORY,
     #-- for each input file
     for Y in range(int(RANGE[0]),int(RANGE[-1])+1):
         #-- full path for flux file
-        f1 = 'ERA5-Monthly-P-E-{0:4d}.nc'.format(Y)
+        f1 = f'ERA5-Monthly-P-E-{Y:4d}.nc'
         era5_flux_file = os.path.join(DIRECTORY,f1)
         logging.info(era5_flux_file)
         if not os.access(era5_flux_file,os.F_OK):
-            raise Exception('File {0} not in file system'.format(f1))
+            raise FileNotFoundError(f'File {f1} not in file system')
         #-- read netCDF4 files for variables of interest
         var = read_era5_variables(era5_flux_file)
         #-- days per month in year

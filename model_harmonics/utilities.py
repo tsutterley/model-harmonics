@@ -158,7 +158,7 @@ def cmr_filter_json(search_results, endpoint="data",
     # return the list of urls, granule ids and modified times
     return (granule_names, granule_urls, granule_mtimes)
 
-# PURPOSE: cmr queries for GRACE/GRACE-FO products
+# PURPOSE: cmr queries for model data products
 def cmr(short_name, version=None, start_date=None, end_date=None,
     provider='GES_DISC', endpoint='data', request_type='application/x-netcdf',
     verbose=False, fid=sys.stdout):
@@ -217,29 +217,30 @@ def cmr(short_name, version=None, start_date=None, end_date=None,
     # create "opener" (OpenerDirector instance)
     opener = urllib2.build_opener(*handler)
     # build CMR query
+    cmr_query_type = 'granules'
     cmr_format = 'json'
     cmr_page_size = 2000
     CMR_HOST = ['https://cmr.earthdata.nasa.gov','search',
-        'granules.{0}'.format(cmr_format)]
+        f'{cmr_query_type}.{cmr_format}']
     # build list of CMR query parameters
     CMR_KEYS = []
-    CMR_KEYS.append('?provider={0}'.format(provider))
+    CMR_KEYS.append(f'?provider={provider}')
     CMR_KEYS.append('&sort_key[]=start_date')
     CMR_KEYS.append('&sort_key[]=producer_granule_id')
     CMR_KEYS.append('&scroll=true')
-    CMR_KEYS.append('&page_size={0}'.format(cmr_page_size))
+    CMR_KEYS.append(f'&page_size={cmr_page_size}')
     # dictionary of product shortnames and version
-    CMR_KEYS.append('&short_name={0}'.format(short_name))
+    CMR_KEYS.append(f'&short_name={short_name}')
     if version:
-        CMR_KEYS.append('&version={0}'.format(version))
+        CMR_KEYS.append(f'&version={version}')
     # append keys for start and end time
     # verify that start and end times are in ISO format
     start_date = isoformat(start_date) if start_date else ''
     end_date = isoformat(end_date) if end_date else ''
-    CMR_KEYS.append('&temporal={0},{1}'.format(start_date, end_date))
+    CMR_KEYS.append(f'&temporal={start_date},{end_date}')
     # full CMR query url
     cmr_query_url = "".join([posixpath.join(*CMR_HOST),*CMR_KEYS])
-    logging.info('CMR request={0}'.format(cmr_query_url))
+    logging.info(f'CMR request={cmr_query_url}')
     # output list of granule names and urls
     granule_names = []
     granule_urls = []

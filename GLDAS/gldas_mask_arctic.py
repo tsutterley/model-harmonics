@@ -112,8 +112,8 @@ def gldas_mask_arctic(ddir, SPACING=None, SHAPEFILES=None, AREA=None,
         latlimit_south = -59.5
         longlimit_west = -179.5
     #-- input binary land mask and output netCDF4 mask
-    input_file = 'landmask_mod44w_{0}.1gd4r'.format(SPACING)
-    output_file = 'arcticmask_mod44w_{0}.nc'.format(SPACING)
+    input_file = f'landmask_mod44w_{SPACING}.1gd4r'
+    output_file = f'arcticmask_mod44w_{SPACING}.nc'
 
     #-- python dictionary with input data
     dinput = {}
@@ -130,13 +130,13 @@ def gldas_mask_arctic(ddir, SPACING=None, SHAPEFILES=None, AREA=None,
     #-- create meshgrid of lat and long
     gridlon,gridlat = np.meshgrid(dinput['longitude'],dinput['latitude'])
     #-- projection object for converting from latitude/longitude
-    crs1 = pyproj.CRS.from_string("epsg:{0:d}".format(4326))
+    crs1 = pyproj.CRS.from_epsg(4326)
 
     #-- iterate over shapefiles
     for i,SHAPEFILE in enumerate(SHAPEFILES):
         #-- read shapefile to find points within region
         poly_obj,crs2 = read_shapefile(SHAPEFILE, AREA=AREA, BUFFER=BUFFER)
-        logging.info('Polygon Count: {0:d}'.format(len(poly_obj)))
+        logging.info(f'Polygon Count: {len(poly_obj):d}')
         #-- pyproj transformer for converting from latitude/longitude
         #-- to projection of input shapefile
         transformer = pyproj.Transformer.from_crs(crs1, crs2, always_xy=True)

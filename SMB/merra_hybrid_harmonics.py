@@ -139,7 +139,7 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
         args = (FILE_VERSION,REGION.lower(),suffix)
         hybrid_file = 'gsfc_fdm_smb_cumul_{0}_{1}.nc{2}'.format(*args)
     else:
-        raise ValueError('Unknown variable {0}'.format(VARIABLE))
+        raise ValueError(f'Unknown variable {VARIABLE}')
 
     #-- Open the MERRA-2 Hybrid NetCDF file for reading
     if GZIP:
@@ -257,7 +257,7 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     #-- upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
     #-- output string for both LMAX == MMAX and LMAX != MMAX cases
-    order_str = 'M{0:d}'.format(MMAX) if (MMAX != LMAX) else ''
+    order_str = 'M{MMAX:d}' if (MMAX != LMAX) else ''
     #-- densities of meteoric ice
     rho_ice = 917.0
 

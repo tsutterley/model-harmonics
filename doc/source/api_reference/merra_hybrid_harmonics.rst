@@ -14,7 +14,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../SMB/merra_hybrid_harmonics.py
+    :filename: merra_hybrid_harmonics.py
     :func: arguments
     :prog: merra_hybrid_harmonics.py
     :nodescription:

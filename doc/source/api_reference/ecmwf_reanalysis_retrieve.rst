@@ -18,7 +18,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../reanalysis/ecmwf_reanalysis_retrieve.py
+    :filename: ecmwf_reanalysis_retrieve.py
     :func: arguments
     :prog: ecmwf_reanalysis_retrieve.py
     :nodescription:

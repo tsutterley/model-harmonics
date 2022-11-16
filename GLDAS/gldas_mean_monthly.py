@@ -134,25 +134,27 @@ def gldas_mean_monthly(base_dir, MODEL, RANGE=None, SPATIAL=None, VERSION=None,
     logging.basicConfig(level=loglevels[VERBOSE])
 
     #-- Version flags
-    V1,V2 = ('_V1','') if (VERSION == '1') else ('','.{0}'.format(VERSION))
+    V1,V2 = (f'_V{VERSION}','') if (VERSION == '1') else ('',f'.{VERSION}')
+    #-- use GLDAS monthly products
+    TEMPORAL = 'M'
     #-- dimensions of spatial fields from SPATIAL variable
     if (SPATIAL == '025'):
         nlon,nlat = (1440,600)
     elif (SPATIAL == '10'):
         nlon,nlat = (360,150)
     #-- subdirectory for model monthly products at spacing for version
-    subdir = "GLDAS_{0}{1}_{2}{3}".format(MODEL,SPATIAL,'M',V2)
+    subdir = f'GLDAS_{MODEL}{SPATIAL}_{TEMPORAL}{V2}'
     #-- directory for GLDAS model
     ddir = os.path.join(base_dir, subdir)
     #-- years to run for mean
-    year_dir = ['{0:4d}'.format(sd) for sd in range(RANGE[0],RANGE[1]+1)]
+    year_dir = [f'{sd:4d}' for sd in range(RANGE[0],RANGE[1]+1)]
     #-- output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
 
     #-- compile regular expression pattern for finding files
     GLDAS_SUFFIX = r'nc4|grb|grb\.SUB\.nc4'
     regex_pattern = r'GLDAS_{0}{1}_{2}\.A(\d{{4}})(\d{{2}})\.(\d+)\.({3})$'
-    rx = re.compile(regex_pattern.format(MODEL,SPATIAL,'M',GLDAS_SUFFIX))
+    rx = re.compile(regex_pattern.format(MODEL,SPATIAL,TEMPORAL,GLDAS_SUFFIX))
     #-- ndates is the number of monthly measurements between date range
     ndates = 12*(RANGE[1]-RANGE[0]+1)
 

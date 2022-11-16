@@ -92,8 +92,8 @@ def ecco_read_realtime(ddir, MODEL, YEARS, RANGE=None, DATAFORM=None,
     logging.basicConfig(level=loglevels[VERBOSE])
 
     #-- set up regular expression for finding directories to run from YEAR
-    regex_year = '|'.join([r'{0:d}'.format(Y) for Y in YEARS])
-    rx = re.compile(r'{0}_({1})'.format(MODEL,regex_year), re.VERBOSE)
+    regex_years = r'|'.join([rf'{y:d}' for y in YEARS])
+    rx = re.compile(rf'{MODEL}_({regex_years})', re.VERBOSE)
     #-- Finding subdirectories
     input_dir = sorted([sd for sd in os.listdir(ddir) if \
         (os.path.isdir(os.path.join(ddir,sd)) & bool(rx.match(sd)))])
@@ -132,14 +132,15 @@ def ecco_read_realtime(ddir, MODEL, YEARS, RANGE=None, DATAFORM=None,
             os.path.join(ddir,mean_file),date=False)
 
     #-- output subdirectory for monthly datasets
-    outdir = 'ECCO_{0}_AveRmvd_OBP'.format(MODEL)
+    outdir = f'ECCO_{MODEL}_AveRmvd_OBP'
     #-- Creating subdirectory if it doesn't exist
     if (not os.access(os.path.join(ddir,outdir), os.F_OK)):
         os.mkdir(os.path.join(ddir,outdir),MODE)
 
     #-- output average ocean bottom pressure to file
-    output_average_file = 'ECCO_{0}_Global_Average_OBP.txt'.format(MODEL)
-    fid = open(os.path.join(ddir,outdir,output_average_file),'w')
+    output_average_file = f'ECCO_{MODEL}_Global_Average_OBP.txt'
+    fid = open(os.path.join(ddir,outdir,output_average_file),
+        mode='w', encoding='utf8')
 
     #-- for each yearly subdirectory
     for i in input_dir:
@@ -285,7 +286,7 @@ def ecco_read_realtime(ddir, MODEL, YEARS, RANGE=None, DATAFORM=None,
 
 #-- PURPOSE: wrapper function for outputting data to file
 def output_data(data,MODEL,FILENAME=None,DATAFORM=None,VERBOSE=False):
-    TITLE = 'Ocean_Bottom_Pressure_from_ECCO-JPL_{0}_Model'.format(MODEL)
+    TITLE = f'Ocean_Bottom_Pressure_from_ECCO-JPL_{MODEL}_Model'
     if (DATAFORM == 'ascii'):
         #-- ascii (.txt)
         data.to_ascii(FILENAME,verbose=VERBOSE)

@@ -50,6 +50,7 @@ import re
 import time
 import logging
 import argparse
+import posixpath
 import gravity_toolkit.utilities
 
 #-- PURPOSE: sync local NCEP-DOE-2 reanalysis files with NOAA CDC server
@@ -65,10 +66,10 @@ def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
         #-- output to log file
         #-- format: NOAA_CDC_NCEP-DOE-2_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = 'NOAA_CDC_NCEP-DOE-2_sync_{0}.log'.format(today)
-        fid1 = open(os.path.join(DIRECTORY,LOGFILE),'w')
+        LOGFILE = f'NOAA_CDC_NCEP-DOE-2_sync_{today}.log'
+        fid1 = open(os.path.join(DIRECTORY,LOGFILE), mode='w', encoding='utf8')
         logging.basicConfig(stream=fid1, level=logging.INFO)
-        logging.info('NOAA CDC Sync Log ({0})'.format(today))
+        logging.info(f'NOAA CDC Sync Log ({today})')
         logging.info('PRODUCT: NCEP-DOE-2')
     else:
         #-- standard output (terminal output)
@@ -79,8 +80,8 @@ def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
     HOST = ['ftp.cdc.noaa.gov','Datasets','ncep.reanalysis2.dailyavgs','surface']
 
     #-- compile the regular expression operator to find files
-    regex_years = '|'.join(['{0:4d}'.format(y) for y in YEAR])
-    R1 = re.compile('pres.sfc.({0}).nc'.format(regex_years))
+    regex_years = r'|'.join([rf'{y:4d}' for y in YEAR])
+    R1 = re.compile(rf'pres.sfc.({regex_years}).nc', re.VERBOSE)
     #-- list filenames and modification times from remote directory
     remote_files,remote_mtimes = gravity_toolkit.utilities.ftp_list(HOST,
         timeout=TIMEOUT, basename=True, pattern=R1, sort=True)
@@ -88,7 +89,7 @@ def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
         #-- extract filename from regex object
         local_file = os.path.join(DIRECTORY,fi)
         MD5 = gravity_toolkit.utilities.get_hash(local_file)
-        gravity_toolkit.utilities.from_ftp(HOST + [fi],
+        gravity_toolkit.utilities.from_ftp(posixpath.join(*HOST,fi),
             local=local_file, timeout=TIMEOUT, hash=MD5,
             verbose=True, fid=fid1, mode=MODE)
 
@@ -97,7 +98,7 @@ def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
         #-- extract filename from regex object
         local_file = os.path.join(DIRECTORY,'land.nc')
         MD5 = gravity_toolkit.utilities.get_hash(local_file)
-        gravity_toolkit.utilities.from_ftp(HOST + ['land.nc'],
+        gravity_toolkit.utilities.from_ftp(posixpath.join(*HOST,'land.nc'),
             local=local_file, timeout=TIMEOUT, hash=MD5,
             verbose=True, fid=fid1, mode=MODE)
 
@@ -106,7 +107,7 @@ def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
         #-- extract filename from regex object
         local_file = os.path.join(DIRECTORY,'hgt.sfc.nc')
         MD5 = gravity_toolkit.utilities.get_hash(local_file)
-        gravity_toolkit.utilities.from_ftp(HOST + ['hgt.sfc.nc'],
+        gravity_toolkit.utilities.from_ftp(posixpath.join(*HOST,'hgt.sfc.nc'),
             local=local_file, timeout=TIMEOUT, hash=MD5,
             verbose=True, fid=fid1, mode=MODE)
 

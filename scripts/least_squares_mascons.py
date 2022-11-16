@@ -159,10 +159,10 @@ from gravity_toolkit.ocean_stokes import ocean_stokes
 def info(args):
     logging.info(os.path.basename(sys.argv[0]))
     logging.info(args)
-    logging.info('module name: {0}'.format(__name__))
+    logging.info(f'module name: {__name__}')
     if hasattr(os, 'getppid'):
-        logging.info('parent process: {0:d}'.format(os.getppid()))
-    logging.info('process id: {0:d}'.format(os.getpid()))
+        logging.info(f'parent process: {os.getppid():d}')
+    logging.info(f'process id: {os.getpid():d}')
 
 #-- PURPOSE: calculate a regional time-series through a least
 #-- squares mascon process
@@ -210,7 +210,7 @@ def least_squares_mascons(input_file, LMAX, RAD,
     #-- Calculating the Gaussian smoothing for radius RAD
     if (RAD != 0):
         wt = 2.0*np.pi*gauss_weights(RAD,LMAX)
-        gw_str = '_r{0:0.0f}km'.format(RAD)
+        gw_str = f'_r{RAD:0.0f}km'
     else:
         #-- else = 1
         wt = np.ones((LMAX+1))
@@ -218,7 +218,7 @@ def least_squares_mascons(input_file, LMAX, RAD,
 
     #-- output string for both LMAX==MMAX and LMAX != MMAX cases
     MMAX = np.copy(LMAX) if not MMAX else MMAX
-    order_str = 'M{0:d}'.format(MMAX) if (MMAX != LMAX) else ''
+    order_str = 'M{MMAX:d}' if (MMAX != LMAX) else ''
     #-- output string for destriped harmonics
     ds_str = '_FL' if DESTRIPE else ''
 
@@ -300,7 +300,7 @@ def least_squares_mascons(input_file, LMAX, RAD,
         #-- if lower case, will capitalize
         mascon_base = mascon_base.upper()
         #-- if mascon name contains degree and order info, remove
-        mascon_name.append(mascon_base.replace('_L{0:d}'.format(LMAX),''))
+        mascon_name.append(mascon_base.replace(f'_L{LMAX:d}', ''))
     #-- create single harmonics object from list
     mascon_Ylms = harmonics().from_list(mascon_list, date=False)
 
@@ -404,7 +404,8 @@ def least_squares_mascons(input_file, LMAX, RAD,
         #-- else:
         #-- mascon mass, mascon area
         #-- open output mascon time-series file
-        fid = open(os.path.join(OUTPUT_DIRECTORY,file_out),'w')
+        fid = open(os.path.join(OUTPUT_DIRECTORY,file_out),
+            mode='w', encoding='utf8')
         #-- for each date
         for f in range(n_files):
             #-- Summing over all spherical harmonics for mascon k, and time t
@@ -623,7 +624,7 @@ def main():
         #-- if there has been an error exception
         #-- print the type, value, and stack trace of the
         #-- current exception being handled
-        logging.critical('process id {0:d} failed'.format(os.getpid()))
+        logging.critical(f'process id {os.getpid():d} failed')
         logging.error(traceback.format_exc())
         if args.log:#-- write failed job completion log file
             output_error_log_file(args)

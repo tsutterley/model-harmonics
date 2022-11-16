@@ -165,7 +165,7 @@ def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
         output.month = np.copy(dinput[0].month)
 
     #-- output file title
-    title = 'Output from {0}'.format(os.path.basename(sys.argv[0]))
+    title = f'Output from {os.path.basename(sys.argv[0])}'
     #-- write spherical harmonic file in data format
     output.to_file(OUTPUT_FILE, format=DATAFORM[-1],
         date=DATE, title=title)

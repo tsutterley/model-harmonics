@@ -116,7 +116,7 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     P1 = 'M2TMNXINT.5.12.4'
     P2 = 'M2TMNXGLC.5.12.4'
     #-- MERRA-2 output cumulative subdirectory
-    cumul_sub = '{0}.5.12.4.CUMUL.{1:d}.{2:d}'.format(PRODUCT,*RANGE)
+    cumul_sub = f'{PRODUCT}.5.12.4.CUMUL.{RANGE[0]:d}.{RANGE[1]:d}'
     #-- make cumulative subdirectory
     if not os.access(os.path.join(DIRECTORY,cumul_sub), os.F_OK):
         os.mkdir(os.path.join(DIRECTORY,cumul_sub), MODE)
@@ -211,7 +211,7 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
             merra_flux_file = os.path.join(DIRECTORY,P1,Y,f1)
             merra_ice_surface_file = os.path.join(DIRECTORY,P2,Y,f2)
             if not os.access(merra_ice_surface_file,os.F_OK):
-                raise Exception('File {0} not in file system'.format(f2))
+                raise FileNotFoundError(f'File {f2} not in file system')
             #-- read netCDF4 files for variables of interest
             var = read_merra_variables(merra_flux_file,merra_ice_surface_file)
             #-- convert from Julian days to calendar dates

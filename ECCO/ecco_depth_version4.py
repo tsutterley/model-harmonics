@@ -101,7 +101,7 @@ def ecco_depth_version4(ddir, model_file, VERSION='2014', MODE=0o775):
     interp.update_mask()
 
     #-- output netCDF4 dataset
-    bathymetry_file = 'DEPTH.{0}.720x360.nc'.format(VERSION)
+    bathymetry_file = f'DEPTH.{VERSION}.720x360.nc'
     TITLE = ('General Depth Chart of the Oceans, produced by the'
         'International Hydrographic Organization (IHO) and the United Nations '
         '(UNESCO) Intergovernmental Oceanographic Commission (IOC)')

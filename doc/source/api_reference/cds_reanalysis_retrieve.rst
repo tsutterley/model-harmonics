@@ -15,7 +15,7 @@ cds_reanalysis_retrieve.py
 .. __: https://github.com/tsutterley/model-harmonics/blob/main/reanalysis/cds_reanalysis_retrieve.py
 
 .. argparse::
-    :filename: ../../reanalysis/cds_reanalysis_retrieve.py
+    :filename: cds_reanalysis_retrieve.py
     :func: arguments
     :prog: cds_reanalysis_retrieve.py
     :nodescription:

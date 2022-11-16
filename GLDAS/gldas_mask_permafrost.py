@@ -98,8 +98,8 @@ def gldas_mask_permafrost(ddir, SPACING=None, SHAPEFILE=None, MODE=0o775):
         latlimit_south = -59.5
         longlimit_west = -179.5
     #-- input binary land mask and output netCDF4 mask
-    input_file = 'landmask_mod44w_{0}.1gd4r'.format(SPACING)
-    output_file = 'permafrost_mod44w_{0}.nc'.format(SPACING)
+    input_file = f'landmask_mod44w_{SPACING}.1gd4r'
+    output_file = f'permafrost_mod44w_{SPACING}.nc'
 
     #-- python dictionary with input data
     dinput = {}
@@ -118,7 +118,7 @@ def gldas_mask_permafrost(ddir, SPACING=None, SHAPEFILE=None, MODE=0o775):
     shape = fiona.open(SHAPEFILE)
     #-- pyproj transformer for converting from latitude/longitude
     #-- into NSIDC EASE-Grid North
-    crs1 = pyproj.CRS.from_string("epsg:{0:d}".format(4326))
+    crs1 = pyproj.CRS.from_epsg(4326)
     crs2 = pyproj.CRS.from_dict(shape.crs)
     transformer = pyproj.Transformer.from_crs(crs1, crs2, always_xy=True)
     #-- convert projection from latitude/longitude to polar stereographic

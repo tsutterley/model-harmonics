@@ -107,7 +107,7 @@ def jpl_ecco_v4_sync(ddir, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
     LOG=False, LIST=False, CLOBBER=False, CHECKSUM=False, MODE=None):
 
     #-- check if directory exists and recursively create if not
-    DIRECTORY = os.path.join(ddir, 'ECCO-{0}'.format(MODEL))
+    DIRECTORY = os.path.join(ddir, f'ECCO-{MODEL}')
     os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
 
     #-- remote https server for ECCO data
@@ -119,17 +119,16 @@ def jpl_ecco_v4_sync(ddir, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
     if LOG:
         #-- format: JPL_ECCO_V4r4_PHIBOT_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        args = (MODEL,PRODUCT,today)
-        LOGFILE = 'JPL_ECCO_{0}_{1}_{2}.log'.format(*args)
+        LOGFILE = f'JPL_ECCO_{MODEL}_{PRODUCT}_{today}.log'
         logging.basicConfig(filename=os.path.join(DIRECTORY,LOGFILE),
             level=logging.INFO)
-        logging.info('ECCO Version 4 {1} Sync Log ({2})'.format(*args))
+        logging.info(f'ECCO Version 4 {PRODUCT} Sync Log ({today})')
     else:
         #-- standard output (terminal output)
         logging.basicConfig(level=logging.INFO)
 
     #-- print the model synchronized
-    logging.info('MODEL: {0}\n'.format(MODEL))
+    logging.info(f'MODEL: {MODEL}\n')
 
     #-- print warning for Version 4, Revision 4
     #-- https://ecco-group.org/docs/ECCO_V4r4_errata.pdf
@@ -145,13 +144,12 @@ def jpl_ecco_v4_sync(ddir, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
     if YEAR is None:
         regex_years = r'\d+'
     else:
-        regex_years = r'|'.join('{0:d}'.format(y) for y in YEAR)
+        regex_years = r'|'.join([rf'{y:d}' for y in YEAR])
     #-- compile regular expression operator finding years
     if MODEL in ('V4r3',):
-        args = (PRODUCT,regex_years)
-        R1 = re.compile(r'{0}([\.\_])({1})(_\d+)?.nc$'.format(*args))
+        R1 = re.compile(rf'{PRODUCT}([\.\_])({regex_years})(_\d+)?.nc$')
     elif MODEL in ('V4r4',):
-        R1 = re.compile(regex_years)
+        R1 = re.compile(regex_years, re.VERBOSE)
 
     #-- remote subdirectory for MODEL on JPL ECCO data server
     PATH = [HOST,'drive','files',*model_path[MODEL]]
@@ -170,7 +168,7 @@ def jpl_ecco_v4_sync(ddir, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
             YY, = R1.findall(yr)
             PATH.append(yr)
         #-- compile regular expression operator for model product files
-        R3 = re.compile(r'{0}([\.\_])({1})(_\d+)?.nc$'.format(PRODUCT,YY))
+        R3 = re.compile(rf'{PRODUCT}([\.\_])({YY})(_\d+)?.nc$', re.VERBOSE)
         #-- full path to remote directory
         remote_dir = posixpath.join(*PATH)
         #-- read and parse request for files (find names and modified dates)
@@ -218,7 +216,7 @@ def http_pull_file(remote_file, remote_mtime, local_file,
         #-- compare checksums
         if (local_hash != remote_hash):
             TEST = True
-            OVERWRITE = ' (checksums: {0} {1})'.format(local_hash,remote_hash)
+            OVERWRITE = f' (checksums: {local_hash} {remote_hash})'
     elif os.access(local_file, os.F_OK):
         #-- check last modification time of local file
         local_mtime = os.stat(local_file).st_mtime
@@ -232,8 +230,8 @@ def http_pull_file(remote_file, remote_mtime, local_file,
     #-- if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         #-- Printing files transferred
-        logging.info('{0} --> '.format(remote_file))
-        logging.info('\t{0}{1}\n'.format(local_file,OVERWRITE))
+        logging.info(f'{remote_file} --> ')
+        logging.info(f'\t{local_file}{OVERWRITE}\n')
         #-- if executing copy command (not only printing the files)
         if not LIST:
             #-- chunked transfer encoding size
@@ -335,11 +333,11 @@ def main():
     except:
         #-- check that NASA Earthdata credentials were entered
         if not args.user:
-            prompt = 'Username for {0}: '.format(HOST)
+            prompt = f'Username for {HOST}: '
             args.user = builtins.input(prompt)
         #-- enter WebDAV password securely from command-line
         if not args.webdav:
-            prompt = 'Password for {0}@{1}: '.format(args.user,HOST)
+            prompt = f'Password for {args.user}@{HOST}: '
             args.webdav = getpass.getpass(prompt)
 
     #-- build a urllib opener for JPL ECCO Drive
@@ -348,7 +346,7 @@ def main():
 
     #-- check internet connection before attempting to run program
     #-- check JPL ECCO Drive credentials before attempting to run program
-    DRIVE = 'https://{0}/drive/files'.format(HOST)
+    DRIVE = f'https://{HOST}/drive/files'
     if gravity_toolkit.utilities.check_credentials(DRIVE):
         for MODEL in args.model:
             jpl_ecco_v4_sync(args.directory, MODEL, YEAR=args.year,

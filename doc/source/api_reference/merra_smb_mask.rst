@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../SMB/merra_smb_mask.py
+    :filename: merra_smb_mask.py
     :func: arguments
     :prog: merra_smb_mask.py
     :nodescription:

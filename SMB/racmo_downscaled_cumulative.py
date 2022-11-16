@@ -92,11 +92,11 @@ def get_dimensions(input_dir, VERSION, PRODUCT, GZIP=False):
     if PRODUCT in ('SMB','PRECIP') and (VERSION == '2.0'):
         VARNAME = VARIABLE
     else:
-        VARNAME = '{0}corr'.format(VARIABLE)
+        VARNAME = f'{VARIABLE}corr'
     #-- if reading yearly files or compressed files
     if VERSION in ('1.0','4.0'):
         #-- find input files
-        pattern = r'{0}.(\d+).BN_(.*?).MM.nc(\.gz)?'.format(VARIABLE)
+        pattern = rf'{VARIABLE}.(\d+).BN_(.*?).MM.nc(\.gz)?'
         rx = re.compile(pattern, re.VERBOSE | re.IGNORECASE)
         infiles = sorted([f for f in os.listdir(input_dir) if rx.match(f)])
         nt = 12*len(infiles)
@@ -162,7 +162,7 @@ def yearly_file_cumulative(input_dir, VERSION, PRODUCT, MEAN, GZIP=False):
     #-- regular expression operator for finding variables
     regex = re.compile(VARIABLE, re.VERBOSE | re.IGNORECASE)
     #-- find input files for years of interest
-    pattern = r'{0}.(\d+).BN_(.*?).MM.nc(\.gz)?'.format(VARIABLE)
+    pattern = rf'{VARIABLE}.(\d+).BN_(.*?).MM.nc(\.gz)?'
     rx = re.compile(pattern, re.VERBOSE | re.IGNORECASE)
     input_files = sorted([fi for fi in os.listdir(input_dir) if rx.match(fi)])
     #-- number of input files
@@ -187,7 +187,7 @@ def yearly_file_cumulative(input_dir, VERSION, PRODUCT, MEAN, GZIP=False):
     gz = '.gz' if GZIP else ''
     #-- input area file with ice mask and model topography
     if (VERSION == '4.0'):
-        f1 = 'Icemask_Topo_Iceclasses_lon_lat_average_1km_GrIS.nc{0}'.format(gz)
+        f1 = f'Icemask_Topo_Iceclasses_lon_lat_average_1km_GrIS.nc{gz}'
         if GZIP:
             #-- read bytes from compressed file
             fd = gzip.open(os.path.join(input_dir,f1),'rb')
@@ -285,7 +285,7 @@ def compressed_file_cumulative(input_dir, VERSION, PRODUCT, MEAN, GZIP=False):
     if (PRODUCT == 'SMB') or ((PRODUCT == 'PRECIP') and (VERSION == '2.0')):
         VARNAME = VARIABLE
     else:
-        VARNAME = '{0}corr'.format(VARIABLE)
+        VARNAME = f'{VARIABLE}corr'
 
     #-- if reading bytes from compressed file or netcdf file directly
     gz = '.gz' if GZIP else ''
@@ -293,7 +293,7 @@ def compressed_file_cumulative(input_dir, VERSION, PRODUCT, MEAN, GZIP=False):
     dinput = {}
 
     #-- input area file with ice mask and model topography
-    f1 = 'Icemask_Topo_Iceclasses_lon_lat_average_1km_GrIS.nc{0}'.format(gz)
+    f1 = f'Icemask_Topo_Iceclasses_lon_lat_average_1km_GrIS.nc{gz}'
     if GZIP:
         #-- read bytes from compressed file
         fd = gzip.open(os.path.join(input_dir,f1),'rb')
@@ -475,28 +475,28 @@ def racmo_downscaled_cumulative(base_dir, VERSION, PRODUCT,
     """
 
     #-- Full Directory Setup
-    DIRECTORY = 'SMB1km_v{0}'.format(VERSION)
+    DIRECTORY = f'SMB1km_v{VERSION}'
 
     #-- versions 1 and 4 are in separate files for each year
     if (VERSION == '1.0'):
         RACMO_MODEL = ['XGRN11','2.3']
         VARNAME = input_products[PRODUCT]
-        SUBDIRECTORY = '{0}_v{1}'.format(VARNAME,VERSION)
+        SUBDIRECTORY = f'{VARNAME}_v{VERSION}'
         input_dir = os.path.join(base_dir, DIRECTORY, SUBDIRECTORY)
     elif (VERSION == '2.0'):
         RACMO_MODEL = ['XGRN11','2.3p2']
         var = input_products[PRODUCT]
-        VARNAME = var if PRODUCT in ('SMB','PRECIP') else '{0}corr'.format(var)
+        VARNAME = var if PRODUCT in ('SMB','PRECIP') else f'{var}corr'
         input_dir = os.path.join(base_dir, DIRECTORY)
     elif (VERSION == '3.0'):
         RACMO_MODEL = ['FGRN055','2.3p2']
         var = input_products[PRODUCT]
-        VARNAME = var if (PRODUCT == 'SMB') else '{0}corr'.format(var)
+        VARNAME = var if (PRODUCT == 'SMB') else f'{var}corr'
         input_dir = os.path.join(base_dir, DIRECTORY)
     elif (VERSION == '4.0'):
         RACMO_MODEL = ['FGRN055','2.3p2']
         var = input_products[PRODUCT]
-        VARNAME = var if (PRODUCT == 'SMB') else '{0}corr'.format(var)
+        VARNAME = var if (PRODUCT == 'SMB') else f'{var}corr'
         input_dir = os.path.join(base_dir, DIRECTORY)
 
     #-- read mean from netCDF4 file

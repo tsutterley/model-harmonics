@@ -202,7 +202,7 @@ def racmo_smb_harmonics(model_file, VARIABLE,
     #-- upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
     #-- output string for both LMAX == MMAX and LMAX != MMAX cases
-    order_str = 'M{0:d}'.format(MMAX) if (MMAX != LMAX) else ''
+    order_str = 'M{MMAX:d}' if (MMAX != LMAX) else ''
 
     #-- allocate for output spherical harmonics
     Ylms = harmonics(lmax=LMAX, mmax=MMAX)

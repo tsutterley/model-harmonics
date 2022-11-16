@@ -13,7 +13,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../ECCO/jpl_ecco_webdav.py
+    :filename: jpl_ecco_webdav.py
     :func: arguments
     :prog: jpl_ecco_webdav.py
     :nodescription:

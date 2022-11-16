@@ -97,8 +97,8 @@ def ecco_read_version4(ddir, MODEL, YEARS, RANGE=None,
     logging.basicConfig(level=loglevels[VERBOSE])
 
     #-- input and output subdirectories
-    sd1 = 'ECCO-{0}'.format(MODEL)
-    sd2 = 'ECCO_{0}_AveRmvd_OBP'.format(MODEL)
+    sd1 = f'ECCO-{MODEL}'
+    sd2 = f'ECCO_{MODEL}_AveRmvd_OBP'
     #-- recursively create subdirectory if it doesn't exist
     if (not os.access(os.path.join(ddir,sd2), os.F_OK)):
         os.makedirs(os.path.join(ddir,sd2),MODE)
@@ -159,14 +159,15 @@ def ecco_read_version4(ddir, MODEL, YEARS, RANGE=None,
             os.path.join(ddir,sd1,mean_file), date=False).squeeze()
 
     #-- output average ocean bottom pressure to file
-    output_average_file = 'ECCO_{0}_Global_Average_OBP.txt'.format(MODEL)
-    fid = open(os.path.join(ddir,sd1,output_average_file),'w')
+    output_average_file = f'ECCO_{MODEL}_Global_Average_OBP.txt'
+    fid = open(os.path.join(ddir,sd1,output_average_file),
+        mode='w', encoding='utf8')
 
     #-- compile regular expression operator for finding files for years
-    year_regex = '|'.join('{0:d}'.format(y) for y in YEARS)
-    rx1 = re.compile(r'PHIBOT([\.\_])({0})(_\d+)?.nc$'.format(year_regex))
+    regex_years = r'|'.join([rf'{y:d}' for y in YEARS])
+    rx1 = re.compile(rf'PHIBOT([\.\_])({regex_years})(_\d+)?.nc$')
     #-- find input files
-    flist=[f for f in os.listdir(os.path.join(ddir,sd1)) if rx1.match(f)]
+    flist = [f for f in os.listdir(os.path.join(ddir,sd1)) if rx1.match(f)]
     #-- read each input file
     for fi in sorted(flist):
         #-- Open netCDF4 datafile for reading
@@ -249,7 +250,7 @@ def ecco_read_version4(ddir, MODEL, YEARS, RANGE=None,
 
 #-- PURPOSE: wrapper function for outputting data to file
 def output_data(data,MODEL,FILENAME=None,DATAFORM=None,VERBOSE=False):
-    TITLE = 'Ocean_Bottom_Pressure_from_ECCO_{0}_Model'.format(MODEL)
+    TITLE = f'Ocean_Bottom_Pressure_from_ECCO_{MODEL}_Model'
     if (DATAFORM == 'ascii'):
         #-- ascii (.txt)
         data.to_ascii(FILENAME,verbose=VERBOSE)

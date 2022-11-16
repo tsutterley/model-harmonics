@@ -93,7 +93,7 @@ def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
     logging.basicConfig(level=loglevels[VERBOSE])
 
     #-- input and output subdirectories
-    sd = 'ECCO-{0}'.format(MODEL)
+    sd = f'ECCO-{MODEL}'
     #-- output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
 
@@ -132,8 +132,8 @@ def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
         varname='depth', date=False)
 
     #-- compile regular expression operator for finding files for years
-    year_regex = '|'.join('{0:d}'.format(y) for y in range(RANGE[0],RANGE[1]+1))
-    rx1 = re.compile(r'PHIBOT([\.\_])({0})(_(\d+))?.nc$'.format(year_regex))
+    regex_years = r'|'.join(rf'{y:d}' for y in range(RANGE[0],RANGE[1]+1))
+    rx1 = re.compile(rf'PHIBOT([\.\_])({regex_years})(_(\d+))?.nc$')
     #-- find input files
     input_files = [fi for fi in os.listdir(os.path.join(ddir,sd)) if rx1.match(fi)]
 
@@ -215,7 +215,7 @@ def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
     #-- output to file
     args = (MODEL, RANGE[0], RANGE[1], suffix[DATAFORM])
     FILE = 'ECCO_{0}_OBP_MEAN_{1:4d}-{2:4d}.{3}'.format(*args)
-    TITLE = 'Mean_Ocean_Bottom_Pressure_from_ECCO_{0}_Model'.format(MODEL)
+    TITLE = f'Mean_Ocean_Bottom_Pressure_from_ECCO_{MODEL}_Model'
     if (DATAFORM == 'ascii'):
         #-- ascii (.txt)
         obp_mean.to_ascii(os.path.join(ddir,sd,FILE),verbose=VERBOSE)

@@ -139,7 +139,7 @@ def merra_smb_mask(input_file, output_file, VARNAME=None,
     #-- create meshgrid of lat and long
     gridlon,gridlat = np.meshgrid(dinput.lon, dinput.lat)
     #-- projection object for converting from latitude/longitude
-    crs1 = pyproj.CRS.from_string("epsg:{0:d}".format(4326))
+    crs1 = pyproj.CRS.from_epsg(4326)
 
     #-- dictionary with output variables
     output = {}
@@ -152,7 +152,7 @@ def merra_smb_mask(input_file, output_file, VARNAME=None,
     for i,SHAPEFILE in enumerate(SHAPEFILES):
         #-- read shapefile to find points within region
         poly_obj,crs2 = read_shapefile(SHAPEFILE, AREA=AREA, BUFFER=BUFFER)
-        logging.info('Polygon Count: {0:d}'.format(len(poly_obj)))
+        logging.info(f'Polygon Count: {len(poly_obj):d}')
         #-- pyproj transformer for converting from latitude/longitude
         #-- to projection of input shapefile
         transformer = pyproj.Transformer.from_crs(crs1, crs2, always_xy=True)

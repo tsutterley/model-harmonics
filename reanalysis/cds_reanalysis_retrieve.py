@@ -85,7 +85,7 @@ def cds_reanalysis_retrieve(base_dir, server, YEAR,
         'evaporation'
         ]
     #-- model levels
-    model_levelist = "/".join(['{0:d}'.format(l) for l in range(1,137+1)])
+    model_levelist = "/".join([f'{l:d}' for l in range(1,137+1)])
     #-- output filename structure
     output_filename = "{0}-Monthly-{1}-{2:4d}.nc"
     #-- setup output directory and recursively create if currently non-existent
@@ -95,9 +95,9 @@ def cds_reanalysis_retrieve(base_dir, server, YEAR,
     #-- for each year
     for y in YEAR:
         #-- months to retrieve
-        months = ['{0:02d}'.format(m+1) for m in range(12)]
+        months = [f'{m+1:02d}' for m in range(12)]
         #-- monthly dates to retrieve
-        d = "/".join(['{0:4d}{1}{2:02d}'.format(y,m,1) for m in months])
+        d = "/".join([f'{y:4d}{m}{1:02d}' for m in months])
 
         #-- for each surface variable to retrieve
         for surf in SURFACE:
@@ -136,7 +136,7 @@ def cds_reanalysis_retrieve(base_dir, server, YEAR,
 
     #-- if retrieving the model invariant parameters
     if INVARIANT:
-        output_invariant_file = '{0}-Invariant-Parameters.nc'.format(MODEL)
+        output_invariant_file = f'{MODEL}-Invariant-Parameters.nc'
         server.retrieve('reanalysis-era5-single-levels-monthly-means', {
             "class": model_class,
             "dataset": model_dataset,

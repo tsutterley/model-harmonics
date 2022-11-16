@@ -105,10 +105,10 @@ def gesdisc_merra_sync(DIRECTORY, YEARS=None, VERSION=None, TIMEOUT=None,
         #-- output to log file
         #-- format: NASA_GESDISC_MERRA2_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = 'NASA_GESDISC_MERRA2_sync_{0}.log'.format(today)
+        LOGFILE = f'NASA_GESDISC_MERRA2_sync_{today}.log'
         logging.basicConfig(filename=os.path.join(DIRECTORY,LOGFILE),
             level=logging.INFO)
-        logging.info('NASA MERRA-2 Sync Log ({0})'.format(today))
+        logging.info(f'NASA MERRA-2 Sync Log ({today})')
     else:
         #-- standard output (terminal output)
         logging.basicConfig(level=logging.INFO)
@@ -125,13 +125,13 @@ def gesdisc_merra_sync(DIRECTORY, YEARS=None, VERSION=None, TIMEOUT=None,
 
     #-- for each MERRA-2 product to sync
     for SHORTNAME in ['M2TMNXINT','M2TMNXGLC']:
-        PRODUCT = '{0}.{1}'.format(SHORTNAME,VERSION)
-        logging.info('PRODUCT={0}'.format(PRODUCT))
+        PRODUCT = f'{SHORTNAME}.{VERSION}'
+        logging.info(f'PRODUCT={PRODUCT}')
         #-- for each year to sync
         for Y in map(str,YEARS):
             #-- start and end date for query
-            start_date = '{0}-01-01'.format(Y)
-            end_date = '{0}-12-31'.format(Y)
+            start_date = f'{Y}-01-01'
+            end_date = f'{Y}-12-31'
             ids,urls,mtimes = model_harmonics.utilities.cmr(SHORTNAME,
                 version=VERSION, start_date=start_date, end_date=end_date,
                 provider='GES_DISC', verbose=True)
@@ -172,8 +172,8 @@ def http_pull_file(remote_file, remote_mtime, local_file,
     #-- if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         #-- Printing files transferred
-        logging.info('{0} --> '.format(remote_file))
-        logging.info('\t{0}{1}\n'.format(local_file,OVERWRITE))
+        logging.info(f'{remote_file} --> ')
+        logging.info(f'\t{local_file}{OVERWRITE}\n')
         #-- if executing copy command (not only printing the files)
         if not LIST:
             #-- Create and submit request. There are a wide range of exceptions
@@ -262,11 +262,11 @@ def main():
     except:
         #-- check that NASA Earthdata credentials were entered
         if not args.user:
-            prompt = 'Username for {0}: '.format(URS)
+            prompt = f'Username for {URS}: '
             args.user = builtins.input(prompt)
         #-- enter password securely from command-line
         if not args.password:
-            prompt = 'Password for {0}@{1}: '.format(args.user,URS)
+            prompt = f'Password for {args.user}@{URS}: '
             args.password = getpass.getpass(prompt)
 
     #-- build a urllib opener for NASA GESDISC

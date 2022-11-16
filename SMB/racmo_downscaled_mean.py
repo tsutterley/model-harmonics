@@ -93,7 +93,7 @@ def get_dimensions(input_dir, VERSION, PRODUCT, GZIP=False):
     if PRODUCT in ('SMB','PRECIP') and (VERSION == '2.0'):
         VARNAME = VARIABLE
     else:
-        VARNAME = '{0}corr'.format(VARIABLE)
+        VARNAME = f'{VARIABLE}corr'
     #-- if reading yearly files or compressed files
     if VERSION in ('1.0','4.0'):
         #-- find input files
@@ -164,8 +164,8 @@ def yearly_file_mean(input_dir, VERSION, PRODUCT, START, END, GZIP=False):
     #-- regular expression operator for finding variables
     regex = re.compile(VARIABLE, re.VERBOSE | re.IGNORECASE)
     #-- find input files for years of interest
-    regex_years = '|'.join('{0:4d}'.format(Y) for Y in range(START,END+1))
-    pattern = r'{0}.({1}).BN_(.*?).MM.nc(\.gz)?'.format(VARIABLE,regex_years)
+    regex_years = r'|'.join(rf'{Y:4d}' for Y in range(START,END+1))
+    pattern = rf'{VARIABLE}.({regex_years}).BN_(.*?).MM.nc(\.gz)?'
     rx = re.compile(pattern, re.VERBOSE | re.IGNORECASE)
     input_files = sorted([fi for fi in os.listdir(input_dir) if rx.match(fi)])
     #-- number of input files
@@ -191,7 +191,7 @@ def yearly_file_mean(input_dir, VERSION, PRODUCT, START, END, GZIP=False):
     gz = '.gz' if GZIP else ''
     #-- input area file with ice mask and model topography
     if (VERSION == '4.0'):
-        f1 = 'Icemask_Topo_Iceclasses_lon_lat_average_1km_GrIS.nc{0}'.format(gz)
+        f1 = f'Icemask_Topo_Iceclasses_lon_lat_average_1km_GrIS.nc{gz}'
         if GZIP:
             #-- read bytes from compressed file
             fd = gzip.open(os.path.join(input_dir,f1),'rb')
@@ -303,7 +303,7 @@ def compressed_file_mean(input_dir, VERSION, PRODUCT, START, END, GZIP=False):
     dinput = {}
 
     #-- input area file with ice mask and model topography
-    f1 = 'Icemask_Topo_Iceclasses_lon_lat_average_1km_GrIS.nc{0}'.format(gz)
+    f1 = f'Icemask_Topo_Iceclasses_lon_lat_average_1km_GrIS.nc{gz}'
     if GZIP:
         #-- read bytes from compressed file
         fd = gzip.open(os.path.join(input_dir,f1),'rb')
@@ -490,34 +490,34 @@ def racmo_downscaled_mean(base_dir, VERSION, PRODUCT,
     """
 
     #-- Full Directory Setup
-    DIRECTORY = 'SMB1km_v{0}'.format(VERSION)
+    DIRECTORY = f'SMB1km_v{VERSION}'
 
     #-- versions 1 and 4 are in separate files for each year
     if (VERSION == '1.0'):
         RACMO_MODEL = ['XGRN11','2.3']
         VARNAME = input_products[PRODUCT]
-        SUBDIRECTORY = '{0}_v{1}'.format(VARNAME,VERSION)
+        SUBDIRECTORY = f'{VARNAME}_v{VERSION}'
         input_dir = os.path.join(base_dir, DIRECTORY, SUBDIRECTORY)
         dinput = yearly_file_mean(input_dir, VERSION, PRODUCT,
             RANGE[0], RANGE[1], GZIP=GZIP)
     elif (VERSION == '2.0'):
         RACMO_MODEL = ['XGRN11','2.3p2']
         var = input_products[PRODUCT]
-        VARNAME = var if PRODUCT in ('SMB','PRECIP') else '{0}corr'.format(var)
+        VARNAME = var if PRODUCT in ('SMB','PRECIP') else f'{var}corr'
         input_dir = os.path.join(base_dir, DIRECTORY)
         dinput = compressed_file_mean(input_dir, VERSION, PRODUCT,
             RANGE[0], RANGE[1], GZIP=GZIP)
     elif (VERSION == '3.0'):
         RACMO_MODEL = ['FGRN055','2.3p2']
         var = input_products[PRODUCT]
-        VARNAME = var if (PRODUCT == 'SMB') else '{0}corr'.format(var)
+        VARNAME = var if (PRODUCT == 'SMB') else f'{var}corr'
         input_dir = os.path.join(base_dir, DIRECTORY)
         dinput = compressed_file_mean(input_dir, VERSION, PRODUCT,
             RANGE[0], RANGE[1], GZIP=GZIP)
     elif (VERSION == '4.0'):
         RACMO_MODEL = ['FGRN055','2.3p2']
         var = input_products[PRODUCT]
-        VARNAME = var if (PRODUCT == 'SMB') else '{0}corr'.format(var)
+        VARNAME = var if (PRODUCT == 'SMB') else f'{var}corr'
         input_dir = os.path.join(base_dir, DIRECTORY)
         dinput = yearly_file_mean(input_dir, VERSION, PRODUCT,
             RANGE[0], RANGE[1], GZIP=GZIP)

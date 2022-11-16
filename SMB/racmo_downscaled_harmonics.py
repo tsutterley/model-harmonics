@@ -112,13 +112,13 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
         VARNAME = input_products[VARIABLE]
     elif (VERSION == '2.0'):
         var = input_products[VARIABLE]
-        VARNAME = var if VARIABLE in ('SMB','PRECIP') else '{0}corr'.format(var)
+        VARNAME = var if VARIABLE in ('SMB','PRECIP') else f'{var}corr'
     elif (VERSION == '3.0'):
         var = input_products[VARIABLE]
-        VARNAME = var if (VARIABLE == 'SMB') else '{0}corr'.format(var)
+        VARNAME = var if (VARIABLE == 'SMB') else f'{var}corr'
     elif (VERSION == '4.0'):
         var = input_products[VARIABLE]
-        VARNAME = var if (VARIABLE == 'SMB') else '{0}corr'.format(var)
+        VARNAME = var if (VARIABLE == 'SMB') else f'{var}corr'
 
     #-- Open the RACMO SMB NetCDF file for reading
     if GZIP:
@@ -195,7 +195,7 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
     #-- upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
     #-- output string for both LMAX == MMAX and LMAX != MMAX cases
-    order_str = 'M{0:d}'.format(MMAX) if (MMAX != LMAX) else ''
+    order_str = 'M{MMAX:d}' if (MMAX != LMAX) else ''
 
     #-- allocate for output spherical harmonics
     Ylms = harmonics(lmax=LMAX, mmax=MMAX)

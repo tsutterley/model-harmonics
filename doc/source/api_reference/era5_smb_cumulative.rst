@@ -13,7 +13,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../SMB/era5_smb_cumulative.py
+    :filename: era5_smb_cumulative.py
     :func: arguments
     :prog: era5_smb_cumulative.py
     :nodescription:
