@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mask_arctic.py
-Written by Tyler Sutterley (07/2022)
+Written by Tyler Sutterley (11/2022)
 
 Creates a mask for GLDAS data for Greenland, Svalbard, Iceland and the
     Russian High Arctic defined by a set of shapefiles
@@ -32,6 +32,7 @@ PYTHON DEPENDENCIES:
          https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 07/2022: place some imports behind try/except statements
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: can use variable loglevels for verbose output

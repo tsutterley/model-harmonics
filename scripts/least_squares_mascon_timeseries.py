@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 least_squares_mascon_timeseries.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (11/2022)
 
 Calculates a time-series of regional mass anomalies through a
     least-squares mascon procedure procedure from an index of
@@ -99,6 +99,7 @@ REFERENCES:
         https://doi.org/10.1029/2009GL039401
 
 UPDATE HISTORY:
+    Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
         include utf-8 encoding in reads to be windows compliant

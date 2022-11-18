@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 GIA_GSFC_mascons.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (11/2022)
 Calculates GIA equivalent water height corrections for GSFC mascons at the
     central points of each mascon
 
@@ -64,6 +64,7 @@ REFERENCES:
         Bollettino di Geodesia e Scienze (1982)
 
 UPDATE HISTORY:
+    Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use full data citation from GIA import function
     Updated 04/2022: use wrapper function for reading load Love numbers
         use argparse descriptions within sphinx documentation

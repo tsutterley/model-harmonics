@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_mean.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (11/2022)
 Reads monthly MERRA-2 datafiles to calculate multi-annual means
     of derived surface mass balance products
 
@@ -47,6 +47,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: lower case keyword arguments to output spatial
     Updated 12/2021: can use variable loglevels for verbose output
@@ -181,7 +182,7 @@ def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
             merra_flux_file = os.path.join(DIRECTORY,P1,Y,f1)
             merra_ice_surface_file = os.path.join(DIRECTORY,P2,Y,f2)
             if not os.access(merra_ice_surface_file,os.F_OK):
-                raise Exception('File {0} not in file system'.format(f2))
+                raise FileNotFoundError(f'File {f2} not in file system')
             #-- read netCDF4 files for variables of interest
             var = read_merra_variables(merra_flux_file,merra_ice_surface_file)
             #-- convert from Julian days to calendar dates

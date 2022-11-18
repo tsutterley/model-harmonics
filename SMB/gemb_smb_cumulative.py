@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gemb_smb_cumulative.py
-Written by Tyler Sutterley (10/2022)
+Written by Tyler Sutterley (11/2022)
 Calculates cumulative anomalies of GEMB surface mass balance products
 
 CALLING SEQUENCE:
@@ -21,6 +21,7 @@ PYTHON DEPENDENCIES:
          https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 11/2022: use f-strings for formatting verbose or ascii output
     Written 10/2022
 """
 from __future__ import print_function

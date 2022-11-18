@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-ecmwf_reanalysis_retrieve.py (07/2021)
+ecmwf_reanalysis_retrieve.py (11/2022)
 Retrieves reanalysis netCDF4 datasets from the ECMWF Web API
 https://software.ecmwf.int/wiki/display/CKB/How+to+download+data+via+the+ECMWF+WebAPI
 https://software.ecmwf.int/wiki/display/WEBAPI/Access+ECMWF+Public+Datasets#AccessECMWFPublicDatasets-key
@@ -35,6 +35,7 @@ PYTHON DEPENDENCIES:
         https://software.ecmwf.int/wiki/display/WEBAPI/Web-API+Downloads
 
 UPDATE HISTORY:
+    Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 07/2021: added option for retrieving the model level variables
     Updated 03/2021: added mean sea level pressure (msl) field as output
