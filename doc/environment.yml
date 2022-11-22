@@ -27,9 +27,9 @@ dependencies:
   - scikit-learn
   - scipy
   - sphinx
-  - sphinx-argparse>=0.4
   - sphinx_rtd_theme
   - pip:
+     - sphinx-argparse>=0.4
      - geoid-toolkit
      - git+https://github.com/tsutterley/read-GRACE-harmonics.git
      - ..
