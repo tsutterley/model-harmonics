@@ -39,10 +39,10 @@ import netCDF4
 import argparse
 import numpy as np
 
-#-- Read the GLDAS vegetation index and create a mask defining each type
+# Read the GLDAS vegetation index and create a mask defining each type
 def gldas_mask_vegetation(ddir, SPACING=None, MODE=0o775):
 
-    #-- parameters for each grid spacing
+    # parameters for each grid spacing
     if (SPACING == '025'):
         dx, dy = (0.25, 0.25)
         nx, ny = (1440, 600)
@@ -58,41 +58,41 @@ def gldas_mask_vegetation(ddir, SPACING=None, MODE=0o775):
         input_file = f'modmodis_domveg20_{dx:3.1f}.bin'
         output_file = f'modmodis_domveg20_{SPACING}.nc'
 
-    #-- python dictionary with input data
+    # python dictionary with input data
     dinput = {}
-    #-- latitude and longitude
+    # latitude and longitude
     dinput['longitude'] = longlimit_west + np.arange(nx)*dx
     dinput['latitude'] = latlimit_south + np.arange(ny)*dy
-    #-- read MODIS vegetation index binary file
+    # read MODIS vegetation index binary file
     mask_input = np.fromfile(os.path.join(ddir,input_file),'>f4')
     dinput['index'] = np.zeros((ny,nx),dtype=np.uint16)
     dinput['index'][:,:] = mask_input.reshape(ny,nx)
-    #-- write to output netCDF4 (.nc)
+    # write to output netCDF4 (.nc)
     ncdf_index_write(dinput, FILENAME=os.path.join(ddir,output_file))
-    #-- change the permission level to MODE
+    # change the permission level to MODE
     os.chmod(os.path.join(ddir,output_file),MODE)
 
-#-- PURPOSE: write vegetation index data to netCDF4 file
+# PURPOSE: write vegetation index data to netCDF4 file
 def ncdf_index_write(dinput, FILENAME=None):
-    #-- opening NetCDF file for writing
+    # opening NetCDF file for writing
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
-    #-- Defining the NetCDF dimensions
+    # Defining the NetCDF dimensions
     LATNAME,LONNAME = ('latitude','longitude')
     for key in [LONNAME,LATNAME]:
         fileID.createDimension(key, len(dinput[key]))
 
-    #-- defining the NetCDF variables
+    # defining the NetCDF variables
     nc = {}
     nc[LATNAME]=fileID.createVariable(LATNAME,dinput[LATNAME].dtype,(LATNAME,))
     nc[LONNAME]=fileID.createVariable(LONNAME,dinput[LONNAME].dtype,(LONNAME,))
     nc['index'] = fileID.createVariable('index', dinput['index'].dtype,
         (LATNAME,LONNAME,), fill_value=0, zlib=True)
-    #-- filling NetCDF variables
+    # filling NetCDF variables
     for key,val in dinput.items():
         nc[key][:] = np.copy(val)
 
-    #-- Defining attributes for longitude and latitude
+    # Defining attributes for longitude and latitude
     nc[LONNAME].long_name = 'longitude'
     nc[LONNAME].units = 'degrees_east'
     nc[LATNAME].long_name = 'latitude'
@@ -121,58 +121,58 @@ def ncdf_index_write(dinput, FILENAME=None):
     description.append('20: Bare Ground Tundra')
     nc['index'].description = ', '.join(description)
 
-    #-- Output NetCDF structure information
+    # Output NetCDF structure information
     logging.info(os.path.basename(FILENAME))
     logging.info(list(fileID.variables.keys()))
 
-    #-- Closing the NetCDF file
+    # Closing the NetCDF file
     fileID.close()
 
-#-- PURPOSE: create argument parser
+# PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
         description="""Creates a mask for GLDAS data using
             the GLDAS vegetation type binary files
             """
     )
-    #-- command line parameters
-    #-- working data directory for location of GLDAS data
+    # command line parameters
+    # working data directory for location of GLDAS data
     parser.add_argument('--directory','-D',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         default=os.getcwd(),
         help='Working data directory')
-    #-- model spatial resolution
-    #-- 10: 1.0 degrees latitude/longitude
-    #-- 025: 0.25 degrees latitude/longitude
+    # model spatial resolution
+    # 10: 1.0 degrees latitude/longitude
+    # 025: 0.25 degrees latitude/longitude
     parser.add_argument('--spacing','-S',
         type=str, default='10', choices=['10','025'],
         help='Spatial resolution of models to run')
-    #-- verbosity settings
-    #-- verbose will output information about each output file
+    # verbosity settings
+    # verbose will output information about each output file
     parser.add_argument('--verbose','-V',
         action='count', default=0,
         help='Verbose output of processing run')
-    #-- permissions mode of the local directories and files (number in octal)
+    # permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='permissions mode of output files')
-    #-- return the parser
+    # return the parser
     return parser
 
-#-- This is the main part of the program that calls the individual functions
+# This is the main part of the program that calls the individual functions
 def main():
-    #-- Read the system arguments listed after the program
+    # Read the system arguments listed after the program
     parser = arguments()
     args,_ = parser.parse_known_args()
 
-    #-- create logger
+    # create logger
     loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
     logging.basicConfig(level=loglevels[args.verbose])
 
-    #-- run program
+    # run program
     gldas_mask_vegetation(args.directory, SPACING=args.spacing,
         MODE=args.mode)
 
-#-- run main program
+# run main program
 if __name__ == '__main__':
     main()

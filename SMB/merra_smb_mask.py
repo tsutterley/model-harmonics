@@ -62,7 +62,7 @@ import warnings
 import numpy as np
 import gravity_toolkit.spatial
 
-#-- attempt imports
+# attempt imports
 try:
     import fiona
 except ModuleNotFoundError:
@@ -76,197 +76,197 @@ except ModuleNotFoundError:
     warnings.filterwarnings("always")
     warnings.warn("shapely not available")
     warnings.warn("Some functions will throw an exception if called")
-#-- ignore warnings
+# ignore warnings
 warnings.filterwarnings("ignore")
 
-#-- PURPOSE: read shapefile to find points within a specified region
+# PURPOSE: read shapefile to find points within a specified region
 def read_shapefile(input_shapefile, AREA=None, BUFFER=None):
-    #-- reading shapefile
+    # reading shapefile
     shape = fiona.open(input_shapefile)
-    #-- create projection object from shapefile
+    # create projection object from shapefile
     crs = pyproj.CRS.from_string(shape.crs['init'])
-    #-- list of polygons
+    # list of polygons
     poly_list = []
-    #-- for each entity
+    # for each entity
     for ent in shape.values():
-        #-- extract coordinates for entity
+        # extract coordinates for entity
         for coords in ent['geometry']['coordinates']:
-            #-- extract shapefile points
+            # extract shapefile points
             x,y = np.transpose(coords)
-            #-- create shapely polygon
+            # create shapely polygon
             poly_obj = shapely.geometry.Polygon(np.c_[x,y])
-            #-- cannot have overlapping exterior or interior rings
+            # cannot have overlapping exterior or interior rings
             poly_obj = poly_obj.buffer(BUFFER)
-            #-- add to list if area is above threshold value
-            #-- and resultant polygon is valid
+            # add to list if area is above threshold value
+            # and resultant polygon is valid
             if poly_obj.is_valid and (poly_obj.area > AREA):
                 poly_list.append(poly_obj)
-    #-- return the shapely multipolygon object and the projection
+    # return the shapely multipolygon object and the projection
     mpoly_obj = shapely.geometry.MultiPolygon(poly_list)
     return (shapely.ops.unary_union(mpoly_obj), crs)
 
-#-- PURPOSE: create a mask for MERRA-2 surface mass balance
+# PURPOSE: create a mask for MERRA-2 surface mass balance
 def merra_smb_mask(input_file, output_file, VARNAME=None,
     SHAPEFILES=None, AREA=None, BUFFER=None, VERBOSE=False,
     MODE=0o775):
 
-    #-- create logger for verbosity level
+    # create logger for verbosity level
     loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
     logging.basicConfig(level=loglevels[VERBOSE])
 
-    #-- create output directory if non-existent
+    # create output directory if non-existent
     ddir = os.path.dirname(output_file)
     os.makedirs(ddir) if not os.access(ddir, os.F_OK) else None
 
-    #-- read input mask file
+    # read input mask file
     dinput = gravity_toolkit.spatial().from_netCDF4(input_file,
         lonname='lon', latname='lat', varname=VARNAME,
         verbose=VERBOSE)
-    #-- remove singleton dimensions
+    # remove singleton dimensions
     dinput.squeeze()
-    #-- update mask and replace fill value
+    # update mask and replace fill value
     dinput.mask = np.where(dinput.data > 0.9, True, False)
     dinput.replace_invalid(1.0)
-    #-- grid spacing
+    # grid spacing
     dlon,dlat = dinput.spacing
-    #-- sign to convert from center to patch
+    # sign to convert from center to patch
     lon_sign = np.array([-0.5,0.5,0.5,-0.5,-0.5])
     lat_sign = np.array([-0.5,-0.5,0.5,0.5,-0.5])
 
-    #-- find valid points from mask input
+    # find valid points from mask input
     ii,jj = np.nonzero(~dinput.mask)
     valid_count = np.count_nonzero(~dinput.mask)
     intersection_mask = np.zeros((valid_count),dtype=np.uint8)
-    #-- create meshgrid of lat and long
+    # create meshgrid of lat and long
     gridlon,gridlat = np.meshgrid(dinput.lon, dinput.lat)
-    #-- projection object for converting from latitude/longitude
+    # projection object for converting from latitude/longitude
     crs1 = pyproj.CRS.from_epsg(4326)
 
-    #-- dictionary with output variables
+    # dictionary with output variables
     output = {}
-    #-- copy geolocation variables from input file
+    # copy geolocation variables from input file
     for key in ['lat','lon']:
         output[key] = getattr(dinput,key)
-    #-- reshape intersection mask to output
+    # reshape intersection mask to output
     output['mask'] = np.zeros_like(dinput.mask,dtype=np.uint8)
-    #-- iterate over shapefiles
+    # iterate over shapefiles
     for i,SHAPEFILE in enumerate(SHAPEFILES):
-        #-- read shapefile to find points within region
+        # read shapefile to find points within region
         poly_obj,crs2 = read_shapefile(SHAPEFILE, AREA=AREA, BUFFER=BUFFER)
         logging.info(f'Polygon Count: {len(poly_obj):d}')
-        #-- pyproj transformer for converting from latitude/longitude
-        #-- to projection of input shapefile
+        # pyproj transformer for converting from latitude/longitude
+        # to projection of input shapefile
         transformer = pyproj.Transformer.from_crs(crs1, crs2, always_xy=True)
-        #-- convert from points to polygon patch
+        # convert from points to polygon patch
         for indy,indx in zip(ii,jj):
             patchlon = gridlon[indy,indx] + dlon*lon_sign
             patchlat = gridlat[indy,indx] + dlat*lat_sign
             np.clip(patchlon, -180.0, 180.0, out=patchlon)
             np.clip(patchlat, -90.0, 90.0, out=patchlat)
-            #-- convert projection from latitude/longitude to output
+            # convert projection from latitude/longitude to output
             X,Y = transformer.transform(patchlon, patchlat)
-            #-- shapely polygon object for patch
-            #-- cannot have overlapping exterior or interior rings
+            # shapely polygon object for patch
+            # cannot have overlapping exterior or interior rings
             patch = shapely.geometry.Polygon(np.c_[X,Y]).buffer(0.0)
-            #-- testing for intersection of points and polygon
+            # testing for intersection of points and polygon
             if poly_obj.intersects(patch):
-                #-- extract intersected points
-                #-- if area of intersection is greater than 15%
+                # extract intersected points
+                # if area of intersection is greater than 15%
                 int_area = poly_obj.intersection(patch).area
                 output['mask'][indy,indx] = (int_area/patch.area) > 0.15
-    #-- write to output netCDF4 (.nc)
+    # write to output netCDF4 (.nc)
     ncdf_mask_write(output, FILENAME=output_file)
-    #-- change the permission level to MODE
+    # change the permission level to MODE
     os.chmod(output_file, MODE)
 
-#-- PURPOSE: write land sea mask to netCDF4 file
+# PURPOSE: write land sea mask to netCDF4 file
 def ncdf_mask_write(dinput, FILENAME=None):
-    #-- opening NetCDF file for writing
+    # opening NetCDF file for writing
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
-    #-- Defining the NetCDF dimensions
+    # Defining the NetCDF dimensions
     LATNAME,LONNAME = ('lat','lon')
     for key in [LONNAME,LATNAME]:
         fileID.createDimension(key, len(dinput[key]))
 
-    #-- defining the NetCDF variables
+    # defining the NetCDF variables
     nc = {}
     nc[LATNAME]=fileID.createVariable(LATNAME,dinput[LATNAME].dtype,(LATNAME,))
     nc[LONNAME]=fileID.createVariable(LONNAME,dinput[LONNAME].dtype,(LONNAME,))
     nc['mask'] = fileID.createVariable('mask', dinput['mask'].dtype,
         (LATNAME,LONNAME,), fill_value=0, zlib=True)
-    #-- filling NetCDF variables
+    # filling NetCDF variables
     for key,val in dinput.items():
         nc[key][:] = np.copy(val)
 
-    #-- Defining attributes for longitude and latitude
+    # Defining attributes for longitude and latitude
     nc[LONNAME].long_name = 'longitude'
     nc[LONNAME].units = 'degrees_east'
     nc[LATNAME].long_name = 'latitude'
     nc[LATNAME].units = 'degrees_north'
     nc['mask'].long_name = 'land_sea_mask'
 
-    #-- Output NetCDF structure information
+    # Output NetCDF structure information
     logging.info(os.path.basename(FILENAME))
     logging.info(list(fileID.variables.keys()))
 
-    #-- Closing the NetCDF file
+    # Closing the NetCDF file
     fileID.close()
 
-#-- PURPOSE: create argument parser
+# PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
         description="""Creates a mask for MERRA-2 land ice data
             using a set of shapefiles
             """
     )
-    #-- command line parameters
-    #-- input and output file
+    # command line parameters
+    # input and output file
     parser.add_argument('infile',
         type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='?',
         help='Input file')
     parser.add_argument('outfile',
         type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='?',
         help='Output file')
-    #-- variable from input file to extract as mask
+    # variable from input file to extract as mask
     parser.add_argument('--variable','-v',
         type=str, default='FROCEAN',
         help='Variable from input netCDF4 file to extract')
-    #-- input shapefiles to run
+    # input shapefiles to run
     parser.add_argument('--shapefile','-F',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         nargs='+', help='Shapefiles to run')
-    #-- minimum area threshold for polygons within shapefiles
+    # minimum area threshold for polygons within shapefiles
     parser.add_argument('--area','-A',
         type=float, default=0.0,
         help='Minimum area threshold for polygons')
-    #-- distance to buffer polygons within shapefiles
+    # distance to buffer polygons within shapefiles
     parser.add_argument('--buffer','-B',
         type=float, default=0.0,
         help='Distance to buffer polygons')
-    #-- verbosity settings
-    #-- verbose will output information about each output file
+    # verbosity settings
+    # verbose will output information about each output file
     parser.add_argument('--verbose','-V',
         action='count', default=0,
         help='Verbose output of processing run')
-    #-- permissions mode of the local directories and files (number in octal)
+    # permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
-    #-- return the parser
+    # return the parser
     return parser
 
-#-- This is the main part of the program that calls the individual functions
+# This is the main part of the program that calls the individual functions
 def main():
-    #-- Read the system arguments listed after the program
+    # Read the system arguments listed after the program
     parser = arguments()
     args,_ = parser.parse_known_args()
 
-    #-- run program
+    # run program
     merra_smb_mask(args.infile, args.outfile, VARNAME=args.variable,
         SHAPEFILES=args.shapefile, AREA=args.area, BUFFER=args.buffer,
         VERBOSE=args.verbose, MODE=args.mode)
 
-#-- run main program
+# run main program
 if __name__ == '__main__':
     main()
