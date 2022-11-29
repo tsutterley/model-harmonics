@@ -13,7 +13,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../reanalysis/gesdisc_merra_monthly.py
+    :filename: gesdisc_merra_monthly.py
     :func: arguments
     :prog: gesdisc_merra_monthly.py
     :nodescription:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_monthly_harmonics.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (11/2022)
 Reads monthly ECCO ocean bottom pressure anomalies and converts to
     spherical harmonic coefficients
 
@@ -62,6 +62,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
     Updated 12/2021: can use variable loglevels for verbose output
@@ -108,109 +109,109 @@ from model_harmonics.gen_pressure_stokes import gen_pressure_stokes
 from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
 from geoid_toolkit.norm_gravity import norm_gravity
 
-#-- PURPOSE: convert monthly ECCO OBP data to spherical harmonics
+# PURPOSE: convert monthly ECCO OBP data to spherical harmonics
 def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None, MODE=0o775):
 
-    #-- input and output subdirectory
-    input_sub = 'ECCO_{0}_AveRmvd_OBP'.format(MODEL)
-    output_sub = 'ECCO_{0}_AveRmvd_OBP_CLM_L{1:d}'.format(MODEL,LMAX)
+    # input and output subdirectory
+    input_sub = f'ECCO_{MODEL}_AveRmvd_OBP'
+    output_sub = f'ECCO_{MODEL}_AveRmvd_OBP_CLM_L{LMAX:d}'
 
-    #-- upper bound of spherical harmonic orders (default = LMAX)
+    # upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
-    #-- output string for both LMAX == MMAX and LMAX != MMAX cases
-    order_str = 'M{0:d}'.format(MMAX) if (MMAX != LMAX) else ''
-    #-- output file format
+    # output string for both LMAX == MMAX and LMAX != MMAX cases
+    order_str = 'M{MMAX:d}' if (MMAX != LMAX) else ''
+    # output file format
     output_file_format = 'ECCO_{0}_AveRmvd_OBP_CLM_L{1:d}{2}_{3:03d}.{4}'
-    #-- Creating subdirectory if it doesn't exist
+    # Creating subdirectory if it doesn't exist
     if (not os.access(os.path.join(ddir,output_sub), os.F_OK)):
         os.makedirs(os.path.join(ddir,output_sub),MODE)
-    #-- input/output data file format
+    # input/output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
 
-    #-- parameters for each model
+    # parameters for each model
     if MODEL in ('kf080i','dr080i'):
-        #-- grid step size
+        # grid step size
         dlon,dlat = (1.0,1.0)
-        #-- grid extent
+        # grid extent
         LAT_MAX = 78.5
         extent = [0.5,359.5,-LAT_MAX,LAT_MAX]
         input_depth_file = os.path.join(ddir,'depth.nc')
         input_geoid_file = os.path.join(ddir,'egm_2008.nc')
-        #-- indices to read
+        # indices to read
         indices = np.arange(1,2*LAT_MAX+2).astype(np.int64)
     elif MODEL in ('Cube92',):
-        #-- grid step size
+        # grid step size
         dlon,dlat = (0.25,0.25)
-        #-- grid extent
+        # grid extent
         extent = [0.125,359.875,-89.875,89.875]
         input_depth_file = os.path.join(ddir,'DEPTH.2020.1440x720.nc')
         input_geoid_file = os.path.join(ddir,'EGM_2008.1440x720.nc')
-        #-- indices to read (all)
+        # indices to read (all)
         indices = Ellipsis
     elif MODEL in ('V4r3','V4r4'):
-        #-- grid step size
+        # grid step size
         dlon,dlat = (0.5,0.5)
-        #-- grid extent
+        # grid extent
         extent = [-179.75,179.75,-89.75,89.75]
         input_depth_file = os.path.join(ddir,'DEPTH.2020.720x360.nc')
         input_geoid_file = os.path.join(ddir,'EGM_2008.720x360.nc')
-        #-- indices to read (all)
+        # indices to read (all)
         indices = Ellipsis
-    #-- input grid dimensions
+    # input grid dimensions
     glon = np.arange(extent[0],extent[1]+dlon,dlon)
     glat = np.arange(extent[2],extent[3]+dlat,dlat)
-    #-- create mesh grids of datasets
+    # create mesh grids of datasets
     gridlon,gridlat = np.meshgrid(glon,glat)
 
-    #-- read geoid and depth to calculate bathymetry
+    # read geoid and depth to calculate bathymetry
     depth = ncdf_depth(input_depth_file, indices=indices)
     geoid_undulation,gridstep = ncdf_geoid(input_geoid_file, indices=indices)
     bathymetry = geoid_undulation - depth
 
-    #-- Earth Parameters
+    # Earth Parameters
     ellipsoid_params = ref_ellipsoid('WGS84')
-    #-- semimajor axis of ellipsoid [m]
+    # semimajor axis of ellipsoid [m]
     a_axis = ellipsoid_params['a']
-    #--  first numerical eccentricity
+    #  first numerical eccentricity
     ecc1 = ellipsoid_params['ecc1']
-    #-- convert from geodetic latitude to geocentric latitude
-    #-- geodetic latitude in radians
+    # convert from geodetic latitude to geocentric latitude
+    # geodetic latitude in radians
     latitude_geodetic_rad = np.pi*gridlat/180.0
-    #-- prime vertical radius of curvature
+    # prime vertical radius of curvature
     N = a_axis/np.sqrt(1.0 - ecc1**2.*np.sin(latitude_geodetic_rad)**2.)
-    #-- calculate X, Y and Z from geodetic latitude and longitude
+    # calculate X, Y and Z from geodetic latitude and longitude
     X = (N+bathymetry)*np.cos(latitude_geodetic_rad)*np.cos(np.pi*gridlon/180.0)
     Y = (N+bathymetry)*np.cos(latitude_geodetic_rad)*np.sin(np.pi*gridlon/180.0)
     Z = (N * (1.0 - ecc1**2.0) + bathymetry) * np.sin(latitude_geodetic_rad)
     R = np.sqrt(X**2.0 + Y**2.0 + Z**2.0)
-    #-- calculate geocentric latitude and convert to degrees
+    # calculate geocentric latitude and convert to degrees
     latitude_geocentric = 180.0*np.arctan(Z / np.sqrt(X**2.0 + Y**2.0))/np.pi
-    #-- colatitude in radians
+    # colatitude in radians
     theta = (90.0 - latitude_geocentric)*np.pi/180.0
 
-    #-- calculate normal gravity at latitudes and bathymetry
+    # calculate normal gravity at latitudes and bathymetry
     gamma_h,dgamma_dh = norm_gravity(latitude_geocentric,bathymetry,'WGS84')
 
-    #-- read load love numbers
+    # read load love numbers
     LOVE = load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
         REFERENCE=REFERENCE)
-    #-- calculate Legendre polynomials
+    # calculate Legendre polynomials
     PLM, dPLM = plm_holmes(LMAX,np.cos(theta[:,0]))
 
-    #-- regular expression pattern to find files and extract dates
+    # regular expression pattern to find files and extract dates
     regex_years = r'\d+' if (YEARS is None) else '|'.join(map(str,YEARS))
     args = (MODEL, regex_years, suffix[DATAFORM])
     rx = re.compile(r'ECCO_{0}_AveRmvd_OBP_({1})_(\d+).{2}$'.format(*args))
 
-    #-- find input ECCO OBP files
+    # find input ECCO OBP files
     FILES = [fi for fi in os.listdir(os.path.join(ddir,input_sub)) if rx.match(fi)]
 
-    #-- for each input file
+    # for each input file
     for f in sorted(FILES):
-        #-- extract dates from file
+        # extract dates from file
         year,month = np.array(rx.findall(f).pop(), dtype=np.int64)
-        #-- read input data file
+        # read input data file
         if (DATAFORM == 'ascii'):
             obp_data = gravity_toolkit.spatial(spacing=[dlon,dlat],
                 nlat=150,nlon=360,extent=extent).from_ascii(
@@ -221,55 +222,57 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
         elif (DATAFORM == 'HDF5'):
             obp_data = gravity_toolkit.spatial().from_HDF5(
                 os.path.join(ddir,input_sub,f))
-        #-- replace fill value points with 0
+        # replace fill value points with 0
         obp_data.replace_invalid(0.0)
-        #-- calculate spherical harmonics from pressure/gravity ratio
+        # calculate spherical harmonics from pressure/gravity ratio
         obp_Ylms = gen_pressure_stokes(obp_data.data, gamma_h, R,
             glon, latitude_geocentric[:,0], LMAX=LMAX, MMAX=MMAX,
             PLM=PLM, LOVE=LOVE)
         obp_Ylms.time = np.copy(obp_data.time)
         obp_Ylms.month = gravity_toolkit.time.calendar_to_grace(year,month)
-        #-- output spherical harmonic data file
+        # output spherical harmonic data file
         args = (MODEL, LMAX, order_str, obp_Ylms.month, suffix[DATAFORM])
         FILE = output_file_format.format(*args)
         obp_Ylms.to_file(os.path.join(ddir,output_sub,FILE),format=DATAFORM)
-        #-- change the permissions mode of the output file to MODE
+        # change the permissions mode of the output file to MODE
         os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 
-    #-- Output date ascii file
-    output_date_file = 'ECCO_{0}_OBP_DATES.txt'.format(MODEL)
-    fid1 = open(os.path.join(ddir,output_sub,output_date_file), 'w')
-    #-- date file header information
+    # Output date ascii file
+    output_date_file = f'ECCO_{MODEL}_OBP_DATES.txt'
+    fid1 = open(os.path.join(ddir,output_sub,output_date_file),
+        mode='w', encoding='utf8')
+    # date file header information
     print('{0:8} {1:^6} {2:^5}'.format('Mid-date','GRACE','Month'), file=fid1)
-    #-- index file listing all output spherical harmonic files
+    # index file listing all output spherical harmonic files
     output_index_file = 'index.txt'
-    fid2 = open(os.path.join(ddir,output_sub,output_index_file),'w')
-    #-- find all available output files
+    fid2 = open(os.path.join(ddir,output_sub,output_index_file),
+        mode='w', encoding='utf8')
+    # find all available output files
     args = (MODEL, LMAX, suffix[DATAFORM])
     output_regex=r'ECCO_{0}_AveRmvd_OBP_CLM_L{1:d}_([-]?\d+).{2}'.format(*args)
-    #-- find all output ECCO OBP harmonic files (not just ones created in run)
+    # find all output ECCO OBP harmonic files (not just ones created in run)
     output_files = [fi for fi in os.listdir(os.path.join(ddir,output_sub))
         if re.match(output_regex,fi)]
     for fi in sorted(output_files):
-        #-- extract GRACE month
+        # extract GRACE month
         grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int64)
         YY,MM = gravity_toolkit.time.grace_to_calendar(grace_month)
         tdec, = gravity_toolkit.time.convert_calendar_decimal(YY, MM)
-        #-- full path to output file
+        # full path to output file
         full_output_file = os.path.join(ddir,output_sub,fi)
-        #-- print date, GRACE month and calendar month to date file
+        # print date, GRACE month and calendar month to date file
         fid1.write('{0:11.6f} {1:03d} {2:02.0f}\n'.format(tdec,grace_month,MM))
-        #-- print output file to index
+        # print output file to index
         print(full_output_file.replace(os.path.expanduser('~'),'~'), file=fid2)
-    #-- close the date and index files
+    # close the date and index files
     fid1.close()
     fid2.close()
-    #-- set the permissions level of the output date and index files to MODE
+    # set the permissions level of the output date and index files to MODE
     os.chmod(os.path.join(ddir,output_sub,output_date_file), MODE)
     os.chmod(os.path.join(ddir,output_sub,output_index_file), MODE)
 
-#-- PURPOSE: read ECCO2 depth file
-#-- ftp://mit.ecco-group.org/ecco_for_las/grid_fields/
+# PURPOSE: read ECCO2 depth file
+# ftp://mit.ecco-group.org/ecco_for_las/grid_fields/
 def ncdf_depth(FILENAME, indices=Ellipsis):
     with netCDF4.Dataset(FILENAME,'r') as fileID:
         depth = np.array(fileID.variables['depth'][indices,:])
@@ -277,14 +280,14 @@ def ncdf_depth(FILENAME, indices=Ellipsis):
         depth[depth == fill_value] = 0.0
     return depth
 
-#-- PURPOSE: read geoid height netCDF4 files from read_gfz_geoid_grids.py
+# PURPOSE: read geoid height netCDF4 files from read_gfz_geoid_grids.py
 def ncdf_geoid(FILENAME, indices=Ellipsis):
     with netCDF4.Dataset(FILENAME,'r') as fileID:
         geoid_undulation = np.array(fileID.variables['geoid'][indices,:])
         gridstep = [float(s) for s in fileID.gridstep.split(',')]
     return (geoid_undulation,np.squeeze(gridstep))
 
-#-- PURPOSE: create argument parser
+# PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
         description="""Reads monthly ECCO ocean bottom pressure
@@ -293,74 +296,74 @@ def arguments():
         fromfile_prefix_chars="@"
     )
     parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
-    #-- command line parameters
+    # command line parameters
     parser.add_argument('model',
         type=str, nargs='+',
         default=['kf080i','dr080i'],
         choices=['kf080i','dr080i','Cube92','V4r3','V4r4'],
         help='ECCO Model')
-    #-- working data directory
+    # working data directory
     parser.add_argument('--directory','-D',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         default=os.getcwd(),
         help='Working data directory')
-    #-- years to run
+    # years to run
     now = gravity_toolkit.time.datetime.datetime.now()
     parser.add_argument('--year','-Y',
         type=int, nargs='+', default=range(2000,now.year+1),
         help='Years of model outputs to run')
-    #-- maximum spherical harmonic degree and order
+    # maximum spherical harmonic degree and order
     parser.add_argument('--lmax','-l',
         type=int, default=60,
         help='Maximum spherical harmonic degree')
     parser.add_argument('--mmax','-m',
         type=int, default=None,
         help='Maximum spherical harmonic order')
-    #-- different treatments of the load Love numbers
-    #-- 0: Han and Wahr (1995) values from PREM
-    #-- 1: Gegout (2005) values from PREM
-    #-- 2: Wang et al. (2012) values from PREM
+    # different treatments of the load Love numbers
+    # 0: Han and Wahr (1995) values from PREM
+    # 1: Gegout (2005) values from PREM
+    # 2: Wang et al. (2012) values from PREM
     parser.add_argument('--love','-n',
         type=int, default=0, choices=[0,1,2],
         help='Treatment of the Load Love numbers')
-    #-- option for setting reference frame for gravitational load love number
-    #-- reference frame options (CF, CM, CE)
+    # option for setting reference frame for gravitational load love number
+    # reference frame options (CF, CM, CE)
     parser.add_argument('--reference',
         type=str.upper, default='CF', choices=['CF','CM','CE'],
         help='Reference frame for load Love numbers')
-    #-- input and output data format (ascii, netCDF4, HDF5)
+    # input and output data format (ascii, netCDF4, HDF5)
     parser.add_argument('--format','-F',
         type=str, default='netCDF4', choices=['ascii','netCDF4','HDF5'],
         help='Input and output data format')
-    #-- print information about each input and output file
+    # print information about each input and output file
     parser.add_argument('--verbose','-V',
         action='count', default=0,
         help='Verbose output of processing run')
-    #-- permissions mode of the local directories and files (number in octal)
+    # permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
-    #-- return the parser
+    # return the parser
     return parser
 
-#-- This is the main part of the program that calls the individual functions
+# This is the main part of the program that calls the individual functions
 def main():
-    #-- Read the system arguments listed after the program
+    # Read the system arguments listed after the program
     parser = arguments()
     args,_ = parser.parse_known_args()
 
-    #-- create logger
+    # create logger
     loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
     logging.basicConfig(level=loglevels[args.verbose])
 
-    #-- for each ECCO model
+    # for each ECCO model
     for MODEL in args.model:
-        #-- run program
+        # run program
         ecco_monthly_harmonics(args.directory, MODEL, args.year,
             LMAX=args.lmax, MMAX=args.mmax, LOVE_NUMBERS=args.love,
             REFERENCE=args.reference, DATAFORM=args.format,
             MODE=args.mode)
 
-#-- run main program
+# run main program
 if __name__ == '__main__':
     main()

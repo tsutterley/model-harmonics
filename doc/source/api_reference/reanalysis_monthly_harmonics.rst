@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../reanalysis/reanalysis_monthly_harmonics.py
+    :filename: reanalysis_monthly_harmonics.py
     :func: arguments
     :prog: reanalysis_monthly_harmonics.py
     :nodescription:

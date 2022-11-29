@@ -13,7 +13,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../SMB/gemb_smb_harmonics.py
+    :filename: gemb_smb_harmonics.py
     :func: arguments
     :prog: gemb_smb_harmonics.py
     :nodescription:

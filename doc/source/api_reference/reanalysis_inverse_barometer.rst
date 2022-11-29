@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../reanalysis/reanalysis_inverse_barometer.py
+    :filename: reanalysis_inverse_barometer.py
     :func: arguments
     :prog: reanalysis_inverse_barometer.py
     :nodescription:

@@ -15,7 +15,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../reanalysis/ucar_rda_jra55_surface.py
+    :filename: ucar_rda_jra55_surface.py
     :func: arguments
     :prog: ucar_rda_jra55_surface.py
     :nodescription:

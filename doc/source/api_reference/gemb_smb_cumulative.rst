@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../SMB/gemb_smb_cumulative.py
+    :filename: gemb_smb_cumulative.py
     :func: arguments
     :prog: gemb_smb_cumulative.py
     :nodescription:

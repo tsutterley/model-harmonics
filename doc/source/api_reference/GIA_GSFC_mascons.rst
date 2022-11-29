@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../GIA/GIA_GSFC_mascons.py
+    :filename: GIA_GSFC_mascons.py
     :func: arguments
     :prog: GIA_GSFC_mascons.py
     :nodescription:

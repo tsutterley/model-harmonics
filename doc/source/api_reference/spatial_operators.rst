@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../scripts/spatial_operators.py
+    :filename: spatial_operators.py
     :func: arguments
     :prog: spatial_operators.py
     :nodescription:

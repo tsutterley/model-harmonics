@@ -9,7 +9,7 @@ ecco_depth_version4.py
 .. __: https://github.com/tsutterley/model-harmonics/blob/main/ECCO/ecco_depth_version4.py
 
 .. argparse::
-    :filename: ../../ECCO/ecco_depth_version4.py
+    :filename: ecco_depth_version4.py
     :func: arguments
     :prog: ecco_depth_version4.py
     :nodescription:

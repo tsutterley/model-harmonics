@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 harmonic_operators.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (11/2022)
 Performs basic operations on spherical harmonic files
 
 CALLING SEQUENCE:
@@ -48,6 +48,7 @@ PROGRAM DEPENDENCIES:
         and filters the GRACE/GRACE-FO coefficients for striping errors
 
 UPDATE HISTORY:
+    Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: can read from GIA models for merging or correcting
     Updated 12/2021: can use variable loglevels for verbose output
@@ -66,141 +67,141 @@ import argparse
 import numpy as np
 from gravity_toolkit.harmonics import harmonics
 
-#-- PURPOSE: Performs operations on harmonic files
+# PURPOSE: Performs operations on harmonic files
 def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
     MMAX=None, DATAFORM=None, DATE=False, MODE=None):
 
-    #-- number of input harmonic files
+    # number of input harmonic files
     n_files = len(INPUT_FILES)
-    #-- extend list if a single format was entered for all files
+    # extend list if a single format was entered for all files
     if len(DATAFORM) < (n_files+1):
         DATAFORM = DATAFORM*(n_files+1)
-    #-- verify that output directory exists
+    # verify that output directory exists
     DIRECTORY = os.path.abspath(os.path.dirname(OUTPUT_FILE))
     if not os.access(DIRECTORY, os.F_OK):
         os.makedirs(DIRECTORY,MODE,exist_ok=True)
 
-    #-- list of available GIA Models
+    # list of available GIA Models
     GIA = ['IJ05-R2','W12a','SM09','Wu10','AW13-ICE6G','AW13-IJ05',
         'Caron','ICE6G-D']
-    #-- read each input file
+    # read each input file
     dinput = [None]*n_files
     for i,fi in enumerate(INPUT_FILES):
-        #-- read spherical harmonics file in data format
+        # read spherical harmonics file in data format
         if DATAFORM[i] in ('ascii','netCDF4','HDF5'):
-            #-- ascii (.txt)
-            #-- netCDF4 (.nc)
-            #-- HDF5 (.H5)
+            # ascii (.txt)
+            # netCDF4 (.nc)
+            # HDF5 (.H5)
             dinput[i] = harmonics().from_file(fi,format=DATAFORM[i],date=DATE)
         elif DATAFORM[i] in ('index-ascii','index-netCDF4','index-HDF5'):
-            #-- read from index file
+            # read from index file
             _,dataform = DATAFORM[i].split('-')
             dinput[i] = harmonics().from_index(fi,format=dataform,date=DATE)
         elif (DATAFORM[i] in GIA) and DATE:
-            #-- read from GIA file and calculate drift
+            # read from GIA file and calculate drift
             temp = harmonics().from_GIA(fi,GIA=DATAFORM[i])
             dinput[i] = temp.drift(dinput[0].time)
         elif DATAFORM[i] in GIA:
             dinput[i] = harmonics().from_GIA(fi,GIA=DATAFORM[i])
 
-    #-- operate on input files
+    # operate on input files
     if (OPERATION == 'add'):
         output = dinput[0].zeros_like()
         for i in range(n_files):
-            #-- perform operation
+            # perform operation
             output = output.add(dinput[i])
     elif (OPERATION == 'subtract'):
         output = dinput[0].copy()
         for i in range(n_files-1):
-            #-- perform operation
+            # perform operation
             output = output.subtract(dinput[i+1])
     elif (OPERATION == 'multiply'):
         output = dinput[0].copy()
         for i in range(n_files-1):
-            #-- perform operation
+            # perform operation
             output = output.multiply(dinput[i+1])
     elif (OPERATION == 'divide'):
         output = dinput[0].copy()
         for i in range(n_files-1):
-            #-- perform operation
+            # perform operation
             output = output.divide(dinput[i+1])
     elif (OPERATION == 'mean'):
         output = dinput[0].zeros_like()
         for i in range(n_files):
-            #-- perform operation
+            # perform operation
             output = output.add(dinput[i])
-        #-- convert from total to mean
+        # convert from total to mean
         output = output.scale(1.0/n_files)
     elif (OPERATION == 'destripe'):
-        #-- destripe spherical harmonics
+        # destripe spherical harmonics
         output = dinput[0].destripe()
     elif (OPERATION == 'error'):
         mean = dinput[0].zeros_like()
         for i in range(n_files):
-            #-- perform operation
+            # perform operation
             mean = mean.add(dinput[i])
-        #-- convert from total to mean
+        # convert from total to mean
         mean = mean.scale(1.0/n_files)
-        #-- use variance off mean as estimated error
+        # use variance off mean as estimated error
         output = dinput[0].zeros_like()
         for i in range(n_files):
-            #-- perform operation
+            # perform operation
             temp = dinput[i].subtract(mean)
             output = output.add(temp.power(2.0))
-        #-- calculate RMS of mean differences
+        # calculate RMS of mean differences
         output = output.scale(1.0/(n_files-1.0)).power(0.5)
     elif (OPERATION == 'RMS'):
         output = dinput[0].zeros_like()
         for i in range(n_files):
-            #-- perform operation
+            # perform operation
             output = output.add(dinput[i].power(2.0))
-        #-- convert from total in quadrature to RMS
+        # convert from total in quadrature to RMS
         output = output.scale(1.0/n_files).power(0.5)
-    #-- truncate to specified degree and order
+    # truncate to specified degree and order
     if (LMAX is not None) | (MMAX is not None):
         output.truncate(LMAX, mmax=MMAX)
-    #-- copy date variables if specified
+    # copy date variables if specified
     if DATE:
         output.time = np.copy(dinput[0].time)
         output.month = np.copy(dinput[0].month)
 
-    #-- output file title
-    title = 'Output from {0}'.format(os.path.basename(sys.argv[0]))
-    #-- write spherical harmonic file in data format
+    # output file title
+    title = f'Output from {os.path.basename(sys.argv[0])}'
+    # write spherical harmonic file in data format
     output.to_file(OUTPUT_FILE, format=DATAFORM[-1],
         date=DATE, title=title)
-    #-- change the permissions mode of the output file
+    # change the permissions mode of the output file
     os.chmod(OUTPUT_FILE, MODE)
 
-#-- PURPOSE: create argument parser
+# PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
         description="""Performs basic operations on spherical harmonic files
             """
     )
-    #-- command line options
-    #-- input and output file
+    # command line options
+    # input and output file
     parser.add_argument('infiles',
         type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='+',
         help='Input files')
     parser.add_argument('outfile',
         type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs=1,
         help='Output file')
-    #-- operation to run
+    # operation to run
     choices = ['add','subtract','multiply','divide','mean',
         'destripe','error','RMS']
     parser.add_argument('--operation','-O',
         metavar='OPERATION', type=str,
         required=True, choices=choices,
         help='Operation to run')
-    #-- maximum spherical harmonic degree and order
+    # maximum spherical harmonic degree and order
     parser.add_argument('--lmax','-l',
         type=int, default=None,
         help='Maximum spherical harmonic degree')
     parser.add_argument('--mmax','-m',
         type=int, default=None,
         help='Maximum spherical harmonic order')
-    #-- input and output data format (ascii, netCDF4, HDF5)
+    # input and output data format (ascii, netCDF4, HDF5)
     choices = []
     choices.extend(['ascii','netCDF4','HDF5'])
     choices.extend(['index-ascii','index-netCDF4','index-HDF5'])
@@ -210,36 +211,36 @@ def arguments():
         metavar='FORMAT', type=str, nargs='+',
         default=['netCDF4'], choices=choices,
         help='Input and output data format')
-    #-- Input and output files have date information
+    # Input and output files have date information
     parser.add_argument('--date','-D',
         default=False, action='store_true',
         help='Input and output files have date information')
-    #-- print information about each output file
+    # print information about each output file
     parser.add_argument('--verbose','-V',
         action='count', default=0,
         help='Verbose output of processing run')
-    #-- permissions mode of the local directories and files (number in octal)
+    # permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
-    #-- return the parser
+    # return the parser
     return parser
 
-#-- This is the main part of the program that calls the individual functions
+# This is the main part of the program that calls the individual functions
 def main():
-    #-- Read the system arguments listed after the program
+    # Read the system arguments listed after the program
     parser = arguments()
     args,_ = parser.parse_known_args()
 
-    #-- create logger
+    # create logger
     loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
     logging.basicConfig(level=loglevels[args.verbose])
 
-    #-- run program
+    # run program
     harmonic_operators(args.infiles, args.outfile[0], OPERATION=args.operation,
         LMAX=args.lmax, MMAX=args.mmax, DATAFORM=args.format, DATE=args.date,
         MODE=args.mode)
 
-#-- run main program
+# run main program
 if __name__ == '__main__':
     main()

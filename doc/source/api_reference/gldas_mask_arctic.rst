@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../GLDAS/gldas_mask_arctic.py
+    :filename: gldas_mask_arctic.py
     :func: arguments
     :prog: gldas_mask_arctic.py
     :nodescription:

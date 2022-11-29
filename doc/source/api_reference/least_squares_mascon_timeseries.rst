@@ -14,7 +14,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../scripts/least_squares_mascon_timeseries.py
+    :filename: least_squares_mascon_timeseries.py
     :func: arguments
     :prog: least_squares_mascon_timeseries.py
     :nodescription:

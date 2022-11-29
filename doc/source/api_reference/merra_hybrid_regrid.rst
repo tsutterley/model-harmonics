@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../SMB/merra_hybrid_regrid.py
+    :filename: merra_hybrid_regrid.py
     :func: arguments
     :prog: merra_hybrid_regrid.py
     :nodescription:

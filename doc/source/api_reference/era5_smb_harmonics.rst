@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../SMB/era5_smb_harmonics.py
+    :filename: era5_smb_harmonics.py
     :func: arguments
     :prog: era5_smb_harmonics.py
     :nodescription:

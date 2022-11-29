@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../reanalysis/gesdisc_merra_subset.py
+    :filename: gesdisc_merra_subset.py
     :func: arguments
     :prog: gesdisc_merra_subset.py
     :nodescription:

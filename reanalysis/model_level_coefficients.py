@@ -51,32 +51,32 @@ import netCDF4
 import argparse
 import numpy as np
 
-#-- PURPOSE: create netCDF4 file with the model level A and B coefficients
+# PURPOSE: create netCDF4 file with the model level A and B coefficients
 def model_level_coefficients(base_dir, MODEL, MODE=0o775):
-    #-- directory setup
+    # directory setup
     ddir = os.path.join(base_dir,MODEL)
     if (MODEL == 'ERA5'):
-        #-- output netCDF4 file
+        # output netCDF4 file
         output_coordinate_file = 'ERA5_coordvars.nc'
-        #-- read input file
+        # read input file
         dinput = np.loadtxt(os.path.join(ddir,'ERA5_coordvars.txt'))
-        #-- create output dictionary with variables
+        # create output dictionary with variables
         output = {}
-        #-- interfaces
+        # interfaces
         output['intf'] = dinput[:,0]
-        #-- half levels
+        # half levels
         output['lvl'] = 0.5 + dinput[0:-1,0]
-        #-- extract A and B coefficients
+        # extract A and B coefficients
         output['a_interface'] = dinput[:,1]
         output['b_interface'] = dinput[:,2]
         output['a_half']=(output['a_interface'][1:]+output['a_interface'][0:-1])/2.0
         output['b_half']=(output['b_interface'][1:]+output['b_interface'][0:-1])/2.0
     elif (MODEL == 'MERRA-2'):
-        #-- output netCDF4 file
+        # output netCDF4 file
         output_coordinate_file = 'MERRA2_101.Coords_Nx.00000000.nc'
-        #-- python dictionary with output variables
+        # python dictionary with output variables
         output = {}
-        #-- Ap [millibars] for 72 levels (73 edges)
+        # Ap [millibars] for 72 levels (73 edges)
         Ap = np.array([0.000000e00, 4.804826e-02, 6.593752e00, 1.313480e01,
             1.961311e01, 2.609201e01, 3.257081e01, 3.898201e01,
             4.533901e01, 5.169611e01, 5.805321e01, 6.436264e01,
@@ -96,17 +96,17 @@ def model_level_coefficients(base_dir, MODEL, MODE=0o775):
             2.113490e-01, 1.594950e-01, 1.197030e-01, 8.934502e-02,
             6.600001e-02, 4.758501e-02, 3.270000e-02, 2.000000e-02,
             1.000000e-02])
-        #-- invert so top-of-atmosphere == layer 1
-        #-- convert units from millibars to pascals
+        # invert so top-of-atmosphere == layer 1
+        # convert units from millibars to pascals
         output['a_interface'] = 100.0*Ap[::-1]
-        #-- Ap at half levels
+        # Ap at half levels
         output['a_half']=(output['a_interface'][1:]+output['a_interface'][0:-1])/2.0
         nlevels = len(Ap)
-        #-- half levels
+        # half levels
         output['lev'] = 0.5 + np.arange(nlevels-1)
-        #-- interfaces
+        # interfaces
         output['intf'] = np.arange(nlevels) + 1
-        #-- Bp [unitless] for 72 levels (73 edges)
+        # Bp [unitless] for 72 levels (73 edges)
         Bp = np.array([1.000000e00, 9.849520e-01, 9.634060e-01, 9.418650e-01,
             9.203870e-01, 8.989080e-01, 8.774290e-01, 8.560180e-01,
             8.346609e-01, 8.133039e-01, 7.919469e-01, 7.706375e-01,
@@ -126,67 +126,67 @@ def model_level_coefficients(base_dir, MODEL, MODE=0o775):
             0.000000e00, 0.000000e00, 0.000000e00, 0.000000e00,
             0.000000e00, 0.000000e00, 0.000000e00, 0.000000e00,
             0.000000e00])
-        #-- invert so top-of-atmosphere == layer 1
+        # invert so top-of-atmosphere == layer 1
         output['b_interface'] = Bp[::-1]
-        #-- Bp at half levels
+        # Bp at half levels
         output['b_half']=(output['b_interface'][1:]+output['b_interface'][0:-1])/2.0
 
-    #-- output coefficients to netCDF4 file
+    # output coefficients to netCDF4 file
     fileID = netCDF4.Dataset(os.path.join(ddir,output_coordinate_file),'w')
-    #-- Defining the NetCDF4 dimensions and creating dimension variables
+    # Defining the NetCDF4 dimensions and creating dimension variables
     nc = {}
     for key in ['lvl','intf']:
         fileID.createDimension(key, len(output[key]))
         nc[key] = fileID.createVariable(key, output[key].dtype, (key,))
-    #-- creating the half-layer NetCDF4 variables
+    # creating the half-layer NetCDF4 variables
     for key in ['a_half','b_half']:
         nc[key] = fileID.createVariable(key, output[key].dtype, ('lvl',))
-    #-- creating the interface NetCDF4 variables
+    # creating the interface NetCDF4 variables
     for key in ['a_interface','b_interface']:
         nc[key] = fileID.createVariable(key, output[key].dtype, ('intf',))
-    #-- filling NetCDF4 variables
+    # filling NetCDF4 variables
     for key,val in output.items():
         nc[key][:] = np.copy(val)
-    #-- close the netCDF4 file
+    # close the netCDF4 file
     fileID.close()
-    #-- change the permissions level to MODE
+    # change the permissions level to MODE
     os.chmod(os.path.join(ddir,output_coordinate_file), MODE)
 
-#-- PURPOSE: create argument parser
+# PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
         description="""Creates a netCDF4 file of reanalysis
             A and B coefficients for model levels
             """
     )
-    #-- command line parameters
+    # command line parameters
     choices = ['ERA5','MERRA-2']
     parser.add_argument('model',
         type=str, nargs='+',
         default=['ERA5','MERRA-2'], choices=choices,
         help='Reanalysis Model')
-    #-- working data directory
+    # working data directory
     parser.add_argument('--directory','-D',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         default=os.getcwd(),
         help='Working data directory')
-    #-- permissions mode of the directories and files retrieved
+    # permissions mode of the directories and files retrieved
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files retrieved')
-    #-- return the parser
+    # return the parser
     return parser
 
-#-- This is the main part of the program that calls the individual functions
+# This is the main part of the program that calls the individual functions
 def main():
-    #-- Read the system arguments listed after the program
+    # Read the system arguments listed after the program
     parser = arguments()
     args,_ = parser.parse_known_args()
 
-    #-- run program
+    # run program
     for MODEL in args.model:
         model_level_coefficients(args.directory, MODEL, MODE=args.mode)
 
-#-- run main program
+# run main program
 if __name__ == '__main__':
     main()

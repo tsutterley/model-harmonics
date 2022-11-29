@@ -39,26 +39,26 @@ def scale_areas(lat, flat=1.0/298.257223563, ref=70.0):
         1532, U.S. Government Printing Office.
     .. [2] JPL Technical Memorandum 3349-85-101
     """
-    #-- convert latitude from degrees to positive radians
+    # convert latitude from degrees to positive radians
     theta = np.abs(lat)*np.pi/180.0
-    #-- convert reference latitude from degrees to positive radians
+    # convert reference latitude from degrees to positive radians
     theta_ref = np.abs(ref)*np.pi/180.0
-    #-- square of the eccentricity of the ellipsoid
-    #-- ecc2 = (1-b**2/a**2) = 2.0*flat - flat^2
+    # square of the eccentricity of the ellipsoid
+    # ecc2 = (1-b**2/a**2) = 2.0*flat - flat^2
     ecc2 = 2.0*flat - flat**2
-    #-- eccentricity of the ellipsoid
+    # eccentricity of the ellipsoid
     ecc = np.sqrt(ecc2)
-    #-- calculate ratio at input latitudes
+    # calculate ratio at input latitudes
     m = np.cos(theta)/np.sqrt(1.0 - ecc2*np.sin(theta)**2)
     t = np.tan(np.pi/4.0 - theta/2.0)/((1.0 - ecc*np.sin(theta)) / \
         (1.0 + ecc*np.sin(theta)))**(ecc/2.0)
-    #-- calculate ratio at reference latitude
+    # calculate ratio at reference latitude
     mref = np.cos(theta_ref)/np.sqrt(1.0 - ecc2*np.sin(theta_ref)**2)
     tref = np.tan(np.pi/4.0 - theta_ref/2.0)/((1.0 - ecc*np.sin(theta_ref)) / \
         (1.0 + ecc*np.sin(theta_ref)))**(ecc/2.0)
-    #-- distance scaling
+    # distance scaling
     k = (mref/m)*(t/tref)
     kp = 0.5*mref*np.sqrt(((1.0+ecc)**(1.0+ecc))*((1.0-ecc)**(1.0-ecc)))/tref
-    #-- area scaling
+    # area scaling
     scale = np.where(np.isclose(theta,np.pi/2.0),1.0/(kp**2),1.0/(k**2))
     return scale

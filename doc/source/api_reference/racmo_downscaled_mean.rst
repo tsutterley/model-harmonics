@@ -12,7 +12,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../SMB/racmo_downscaled_mean.py
+    :filename: racmo_downscaled_mean.py
     :func: arguments
     :prog: racmo_downscaled_mean.py
     :nodescription:

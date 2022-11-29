@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 jpl_ecco_v4_sync.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (11/2022)
 
 Syncs ECCO Version 4 model outputs from the NASA JPL ECCO Drive server:
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
@@ -62,6 +62,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
     Updated 07/2021: add warning for Version 4, Revision 4
@@ -102,176 +103,174 @@ import posixpath
 import lxml.etree
 import gravity_toolkit.utilities
 
-#-- PURPOSE: sync ECCO Version 4 model data from JPL ECCO drive server
+# PURPOSE: sync ECCO Version 4 model data from JPL ECCO drive server
 def jpl_ecco_v4_sync(ddir, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
     LOG=False, LIST=False, CLOBBER=False, CHECKSUM=False, MODE=None):
 
-    #-- check if directory exists and recursively create if not
-    DIRECTORY = os.path.join(ddir, 'ECCO-{0}'.format(MODEL))
+    # check if directory exists and recursively create if not
+    DIRECTORY = os.path.join(ddir, f'ECCO-{MODEL}')
     os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
 
-    #-- remote https server for ECCO data
+    # remote https server for ECCO data
     HOST = 'https://ecco.jpl.nasa.gov'
-    #-- compile HTML parser for lxml
+    # compile HTML parser for lxml
     parser = lxml.etree.HTMLParser()
 
-    #-- create log file with list of synchronized files (or print to terminal)
+    # create log file with list of synchronized files (or print to terminal)
     if LOG:
-        #-- format: JPL_ECCO_V4r4_PHIBOT_sync_2002-04-01.log
+        # format: JPL_ECCO_V4r4_PHIBOT_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        args = (MODEL,PRODUCT,today)
-        LOGFILE = 'JPL_ECCO_{0}_{1}_{2}.log'.format(*args)
+        LOGFILE = f'JPL_ECCO_{MODEL}_{PRODUCT}_{today}.log'
         logging.basicConfig(filename=os.path.join(DIRECTORY,LOGFILE),
             level=logging.INFO)
-        logging.info('ECCO Version 4 {1} Sync Log ({2})'.format(*args))
+        logging.info(f'ECCO Version 4 {PRODUCT} Sync Log ({today})')
     else:
-        #-- standard output (terminal output)
+        # standard output (terminal output)
         logging.basicConfig(level=logging.INFO)
 
-    #-- print the model synchronized
-    logging.info('MODEL: {0}\n'.format(MODEL))
+    # print the model synchronized
+    logging.info(f'MODEL: {MODEL}\n')
 
-    #-- print warning for Version 4, Revision 4
-    #-- https://ecco-group.org/docs/ECCO_V4r4_errata.pdf
+    # print warning for Version 4, Revision 4
+    # https://ecco-group.org/docs/ECCO_V4r4_errata.pdf
     if MODEL in ('V4r4',):
         warnings.filterwarnings("always")
         warnings.warn("See Errata for V4r4 Atmospheric Pressure Forcing")
 
-    #-- path to model files
+    # path to model files
     model_path = {}
     model_path['V4r3'] = ['Version4','Release3','interp_monthly',PRODUCT]
     model_path['V4r4'] = ['Version4','Release4','interp_monthly',PRODUCT]
-    #-- compile regular expression operator for years to sync
+    # compile regular expression operator for years to sync
     if YEAR is None:
         regex_years = r'\d+'
     else:
-        regex_years = r'|'.join('{0:d}'.format(y) for y in YEAR)
-    #-- compile regular expression operator finding years
+        regex_years = r'|'.join([rf'{y:d}' for y in YEAR])
+    # compile regular expression operator finding years
     if MODEL in ('V4r3',):
-        args = (PRODUCT,regex_years)
-        R1 = re.compile(r'{0}([\.\_])({1})(_\d+)?.nc$'.format(*args))
+        R1 = re.compile(rf'{PRODUCT}([\.\_])({regex_years})(_\d+)?.nc$')
     elif MODEL in ('V4r4',):
-        R1 = re.compile(regex_years)
+        R1 = re.compile(regex_years, re.VERBOSE)
 
-    #-- remote subdirectory for MODEL on JPL ECCO data server
+    # remote subdirectory for MODEL on JPL ECCO data server
     PATH = [HOST,'drive','files',*model_path[MODEL]]
-    #-- open connection with ECCO drive server at remote directory
-    #-- find remote yearly directories for MODEL
+    # open connection with ECCO drive server at remote directory
+    # find remote yearly directories for MODEL
     years,mtimes = gravity_toolkit.utilities.drive_list(PATH,
         timeout=TIMEOUT,build=False,parser=parser,pattern=R1,sort=True)
     for yr in years:
-        #-- extract year from file
+        # extract year from file
         if MODEL in ('V4r3',):
             _,YY,_ = R1.findall(yr).pop()
         elif MODEL in ('V4r4',):
-            #-- print string for year
+            # print string for year
             logging.info(yr)
-            #-- add the year directory to the path
+            # add the year directory to the path
             YY, = R1.findall(yr)
             PATH.append(yr)
-        #-- compile regular expression operator for model product files
-        R3 = re.compile(r'{0}([\.\_])({1})(_\d+)?.nc$'.format(PRODUCT,YY))
-        #-- full path to remote directory
+        # compile regular expression operator for model product files
+        R3 = re.compile(rf'{PRODUCT}([\.\_])({YY})(_\d+)?.nc$', re.VERBOSE)
+        # full path to remote directory
         remote_dir = posixpath.join(*PATH)
-        #-- read and parse request for files (find names and modified dates)
+        # read and parse request for files (find names and modified dates)
         colnames,mtimes=gravity_toolkit.utilities.drive_list(PATH,
             timeout=TIMEOUT,build=False,parser=parser,pattern=R3,sort=True)
-        #-- for each file on the remote server
+        # for each file on the remote server
         for colname,remote_mtime in zip(colnames,mtimes):
-            #-- remote and local versions of the file
+            # remote and local versions of the file
             remote_file = posixpath.join(remote_dir,colname)
             local_file = os.path.join(DIRECTORY,colname)
             http_pull_file(remote_file, remote_mtime, local_file,
                 TIMEOUT=TIMEOUT, LIST=LIST, CLOBBER=CLOBBER,
                 CHECKSUM=CHECKSUM, MODE=MODE)
-        #-- remove the year directory from the path
+        # remove the year directory from the path
         if MODEL in ('V4r4',):
             PATH.remove(yr)
 
-    #-- close log file and set permissions level to MODE
+    # close log file and set permissions level to MODE
     if LOG:
         os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
 
-#-- PURPOSE: pull file from a remote host checking if file exists locally
-#-- and if the remote file is newer than the local file
+# PURPOSE: pull file from a remote host checking if file exists locally
+# and if the remote file is newer than the local file
 def http_pull_file(remote_file, remote_mtime, local_file,
     TIMEOUT=None, LIST=False, CLOBBER=False, CHECKSUM=False, MODE=0o775):
-    #-- if file exists in file system: check if remote file is newer
+    # if file exists in file system: check if remote file is newer
     TEST = False
     OVERWRITE = ' (clobber)'
-    #-- check if local version of file exists
+    # check if local version of file exists
     if CHECKSUM and os.access(local_file, os.F_OK):
-        #-- generate checksum hash for local file
-        #-- open the local_file in binary read mode
+        # generate checksum hash for local file
+        # open the local_file in binary read mode
         local_hash = gravity_toolkit.utilities.get_hash(local_file)
-        #-- Create and submit request.
-        #-- There are a wide range of exceptions that can be thrown here
-        #-- including HTTPError and URLError.
+        # Create and submit request.
+        # There are a wide range of exceptions that can be thrown here
+        # including HTTPError and URLError.
         request = gravity_toolkit.utilities.urllib2.Request(remote_file)
         response = gravity_toolkit.utilities.urllib2.urlopen(request,
             timeout=TIMEOUT)
-        #-- copy remote file contents to bytesIO object
+        # copy remote file contents to bytesIO object
         remote_buffer = io.BytesIO(response.read())
         remote_buffer.seek(0)
-        #-- generate checksum hash for remote file
+        # generate checksum hash for remote file
         remote_hash = gravity_toolkit.utilities.get_hash(remote_buffer)
-        #-- compare checksums
+        # compare checksums
         if (local_hash != remote_hash):
             TEST = True
-            OVERWRITE = ' (checksums: {0} {1})'.format(local_hash,remote_hash)
+            OVERWRITE = f' (checksums: {local_hash} {remote_hash})'
     elif os.access(local_file, os.F_OK):
-        #-- check last modification time of local file
+        # check last modification time of local file
         local_mtime = os.stat(local_file).st_mtime
-        #-- if remote file is newer: overwrite the local file
+        # if remote file is newer: overwrite the local file
         if (remote_mtime > local_mtime):
             TEST = True
             OVERWRITE = ' (overwrite)'
     else:
         TEST = True
         OVERWRITE = ' (new)'
-    #-- if file does not exist locally, is to be overwritten, or CLOBBER is set
+    # if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
-        #-- Printing files transferred
-        logging.info('{0} --> '.format(remote_file))
-        logging.info('\t{0}{1}\n'.format(local_file,OVERWRITE))
-        #-- if executing copy command (not only printing the files)
+        # Printing files transferred
+        logging.info(f'{remote_file} --> ')
+        logging.info(f'\t{local_file}{OVERWRITE}\n')
+        # if executing copy command (not only printing the files)
         if not LIST:
-            #-- chunked transfer encoding size
+            # chunked transfer encoding size
             CHUNK = 16 * 1024
-            #-- copy bytes or transfer file
+            # copy bytes or transfer file
             if CHECKSUM and os.access(local_file, os.F_OK):
-                #-- store bytes to file using chunked transfer encoding
+                # store bytes to file using chunked transfer encoding
                 remote_buffer.seek(0)
                 with open(local_file, 'wb') as f:
                     shutil.copyfileobj(remote_buffer, f, CHUNK)
             else:
-                #-- Create and submit request.
-                #-- There are a wide range of exceptions that can be thrown here
-                #-- including HTTPError and URLError.
+                # Create and submit request.
+                # There are a wide range of exceptions that can be thrown here
+                # including HTTPError and URLError.
                 request = gravity_toolkit.utilities.urllib2.Request(remote_file)
                 response = gravity_toolkit.utilities.urllib2.urlopen(request,
                     timeout=TIMEOUT)
-                #-- copy contents to local file using chunked transfer encoding
-                #-- transfer should work properly with ascii and binary formats
+                # copy contents to local file using chunked transfer encoding
+                # transfer should work properly with ascii and binary formats
                 with open(local_file, 'wb') as f:
                     shutil.copyfileobj(response, f, CHUNK)
-            #-- keep remote modification time of file and local access time
+            # keep remote modification time of file and local access time
             os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
             os.chmod(local_file, MODE)
 
-#-- PURPOSE: create argument parser
+# PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
         description="""Syncs ECCO Version 4 model outputs from the
         NASA JPL ECCO Drive server
         """
     )
-    #-- command line parameters
+    # command line parameters
     parser.add_argument('model',
         type=str, nargs='+',
         default=['V4r3','V4r4'], choices=['V4r3','V4r4'],
         help='ECCO Version 4 Model')
-    #-- NASA Earthdata credentials
+    # NASA Earthdata credentials
     parser.add_argument('--user','-U',
         type=str, default=os.environ.get('EARTHDATA_USERNAME'),
         help='Username for NASA Earthdata Login')
@@ -282,29 +281,29 @@ def arguments():
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         default=os.path.join(os.path.expanduser('~'),'.netrc'),
         help='Path to .netrc file for authentication')
-    #-- working data directory
+    # working data directory
     parser.add_argument('--directory','-D',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         default=os.getcwd(),
         help='Working data directory')
-    #-- ECCO model years to sync
+    # ECCO model years to sync
     parser.add_argument('--year','-Y',
         type=int, nargs='+',
         help='Years to sync')
-    #-- ECCO model product to sync
+    # ECCO model product to sync
     parser.add_argument('--product','-P',
         type=str, default='PHIBOT',
         help='Product to sync')
-    #-- connection timeout
+    # connection timeout
     parser.add_argument('--timeout','-t',
         type=int, default=360,
         help='Timeout in seconds for blocking operations')
-    #-- Output log file in form
-    #-- JPL_ECCO_V4r4_PHIBOT_sync_2002-04-01.log
+    # Output log file in form
+    # JPL_ECCO_V4r4_PHIBOT_sync_2002-04-01.log
     parser.add_argument('--log','-l',
         default=False, action='store_true',
         help='Output log file')
-    #-- sync options
+    # sync options
     parser.add_argument('--list','-L',
         default=False, action='store_true',
         help='Only print files that could be transferred')
@@ -314,41 +313,41 @@ def arguments():
     parser.add_argument('--clobber','-C',
         default=False, action='store_true',
         help='Overwrite existing data in transfer')
-    #-- permissions mode of the directories and files synced (number in octal)
+    # permissions mode of the directories and files synced (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files synced')
-    #-- return the parser
+    # return the parser
     return parser
 
-#-- This is the main part of the program that calls the individual functions
+# This is the main part of the program that calls the individual functions
 def main():
-    #-- Read the system arguments listed after the program
+    # Read the system arguments listed after the program
     parser = arguments()
     args,_ = parser.parse_known_args()
 
-    #-- JPL ECCO drive hostname
+    # JPL ECCO drive hostname
     HOST = 'ecco.jpl.nasa.gov'
-    #-- get NASA Earthdata and JPL ECCO drive credentials
+    # get NASA Earthdata and JPL ECCO drive credentials
     try:
         args.user,_,args.webdav = netrc.netrc(args.netrc).authenticators(HOST)
     except:
-        #-- check that NASA Earthdata credentials were entered
+        # check that NASA Earthdata credentials were entered
         if not args.user:
-            prompt = 'Username for {0}: '.format(HOST)
+            prompt = f'Username for {HOST}: '
             args.user = builtins.input(prompt)
-        #-- enter WebDAV password securely from command-line
+        # enter WebDAV password securely from command-line
         if not args.webdav:
-            prompt = 'Password for {0}@{1}: '.format(args.user,HOST)
+            prompt = f'Password for {args.user}@{HOST}: '
             args.webdav = getpass.getpass(prompt)
 
-    #-- build a urllib opener for JPL ECCO Drive
-    #-- Add the username and password for NASA Earthdata Login system
+    # build a urllib opener for JPL ECCO Drive
+    # Add the username and password for NASA Earthdata Login system
     gravity_toolkit.utilities.build_opener(args.user,args.webdav)
 
-    #-- check internet connection before attempting to run program
-    #-- check JPL ECCO Drive credentials before attempting to run program
-    DRIVE = 'https://{0}/drive/files'.format(HOST)
+    # check internet connection before attempting to run program
+    # check JPL ECCO Drive credentials before attempting to run program
+    DRIVE = f'https://{HOST}/drive/files'
     if gravity_toolkit.utilities.check_credentials(DRIVE):
         for MODEL in args.model:
             jpl_ecco_v4_sync(args.directory, MODEL, YEAR=args.year,
@@ -356,6 +355,6 @@ def main():
                 LIST=args.list, CLOBBER=args.clobber, CHECKSUM=args.checksum,
                 MODE=args.mode)
 
-#-- run main program
+# run main program
 if __name__ == '__main__':
     main()

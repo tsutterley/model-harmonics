@@ -18,7 +18,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../GLDAS/gldas_mask_permafrost.py
+    :filename: gldas_mask_permafrost.py
     :func: arguments
     :prog: gldas_mask_permafrost.py
     :nodescription:

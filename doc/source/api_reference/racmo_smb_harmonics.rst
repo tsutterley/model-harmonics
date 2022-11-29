@@ -18,7 +18,7 @@ Command Line Options
 ####################
 
 .. argparse::
-    :filename: ../../SMB/racmo_smb_harmonics.py
+    :filename: racmo_smb_harmonics.py
     :func: arguments
     :prog: racmo_smb_harmonics.py
     :nodescription:

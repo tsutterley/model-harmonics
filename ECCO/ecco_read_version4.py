@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_read_version4.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (11/2022)
 
 Calculates monthly ocean bottom pressure anomalies from ECCO Version 4 models
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
@@ -62,6 +62,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: lower case keyword arguments to output spatial
     Updated 12/2021: can use variable loglevels for verbose output
@@ -87,25 +88,25 @@ import gravity_toolkit.time
 import gravity_toolkit.spatial
 from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
 
-#-- PURPOSE: read ECCO2 V4 ocean bottom pressure data and calculate monthly
-#-- anomalies in absolute ocean bottom pressure
+# PURPOSE: read ECCO2 V4 ocean bottom pressure data and calculate monthly
+# anomalies in absolute ocean bottom pressure
 def ecco_read_version4(ddir, MODEL, YEARS, RANGE=None,
     DATAFORM=None, VERBOSE=False, MODE=0o775):
 
-    #-- create logger for verbosity level
+    # create logger for verbosity level
     loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
     logging.basicConfig(level=loglevels[VERBOSE])
 
-    #-- input and output subdirectories
-    sd1 = 'ECCO-{0}'.format(MODEL)
-    sd2 = 'ECCO_{0}_AveRmvd_OBP'.format(MODEL)
-    #-- recursively create subdirectory if it doesn't exist
+    # input and output subdirectories
+    sd1 = f'ECCO-{MODEL}'
+    sd2 = f'ECCO_{MODEL}_AveRmvd_OBP'
+    # recursively create subdirectory if it doesn't exist
     if (not os.access(os.path.join(ddir,sd2), os.F_OK)):
         os.makedirs(os.path.join(ddir,sd2),MODE)
-    #-- output data file format
+    # output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
 
-    #-- input variable names for each model
+    # input variable names for each model
     if (MODEL == 'V4r3'):
         VARNAME = 'PHIBOT'
         LONNAME = 'i3'
@@ -116,153 +117,154 @@ def ecco_read_version4(ddir, MODEL, YEARS, RANGE=None,
         LONNAME = 'i'
         LATNAME = 'j'
         TIMENAME = 'time'
-    #-- output dimensions and extents
+    # output dimensions and extents
     nlat,nlon = (360,720)
     extent = [-179.75,179.75,-89.75,89.75]
-    #-- grid spacing
+    # grid spacing
     dlon,dlat = (0.5,0.5)
     dphi = dlon*np.pi/180.0
     dth = dlat*np.pi/180.0
-    #-- bad value
+    # bad value
     fill_value = -1e+10
-    #-- model gamma and rhonil
+    # model gamma and rhonil
     gamma = 9.81
     rhonil = 1029
-    #-- get reference parameters for WGS84 ellipsoid
+    # get reference parameters for WGS84 ellipsoid
     WGS84 = ref_ellipsoid('WGS84')
-    #-- semimajor and semiminor axes of the ellipsoid [m]
+    # semimajor and semiminor axes of the ellipsoid [m]
     a_axis = WGS84['a']
     b_axis = WGS84['b']
 
-    #-- read depth data from ecco_depth_version4.py
+    # read depth data from ecco_depth_version4.py
     input_depth_file = os.path.join(ddir,'DEPTH.2020.720x360.nc')
     depth = gravity_toolkit.spatial().from_netCDF4(input_depth_file,
         varname='depth', date=False)
 
-    #-- read mean data from ecco_mean_version4.py
+    # read mean data from ecco_mean_version4.py
     args = (MODEL, RANGE[0], RANGE[1], suffix[DATAFORM])
     mean_file = 'ECCO_{0}_OBP_MEAN_{1:4d}-{2:4d}.{3}'.format(*args)
-    #-- remove singleton dimensions
+    # remove singleton dimensions
     if (DATAFORM == 'ascii'):
-        #-- ascii (.txt)
+        # ascii (.txt)
         obp_mean = gravity_toolkit.spatial(
             spacing=[dlon,dlat], nlat=nlat, nlon=nlon,
             extent=extent, fill_value=fill_value).from_ascii(
             os.path.join(ddir,sd1,mean_file), date=False).squeeze()
     elif (DATAFORM == 'netCDF4'):
-        #-- netcdf (.nc)
+        # netcdf (.nc)
         obp_mean = gravity_toolkit.spatial().from_netCDF4(
             os.path.join(ddir,sd1,mean_file), date=False).squeeze()
     elif (DATAFORM == 'HDF5'):
-        #-- HDF5 (.H5)
+        # HDF5 (.H5)
         obp_mean = gravity_toolkit.spatial().from_HDF5(
             os.path.join(ddir,sd1,mean_file), date=False).squeeze()
 
-    #-- output average ocean bottom pressure to file
-    output_average_file = 'ECCO_{0}_Global_Average_OBP.txt'.format(MODEL)
-    fid = open(os.path.join(ddir,sd1,output_average_file),'w')
+    # output average ocean bottom pressure to file
+    output_average_file = f'ECCO_{MODEL}_Global_Average_OBP.txt'
+    fid = open(os.path.join(ddir,sd1,output_average_file),
+        mode='w', encoding='utf8')
 
-    #-- compile regular expression operator for finding files for years
-    year_regex = '|'.join('{0:d}'.format(y) for y in YEARS)
-    rx1 = re.compile(r'PHIBOT([\.\_])({0})(_\d+)?.nc$'.format(year_regex))
-    #-- find input files
-    flist=[f for f in os.listdir(os.path.join(ddir,sd1)) if rx1.match(f)]
-    #-- read each input file
+    # compile regular expression operator for finding files for years
+    regex_years = r'|'.join([rf'{y:d}' for y in YEARS])
+    rx1 = re.compile(rf'PHIBOT([\.\_])({regex_years})(_\d+)?.nc$')
+    # find input files
+    flist = [f for f in os.listdir(os.path.join(ddir,sd1)) if rx1.match(f)]
+    # read each input file
     for fi in sorted(flist):
-        #-- Open netCDF4 datafile for reading
+        # Open netCDF4 datafile for reading
         PHIBOT = gravity_toolkit.spatial(fill_value=np.nan).from_netCDF4(
             os.path.join(ddir,sd1,fi),verbose=VERBOSE,
             latname=LATNAME,lonname=LONNAME,timename=TIMENAME,
             varname=VARNAME).transpose(axes=(1,2,0))
         PHIBOT.replace_invalid(fill_value)
-        #-- time within netCDF files is days since epoch
+        # time within netCDF files is days since epoch
         time_string = PHIBOT.attributes['time']['units']
         epoch1,to_secs = gravity_toolkit.time.parse_date_string(time_string)
-        #-- read ocean bottom pressure anomalies for each month
+        # read ocean bottom pressure anomalies for each month
         for m,delta_time in enumerate(to_secs*PHIBOT.time):
-            #-- convert from ocean bottom pressure anomalies to absolute
+            # convert from ocean bottom pressure anomalies to absolute
             obp = gravity_toolkit.spatial(spacing=[dlon,dlat],nlon=nlon,
                 nlat=nlat,fill_value=fill_value)
             obp.data = depth.data*rhonil*gamma + PHIBOT.data[:,:,m]*rhonil
             obp.mask = (depth.mask | PHIBOT.mask[:,:,m])
             obp.update_mask()
 
-            #-- will calculate and remove the area average of the model
+            # will calculate and remove the area average of the model
             obp_anomaly = gravity_toolkit.spatial(fill_value=fill_value)
-            #-- calculate dimension variables
+            # calculate dimension variables
             obp_anomaly.lon = np.arange(extent[0],extent[1]+dlon,dlon)
             obp_anomaly.lat = np.arange(extent[2],extent[3]+dlat,dlat)
-            #-- convert grid latitude and longitude to radians
+            # convert grid latitude and longitude to radians
             theta = (90.0 - obp_anomaly.lat)*np.pi/180.0
             phi = obp_anomaly.lon*np.pi/180.0
-            #-- calculate Julian day by converting to MJD and adding offset
+            # calculate Julian day by converting to MJD and adding offset
             JD = gravity_toolkit.time.convert_delta_time(delta_time,
                 epoch1=epoch1, epoch2=(1858,11,17,0,0,0),
                 scale=1.0/86400.0) + 2400000.5
-            #-- convert from Julian days to calendar dates
+            # convert from Julian days to calendar dates
             YY,MM,DD,hh,mm,ss = gravity_toolkit.time.convert_julian(JD,
                 FORMAT='tuple')
-            #-- convert from calendar dates to year-decimal
+            # convert from calendar dates to year-decimal
             obp_anomaly.time, = gravity_toolkit.time.convert_calendar_decimal(
                 YY,MM,day=DD,hour=hh,minute=mm,second=ss)
 
-            #-- global area average of each ocean bottom pressure map is removed
-            #-- (Greatbatch correction) https://doi.org/10.1029/94JC00847
+            # global area average of each ocean bottom pressure map is removed
+            # (Greatbatch correction) https://doi.org/10.1029/94JC00847
             total_area = 0.0
             total_newton = 0.0
             for k in range(0, nlat):
-                #-- Grid point areas (ellipsoidal)
+                # Grid point areas (ellipsoidal)
                 area = np.sin(theta[k]) * np.sqrt((a_axis**2)*(b_axis**2)*
                     ((np.sin(theta[k])**2) * (np.cos(phi)**2) +
                     (np.sin(theta[k])**2)*(np.sin(phi)**2)) +
                     (a_axis**4)*(np.cos(theta[k])**2))*dphi*dth
-                #-- calculate the grid point weight in newtons
+                # calculate the grid point weight in newtons
                 newtons = obp.data[k,:]*area
-                #-- finding ocean points at each lat
+                # finding ocean points at each lat
                 if np.count_nonzero(~obp.mask[k,:]):
                     ocean_points, = np.nonzero(~obp.mask[k,:])
-                    #-- total area
+                    # total area
                     total_area += np.sum(area[ocean_points])
-                    #-- total weight in newtons
+                    # total weight in newtons
                     total_newton += np.sum(newtons[ocean_points])
-            #-- remove global area average of each OBP map
+            # remove global area average of each OBP map
             ratio = (total_newton/total_area)
-            #-- Calculating Departures from the mean field
+            # Calculating Departures from the mean field
             obp_anomaly.data = (obp.data - ratio) - obp_mean.data
             obp_anomaly.mask = (obp.mask | obp_mean.mask)
             obp_anomaly.update_mask()
-            #-- output monthly absolute bottom pressure to file
+            # output monthly absolute bottom pressure to file
             args = (obp_anomaly.time, ratio, total_area)
             fid.write('{0:10.4f} {1:21.14e} {2:21.14e}\n'.format(*args))
 
-            #-- Writing output ocean bottom pressure anomaly file
+            # Writing output ocean bottom pressure anomaly file
             args = (MODEL, YY, MM, suffix[DATAFORM])
             FILE = 'ECCO_{0}_AveRmvd_OBP_{1:4.0f}_{2:02.0f}.{3}'.format(*args)
             output_data(obp_anomaly, MODEL, DATAFORM=DATAFORM,
                 VERBOSE=VERBOSE, FILENAME=os.path.join(ddir,sd2,FILE))
-            #-- change the permissions mode of the output file to MODE
+            # change the permissions mode of the output file to MODE
             os.chmod(os.path.join(ddir,sd2,FILE),MODE)
 
-    #-- close output file and change the permissions to MODE
+    # close output file and change the permissions to MODE
     fid.close()
     os.chmod(os.path.join(ddir,sd1,output_average_file),MODE)
 
-#-- PURPOSE: wrapper function for outputting data to file
+# PURPOSE: wrapper function for outputting data to file
 def output_data(data,MODEL,FILENAME=None,DATAFORM=None,VERBOSE=False):
-    TITLE = 'Ocean_Bottom_Pressure_from_ECCO_{0}_Model'.format(MODEL)
+    TITLE = f'Ocean_Bottom_Pressure_from_ECCO_{MODEL}_Model'
     if (DATAFORM == 'ascii'):
-        #-- ascii (.txt)
+        # ascii (.txt)
         data.to_ascii(FILENAME,verbose=VERBOSE)
     elif (DATAFORM == 'netCDF4'):
-        #-- netcdf (.nc)
+        # netcdf (.nc)
         data.to_netCDF4(FILENAME, verbose=VERBOSE, units='Pa',
             longname='pressure_at_sea_floor', title=TITLE)
     elif (DATAFORM == 'HDF5'):
-        #-- HDF5 (.H5)
+        # HDF5 (.H5)
         data.to_HDF5(FILENAME, verbose=VERBOSE, units='Pa',
             longname='pressure_at_sea_floor', title=TITLE)
 
-#-- PURPOSE: create argument parser
+# PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
         description="""Reads monthly ECCO ocean bottom pressure
@@ -270,53 +272,53 @@ def arguments():
             anomalies
             """
     )
-    #-- command line parameters
+    # command line parameters
     parser.add_argument('model',
         type=str, nargs='+',
         default=['V4r3','V4r4'], choices=['V4r3','V4r4'],
         help='ECCO Version 4 Model')
-    #-- working data directory
+    # working data directory
     parser.add_argument('--directory','-D',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         default=os.getcwd(),
         help='Working data directory')
-    #-- years to run
+    # years to run
     now = datetime.datetime.now()
     parser.add_argument('--year','-Y',
         type=int, nargs='+', default=range(2000,now.year+1),
         help='Years of model outputs to run')
-    #-- start and end years to run for mean
+    # start and end years to run for mean
     parser.add_argument('--mean','-m',
         metavar=('START','END'), type=int, nargs=2,
         default=[2003,2007],
         help='Start and end year range for mean')
-    #-- input and output data format (ascii, netCDF4, HDF5)
+    # input and output data format (ascii, netCDF4, HDF5)
     parser.add_argument('--format','-F',
         type=str, default='netCDF4', choices=['ascii','netCDF4','HDF5'],
         help='Input and output data format')
-    #-- print information about each output file
+    # print information about each output file
     parser.add_argument('--verbose','-V',
         action='count', default=0,
         help='Verbose output of processing run')
-    #-- permissions mode of the local directories and files (number in octal)
+    # permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
-    #-- return the parser
+    # return the parser
     return parser
 
-#-- This is the main part of the program that calls the individual functions
+# This is the main part of the program that calls the individual functions
 def main():
-    #-- Read the system arguments listed after the program
+    # Read the system arguments listed after the program
     parser = arguments()
     args,_ = parser.parse_known_args()
 
-    #-- for each ECCO Version 4 model
+    # for each ECCO Version 4 model
     for MODEL in args.model:
-        #-- run program
+        # run program
         ecco_read_version4(args.directory, MODEL, args.year, RANGE=args.mean,
             DATAFORM=args.format, VERBOSE=args.verbose, MODE=args.mode)
 
-#-- run main program
+# run main program
 if __name__ == '__main__':
     main()

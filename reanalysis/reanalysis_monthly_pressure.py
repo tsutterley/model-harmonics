@@ -56,45 +56,45 @@ import gravity_toolkit.time
 import gravity_toolkit.spatial
 import gravity_toolkit.utilities as utilities
 
-#-- PURPOSE: read atmospheric surface pressure fields and calculate monthly mean
+# PURPOSE: read atmospheric surface pressure fields and calculate monthly mean
 def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
 
-    #-- directory setup
+    # directory setup
     ddir = os.path.join(base_dir,MODEL)
-    #-- set model specific parameters
+    # set model specific parameters
     if (MODEL == 'NCEP-DOE-2'):
-        #-- regular expression pattern for finding files
+        # regular expression pattern for finding files
         regex_pattern = 'pres.sfc.({0:4d}).nc$'
         FILL_VALUE = 'missing_value'
-        #-- output file format
+        # output file format
         output_file_format = 'pres.sfc.mon.mean.{0:4d}.nc'
         VARNAME = 'pres'
         LONNAME = 'lon'
         LATNAME = 'lat'
         TIMENAME = 'time'
 
-    #-- for each year
+    # for each year
     for YEAR in YEARS:
-        #-- days per month (check if year is a leap year)
+        # days per month (check if year is a leap year)
         dpm = [0.0] + list(gravity_toolkit.time.calendar_days(YEAR))
         cumulative_days = np.cumsum(dpm)
-        #-- list of spatial data
+        # list of spatial data
         p_mean = []
-        #-- read each reanalysis pressure field and calculate mean
+        # read each reanalysis pressure field and calculate mean
         rx = re.compile(regex_pattern.format(YEAR), re.VERBOSE)
         input_files = [fi for fi in os.listdir(ddir) if rx.match(fi)]
-        #-- for each input file
+        # for each input file
         for fi in input_files:
-            #-- read input data
+            # read input data
             p = gravity_toolkit.spatial().from_netCDF4(os.path.join(ddir,fi),
                 varname=VARNAME, timename=TIMENAME, lonname=LONNAME,
                 latname=LATNAME).transpose(axes=(1,2,0))
             p.fill_value = p.attributes['data'][FILL_VALUE]
             TIME_UNITS = p.attributes['time']['units']
             TIME_LONGNAME = p.attributes['time']['long_name']
-            #-- iterate over months
+            # iterate over months
             for m in range(0,12):
-                #-- for each day in the month
+                # for each day in the month
                 indices = np.arange(cumulative_days[m],cumulative_days[m+1])
                 try:
                     p_mean.append(p.mean(indices=indices.astype(np.int64)))
@@ -103,63 +103,63 @@ def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
                 else:
                     p_mean[m].month = m + 1
 
-        #-- mean pressure for each month
+        # mean pressure for each month
         p_month=gravity_toolkit.spatial().from_list(p_mean).transpose(axes=(2,0,1))
-        #-- convert to python dictionary for output to netCDF4
+        # convert to python dictionary for output to netCDF4
         dinput = {}
         dinput[VARNAME] = p_month.to_masked_array()
         dinput[LATNAME] = np.copy(p_month.lat)
         dinput[LONNAME] = np.copy(p_month.lon)
         dinput[TIMENAME] = np.copy(p_month.time)
 
-        #-- save to file
+        # save to file
         FILE = os.path.join(ddir,output_file_format.format(YEAR))
         ncdf_pressure_write(dinput, p.fill_value, FILENAME=FILE,
             VARNAME=VARNAME, LONNAME=LONNAME, LATNAME=LATNAME, TIMENAME=TIMENAME,
             TIME_UNITS=TIME_UNITS, TIME_LONGNAME=TIME_LONGNAME)
-        #-- set the permissions level of the output file to MODE
+        # set the permissions level of the output file to MODE
         os.chmod(FILE, MODE)
 
-#-- PURPOSE: write output pressure fields data to file
+# PURPOSE: write output pressure fields data to file
 def ncdf_pressure_write(dinput, fill_value, FILENAME=None, VARNAME=None,
     LONNAME=None, LATNAME=None, TIMENAME=None, TIME_UNITS=None,
     TIME_LONGNAME=None):
-    #-- opening netCDF4 file for writing
+    # opening netCDF4 file for writing
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
-    #-- Defining the netCDF4 dimensions
-    #-- defining the netCDF4 variables
+    # Defining the netCDF4 dimensions
+    # defining the netCDF4 variables
     nc = {}
     for key in [LONNAME,LATNAME,TIMENAME]:
         fileID.createDimension(key, len(dinput[key]))
         nc[key] = fileID.createVariable(key, dinput[key].dtype,(key,))
-    #-- defining the main netCDF4 variable
+    # defining the main netCDF4 variable
     nc[VARNAME] = fileID.createVariable(VARNAME, dinput[VARNAME].dtype,
         (TIMENAME,LATNAME,LONNAME,), fill_value=fill_value, zlib=True)
-    #-- filling netCDF4 variables
+    # filling netCDF4 variables
     for key,val in dinput.items():
         nc[key][:] = np.copy(val)
 
-    #-- Defining attributes for longitude and latitude
+    # Defining attributes for longitude and latitude
     nc[LONNAME].long_name = 'longitude'
     nc[LONNAME].units = 'degrees_east'
     nc[LATNAME].long_name = 'latitude'
     nc[LATNAME].units = 'degrees_north'
-    #-- Defining attributes for time
+    # Defining attributes for time
     nc[TIMENAME].units = TIME_UNITS
     nc[TIMENAME].long_name = TIME_LONGNAME
-    #-- Defining attributes for pressure
+    # Defining attributes for pressure
     nc[VARNAME].units = 'Pa'
     nc[VARNAME].long_name = 'mean_surface_pressure'
 
-    #-- Output NetCDF structure information
+    # Output NetCDF structure information
     logging.info(os.path.basename(FILENAME))
     logging.info(list(fileID.variables.keys()))
 
-    #-- Closing the NetCDF file
+    # Closing the NetCDF file
     fileID.close()
 
-#-- PURPOSE: create argument parser
+# PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
         description="""Reads daily atmospheric pressure fields
@@ -168,49 +168,49 @@ def arguments():
         fromfile_prefix_chars="@"
     )
     parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
-    #-- command line parameters
+    # command line parameters
     choices = ['NCEP-DOE-2']
     parser.add_argument('model',
         type=str, nargs='+',
         default=['NCEP-DOE-2'], choices=choices,
         help='Reanalysis Model')
-    #-- working data directory
+    # working data directory
     parser.add_argument('--directory','-D',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         default=os.getcwd(),
         help='Working data directory')
-    #-- years to run
+    # years to run
     now = datetime.datetime.now()
     parser.add_argument('--year','-Y',
         type=int, nargs='+', default=range(2000,now.year+1),
         help='Years of model outputs to run')
-    #-- print information about each input and output file
+    # print information about each input and output file
     parser.add_argument('--verbose','-V',
         action='count', default=0,
         help='Verbose output of processing run')
-    #-- permissions mode of the local directories and files (number in octal)
+    # permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
         help='Permission mode of directories and files')
-    #-- return the parser
+    # return the parser
     return parser
 
-#-- This is the main part of the program that calls the individual functions
+# This is the main part of the program that calls the individual functions
 def main():
-    #-- Read the system arguments listed after the program
+    # Read the system arguments listed after the program
     parser = arguments()
     args,_ = parser.parse_known_args()
 
-    #-- create logger
+    # create logger
     loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
     logging.basicConfig(level=loglevels[args.verbose])
 
-    #-- for each reanalysis model
+    # for each reanalysis model
     for MODEL in args.model:
-        #-- run program
+        # run program
         reanalysis_monthly_pressure(args.directory, MODEL, args.year,
             MODE=args.mode)
 
-#-- run main program
+# run main program
 if __name__ == '__main__':
     main()

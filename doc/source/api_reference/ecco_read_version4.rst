@@ -13,7 +13,7 @@ Calling Sequence
 ################
 
 .. argparse::
-    :filename: ../../ECCO/ecco_read_version4.py
+    :filename: ecco_read_version4.py
     :func: arguments
     :prog: ecco_read_version4.py
     :nodescription:
