@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 spatial_operators.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Performs basic operations on spatial files
 
 CALLING SEQUENCE:
@@ -48,6 +48,8 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 12/2022: added function to attempt to get variable attributes
+        copy input date variables to output spatial object
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: can use variable loglevels for verbose output
@@ -65,6 +67,40 @@ import logging
 import argparse
 import numpy as np
 from gravity_toolkit.spatial import spatial
+
+# PURPOSE: attempt to get data attributes
+def get_attributes(dinput, field='data'):
+    """
+    Gets variable attributes from a spatial object
+
+    Parameters
+    ----------
+    dinput: obj
+        spatial object to get variable attributes
+    field: str, default 'data
+        variable for retrieving attributes
+
+    Returns
+    -------
+    attr: dict
+        dictionary of variable attributes
+    """
+    # attempt to get attribute from combined variable
+    try:
+        attr = dinput.attributes[field]
+    except (TypeError, KeyError):
+        pass
+    else:
+        return attr
+    # attempt to get attribute from list variable
+    try:
+        attr = dinput.attributes[0][field]
+    except (TypeError, KeyError):
+        pass
+    else:
+        return attr
+    # return empty attribute for data
+    return dict(units=None, longname=None)
 
 # PURPOSE: Performs operations on spatial files
 def spatial_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, DDEG=None,
@@ -173,19 +209,24 @@ def spatial_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, DDEG=None,
         # convert from total in quadrature to RMS
         output = output.scale(1.0/n_files).power(0.5)
 
+    # copy date variables
+    if DATE:
+        output.time = np.copy(dinput[0].time)
+        output.month = np.copy(dinput[0].month)
+
     # write spatial file in data format
     if (DATAFORM[-1] == 'ascii'):
         # ascii (.txt)
         output.to_ascii(OUTPUT_FILE,date=DATE)
     elif (DATAFORM[-1] == 'netCDF4'):
         # netcdf (.nc)
-        attr = dinput[0].attributes['data']
+        attr = get_attributes(dinput[0])
         output.to_netCDF4(OUTPUT_FILE,date=DATE,
             units=attr['units'],longname=attr['long_name'],
             title=f'Output from {os.path.basename(sys.argv[0])}')
     elif (DATAFORM[-1] == 'HDF5'):
         # HDF5 (.H5)
-        attr = dinput[0].attributes['data']
+        attr = get_attributes(dinput[0])
         output.to_HDF5(OUTPUT_FILE,date=DATE,
             units=attr['units'],longname=attr['long_name'],
             title=f'Output from {os.path.basename(sys.argv[0])}')
