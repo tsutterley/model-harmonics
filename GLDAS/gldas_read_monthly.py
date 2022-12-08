@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_read_monthly.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 
 Reads GLDAS monthly datafiles from http://ldas.gsfc.nasa.gov/gldas/
 Adding Soil Moisture, snow water equivalent (SWE) and total canopy storage
@@ -78,6 +78,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: can use variable loglevels for verbose output
@@ -183,6 +184,13 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
     regex_pattern = r'GLDAS_{0}{1}_{2}\.A(\d{{4}})(\d{{2}})\.(\d+)\.({3})$'
     rx = re.compile(regex_pattern.format(MODEL,SPATIAL,'(M|M_EP)',GLDAS_SUFFIX))
 
+    # attributes for output files
+    attributes = {}
+    attributes['units'] = 'cmwe'
+    attributes['longname'] = 'Equivalent_Water_Thickness'
+    attributes['title'] = gldas_products[MODEL]
+    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+
     # for each directory of years
     for yr in sorted(year_dir):
         # find all GRIB/netCDF4 files within directory
@@ -238,18 +246,16 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
                 # output to file
                 if (DATAFORM == 'ascii'):
                     # ascii (.txt)
-                    twc.to_ascii(os.path.join(ddir,FILE),date=True,
+                    twc.to_ascii(os.path.join(ddir,FILE), date=True,
                         verbose=VERBOSE)
                 elif (DATAFORM == 'netCDF4'):
                     # netCDF4 (.nc)
-                    twc.to_netCDF4(os.path.join(ddir,FILE),verbose=VERBOSE,
-                        units='cmwe',longname='Equivalent Water Thickness',
-                        title=gldas_products[MODEL],date=True)
+                    twc.to_netCDF4(os.path.join(ddir,FILE), date=True,
+                        verbose=VERBOSE, **attributes)
                 elif (DATAFORM == 'HDF5'):
                     # HDF5 (.H5)
-                    twc.to_HDF5(os.path.join(ddir,FILE),verbose=VERBOSE,
-                        units='cmwe',longname='Equivalent Water Thickness',
-                        title=gldas_products[MODEL],date=True)
+                    twc.to_HDF5(os.path.join(ddir,FILE), date=True,
+                        verbose=VERBOSE, **attributes)
                 # change the permissions mode
                 os.chmod(os.path.join(ddir,FILE), MODE)
 

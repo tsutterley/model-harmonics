@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_atmospheric_harmonics.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Reads atmospheric geopotential heights fields from reanalysis and calculates
     sets of spherical harmonics using a 3D geometry
 
@@ -68,6 +68,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
@@ -102,13 +103,9 @@ import netCDF4
 import argparse
 import datetime
 import numpy as np
-import gravity_toolkit.time
-import gravity_toolkit.harmonics
-import gravity_toolkit.utilities as utilities
-from gravity_toolkit.read_love_numbers import load_love_numbers
-from gravity_toolkit.plm_holmes import plm_holmes
-from model_harmonics.gen_atmosphere_stokes import gen_atmosphere_stokes
-from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
+import gravity_toolkit as gravtk
+import model_harmonics as mdlhmc
+import geoid_toolkit as geoidtk
 
 # PURPOSE: read atmospheric 3D geopotential height fields
 # converts model geopotential heights to spherical harmonics
@@ -197,6 +194,9 @@ def reanalysis_atmospheric_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     output_sub = '{0}_ATMOSPHERE_CLM_L{1:d}{2}{3}'.format(*args)
     if not os.access(os.path.join(ddir,output_sub),os.F_OK):
         os.makedirs(os.path.join(ddir,output_sub))
+    # attributes for output files
+    attributes = {}
+    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
 
     # read model latitude and longitude from invariant parameters file
     with netCDF4.Dataset(os.path.join(ddir,input_invariant_file),'r') as fileID:
@@ -210,14 +210,15 @@ def reanalysis_atmospheric_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     gridtheta = (90.0 - gridlat)*np.pi/180.0
 
     # read load love numbers and calculate Legendre polynomials
-    LOVE = load_love_numbers(LMAX,LOVE_NUMBERS=LOVE_NUMBERS,REFERENCE=REFERENCE)
-    PLM, dPLM = plm_holmes(LMAX, np.cos(theta))
+    LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
+        REFERENCE=REFERENCE)
+    PLM, dPLM = gravtk.plm_holmes(LMAX, np.cos(theta))
     # read geoid heights and grid step size
     geoid,gridstep = ncdf_geoid(os.path.join(ddir,input_geoid_file))
     nlat,nlon = np.shape(geoid)
 
     # Earth Parameters
-    ellipsoid_params = ref_ellipsoid(ELLIPSOID)
+    ellipsoid_params = geoidtk.ref_ellipsoid(ELLIPSOID)
     # semimajor and semiminor axes of ellipsoid [m]
     a_axis = ellipsoid_params['a']
     b_axis = ellipsoid_params['b']
@@ -260,19 +261,9 @@ def reanalysis_atmospheric_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     # read mean spherical harmonics
     args = (MODEL.upper(),LMAX,order_str,RANGE[0],RANGE[1],suffix[DATAFORM])
     mean_file = '{0}_MEAN_CLM_L{1:d}{2}_{3:4d}-{4:4d}.{5}'.format(*args)
-    # spherical harmonic output data
-    if (DATAFORM == 'ascii'):
-        # ascii (.txt)
-        mean_Ylms = gravity_toolkit.harmonics().from_ascii(
-            os.path.join(ddir,output_sub,mean_file))
-    elif (DATAFORM == 'netCDF4'):
-        # netcdf (.nc)
-        mean_Ylms = gravity_toolkit.harmonics().from_netCDF4(
-            os.path.join(ddir,output_sub,mean_file))
-    elif (DATAFORM == 'HDF5'):
-        # HDF5 (.H5)
-        mean_Ylms = gravity_toolkit.harmonics().from_HDF5(
-            os.path.join(ddir,output_sub,mean_file))
+    mean_Ylms = gravtk.harmonics().from_file(
+        os.path.join(ddir,output_sub,mean_file),
+        format=DATAFORM)
     # truncating mean spherical harmonics to d/o LMAX/MMAX
     mean_Ylms = mean_Ylms.truncate(lmax=LMAX,mmax=MMAX)
 
@@ -285,8 +276,8 @@ def reanalysis_atmospheric_harmonics(base_dir, MODEL, YEARS, RANGE=None,
         # convert time to Modified Julian Days
         delta_time = np.copy(fileID.variables[TIMENAME][:])
         date_string = fileID.variables[TIMENAME].units
-        epoch,to_secs = gravity_toolkit.time.parse_date_string(date_string)
-        MJD = gravity_toolkit.time.convert_delta_time(delta_time*to_secs,
+        epoch,to_secs = gravtk.time.parse_date_string(date_string)
+        MJD = gravtk.time.convert_delta_time(delta_time*to_secs,
             epoch1=epoch, epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0)
         # iterate over Julian days
         for t,JD in enumerate(MJD+2400000.5):
@@ -299,21 +290,23 @@ def reanalysis_atmospheric_harmonics(base_dir, MODEL, YEARS, RANGE=None,
                 for p in range(nlevels):
                     PD[p,ii,jj]=np.sum(PD[p,ii,jj]*AREA[ii,jj])/TOTAL_AREA
             # calculate spherical harmonics for month
-            Ylms=gen_atmosphere_stokes(GPH, PD, lon, lat, LMAX=LMAX, MMAX=MMAX,
-                ELLIPSOID=ELLIPSOID, GEOID=geoid, PLM=PLM, LOVE=LOVE)
+            Ylms = mdlhmc.gen_atmosphere_stokes(GPH, PD, lon, lat,
+                LMAX=LMAX, MMAX=MMAX, ELLIPSOID=ELLIPSOID, GEOID=geoid,
+                PLM=PLM, LOVE=LOVE)
             # remove mean harmonics from month
             Ylms.subtract(mean_Ylms)
             # convert julian dates to calendar then to year-decimal
-            YY,MM,DD,hh,mm,ss=gravity_toolkit.time.convert_julian(JD,
+            YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(JD,
                 FORMAT='tuple')
-            Ylms.time,=gravity_toolkit.time.convert_calendar_decimal(YY,
+            Ylms.time, = gravtk.time.convert_calendar_decimal(YY,
                 MM, day=DD, hour=hh, minute=mm, second=ss)
             # calculate GRACE month from calendar dates
-            Ylms.month = gravity_toolkit.time.calendar_to_grace(YY, MM)
+            Ylms.month = gravtk.time.calendar_to_grace(YY, MM)
             # output data to file
             args = (MODEL.upper(),LMAX,order_str,Ylms.month,suffix[DATAFORM])
             FILE = output_file_format.format(*args)
-            Ylms.to_file(os.path.join(ddir,output_sub,FILE),format=DATAFORM)
+            Ylms.to_file(os.path.join(ddir,output_sub,FILE),
+                format=DATAFORM, **attributes)
             # set the permissions level of the output file to MODE
             os.chmod(os.path.join(ddir,output_sub,FILE), MODE)
         # close the input netCDF4 file
@@ -328,8 +321,8 @@ def reanalysis_atmospheric_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     for fi in sorted(output_files):
         # extract GRACE month
         grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int64)
-        YY,MM = gravity_toolkit.time.grace_to_calendar(grace_month)
-        tdec, = gravity_toolkit.time.convert_calendar_decimal(YY, MM)
+        YY,MM = gravtk.time.grace_to_calendar(grace_month)
+        tdec, = gravtk.time.convert_calendar_decimal(YY, MM)
         # full path to output file
         full_output_file = os.path.join(ddir,output_sub,fi)
         # print date, GRACE month and calendar month to date file
@@ -365,7 +358,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     choices = ['ERA-Interim','ERA5','MERRA-2']
     parser.add_argument('model',

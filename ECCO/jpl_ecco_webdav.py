@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 jpl_ecco_webdav.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 
 Retrieves and prints a user's JPL ECCO Drive WebDAV credentials
 
@@ -45,6 +45,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 05/2021: use try/except for retrieving netrc credentials
@@ -63,32 +64,32 @@ import builtins
 import argparse
 import posixpath
 import lxml.etree
-import gravity_toolkit.utilities
+import gravity_toolkit as gravtk
 
 # PURPOSE: retrieve JPL ECCO Drive WebDAV credentials
 def jpl_ecco_webdav(USER, PASSWORD, parser=lxml.etree.HTMLParser()):
     # build opener for retrieving JPL ECCO Drive WebDAV credentials
     # Add the username and password for NASA Earthdata Login system
     URS = 'https://urs.earthdata.nasa.gov'
-    gravity_toolkit.utilities.build_opener(USER, PASSWORD,
+    gravtk.utilities.build_opener(USER, PASSWORD,
         password_manager=True, authorization_header=True, urs=URS)
     # All calls to urllib2.urlopen will now use handler
     # Make sure not to include the protocol in with the URL, or
     # HTTPPasswordMgrWithDefaultRealm will be confused.
     HOST = posixpath.join('https://ecco.jpl.nasa.gov','drive')
-    parameters = gravity_toolkit.utilities.urlencode(
+    parameters = gravtk.utilities.urlencode(
         {'client_id':'gA5gkD03X2RMcpJUi8zbRA', 'response_type':'code',
         'state':base64.b64encode(HOST.encode()),
         'redirect_uri':posixpath.join(HOST,'authenticated'),
         'required_scope': 'country+study_area'}
     )
     # retrieve cookies from NASA Earthdata URS
-    request = gravity_toolkit.utilities.urllib2.Request(
+    request = gravtk.utilities.urllib2.Request(
         url=posixpath.join(URS,'oauth',f'authorize?{parameters}'))
-    gravity_toolkit.utilities.urllib2.urlopen(request)
+    gravtk.utilities.urllib2.urlopen(request)
     # read and parse request for webdav password
-    request = gravity_toolkit.utilities.urllib2.Request(url=HOST)
-    response = gravity_toolkit.utilities.urllib2.urlopen(request,timeout=20)
+    request = gravtk.utilities.urllib2.Request(url=HOST)
+    response = gravtk.utilities.urllib2.urlopen(request,timeout=20)
     tree = lxml.etree.parse(response, parser)
     WEBDAV, = tree.xpath('//input[@id="password"]/@value')
     # return webdav password
@@ -145,13 +146,13 @@ def main():
 
     # check internet connection before attempting to run program
     DRIVE = posixpath.join('https://ecco.jpl.nasa.gov','drive')
-    if gravity_toolkit.utilities.check_connection(DRIVE):
+    if gravtk.utilities.check_connection(DRIVE):
         # compile HTML parser for lxml
         WEBDAV = jpl_ecco_webdav(args.user, args.password)
         # output to terminal or append to netrc file
         if args.append:
             # append to netrc file and set permissions level
-            with open(args.netrc,'a+') as f:
+            with open(args.netrc, mode='a+') as f:
                 f.write(f'machine {args.user} login {HOST} password {WEBDAV}\n')
                 os.chmod(args.netrc, 0o600)
         else:

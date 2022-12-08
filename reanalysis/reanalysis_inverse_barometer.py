@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_inverse_barometer.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (12/2022)
 Reads hourly mean sea level pressure fields from reanalysis and
     calculates the inverse-barometer response
 
@@ -38,6 +38,7 @@ REFERENCES:
         https://doi.org/10.1007/978-3-211-33545-1
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
@@ -46,6 +47,7 @@ UPDATE HISTORY:
 """
 from __future__ import print_function
 
+import sys
 import os
 import re
 import logging
@@ -53,7 +55,8 @@ import netCDF4
 import argparse
 import datetime
 import numpy as np
-import gravity_toolkit.utilities as utilities
+import gravity_toolkit as gravtk
+import model_harmonics as mdlhmc
 
 # PURPOSE: read land sea mask to get indices of oceanic values
 def ncdf_landmask(FILENAME,MASKNAME,OCEAN):
@@ -284,6 +287,14 @@ def ncdf_IB_write(dinput, fill_value, FILENAME=None, IBNAME=None,
     nc[IBNAME].units = UNITS
     nc[IBNAME].density = DENSITY
 
+    # add software information
+    fileID.software_reference = mdlhmc.version.project_name
+    fileID.software_version = mdlhmc.version.full_version
+    fileID.software_revision = mdlhmc.utilities.get_git_revision_hash()
+    fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
+    # date created
+    fileID.date_created = datetime.datetime.now().isoformat()
+
     # Output NetCDF structure information
     logging.info(os.path.basename(FILENAME))
     logging.info(list(fileID.variables.keys()))
@@ -302,7 +313,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     choices = ['ERA-Interim','ERA5','MERRA-2']
     parser.add_argument('model',

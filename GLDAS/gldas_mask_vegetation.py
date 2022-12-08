@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mask_vegetation.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 
 Creates a mask for GLDAS data using the GLDAS vegetation type binary files
     https://ldas.gsfc.nasa.gov/gldas/GLDASvegetation.php
@@ -23,6 +23,7 @@ PYTHON DEPENDENCIES:
          https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: can use variable loglevels for verbose output
@@ -33,11 +34,14 @@ UPDATE HISTORY:
 """
 from __future__ import print_function
 
+import sys
 import os
+import time
 import logging
 import netCDF4
 import argparse
 import numpy as np
+import model_harmonics as mdlhmc
 
 # Read the GLDAS vegetation index and create a mask defining each type
 def gldas_mask_vegetation(ddir, SPACING=None, MODE=0o775):
@@ -120,6 +124,14 @@ def ncdf_index_write(dinput, FILENAME=None):
     description.append('19: Mixed Tundra')
     description.append('20: Bare Ground Tundra')
     nc['index'].description = ', '.join(description)
+
+    # add software information
+    fileID.software_reference = mdlhmc.version.project_name
+    fileID.software_version = mdlhmc.version.full_version
+    fileID.software_revision = mdlhmc.utilities.get_git_revision_hash()
+    fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
+    # date created
+    fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
     # Output NetCDF structure information
     logging.info(os.path.basename(FILENAME))

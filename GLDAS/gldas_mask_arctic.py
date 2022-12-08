@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mask_arctic.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 
 Creates a mask for GLDAS data for Greenland, Svalbard, Iceland and the
     Russian High Arctic defined by a set of shapefiles
@@ -32,6 +32,7 @@ PYTHON DEPENDENCIES:
          https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 07/2022: place some imports behind try/except statements
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -48,13 +49,16 @@ UPDATE HISTORY:
 """
 from __future__ import print_function
 
+import sys
 import os
+import time
 import pyproj
 import logging
 import netCDF4
 import argparse
 import warnings
 import numpy as np
+import model_harmonics as mdlhmc
 
 # attempt imports
 try:
@@ -187,6 +191,14 @@ def ncdf_mask_write(dinput, FILENAME=None):
     nc[LATNAME].long_name = 'latitude'
     nc[LATNAME].units = 'degrees_north'
     nc['mask'].long_name = 'land_sea_mask'
+
+    # add software information
+    fileID.software_reference = mdlhmc.version.project_name
+    fileID.software_version = mdlhmc.version.full_version
+    fileID.software_revision = mdlhmc.utilities.get_git_revision_hash()
+    fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
+    # date created
+    fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
     # Output NetCDF structure information
     logging.info(os.path.basename(FILENAME))

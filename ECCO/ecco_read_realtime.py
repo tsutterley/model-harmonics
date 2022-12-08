@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_read_realtime.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 
 Reads 12-hour ECCO ocean bottom pressure data from JPL
 Calculates monthly anomalies on an equirectangular grid
@@ -51,6 +51,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: lower case keyword arguments to output spatial
@@ -74,14 +75,14 @@ UPDATE HISTORY:
 """
 from __future__ import print_function
 
+import sys
 import os
 import re
 import logging
 import datetime
 import argparse
 import numpy as np
-import gravity_toolkit.time
-import gravity_toolkit.spatial
+import gravity_toolkit as gravtk
 
 # PURPOSE: read ECCO ocean bottom pressure data and create monthly anomalies
 # on an equirectangular grid
@@ -119,17 +120,17 @@ def ecco_read_realtime(ddir, MODEL, YEARS, RANGE=None, DATAFORM=None,
     mean_file = 'ECCO_{0}_OBP_MEAN_{1:4d}-{2:4d}.{3}'.format(*args)
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
-        obp_mean = gravity_toolkit.spatial(spacing=[1.0,1.0],
+        obp_mean = gravtk.spatial(spacing=[1.0,1.0],
             nlat=158, nlon=360, extent=[0.5,359.5,-LAT_MAX,LAT_MAX],
             fill_value=fill_value).from_ascii(os.path.join(ddir,mean_file),
             date=False)
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
-        obp_mean = gravity_toolkit.spatial().from_netCDF4(
+        obp_mean = gravtk.spatial().from_netCDF4(
             os.path.join(ddir,mean_file),date=False)
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
-        obp_mean = gravity_toolkit.spatial().from_HDF5(
+        obp_mean = gravtk.spatial().from_HDF5(
             os.path.join(ddir,mean_file),date=False)
 
     # output subdirectory for monthly datasets
@@ -162,19 +163,19 @@ def ecco_read_realtime(ddir, MODEL, YEARS, RANGE=None, DATAFORM=None,
 
             # Open ECCO CDF datafile for reading
             # change order of axes to be lat/lon/time
-            obp = gravity_toolkit.spatial(fill_value=fill_value).from_netCDF4(
+            obp = gravtk.spatial(fill_value=fill_value).from_netCDF4(
                 input_file,verbose=VERBOSE,varname='OBP').transpose(axes=(1,2,0))
             # Getting the data from each netCDF variable
             nlat,nlon,nt = obp.shape
             # Dating scheme is hours from UNIX time (1970-01-01)
             # calculate Julian day by converting to MJD and adding offset
             time_string = obp.attributes['time']['units']
-            epoch1,to_secs = gravity_toolkit.time.parse_date_string(time_string)
-            JD = gravity_toolkit.time.convert_delta_time(obp.time*to_secs,
+            epoch1,to_secs = gravtk.time.parse_date_string(time_string)
+            JD = gravtk.time.convert_delta_time(obp.time*to_secs,
                 epoch1=epoch1, epoch2=(1858,11,17,0,0,0),
                 scale=1.0/86400.0) + 2400000.5
             # convert from Julian days to calendar dates
-            YY,MM,DD,hh,mm,ss = gravity_toolkit.time.convert_julian(JD,
+            YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(JD,
                 FORMAT='tuple')
 
             # dlat is the difference in latitude spacing
@@ -192,13 +193,13 @@ def ecco_read_realtime(ddir, MODEL, YEARS, RANGE=None, DATAFORM=None,
             # will calculate and remove the area average of the model
             # (Greatbatch correction) https://doi.org/10.1029/94JC00847
             # Latitude spacing varies in the model
-            obp_anomaly = gravity_toolkit.spatial(fill_value=fill_value)
+            obp_anomaly = gravtk.spatial(fill_value=fill_value)
             obp_anomaly.lon = np.arange(dlon/2.0,360+dlon/2.0,dlon)
             obp_anomaly.lat = np.arange(-LAT_MAX,LAT_MAX+dlat,dlat)
             obp_anomaly.data = np.zeros((158,360,nt),dtype=obp.data.dtype)
             obp_anomaly.mask = np.zeros((158,360,nt),dtype=bool)
             # convert from calendar dates to year-decimal
-            obp_anomaly.time = gravity_toolkit.time.convert_calendar_decimal(
+            obp_anomaly.time = gravtk.time.convert_calendar_decimal(
                 YY,MM,day=DD,hour=hh,minute=mm,second=ss)
             for t in range(0, nt):
                 # the global area average of each OBP map is removed
@@ -287,18 +288,21 @@ def ecco_read_realtime(ddir, MODEL, YEARS, RANGE=None, DATAFORM=None,
 
 # PURPOSE: wrapper function for outputting data to file
 def output_data(data,MODEL,FILENAME=None,DATAFORM=None,VERBOSE=False):
-    TITLE = f'Ocean_Bottom_Pressure_from_ECCO-JPL_{MODEL}_Model'
+    # attributes for output files
+    attributes = {}
+    attributes['units'] = 'Pa'
+    attributes['longname'] = 'Bottom_Pressure'
+    attributes['title'] = f'Ocean_Bottom_Pressure_from_ECCO-JPL_{MODEL}_Model'
+    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
         data.to_ascii(FILENAME,verbose=VERBOSE)
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
-        data.to_netCDF4(FILENAME, verbose=VERBOSE, units='Pa',
-            longname='Bottom_Pressure', TITLE=TITLE)
+        data.to_netCDF4(FILENAME, verbose=VERBOSE, **attributes)
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
-        data.to_HDF5(FILENAME, verbose=VERBOSE, units='Pa',
-            longname='Bottom_Pressure', TITLE=TITLE)
+        data.to_HDF5(FILENAME, verbose=VERBOSE, **attributes)
 
 # PURPOSE: create argument parser
 def arguments():

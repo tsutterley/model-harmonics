@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_monthly_harmonics.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 
 Reads monthly GLDAS total water storage anomalies and converts to
     spherical harmonic coefficients
@@ -95,6 +95,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 08/2022: convert to mid-month averages to correspond with GRACE
         can use a custom set of masks to reduce terrestrial water storage
@@ -142,14 +143,8 @@ import netCDF4
 import argparse
 import datetime
 import numpy as np
-import gravity_toolkit.time
-import gravity_toolkit.utilities as utilities
-from gravity_toolkit.read_love_numbers import load_love_numbers
-from gravity_toolkit.harmonics import harmonics
-from gravity_toolkit.spatial import spatial
-from gravity_toolkit.plm_holmes import plm_holmes
-from gravity_toolkit.gen_stokes import gen_stokes
-from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
+import gravity_toolkit as gravtk
+import geoid_toolkit as geoidtk
 
 # GLDAS models
 gldas_products = {}
@@ -181,6 +176,9 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
     output_sub = f'GLDAS_{MODEL}{SPACING}{V1}_TWC_CLM_L{LMAX:d}'
     if (not os.access(os.path.join(ddir,output_sub), os.F_OK)):
         os.makedirs(os.path.join(ddir,output_sub),MODE)
+    # attributes for output files
+    attributes = {}
+    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
 
     # upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
@@ -251,7 +249,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
         combined_mask |= arctic_mask[:,:]
 
     # Earth Parameters
-    ellipsoid_params = ref_ellipsoid('WGS84')
+    ellipsoid_params = geoidtk.ref_ellipsoid('WGS84')
     # semimajor axis of ellipsoid [m]
     a_axis = ellipsoid_params['a']
     #  first numerical eccentricity
@@ -271,11 +269,11 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
     theta = (90.0 - latitude_geocentric[:,0])*np.pi/180.0
 
     # read load love numbers
-    LOVE = load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
+    LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
         REFERENCE=REFERENCE)
 
     # calculate Legendre polynomials
-    PLM, dPLM = plm_holmes(LMAX, np.cos(theta))
+    PLM, dPLM = gravtk.plm_holmes(LMAX, np.cos(theta))
 
     # find input terrestrial water storage files
     regex_years = r'\d+' if (YEARS is None) else r'|'.join(map(str,YEARS))
@@ -292,40 +290,41 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
         # read data file for data format
         if (DATAFORM == 'ascii'):
             # ascii (.txt)
-            M1 = spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
+            M1 = gravtk.spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
                 extent=extent).from_ascii(os.path.join(ddir,subdir,fi))
-            M2 = spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
+            M2 = gravtk.spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
                 extent=extent).from_ascii(os.path.join(ddir,subdir,FILES[t+1]))
         elif (DATAFORM == 'netCDF4'):
             # netCDF4 (.nc)
-            M1 = spatial().from_netCDF4(os.path.join(ddir,subdir,fi))
-            M2 = spatial().from_netCDF4(os.path.join(ddir,subdir,FILES[t+1]))
+            M1 = gravtk.spatial().from_netCDF4(os.path.join(ddir,subdir,fi))
+            M2 = gravtk.spatial().from_netCDF4(os.path.join(ddir,subdir,FILES[t+1]))
         elif (DATAFORM == 'HDF5'):
             # HDF5 (.H5)
-            M1 = spatial().from_HDF5(os.path.join(ddir,subdir,fi))
-            M2 = spatial().from_HDF5(os.path.join(ddir,subdir,FILES[t+1]))
+            M1 = gravtk.spatial().from_HDF5(os.path.join(ddir,subdir,fi))
+            M2 = gravtk.spatial().from_HDF5(os.path.join(ddir,subdir,FILES[t+1]))
 
         # replace fill value points and certain vegetation types with 0
         M1.replace_invalid(0.0, mask=combined_mask)
         M2.replace_invalid(0.0, mask=combined_mask)
         # calculate 2-month moving average
         # weighting by number of days in each month
-        dpm = gravity_toolkit.time.calendar_days(int(YY))
+        dpm = gravtk.time.calendar_days(int(YY))
         W = np.float64(dpm[(t+1) % 12] + dpm[t % 12])
         MASS = (dpm[t % 12]*M1.data + dpm[(t+1) % 12]*M2.data)/W
 
         # convert to spherical harmonics
-        gldas_Ylms = gen_stokes(MASS, glon, latitude_geocentric[:,0],
+        gldas_Ylms = gravtk.gen_stokes(MASS, glon, latitude_geocentric[:,0],
             LMAX=LMAX, MMAX=MMAX, PLM=PLM, LOVE=LOVE)
         # calculate date information
-        gldas_Ylms.time, = gravity_toolkit.time.convert_calendar_decimal(YY,MM)
+        gldas_Ylms.time, = gravtk.time.convert_calendar_decimal(YY,MM)
         # calculate GRACE/GRACE-FO month
-        gldas_Ylms.month = gravity_toolkit.time.calendar_to_grace(YY,MM)
+        gldas_Ylms.month = gravtk.time.calendar_to_grace(YY,MM)
 
         # output spherical harmonic data file
         args=(MODEL,SPACING,LMAX,order_str,gldas_Ylms.month,suffix[DATAFORM])
         FILE='GLDAS_{0}{1}_TWC_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
-        gldas_Ylms.to_file(os.path.join(ddir,output_sub,FILE),format=DATAFORM)
+        gldas_Ylms.to_file(os.path.join(ddir,output_sub,FILE),
+            format=DATAFORM, **attributes)
         # change the permissions mode of the output file to MODE
         os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 
@@ -348,8 +347,8 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
     for fi in sorted(output_files):
         # extract GRACE month
         grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int64)
-        YY,MM = gravity_toolkit.time.grace_to_calendar(grace_month)
-        tdec, = gravity_toolkit.time.convert_calendar_decimal(YY, MM)
+        YY,MM = gravtk.time.grace_to_calendar(grace_month)
+        tdec, = gravtk.time.convert_calendar_decimal(YY, MM)
         # full path to output file
         full_output_file = os.path.join(ddir,output_sub,fi)
         # print date, GRACE month and calendar month to date file
@@ -371,7 +370,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('model',
         type=str, nargs='+', choices=gldas_products.keys(),

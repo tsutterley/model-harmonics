@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 racmo_downscaled_harmonics.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Read RACMO surface mass balance products and converts to spherical harmonics
 Shifts dates of SMB point masses to mid-month values to correspond with GRACE
 
@@ -50,6 +50,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Written 10/2022
 """
@@ -58,19 +59,16 @@ from __future__ import print_function
 import sys
 import os
 import re
+import copy
 import gzip
 import uuid
 import logging
 import netCDF4
 import argparse
 import numpy as np
-import gravity_toolkit.time
-import gravity_toolkit.utilities as utilities
-from gravity_toolkit.harmonics import harmonics
-from gravity_toolkit.read_love_numbers import load_love_numbers
-from gravity_toolkit.gen_point_load import gen_point_load
-from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
-from model_harmonics.spatial import scale_areas
+import gravity_toolkit as gravtk
+import geoid_toolkit as geoidtk
+import model_harmonics as mdlhmc
 
 # data product longnames
 longname = {}
@@ -160,7 +158,7 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
     fd['mask'] &= fileID.variables['MASK'][:,:].astype(bool)
 
     # Earth Parameters
-    ellipsoid_params = ref_ellipsoid('WGS84')
+    ellipsoid_params = geoidtk.ref_ellipsoid('WGS84')
     # semimajor axis of ellipsoid [m]
     a_axis = ellipsoid_params['a']
     #  first numerical eccentricity
@@ -188,10 +186,11 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
     dy = np.abs(fileID['y'][1] - fileID['y'][0])
     fd['area'] = dx*dy*np.ones((ny,nx))
     # calculate scaled areas
-    ps_scale = scale_areas(gridlat[indy,indx], flat=flat, ref=70.0)
+    ps_scale = mdlhmc.spatial.scale_areas(gridlat[indy,indx],
+        flat=flat, ref=70.0)
     scaled_area = ps_scale*fd['area'][indy,indx]
     # read load love numbers
-    LOVE = load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
+    LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
         REFERENCE=REFERENCE)
     # upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
@@ -199,7 +198,7 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
     order_str = 'M{MMAX:d}' if (MMAX != LMAX) else ''
 
     # allocate for output spherical harmonics
-    Ylms = harmonics(lmax=LMAX, mmax=MMAX)
+    Ylms = gravtk.harmonics(lmax=LMAX, mmax=MMAX)
     Ylms.clm = np.zeros((LMAX+1,MMAX+1,nt-1))
     Ylms.slm = np.zeros((LMAX+1,MMAX+1,nt-1))
     Ylms.time = np.zeros((nt-1))
@@ -208,8 +207,8 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
     for t in range(nt-1):
         # calculate date parameters for time step
         Ylms.time[t] = np.mean([fd['time'][t],fd['time'][t+1]])
-        Ylms.month[t] = gravity_toolkit.time.calendar_to_grace(Ylms.time[t])
-        dpm = gravity_toolkit.time.calendar_days(np.floor(Ylms.time[t]))
+        Ylms.month[t] = gravtk.time.calendar_to_grace(Ylms.time[t])
+        dpm = gravtk.time.calendar_days(np.floor(Ylms.time[t]))
         # calculate 2-month moving average
         # weighting by number of days in each month
         M1 = dpm[t % 12]*fileID[VARNAME][t,:,:]
@@ -217,24 +216,29 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
         W = np.float64(dpm[(t+1) % 12] + dpm[t % 12])
         # reduce data for date and convert to mass (g)
         ptms = 1000.0*scaled_area*(M1[indy,indx] + M2[indy,indx])/W
-        racmo_Ylms = gen_point_load(ptms, lon, lat, LMAX=LMAX,
+        racmo_Ylms = gravtk.gen_point_load(ptms, lon, lat, LMAX=LMAX,
             MMAX=MMAX, UNITS=1, LOVE=LOVE)
         # copy harmonics for time step
         Ylms.clm[:,:,t] = racmo_Ylms.clm[:,:].copy()
         Ylms.slm[:,:,t] = racmo_Ylms.slm[:,:].copy()
     # adjust months to be consistent
-    Ylms.month = gravity_toolkit.time.adjust_months(Ylms.month)
+    Ylms.month = gravtk.time.adjust_months(Ylms.month)
     # close the netCDF4 file
     fileID.close()
 
     # output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
+    # attributes for output files
+    attributes = {}
+    attributes['title'] = copy.copy(longname[VARIABLE])
+    attributes['source'] = copy.copy(input_products[VARIABLE])
+    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
     # output spherical harmonic data file
     args = (MODEL_VERSION, MODEL_REGION, VERSION, VARIABLE.upper(),
         LMAX, order_str, suffix[DATAFORM])
     FILE = '{0}_{1}_DS1km_v{2}_{3}_CLM_L{4:d}{5}.{6}'.format(*args)
     Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM,
-        date=True, title=input_products[VARIABLE])
+        date=True, **attributes)
     # change the permissions mode of the output file to MODE
     os.chmod(os.path.join(DIRECTORY,FILE),MODE)
 
@@ -246,7 +250,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('infile',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),

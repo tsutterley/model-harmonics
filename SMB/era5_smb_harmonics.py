@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 era5_smb_harmonics.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Reads monthly ERA5 surface mass balance anomalies and
     converts to spherical harmonic coefficients
 
@@ -52,6 +52,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 08/2022: convert to mid-month averages to correspond with GRACE
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -69,14 +70,8 @@ import netCDF4
 import argparse
 import datetime
 import numpy as np
-import gravity_toolkit.time
-import gravity_toolkit.utilities as utilities
-from gravity_toolkit.read_love_numbers import load_love_numbers
-from gravity_toolkit.harmonics import harmonics
-from gravity_toolkit.spatial import spatial
-from gravity_toolkit.plm_holmes import plm_holmes
-from gravity_toolkit.gen_stokes import gen_stokes
-from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
+import gravity_toolkit as gravtk
+import geoid_toolkit as geoidtk
 
 # PURPOSE: read ERA5 cumulative data and convert to spherical harmonics
 def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
@@ -92,9 +87,12 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
         os.makedirs(os.path.join(ddir,output_sub),MODE)
     # output data file format and title
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
-    output_file_title = 'ERA5 Precipitation minus Evaporation'
-    # source of each output data product
-    output_reference = ', '.join(['tp','e'])
+
+    # attributes for output files
+    attributes = {}
+    attributes['title'] = 'ERA5 Precipitation minus Evaporation'
+    attributes['source'] = ', '.join(['tp','e'])
+    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
 
     # upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
@@ -125,7 +123,7 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
         fileID.close()
 
     # Earth Parameters
-    ellipsoid_params = ref_ellipsoid('WGS84')
+    ellipsoid_params = geoidtk.ref_ellipsoid('WGS84')
     # semimajor axis of ellipsoid [m]
     a_axis = ellipsoid_params['a']
     #  first numerical eccentricity
@@ -145,11 +143,11 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     theta = (90.0 - latitude_geocentric[:,0])*np.pi/180.0
 
     # read load love numbers
-    LOVE = load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
+    LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
         REFERENCE=REFERENCE)
 
     # calculate Legendre polynomials
-    PLM, dPLM = plm_holmes(LMAX, np.cos(theta))
+    PLM, dPLM = gravtk.plm_holmes(LMAX, np.cos(theta))
 
     # find input files from era5_smb_cumulative.py
     regex_years = r'\d{4}' if (YEARS is None) else '|'.join(map(str,YEARS))
@@ -163,16 +161,16 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
         # read data file for data format
         if (DATAFORM == 'ascii'):
             # ascii (.txt)
-            era5_data = spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
+            era5_data = gravtk.spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
                 extent=extent).from_ascii(os.path.join(ddir,cumul_sub,fi))
         elif (DATAFORM == 'netCDF4'):
             # netCDF4 (.nc)
-            era5_data = spatial().from_netCDF4(os.path.join(ddir,cumul_sub,fi),
-                varname='SMB')
+            era5_data = gravtk.spatial().from_netCDF4(
+                os.path.join(ddir,cumul_sub,fi), varname='SMB')
         elif (DATAFORM == 'HDF5'):
             # HDF5 (.H5)
-            era5_data = spatial().from_HDF5(os.path.join(ddir,cumul_sub,fi),
-                varname='SMB')
+            era5_data = gravtk.spatial().from_HDF5(
+                os.path.join(ddir,cumul_sub,fi), varname='SMB')
         # if reducing to a region of interest before converting to harmonics
         if np.any(input_mask):
             # replace fill value points and masked points with 0
@@ -183,7 +181,7 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
         # append to spatial list
         spatial_list.append(era5_data)
     # convert to combined data cube and clear memory from spatial list
-    era5_data = spatial().from_list(spatial_list, clear=True)
+    era5_data = gravtk.spatial().from_list(spatial_list, clear=True)
     nlat,nlon,nt = era5_data.shape
 
     # for each month of data
@@ -193,22 +191,21 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
         M2 = era5_data.index(i+1).scale(1000.0)
         # calculate 2-month moving average
         # weighting by number of days in each month
-        dpm = gravity_toolkit.time.calendar_days(np.floor(M1.time))
+        dpm = gravtk.time.calendar_days(np.floor(M1.time))
         W = np.float64(dpm[(t+1) % 12] + dpm[t % 12])
         MASS = (dpm[t % 12]*M1.data + dpm[(t+1) % 12]*M2.data)/W
         # convert to spherical harmonics
-        era5_Ylms = gen_stokes(MASS, glon, latitude_geocentric[:,0],
+        era5_Ylms = gravtk.gen_stokes(MASS, glon, latitude_geocentric[:,0],
             LMAX=LMAX, MMAX=MMAX, UNITS=3, PLM=PLM, LOVE=LOVE)
         # copy date information
         era5_Ylms.time = np.mean([M1.time, M2.time])
-        era5_Ylms.month = gravity_toolkit.time.calendar_to_grace(
+        era5_Ylms.month = gravtk.time.calendar_to_grace(
             era5_Ylms.time)
         # output spherical harmonic data file
         args = (LMAX, order_str, era5_Ylms.month, suffix[DATAFORM])
         FILE = 'ERA5_CUMUL_P-E_CLM_L{0:d}{1}_{2:03d}.{3}'.format(*args)
         era5_Ylms.to_file(os.path.join(ddir,output_sub,FILE),
-            format=DATAFORM, title=output_file_title,
-            reference=output_reference)
+            format=DATAFORM, **attributes)
         # change the permissions mode of the output file to MODE
         os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 
@@ -232,8 +229,8 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     for fi in sorted(output_files):
         # extract GRACE month
         grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int64)
-        YY,MM = gravity_toolkit.time.grace_to_calendar(grace_month)
-        tdec, = gravity_toolkit.time.convert_calendar_decimal(YY, MM)
+        YY,MM = gravtk.time.grace_to_calendar(grace_month)
+        tdec, = gravtk.time.convert_calendar_decimal(YY, MM)
         # full path to output file
         full_output_file = os.path.join(ddir,output_sub,fi)
         # print date, GRACE month and calendar month to date file
@@ -255,7 +252,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     # working data directory
     parser.add_argument('--directory','-D',

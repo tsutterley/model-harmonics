@@ -48,7 +48,8 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
-    Updated 12/2022: added function to attempt to get variable attributes
+    Updated 12/2022: single implicit import of spherical harmonic tools
+        added function to attempt to get variable attributes
         copy input date variables to output spatial object
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -63,10 +64,11 @@ from __future__ import print_function
 
 import sys
 import os
+import copy
 import logging
 import argparse
 import numpy as np
-from gravity_toolkit.spatial import spatial
+import gravity_toolkit as gravtk
 
 # PURPOSE: attempt to get data attributes
 def get_attributes(dinput, field='data'):
@@ -114,10 +116,10 @@ def spatial_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, DDEG=None,
     # verify that output directory exists
     DIRECTORY = os.path.abspath(os.path.dirname(OUTPUT_FILE))
     if not os.access(DIRECTORY, os.F_OK):
-        os.makedirs(DIRECTORY,MODE,exist_ok=True)
+        os.makedirs(DIRECTORY, mode=MODE, exist_ok=True)
 
     # Grid spacing
-    dlon,dlat = (DDEG,DDEG) if (np.ndim(DDEG) == 0) else (DDEG[0],DDEG[1])
+    dlon,dlat = (DDEG, DDEG) if (np.ndim(DDEG) == 0) else (DDEG[0], DDEG[1])
     # Grid dimensions
     if (INTERVAL == 1):# (0:360, 90:-90)
         nlon = np.int64((360.0/dlon)+1.0)
@@ -130,17 +132,17 @@ def spatial_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, DDEG=None,
     dinput = [None]*n_files
     for i,fi in enumerate(INPUT_FILES):
         # read spatial file in data format
-        if DATAFORM[i] in ('ascii','netCDF4','HDF5'):
+        if DATAFORM[i] in ('ascii', 'netCDF4', 'HDF5'):
             # ascii (.txt)
             # netCDF4 (.nc)
             # HDF5 (.H5)
-            dinput[i] = spatial(spacing=[dlon,dlat],nlat=nlat,
-                nlon=nlon).from_file(fi,format=DATAFORM[i],date=DATE)
-        elif DATAFORM[i] in ('index-ascii','index-netCDF4','index-HDF5'):
+            dinput[i] = gravtk.spatial(spacing=[dlon, dlat], nlat=nlat,
+                nlon=nlon).from_file(fi, format=DATAFORM[i], date=DATE)
+        elif DATAFORM[i] in ('index-ascii', 'index-netCDF4', 'index-HDF5'):
             # read from index file
             _,dataform = DATAFORM[i].split('-')
-            dinput[i] = spatial(spacing=[dlon,dlat],nlat=nlat,
-                nlon=nlon).from_index(fi,format=dataform,date=DATE)
+            dinput[i] = gravtk.spatial(spacing=[dlon, dlat], nlat=nlat,
+                nlon=nlon).from_index(fi, format=dataform, date=DATE)
 
     # operate on input files
     if (OPERATION == 'add'):
@@ -149,35 +151,35 @@ def spatial_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, DDEG=None,
             # perform operation
             output = output.offset(dinput[i].data)
             # update mask with values from file
-            output.replace_invalid(output.fill_value,mask=dinput[i].mask)
+            output.replace_invalid(output.fill_value, mask=dinput[i].mask)
     elif (OPERATION == 'subtract'):
         output = dinput[0].copy()
         for i in range(n_files-1):
             # perform operation
             output = output.offset(dinput[i+1].scale(-1).data)
             # update mask with values from file
-            output.replace_invalid(output.fill_value,mask=dinput[i+1].mask)
+            output.replace_invalid(output.fill_value, mask=dinput[i+1].mask)
     elif (OPERATION == 'multiply'):
         output = dinput[0].zeros_like().offset(1.0)
         for i in range(n_files):
             # perform operation
             output = output.scale(dinput[i].data)
             # update mask with values from file
-            output.replace_invalid(output.fill_value,mask=dinput[i].mask)
+            output.replace_invalid(output.fill_value, mask=dinput[i].mask)
     elif (OPERATION == 'divide'):
         output = dinput[0].copy()
         for i in range(n_files-1):
             # perform operation
             output = output.scale(dinput[i+1].power(-1).data)
             # update mask with values from file
-            output.replace_invalid(output.fill_value,mask=dinput[i+1].mask)
+            output.replace_invalid(output.fill_value, mask=dinput[i+1].mask)
     elif (OPERATION == 'mean'):
         output = dinput[0].zeros_like()
         for i in range(n_files):
             # perform operation
             output = output.offset(dinput[i].data)
             # update mask with values from file
-            output.replace_invalid(output.fill_value,mask=dinput[i].mask)
+            output.replace_invalid(output.fill_value, mask=dinput[i].mask)
         # convert from total to mean
         output = output.scale(1.0/n_files)
     elif (OPERATION == 'error'):
@@ -186,7 +188,7 @@ def spatial_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, DDEG=None,
             # perform operation
             mean = mean.offset(dinput[i].data)
             # update mask with values from file
-            mean.replace_invalid(mean.fill_value,mask=dinput[i].mask)
+            mean.replace_invalid(mean.fill_value, mask=dinput[i].mask)
         # convert from total to mean
         mean = mean.scale(1.0/n_files)
         # use variance off mean as estimated error
@@ -214,22 +216,24 @@ def spatial_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, DDEG=None,
         output.time = np.copy(dinput[0].time)
         output.month = np.copy(dinput[0].month)
 
+    # attributes for output files
+    attr = get_attributes(dinput[0])
+    attributes = {}
+    attributes['units'] = copy.copy(attr['units'])
+    attributes['longname'] = copy.copy(attr['long_name'])
+    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+
     # write spatial file in data format
     if (DATAFORM[-1] == 'ascii'):
         # ascii (.txt)
-        output.to_ascii(OUTPUT_FILE,date=DATE)
+        output.to_ascii(OUTPUT_FILE, date=DATE)
     elif (DATAFORM[-1] == 'netCDF4'):
         # netcdf (.nc)
-        attr = get_attributes(dinput[0])
-        output.to_netCDF4(OUTPUT_FILE,date=DATE,
-            units=attr['units'],longname=attr['long_name'],
-            title=f'Output from {os.path.basename(sys.argv[0])}')
+        output.to_netCDF4(OUTPUT_FILE, date=DATE, **attributes)
     elif (DATAFORM[-1] == 'HDF5'):
         # HDF5 (.H5)
         attr = get_attributes(dinput[0])
-        output.to_HDF5(OUTPUT_FILE,date=DATE,
-            units=attr['units'],longname=attr['long_name'],
-            title=f'Output from {os.path.basename(sys.argv[0])}')
+        output.to_HDF5(OUTPUT_FILE, date=DATE, **attributes)
     # change the permissions mode of the output file
     os.chmod(OUTPUT_FILE, MODE)
 

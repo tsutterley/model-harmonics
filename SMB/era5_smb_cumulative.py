@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 era5_smb_cumulative.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Reads ERA5 datafiles to calculate monthly cumulative anomalies
     in derived surface mass balance products
 
@@ -34,6 +34,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: lower case keyword arguments to output spatial
@@ -49,8 +50,7 @@ import logging
 import netCDF4
 import argparse
 import numpy as np
-import gravity_toolkit.time
-import gravity_toolkit.spatial
+import gravity_toolkit as gravtk
 
 # PURPOSE: read variables from ERA5 P-E files
 def read_era5_variables(era5_flux_file):
@@ -63,8 +63,8 @@ def read_era5_variables(era5_flux_file):
         dinput['longitude'] = fileID.variables['longitude'][:].copy()
         # convert time from netCDF4 units to Julian Days
         date_string = fileID.variables['time'].units
-        epoch,to_secs = gravity_toolkit.time.parse_date_string(date_string)
-        dinput['time'] = gravity_toolkit.time.convert_delta_time(
+        epoch,to_secs = gravtk.time.parse_date_string(date_string)
+        dinput['time'] = gravtk.time.convert_delta_time(
             to_secs*fileID.variables['time'][:],epoch1=epoch,
             epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0) + 2400000.5
         # read each variable of interest in ERA5 flux file
@@ -123,7 +123,6 @@ def era5_smb_cumulative(DIRECTORY,
     smb_sign = {'tp':1.0,'e':-1.0}
     # output data file format and title
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
-    output_file_title = 'ERA5 Precipitation minus Evaporation'
     # output bad value
     fill_value = -9999.0
     # output dimensions and extents
@@ -131,6 +130,15 @@ def era5_smb_cumulative(DIRECTORY,
     extent = [0.0,359.75,-90.0,90.0]
     # grid spacing
     dlon,dlat = (0.25,0.25)
+
+    # attributes for output files
+    attributes = {}
+    attributes['varname'] = 'SMB'
+    attributes['units'] = 'm w.e.'
+    attributes['longname'] = 'Equivalent_Water_Thickness'
+    attributes['title'] = 'ERA5 Precipitation minus Evaporation'
+    attributes['source'] = ', '.join(['tp','e'])
+    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
 
     # test that all years are available
     start_year, = rx.findall(input_files[0])
@@ -147,22 +155,22 @@ def era5_smb_cumulative(DIRECTORY,
     # remove singleton dimensions
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
-        era5_mean = gravity_toolkit.spatial(spacing=[dlon,dlat],
+        era5_mean = gravtk.spatial(spacing=[dlon,dlat],
             nlat=nlat, nlon=nlon, extent=extent).from_ascii(
             os.path.join(DIRECTORY,mean_file), date=False).squeeze()
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
-        era5_mean = gravity_toolkit.spatial().from_netCDF4(
+        era5_mean = gravtk.spatial().from_netCDF4(
             os.path.join(DIRECTORY,mean_file),
             date=False, varname='SMB').squeeze()
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
-        era5_mean = gravity_toolkit.spatial().from_HDF5(
+        era5_mean = gravtk.spatial().from_HDF5(
             os.path.join(DIRECTORY,mean_file),
             date=False, varname='SMB').squeeze()
 
     # cumulative mass anomalies calculated by removing mean balance flux
-    cumul = gravity_toolkit.spatial(nlat=nlat,nlon=nlon,fill_value=fill_value)
+    cumul = gravtk.spatial(nlat=nlat, nlon=nlon, fill_value=fill_value)
     cumul.lat = np.copy(era5_mean.lat)
     cumul.lon = np.copy(era5_mean.lon)
     # cumulative data and mask
@@ -174,12 +182,12 @@ def era5_smb_cumulative(DIRECTORY,
         era5_flux_file = os.path.join(DIRECTORY,f1)
         Y1, = rx.findall(f1)
         # days per month in year
-        dpm = gravity_toolkit.time.calendar_days(int(Y1))
+        dpm = gravtk.time.calendar_days(int(Y1))
         # read netCDF4 files for variables of interest
         logging.info(era5_flux_file)
         var = read_era5_variables(era5_flux_file)
         # output yearly cumulative mass anomalies
-        output = gravity_toolkit.spatial(nlat=nlat,nlon=nlon,
+        output = gravtk.spatial(nlat=nlat,nlon=nlon,
             fill_value=fill_value)
         output.lat = np.copy(era5_mean.lat)
         output.lon = np.copy(era5_mean.lon)
@@ -191,15 +199,15 @@ def era5_smb_cumulative(DIRECTORY,
         # for each month of data
         for i,t in enumerate(var['time']):
             # convert from Julian days to calendar dates
-            YY,MM,DD,hh,mm,ss = gravity_toolkit.time.convert_julian(t,
+            YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(t,
                 FORMAT='tuple')
             # spatial object for monthly variables
-            dinput = gravity_toolkit.spatial(nlat=nlat,nlon=nlon,
+            dinput = gravtk.spatial(nlat=nlat,nlon=nlon,
                 fill_value=fill_value)
             dinput.lat = np.copy(var['latitude'])
             dinput.lon = np.copy(var['longitude'])
             # calculate time in year decimal
-            dinput.time = gravity_toolkit.time.convert_calendar_decimal(YY,
+            dinput.time = gravtk.time.convert_calendar_decimal(YY,
                 MM,day=DD,hour=hh,minute=mm,second=ss)
             # output data and mask
             dinput.data = np.zeros((nlat,nlon))
@@ -233,15 +241,11 @@ def era5_smb_cumulative(DIRECTORY,
         elif (DATAFORM == 'netCDF4'):
             # netcdf (.nc)
             output.to_netCDF4(os.path.join(DIRECTORY,cumul_sub,FILE),
-                varname='SMB', units='m w.e.',
-                longname='Equivalent_Water_Thickness',
-                title=output_file_title, verbose=VERBOSE)
+                verbose=VERBOSE, **attributes)
         elif (DATAFORM == 'HDF5'):
             # HDF5 (.H5)
             output.to_HDF5(os.path.join(DIRECTORY,cumul_sub,FILE),
-                varname='SMB', units='m w.e.',
-                longname='Equivalent_Water_Thickness',
-                title=output_file_title, verbose=VERBOSE)
+                verbose=VERBOSE, **attributes)
         # change the permissions mode
         os.chmod(os.path.join(DIRECTORY,cumul_sub,FILE), MODE)
 

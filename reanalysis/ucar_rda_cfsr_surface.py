@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ucar_rda_cfsr_surface.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 
 Downloads NCEP-CFSR products using a links list csh file provided by the
     NCAR/UCAR Research Data Archive (RDA): https://rda.ucar.edu/
@@ -53,6 +53,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
@@ -80,9 +81,8 @@ import getpass
 import builtins
 import argparse
 import numpy as np
-import gravity_toolkit.time
-import gravity_toolkit.utilities
-from gravity_toolkit.spatial import spatial
+import gravity_toolkit as gravtk
+import gravity_toolkit as mdlhmc
 
 # PURPOSE: sync local NCEP-CFSR files with UCAR/NCAR RDA server
 def ucar_rda_download(base_dir, links_list_file, YEARS=None,
@@ -154,7 +154,7 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
             print(valid_lines[i])
             # Create and submit request. There are a wide range of exceptions
             # local = os.path.join(DIRECTORY,valid_lines[i])
-            response=gravity_toolkit.utilities.from_http([HOST,valid_lines[i]],
+            response = gravtk.utilities.from_http([HOST,valid_lines[i]],
                 timeout=TIMEOUT, context=None, verbose=True, fid=fid, local=None)
             # extract information from monthly files
             NL,OP,YEAR,MONTH,AUX = rx.findall(valid_lines[i]).pop()
@@ -164,21 +164,21 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
             else:
                 fd = io.BytesIO(response.read()).seek(0)
             # open remote file with netCDF4
-            dinput = spatial().from_netCDF4(fd, compression='bytes',
+            dinput = gravtk.spatial().from_netCDF4(fd, compression='bytes',
                 varname=VARNAME, latname=LATNAME, lonname=LONNAME,
                 timename=TIMENAME, verbose=False).transpose(axes=(1,2,0))
             # read variable for hours since start of file
-            epoch,to_secs = gravity_toolkit.time.parse_date_string(
+            epoch,to_secs = gravtk.time.parse_date_string(
                 dinput.attributes['time']['units'])
             # calculate the date in Julian Days
-            JD = 2400000.5 + gravity_toolkit.time.convert_delta_time(
+            JD = 2400000.5 + gravtk.time.convert_delta_time(
                 dinput.time*to_secs, epoch1=epoch,
                 epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0)
             # convert from Julian days to calendar dates
-            Y,M,D,h,m,s = gravity_toolkit.time.convert_julian(JD,
+            Y,M,D,h,m,s = gravtk.time.convert_julian(JD,
                 FORMAT='tuple')
             # output delta time in hours since start of year
-            dinput.time = gravity_toolkit.time.convert_calendar_dates(Y,
+            dinput.time = gravtk.time.convert_calendar_dates(Y,
                 M, D, hour=h, minute=m, second=s,
                 epoch=(YY,1,1,0,0,0), scale=24.0)
             # for each month
@@ -201,7 +201,7 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
         output[LONNAME] = dinput.lon.copy()
         # for each valid month
         for m in valid_months:
-            p_mean = spatial().from_list(p_month[m]).mean()
+            p_mean = gravtk.spatial().from_list(p_month[m]).mean()
             output[VARNAME].data[m,:,:] = p_mean.data.copy()
             output[VARNAME].mask[m,:,:] = p_mean.mask.copy()
             output[TIMENAME][m] = p_mean.time.copy()
@@ -257,6 +257,10 @@ def ncdf_model_write(dinput, fill_value, VARNAME=None, LONNAME=None,
     nc[VARNAME].product_description = 'Monthly Mean (4 per day) of Analyses'
     nc[VARNAME].level = 'Ground or water surface'
     nc[VARNAME].units = 'Pa'
+    # add software information
+    fileID.software_reference = mdlhmc.version.project_name
+    fileID.software_version = mdlhmc.version.full_version
+    fileID.software_revision = mdlhmc.utilities.get_git_revision_hash()
     # date created
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
@@ -346,15 +350,16 @@ def main():
     # Build opener with cookie jar for storing cookies
     # This is used to store and return the session cookie given
     # to use by the data server
-    gravity_toolkit.utilities.build_opener(args.user, args.password,
+    gravtk.utilities.build_opener(args.user, args.password,
         password_manager=False, get_ca_certs=False, redirect=False,
         authorization_header=False, urs=HOST)
     # post authorization header to retrieve cookies
-    data = gravity_toolkit.utilities.urlencode(
-        dict(email=args.user, passwd=args.password, action='login')).encode("utf-8")
-    request = gravity_toolkit.utilities.urllib2.Request(
+    data = gravtk.utilities.urlencode(
+        dict(email=args.user, passwd=args.password, action='login')
+        ).encode("utf-8")
+    request = gravtk.utilities.urllib2.Request(
         'https://rda.ucar.edu/cgi-bin/login',data=data)
-    response = gravity_toolkit.utilities.urllib2.urlopen(request,timeout=20)
+    response = gravtk.utilities.urllib2.urlopen(request,timeout=20)
     # All calls to urllib2.urlopen will now use handler
 
     # check that connection to UCAR RDA was successful

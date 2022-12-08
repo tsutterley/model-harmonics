@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 jpl_ecco_cube92_sync.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 
 Converts ECCO2 Cube92 daily model outputs from the NASA JPL ECCO2 server
     into monthly averages
@@ -53,6 +53,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
@@ -87,9 +88,7 @@ import logging
 import argparse
 import builtins
 import lxml.etree
-import gravity_toolkit.time
-import gravity_toolkit.spatial
-import gravity_toolkit.utilities
+import gravity_toolkit as gravtk
 
 # PURPOSE: sync ECCO2 Cube92 model outputs from JPL ECCO drive server
 # combines daily files to calculate monthly averages
@@ -135,14 +134,15 @@ def jpl_ecco_cube92_sync(ddir, YEAR=None, PRODUCT=None, TIMEOUT=None,
     # for each year
     for YY in YEAR:
         # days per month in the year
-        dpm = gravity_toolkit.time.calendar_days(YY)
+        dpm = gravtk.time.calendar_days(YY)
         # for each month
         for MM in range(12):
             # compile regular expression pattern for year and month
             R1 = re.compile(regex_pattern.format(YY,MM+1), re.VERBOSE)
             # read and parse request for files (find names and modified dates)
-            colnames,mtimes=gravity_toolkit.utilities.drive_list(PATH,
-                timeout=TIMEOUT,build=False,parser=parser,pattern=R1,sort=True)
+            colnames,mtimes = gravtk.utilities.drive_list(PATH,
+                timeout=TIMEOUT, build=False, parser=parser,
+                pattern=R1, sort=True)
             # check if all files are available for the month
             if (len(colnames) != dpm[MM]):
                 continue
@@ -153,12 +153,12 @@ def jpl_ecco_cube92_sync(ddir, YEAR=None, PRODUCT=None, TIMEOUT=None,
                 # extract dimension variables
                 dim1,dim2,Y,M,D = R1.findall(remote_file).pop()
                 # Create and submit request to retrieve bytes
-                response = gravity_toolkit.utilities.from_drive(
+                response = gravtk.utilities.from_drive(
                     [*PATH,remote_file], build=False, timeout=TIMEOUT,
                     verbose=VERBOSE, fid=fid1, mode=MODE)
                 # open remote file with netCDF4
                 # remove singleton dimensions
-                dinput = gravity_toolkit.spatial().from_netCDF4(response,
+                dinput = gravtk.spatial().from_netCDF4(response,
                     compression='bytes', latname=LATNAME, lonname=LONNAME,
                     varname=PRODUCT, timename=TIMENAME).squeeze()
                 # replace fill value with missing value attribute
@@ -169,7 +169,7 @@ def jpl_ecco_cube92_sync(ddir, YEAR=None, PRODUCT=None, TIMEOUT=None,
                 # append to daily list
                 daily.append(dinput)
             # calculate monthly mean from list of daily files
-            monthly = gravity_toolkit.spatial().from_list(daily).mean()
+            monthly = gravtk.spatial().from_list(daily).mean()
             # output to netCDF4 file
             FILE = f'{PRODUCT}.{dim1}x{dim2}.{YY}{MM+1:02d}.nc'
             monthly.to_netCDF4(os.path.join(DIRECTORY,FILE),
@@ -258,12 +258,12 @@ def main():
 
     # build a urllib opener for JPL ECCO Drive
     # Add the username and password for NASA Earthdata Login system
-    gravity_toolkit.utilities.build_opener(args.user,args.webdav)
+    gravtk.utilities.build_opener(args.user,args.webdav)
 
     # check internet connection before attempting to run program
     # check JPL ECCO Drive credentials before attempting to run program
     DRIVE = f'https://{HOST}/drive/files'
-    if gravity_toolkit.utilities.check_credentials(DRIVE):
+    if gravtk.utilities.check_credentials(DRIVE):
         jpl_ecco_cube92_sync(args.directory, YEAR=args.year,
             PRODUCT=args.product, TIMEOUT=args.timeout, LOG=args.log,
             VERBOSE=args.verbose, MODE=args.mode)

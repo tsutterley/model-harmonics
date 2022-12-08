@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_mask.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 
 Creates a mask for MERRA-2 land ice data using a set of shapefiles
 https://goldsmr4.gesdisc.eosdis.nasa.gov/data/MERRA2_MONTHLY/
@@ -38,6 +38,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 07/2022: place some imports behind try/except statements
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -53,14 +54,17 @@ UPDATE HISTORY:
 """
 from __future__ import print_function
 
+import sys
 import os
+import time
 import pyproj
 import logging
 import netCDF4
 import argparse
 import warnings
 import numpy as np
-import gravity_toolkit.spatial
+import gravity_toolkit as gravtk
+import model_harmonics as mdlhmc
 
 # attempt imports
 try:
@@ -119,7 +123,7 @@ def merra_smb_mask(input_file, output_file, VARNAME=None,
     os.makedirs(ddir) if not os.access(ddir, os.F_OK) else None
 
     # read input mask file
-    dinput = gravity_toolkit.spatial().from_netCDF4(input_file,
+    dinput = gravtk.spatial().from_netCDF4(input_file,
         lonname='lon', latname='lat', varname=VARNAME,
         verbose=VERBOSE)
     # remove singleton dimensions
@@ -205,6 +209,14 @@ def ncdf_mask_write(dinput, FILENAME=None):
     nc[LATNAME].long_name = 'latitude'
     nc[LATNAME].units = 'degrees_north'
     nc['mask'].long_name = 'land_sea_mask'
+
+    # add software information
+    fileID.software_reference = mdlhmc.version.project_name
+    fileID.software_version = mdlhmc.version.full_version
+    fileID.software_revision = mdlhmc.utilities.get_git_revision_hash()
+    fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
+    # date created
+    fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
     # Output NetCDF structure information
     logging.info(os.path.basename(FILENAME))

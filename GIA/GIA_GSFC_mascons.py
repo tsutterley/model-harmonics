@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 GIA_GSFC_mascons.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Calculates GIA equivalent water height corrections for GSFC mascons at the
     central points of each mascon
 
@@ -47,10 +47,6 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
     read_GIA_model.py: reads harmonics for a glacial isostatic adjustment model
-        ncdf_stokes.py: writes output spherical harmonic data to netcdf
-        hdf5_stokes.py: writes output spherical harmonic data to HDF5
-        ncdf_read_stokes.py: reads spherical harmonic data from netcdf
-        hdf5_read_stokes.py: reads spherical harmonic data from HDF5
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
     clenshaw_summation.py: calculate spatial field from spherical harmonics
     units.py: class for converting GRACE/GRACE-FO Level-2 data to specific units
@@ -64,6 +60,7 @@ REFERENCES:
         Bollettino di Geodesia e Scienze (1982)
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use full data citation from GIA import function
     Updated 04/2022: use wrapper function for reading load Love numbers
@@ -88,10 +85,8 @@ import logging
 import argparse
 import traceback
 import numpy as np
-from gravity_toolkit.utilities import convert_arg_line_to_args
-from gravity_toolkit.read_GIA_model import read_GIA_model
-from gravity_toolkit.read_love_numbers import load_love_numbers
-from gravity_toolkit.clenshaw_summation import clenshaw_summation
+import gravity_toolkit as gravtk
+import model_harmonics as mdlhmc
 
 # PURPOSE: keep track of threads
 def info(args):
@@ -120,13 +115,13 @@ def GIA_GSFC_mascons(grace_file, GIA=None, GIA_FILE=None, LMAX=0,
             output_data[key] = fileID['mascon'][key][:].flatten()
 
     # read load love numbers
-    LOVE = load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
+    LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
         REFERENCE=REFERENCE)
 
     # input GIA spherical harmonic datafiles
-    GIA_Ylms = read_GIA_model(GIA_FILE, GIA=GIA, LMAX=LMAX)
+    GIA_Ylms = gravtk.read_GIA_model(GIA_FILE, GIA=GIA, LMAX=LMAX)
     # Converting GIA rates to cm w.e. for mascon coordinates
-    gia_output = clenshaw_summation(GIA_Ylms['clm'], GIA_Ylms['slm'],
+    gia_output = gravtk.clenshaw_summation(GIA_Ylms['clm'], GIA_Ylms['slm'],
         output_data['lon_center'], output_data['lat_center'],
         RAD=0, UNITS=1, LMAX=LMAX, LOVE=LOVE)
     output_data['gia'] = gia_output.astype(np.float64)
@@ -134,16 +129,14 @@ def GIA_GSFC_mascons(grace_file, GIA=None, GIA_FILE=None, LMAX=0,
     # output to file
     FILE = f'GIA_{GIA_Ylms["title"]}_L{LMAX:d}_GSFC_mascons.h5'
     logging.info('\t{0}'.format(os.path.join(grace_dir, FILE)))
-    HDF5_GSFC_mascons(output_data, GIA_Ylms,
-        VERSION=VERSION,
-        FILENAME=os.path.join(grace_dir, FILE),
-        CLOBBER=True)
+    HDF5_GSFC_mascons(output_data, GIA_Ylms, VERSION=VERSION,
+        FILENAME=os.path.join(grace_dir, FILE), CLOBBER=True)
     # change the permissions mode
     os.chmod(os.path.join(grace_dir, FILE), MODE)
 
 # PURPOSE: outputting the interpolated data to HDF5
 def HDF5_GSFC_mascons(output_data, GIA,
-    VERSION='', FILENAME='', CLOBBER=''):
+    VERSION='', FILENAME='', CLOBBER=False):
 
     # setting HDF5 clobber attribute
     if CLOBBER:
@@ -216,7 +209,10 @@ def HDF5_GSFC_mascons(output_data, GIA,
     fileID.attrs['geospatial_lon_max'] = output_data['lon_center'].max()
     fileID.attrs['geospatial_lat_units'] = "degrees_north"
     fileID.attrs['geospatial_lon_units'] = "degrees_east"
-
+    # add software information
+    fileID.attrs['software_reference'] = mdlhmc.version.project_name
+    fileID.attrs['software_version'] = mdlhmc.version.full_version
+    fileID.attrs['software_revision'] = mdlhmc.utilities.get_git_revision_hash()
     # Closing the HDF5 file
     fileID.close()
 
@@ -228,7 +224,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = convert_arg_line_to_args
+    parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('infile',
         type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='+',

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 harmonic_operators.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Performs basic operations on spherical harmonic files
 
 CALLING SEQUENCE:
@@ -48,6 +48,8 @@ PROGRAM DEPENDENCIES:
         and filters the GRACE/GRACE-FO coefficients for striping errors
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
+        updated GIA reader to be an inheritance of harmonics
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: can read from GIA models for merging or correcting
@@ -65,7 +67,7 @@ import os
 import logging
 import argparse
 import numpy as np
-from gravity_toolkit.harmonics import harmonics
+import gravity_toolkit as gravtk
 
 # PURPOSE: Performs operations on harmonic files
 def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
@@ -79,30 +81,32 @@ def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
     # verify that output directory exists
     DIRECTORY = os.path.abspath(os.path.dirname(OUTPUT_FILE))
     if not os.access(DIRECTORY, os.F_OK):
-        os.makedirs(DIRECTORY,MODE,exist_ok=True)
+        os.makedirs(DIRECTORY, mode=MODE, exist_ok=True)
 
     # list of available GIA Models
-    GIA = ['IJ05-R2','W12a','SM09','Wu10','AW13-ICE6G','AW13-IJ05',
-        'Caron','ICE6G-D']
+    GIA = ['IJ05-R2', 'W12a', 'SM09', 'Wu10',
+        'AW13-ICE6G', 'AW13-IJ05', 'Caron', 'ICE6G-D']
     # read each input file
     dinput = [None]*n_files
     for i,fi in enumerate(INPUT_FILES):
         # read spherical harmonics file in data format
-        if DATAFORM[i] in ('ascii','netCDF4','HDF5'):
+        if DATAFORM[i] in ('ascii', 'netCDF4', 'HDF5'):
             # ascii (.txt)
             # netCDF4 (.nc)
             # HDF5 (.H5)
-            dinput[i] = harmonics().from_file(fi,format=DATAFORM[i],date=DATE)
-        elif DATAFORM[i] in ('index-ascii','index-netCDF4','index-HDF5'):
+            dinput[i] = gravtk.harmonics().from_file(fi,
+                format=DATAFORM[i], date=DATE)
+        elif DATAFORM[i] in ('index-ascii', 'index-netCDF4', 'index-HDF5'):
             # read from index file
             _,dataform = DATAFORM[i].split('-')
-            dinput[i] = harmonics().from_index(fi,format=dataform,date=DATE)
+            dinput[i] = gravtk.harmonics().from_index(fi,
+                format=dataform, date=DATE)
         elif (DATAFORM[i] in GIA) and DATE:
             # read from GIA file and calculate drift
-            temp = harmonics().from_GIA(fi,GIA=DATAFORM[i])
+            temp = gravtk.gia().from_GIA(fi, GIA=DATAFORM[i])
             dinput[i] = temp.drift(dinput[0].time)
         elif DATAFORM[i] in GIA:
-            dinput[i] = harmonics().from_GIA(fi,GIA=DATAFORM[i])
+            dinput[i] = gravtk.gia().from_GIA(fi, GIA=DATAFORM[i])
 
     # operate on input files
     if (OPERATION == 'add'):
@@ -165,11 +169,13 @@ def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
         output.time = np.copy(dinput[0].time)
         output.month = np.copy(dinput[0].month)
 
-    # output file title
-    title = f'Output from {os.path.basename(sys.argv[0])}'
+    # attributes for output files
+    attributes = {}
+    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+
     # write spherical harmonic file in data format
     output.to_file(OUTPUT_FILE, format=DATAFORM[-1],
-        date=DATE, title=title)
+        date=DATE, **attributes)
     # change the permissions mode of the output file
     os.chmod(OUTPUT_FILE, MODE)
 

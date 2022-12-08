@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_monthly_pressure.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (12/2022)
 Reads daily atmospheric pressure fields from reanalysis and outputs monthly averages
 
 INPUTS:
@@ -31,6 +31,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
@@ -52,9 +53,8 @@ import netCDF4
 import argparse
 import datetime
 import numpy as np
-import gravity_toolkit.time
-import gravity_toolkit.spatial
-import gravity_toolkit.utilities as utilities
+import gravity_toolkit as gravtk
+import model_harmonics as mdlhmc
 
 # PURPOSE: read atmospheric surface pressure fields and calculate monthly mean
 def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
@@ -76,7 +76,7 @@ def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
     # for each year
     for YEAR in YEARS:
         # days per month (check if year is a leap year)
-        dpm = [0.0] + list(gravity_toolkit.time.calendar_days(YEAR))
+        dpm = [0.0] + list(gravtk.time.calendar_days(YEAR))
         cumulative_days = np.cumsum(dpm)
         # list of spatial data
         p_mean = []
@@ -86,7 +86,7 @@ def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
         # for each input file
         for fi in input_files:
             # read input data
-            p = gravity_toolkit.spatial().from_netCDF4(os.path.join(ddir,fi),
+            p = gravtk.spatial().from_netCDF4(os.path.join(ddir,fi),
                 varname=VARNAME, timename=TIMENAME, lonname=LONNAME,
                 latname=LATNAME).transpose(axes=(1,2,0))
             p.fill_value = p.attributes['data'][FILL_VALUE]
@@ -104,7 +104,7 @@ def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
                     p_mean[m].month = m + 1
 
         # mean pressure for each month
-        p_month=gravity_toolkit.spatial().from_list(p_mean).transpose(axes=(2,0,1))
+        p_month = gravtk.spatial().from_list(p_mean).transpose(axes=(2,0,1))
         # convert to python dictionary for output to netCDF4
         dinput = {}
         dinput[VARNAME] = p_month.to_masked_array()
@@ -151,6 +151,13 @@ def ncdf_pressure_write(dinput, fill_value, FILENAME=None, VARNAME=None,
     # Defining attributes for pressure
     nc[VARNAME].units = 'Pa'
     nc[VARNAME].long_name = 'mean_surface_pressure'
+    # add software information
+    fileID.software_reference = mdlhmc.version.project_name
+    fileID.software_version = mdlhmc.version.full_version
+    fileID.software_revision = mdlhmc.utilities.get_git_revision_hash()
+    fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
+    # date created
+    fileID.date_created = datetime.datetime.now().isoformat()
 
     # Output NetCDF structure information
     logging.info(os.path.basename(FILENAME))
@@ -167,7 +174,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     choices = ['NCEP-DOE-2']
     parser.add_argument('model',

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gemb_smb_cumulative.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Calculates cumulative anomalies of GEMB surface mass balance products
 
 CALLING SEQUENCE:
@@ -21,6 +21,7 @@ PYTHON DEPENDENCIES:
          https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Written 10/2022
 """
@@ -33,6 +34,7 @@ import logging
 import netCDF4
 import argparse
 import numpy as np
+import model_harmonics as mdlhmc
 
 # PURPOSE: calculate cumulative anomalies in GEMB
 # surface mass balance variables
@@ -213,6 +215,10 @@ def gemb_smb_cumulative(model_file,
     fileID.reference = "https://doi.org/10.5281/zenodo.7199528"
     fileID.institution = institution
     fileID.revision = revision
+    # add software information
+    fileID.software_reference = mdlhmc.version.project_name
+    fileID.software_version = mdlhmc.version.full_version
+    fileID.software_revision = mdlhmc.utilities.get_git_revision_hash()
     # Output NetCDF file information
     logging.info(list(fileID.variables.keys()))
     # Closing the NetCDF file and getting the buffer object

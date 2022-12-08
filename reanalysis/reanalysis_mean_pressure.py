@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_mean_pressure.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Calculates the mean surface pressure fields from reanalysis
 
 INPUTS:
@@ -47,6 +47,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: lower case keyword arguments to output spatial
@@ -69,13 +70,12 @@ from __future__ import print_function
 import sys
 import os
 import re
+import copy
 import logging
 import netCDF4
 import argparse
 import numpy as np
-import gravity_toolkit.time
-import gravity_toolkit.spatial
-import gravity_toolkit.utilities as utilities
+import gravity_toolkit as gravtk
 
 # PURPOSE: read atmospheric surface pressure fields and calculates yearly mean
 def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
@@ -170,7 +170,7 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
     rx = re.compile(regex_pattern.format(regex_years))
     input_files = [fi for fi in os.listdir(ddir) if rx.match(fi)]
     # output mean pressure field
-    p_mean = gravity_toolkit.spatial()
+    p_mean = gravtk.spatial()
     p_mean.lon = np.copy(lon)
     p_mean.lat = np.copy(lat)
     p_mean.time = 0.0
@@ -191,8 +191,8 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
             # convert time to Modified Julian Days
             delta_time=np.copy(fileID.variables[TIMENAME][:])
             date_string=fileID.variables[TIMENAME].units
-            epoch,to_secs=gravity_toolkit.time.parse_date_string(date_string)
-            MJD=gravity_toolkit.time.convert_delta_time(delta_time*to_secs,
+            epoch,to_secs = gravtk.time.parse_date_string(date_string)
+            MJD = gravtk.time.convert_delta_time(delta_time*to_secs,
                 epoch1=epoch, epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0)
         # iterate over Julian days
         for t,JD in enumerate(MJD+2400000.5):
@@ -200,10 +200,10 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
             p_mean.data += pressure[t,:,:]
             p_mean.mask |= (pressure[t,:,:] == p_mean.fill_value)
             # convert from Julian days to calendar dates
-            YY,MM,DD,hh,mm,ss = gravity_toolkit.time.convert_julian(JD,
+            YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(JD,
                 FORMAT='tuple')
             # convert from calendar dates to year-decimal
-            p_mean.time += gravity_toolkit.time.convert_calendar_decimal(YY,
+            p_mean.time += gravtk.time.convert_calendar_decimal(YY,
                 MM,day=DD,hour=hh,minute=mm,second=ss)
             count += 1
 
@@ -213,13 +213,21 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
     p_mean.update_mask()
     p_mean.time /= np.float64(count)
 
+    # attributes for output files
+    attributes = {}
+    attributes['varname'] = copy.copy(VARNAME)
+    attributes['timename'] = copy.copy(TIMENAME)
+    attributes['lonname'] = copy.copy(LONNAME)
+    attributes['latname'] = copy.copy(LATNAME)
+    attributes['units'] = 'Pa'
+    attributes['longname'] = 'surface_pressure'
+    attributes['title'] = f'Surface_Pressure_from_{MODEL}_Model'
+    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+
     # output to file
     FILE = output_file_format.format(RANGE[0], RANGE[1])
-    TITLE = f'Mean_Surface_Pressure_from_{MODEL}_Model'
     # netcdf (.nc)
-    p_mean.to_netCDF4(os.path.join(ddir,FILE), verbose=VERBOSE,
-        varname=VARNAME, timename=TIMENAME, lonname=LONNAME, latname=LATNAME,
-        units='Pa', longname='surface_pressure', title=TITLE)
+    p_mean.to_netCDF4(os.path.join(ddir,FILE), verbose=VERBOSE, **attributes)
     # change the permissions mode of the output file to MODE
     os.chmod(os.path.join(ddir,FILE),MODE)
 
@@ -258,7 +266,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     choices = ['ERA-Interim','ERA5','MERRA-2','NCEP-DOE-2','NCEP-CFSR','JRA-55']
     parser.add_argument('model',

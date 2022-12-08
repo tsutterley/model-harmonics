@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_harmonics.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Reads monthly MERRA-2 surface mass balance anomalies and
     converts to spherical harmonic coefficients
 
@@ -63,6 +63,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 08/2022: convert to mid-month averages to correspond with GRACE
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -95,19 +96,14 @@ from __future__ import print_function
 import sys
 import os
 import re
+import copy
 import logging
 import netCDF4
 import argparse
 import datetime
 import numpy as np
-import gravity_toolkit.time
-import gravity_toolkit.utilities as utilities
-from gravity_toolkit.read_love_numbers import load_love_numbers
-from gravity_toolkit.harmonics import harmonics
-from gravity_toolkit.spatial import spatial
-from gravity_toolkit.plm_holmes import plm_holmes
-from gravity_toolkit.gen_stokes import gen_stokes
-from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
+import gravity_toolkit as gravtk
+import geoid_toolkit as geoidtk
 
 # PURPOSE: read Merra-2 cumulative data and convert to spherical harmonics
 def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
@@ -137,9 +133,14 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     merra_sources['RAINFALL'] = ['PRECCU','PRECLS']
     merra_sources['SUBLIM'] = ['EVAP','WESNSC']
     merra_sources['RUNOFF'] = ['RUNOFF']
-    merra_reference = ', '.join(merra_sources[PRODUCT])
     # output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
+
+    # attributes for output files
+    attributes = {}
+    attributes['title'] = copy.copy(merra_products[PRODUCT])
+    attributes['source'] = ', '.join(merra_sources[PRODUCT])
+    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
 
     # upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
@@ -170,7 +171,7 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
         fileID.close()
 
     # Earth Parameters
-    ellipsoid_params = ref_ellipsoid('WGS84')
+    ellipsoid_params = geoidtk.ref_ellipsoid('WGS84')
     # semimajor axis of ellipsoid [m]
     a_axis = ellipsoid_params['a']
     #  first numerical eccentricity
@@ -190,11 +191,11 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     theta = (90.0 - latitude_geocentric[:,0])*np.pi/180.0
 
     # read load love numbers
-    LOVE = load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
+    LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
         REFERENCE=REFERENCE)
 
     # calculate Legendre polynomials
-    PLM, dPLM = plm_holmes(LMAX, np.cos(theta))
+    PLM, dPLM = gravtk.plm_holmes(LMAX, np.cos(theta))
 
     # find input files from merra_smb_cumulative.py
     regex_years = r'\d{4}' if (YEARS is None) else '|'.join(map(str,YEARS))
@@ -221,21 +222,21 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
         # read data file for data format
         if (DATAFORM == 'ascii'):
             # ascii (.txt)
-            M1 = spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
+            M1 = gravtk.spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
                 extent=extent).from_ascii(os.path.join(ddir,cumul_sub,fi))
-            M2 = spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
+            M2 = gravtk.spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
                 extent=extent).from_ascii(os.path.join(ddir,cumul_sub,FILES[t+1]))
         elif (DATAFORM == 'netCDF4'):
             # netCDF4 (.nc)
-            M1 = spatial().from_netCDF4(os.path.join(ddir,cumul_sub,fi),
+            M1 = gravtk.spatial().from_netCDF4(os.path.join(ddir,cumul_sub,fi),
                 varname=PRODUCT)
-            M2 = spatial().from_netCDF4(os.path.join(ddir,cumul_sub,FILES[t+1]),
+            M2 = gravtk.spatial().from_netCDF4(os.path.join(ddir,cumul_sub,FILES[t+1]),
                 varname=PRODUCT)
         elif (DATAFORM == 'HDF5'):
             # HDF5 (.H5)
-            M1 = spatial().from_HDF5(os.path.join(ddir,cumul_sub,fi),
+            M1 = gravtk.spatial().from_HDF5(os.path.join(ddir,cumul_sub,fi),
                 varname=PRODUCT)
-            M2 = spatial().from_HDF5(os.path.join(ddir,cumul_sub,FILES[t+1]),
+            M2 = gravtk.spatial().from_HDF5(os.path.join(ddir,cumul_sub,FILES[t+1]),
                 varname=PRODUCT)
 
         # if reducing to a region of interest before converting to harmonics
@@ -250,23 +251,22 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
 
         # calculate 2-month moving average
         # weighting by number of days in each month
-        dpm = gravity_toolkit.time.calendar_days(int(YY))
+        dpm = gravtk.time.calendar_days(int(YY))
         W = np.float64(dpm[(t+1) % 12] + dpm[t % 12])
         MASS = (dpm[t % 12]*M1.data + dpm[(t+1) % 12]*M2.data)/W
         # convert to spherical harmonics from mm w.e.
-        merra_Ylms = gen_stokes(MASS, glon, latitude_geocentric[:,0],
+        merra_Ylms = gravtk.gen_stokes(MASS, glon, latitude_geocentric[:,0],
             LMAX=LMAX, MMAX=MMAX, UNITS=3, PLM=PLM, LOVE=LOVE)
         # copy date information
         merra_Ylms.time = np.mean([M1.time, M2.time])
         # calculate GRACE/GRACE-FO month
-        merra_Ylms.month = gravity_toolkit.time.calendar_to_grace(
+        merra_Ylms.month = gravtk.time.calendar_to_grace(
             np.float64(YY), np.float64(MM))
         # output spherical harmonic data file
         args=(MOD,PRODUCT,LMAX,order_str,merra_Ylms.month,suffix[DATAFORM])
         FILE='MERRA2_{0}_tavgM_2d_{1}_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
         merra_Ylms.to_file(os.path.join(ddir,output_sub,FILE),
-            format=DATAFORM, title=merra_products[PRODUCT],
-            reference=merra_reference)
+            format=DATAFORM, **attributes)
         # change the permissions mode of the output file to MODE
         os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 
@@ -290,8 +290,8 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     for fi in sorted(output_files):
         # extract GRACE month
         MOD,grace_month=np.array(re.findall(output_regex,fi).pop(),dtype=np.int64)
-        YY,MM = gravity_toolkit.time.grace_to_calendar(grace_month)
-        tdec, = gravity_toolkit.time.convert_calendar_decimal(YY, MM)
+        YY,MM = gravtk.time.grace_to_calendar(grace_month)
+        tdec, = gravtk.time.convert_calendar_decimal(YY, MM)
         # full path to output file
         full_output_file = os.path.join(ddir,output_sub,fi)
         # print date, GRACE month and calendar month to date file
@@ -313,7 +313,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     choices = ['SMB','ACCUM','PRECIP','RAINFALL','SUBLIM','RUNOFF']
     parser.add_argument('product',

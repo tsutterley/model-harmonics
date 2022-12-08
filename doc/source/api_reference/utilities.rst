@@ -16,6 +16,10 @@ Download and management utilities for syncing time and auxiliary files
 General Methods
 ===============
 
+.. autofunction:: model_harmonics.utilities.get_git_revision_hash
+
+.. autofunction:: model_harmonics.utilities.get_git_status
+
 .. autofunction:: model_harmonics.utilities.gesdisc_list
 
 .. autofunction:: model_harmonics.utilities.cmr_filter_json
