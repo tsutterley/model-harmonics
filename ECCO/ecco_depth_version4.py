@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_depth_version4.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 
 Interpolates GEBCO bathymetry to ECCO Version 4 interpolated model grids
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
@@ -28,6 +28,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: lower case keyword arguments to output spatial
@@ -38,11 +39,12 @@ UPDATE HISTORY:
 """
 from __future__ import print_function
 
+import sys
 import os
 import re
 import argparse
 import numpy as np
-import gravity_toolkit.spatial
+import gravity_toolkit as gravtk
 
 # PURPOSE: interpolate GEBCO bathymetry to ECCO V4 ocean model grids
 def ecco_depth_version4(ddir, model_file, VERSION='2014', MODE=0o775):
@@ -52,7 +54,7 @@ def ecco_depth_version4(ddir, model_file, VERSION='2014', MODE=0o775):
     elif (VERSION == '2020'):
         FILE = os.path.join(ddir,'gebco_2020_netcdf.zip')
     # read zipped file and extract file into in-memory file object
-    bathymetry = gravity_toolkit.spatial().from_netCDF4(FILE,
+    bathymetry = gravtk.spatial().from_netCDF4(FILE,
         date=False, varname='elevation', compression='zip')
     bathymetry.data = extend_matrix(bathymetry.data,1)
     bathymetry.lon = extend_array(bathymetry.lon,1)
@@ -67,7 +69,7 @@ def ecco_depth_version4(ddir, model_file, VERSION='2014', MODE=0o775):
     # bad value
     fill_value = 99999.0
     # read ECCO V4 ocean model for valid points
-    PHIBOT = gravity_toolkit.spatial(fill_value=np.nan).from_netCDF4(
+    PHIBOT = gravtk.spatial(fill_value=np.nan).from_netCDF4(
         model_file,latname=LATNAME,lonname=LONNAME,timename=TIMENAME,
         varname=VARNAME).transpose(axes=(1,2,0)).index(0)
     PHIBOT.replace_invalid(fill_value)
@@ -81,7 +83,7 @@ def ecco_depth_version4(ddir, model_file, VERSION='2014', MODE=0o775):
     dlon,dlat = (0.5,0.5)
 
     # create output data
-    interp = gravity_toolkit.spatial(fill_value=fill_value)
+    interp = gravtk.spatial(fill_value=fill_value)
     # calculate dimension variables
     interp.lon = np.arange(extent[0],extent[1]+dlon,dlon)
     interp.lat = np.arange(extent[2],extent[3]+dlat,dlat)
@@ -101,16 +103,21 @@ def ecco_depth_version4(ddir, model_file, VERSION='2014', MODE=0o775):
     # update the mask
     interp.update_mask()
 
-    # output netCDF4 dataset
-    bathymetry_file = f'DEPTH.{VERSION}.720x360.nc'
-    TITLE = ('General Depth Chart of the Oceans, produced by the'
+    # output file attributes
+    attributes = {}
+    attributes['varname'] = 'depth'
+    attributes['units'] = 'm'
+    attributes['longname'] = 'Depth'
+    attributes['title'] = ('General Depth Chart of the Oceans, produced by the'
         'International Hydrographic Organization (IHO) and the United Nations '
         '(UNESCO) Intergovernmental Oceanographic Commission (IOC)')
-    REFERENCE = ('https://www.gebco.net/data_and_products/'
+    attributes['source'] = ('https://www.gebco.net/data_and_products/'
         'gridded_bathymetry_data/')
-    interp.to_netCDF4(os.path.join(ddir,bathymetry_file), date=False,
-        title=TITLE, reference=REFERENCE, varname='depth',
-        units='m', longname='Depth')
+    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    # output netCDF4 dataset
+    bathymetry_file = f'DEPTH.{VERSION}.720x360.nc'
+    interp.to_netCDF4(os.path.join(ddir,bathymetry_file),
+        date=False, **attributes)
     # change the permissions mode to MODE
     os.chmod(os.path.join(ddir,bathymetry_file),MODE)
 

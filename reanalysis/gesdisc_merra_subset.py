@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_merra_subset.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 
 Subsets monthly MERRA-2 products for specific variables from the
     Goddard Earth Sciences Data and Information Server Center (GES DISC)
@@ -51,6 +51,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 10/2022: added flatten option to not create output subdirectories
     Written 06/2022
@@ -66,8 +67,8 @@ import getpass
 import logging
 import argparse
 import builtins
-import gravity_toolkit.time
-import model_harmonics.utilities
+import gravity_toolkit as gravtk
+import model_harmonics as mdlhmc
 
 # PURPOSE: subsets MERRA-2 files for specific variables
 def gesdisc_merra_subset(base_dir, SHORTNAME, VERSION=None, YEARS=None,
@@ -98,7 +99,7 @@ def gesdisc_merra_subset(base_dir, SHORTNAME, VERSION=None, YEARS=None,
 
     # for each unique date
     for YEAR in YEARS:
-        dpm = gravity_toolkit.time.calendar_days(YEAR)
+        dpm = gravtk.time.calendar_days(YEAR)
         # for each month of the year
         for i,days_per_month in enumerate(dpm):
             # year and month as strings
@@ -108,7 +109,7 @@ def gesdisc_merra_subset(base_dir, SHORTNAME, VERSION=None, YEARS=None,
             start_date = f'{YY}-{MM}-{1:02.0f}'
             end_date = f'{YY}-{MM}-{days_per_month:02.0f}'
             # query for data
-            ids,urls,mtimes = model_harmonics.utilities.cmr(SHORTNAME,
+            ids,urls,mtimes = mdlhmc.utilities.cmr(SHORTNAME,
                 version=VERSION, start_date=start_date, end_date=end_date,
                 provider='GES_DISC', verbose=True)
             # skip years and months without any data
@@ -121,7 +122,7 @@ def gesdisc_merra_subset(base_dir, SHORTNAME, VERSION=None, YEARS=None,
                 FILE = f'{fileBasename}.SUB.nc'
                 local_file = os.path.join(DIRECTORY, FILE)
                 # get subsetting API url for granule
-                request_url = model_harmonics.utilities.build_request(
+                request_url = mdlhmc.utilities.build_request(
                     SHORTNAME, VERSION, url, variables=VARIABLES,
                     bbox=[-90,-180,90,180], LABEL=FILE)
                 # copy subsetted file and update modified dates
@@ -145,8 +146,8 @@ def http_pull_file(remote_file, remote_mtime, local_file,
         # check last modification time of local file
         local_mtime = os.stat(local_file).st_mtime
         # if remote file is newer: overwrite the local file
-        if (model_harmonics.utilities.even(remote_mtime) >
-            model_harmonics.utilities.even(local_mtime)):
+        if (mdlhmc.utilities.even(remote_mtime) >
+            mdlhmc.utilities.even(local_mtime)):
             TEST = True
             OVERWRITE = ' (overwrite)'
     else:
@@ -159,8 +160,8 @@ def http_pull_file(remote_file, remote_mtime, local_file,
         logging.info(f'\t{local_file}{OVERWRITE}\n')
         # Create and submit request. There are a wide range of exceptions
         # that can be thrown here, including HTTPError and URLError.
-        request = model_harmonics.utilities.urllib2.Request(remote_file)
-        response = model_harmonics.utilities.urllib2.urlopen(request,
+        request = mdlhmc.utilities.urllib2.Request(remote_file)
+        response = mdlhmc.utilities.urllib2.urlopen(request,
             timeout=TIMEOUT)
         # chunked transfer encoding size
         CHUNK = 16 * 1024
@@ -261,12 +262,12 @@ def main():
 
     # build a urllib opener for NASA GESDISC
     # Add the username and password for NASA Earthdata Login system
-    model_harmonics.utilities.build_opener(args.user, args.password,
+    mdlhmc.utilities.build_opener(args.user, args.password,
         password_manager=True, authorization_header=False)
 
     # check internet connection before attempting to run program
     HOST = 'https://goldsmr5.gesdisc.eosdis.nasa.gov/'
-    if model_harmonics.utilities.check_credentials(HOST):
+    if mdlhmc.utilities.check_credentials(HOST):
         gesdisc_merra_subset(args.directory, args.shortname,
             VERSION=args.version,
             YEARS=args.year,

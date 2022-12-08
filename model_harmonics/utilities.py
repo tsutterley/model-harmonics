@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Download and management utilities for syncing time and auxiliary files
 Adds additional modules to the gravity_toolkit utilities
 
@@ -10,6 +10,7 @@ PYTHON DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 12/2022: functions for managing and maintaining git repositories
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 10/2022: added option to use CMR provided GES DISC subsetting host
     Updated 08/2022: hardcode GES DISC subsetting API hostname
@@ -20,6 +21,43 @@ UPDATE HISTORY:
 """
 # extend gravity_toolkit utilities
 from gravity_toolkit.utilities import *
+
+# PURPOSE: get the git hash value
+def get_git_revision_hash(refname='HEAD', short=False):
+    """
+    Get the git hash value for a particular reference
+
+    Parameters
+    ----------
+    refname: str, default HEAD
+        Symbolic reference name
+    short: bool, default False
+        Return the shorted hash value
+    """
+    # get path to .git directory from current file path
+    filename = inspect.getframeinfo(inspect.currentframe()).filename
+    basepath = os.path.dirname(os.path.dirname(os.path.abspath(filename)))
+    gitpath = os.path.join(basepath,'.git')
+    # build command
+    cmd = ['git', f'--git-dir={gitpath}', 'rev-parse']
+    cmd.append('--short') if short else None
+    cmd.append(refname)
+    # get output
+    with warnings.catch_warnings():
+        return str(subprocess.check_output(cmd), encoding='utf8').strip()
+
+# PURPOSE: get the current git status
+def get_git_status():
+    """Get the status of a git repository as a boolean value
+    """
+    # get path to .git directory from current file path
+    filename = inspect.getframeinfo(inspect.currentframe()).filename
+    basepath = os.path.dirname(os.path.dirname(os.path.abspath(filename)))
+    gitpath = os.path.join(basepath,'.git')
+    # build command
+    cmd = ['git', f'--git-dir={gitpath}', 'status', '--porcelain']
+    with warnings.catch_warnings():
+        return bool(subprocess.check_output(cmd))
 
 # PURPOSE: list a directory on NASA GES DISC https server
 def gesdisc_list(HOST,username=None,password=None,build=False,timeout=None,

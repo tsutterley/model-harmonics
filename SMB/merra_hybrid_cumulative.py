@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_cumulative.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Reads MERRA-2 hybrid datafiles to calculate cumulative anomalies in
     derived surface mass balance products
 MERRA-2 Hybrid model outputs provided by Brooke Medley at GSFC
@@ -33,6 +33,7 @@ PYTHON DEPENDENCIES:
          https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 10/2022: add Greenland and Antarctic versions v1.2.1
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -58,6 +59,7 @@ import logging
 import netCDF4
 import argparse
 import numpy as np
+import model_harmonics as mdlhmc
 
 # PURPOSE: calculate cumulative anomalies in MERRA-2 hybrid
 # surface mass balance variables
@@ -327,6 +329,10 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION,
         "over the Greenland and Antarctic Ice Sheets: 1980--2021, "
         "The Cryosphere, https://doi.org/10.5194/tc-2020-266, 2022.")
     fileID.institution = "NASA Goddard Space Flight Center (GSFC)"
+    # add software information
+    fileID.software_reference = mdlhmc.version.project_name
+    fileID.software_version = mdlhmc.version.full_version
+    fileID.software_revision = mdlhmc.utilities.get_git_revision_hash()
     # Output NetCDF file information
     logging.info(list(fileID.variables.keys()))
     # Closing the NetCDF file and getting the buffer object

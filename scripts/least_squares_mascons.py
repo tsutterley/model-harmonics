@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 least_squares_mascons.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 
 Calculates regional mass anomalies through a least-squares mascon procedure
     from an index of spherical harmonic coefficient files
@@ -84,6 +84,7 @@ REFERENCES:
         https://doi.org/10.1029/2009GL039401
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
@@ -148,13 +149,7 @@ import logging
 import argparse
 import numpy as np
 import traceback
-
-import gravity_toolkit.utilities as utilities
-from gravity_toolkit.harmonics import harmonics
-from gravity_toolkit.units import units
-from gravity_toolkit.read_love_numbers import load_love_numbers
-from gravity_toolkit.gauss_weights import gauss_weights
-from gravity_toolkit.ocean_stokes import ocean_stokes
+import gravity_toolkit as gravtk
 
 # PURPOSE: keep track of threads
 def info(args):
@@ -198,11 +193,11 @@ def least_squares_mascons(input_file, LMAX, RAD,
     parser = re.compile(r'^(?!\#|\%|$)', re.VERBOSE)
 
     # read arrays of kl, hl, and ll Love Numbers
-    hl,kl,ll = load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
+    hl,kl,ll = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
         REFERENCE=REFERENCE)
 
     # Earth Parameters
-    factors = units(lmax=LMAX).harmonic(hl,kl,ll)
+    factors = gravtk.units(lmax=LMAX).harmonic(hl,kl,ll)
     # Average Density of the Earth [g/cm^3]
     rho_e = factors.rho_e
     # Average Radius of the Earth [cm]
@@ -210,7 +205,7 @@ def least_squares_mascons(input_file, LMAX, RAD,
 
     # Calculating the Gaussian smoothing for radius RAD
     if (RAD != 0):
-        wt = 2.0*np.pi*gauss_weights(RAD,LMAX)
+        wt = 2.0*np.pi*gravtk.gauss_weights(RAD,LMAX)
         gw_str = f'_r{RAD:0.0f}km'
     else:
         # else = 1
@@ -226,7 +221,8 @@ def least_squares_mascons(input_file, LMAX, RAD,
     # Read Ocean function and convert to Ylms for redistribution
     if (REDISTRIBUTE_MASCONS | REDISTRIBUTE):
         # read Land-Sea Mask and convert to spherical harmonics
-        ocean_Ylms = ocean_stokes(LANDMASK, LMAX, MMAX=MMAX, LOVE=(hl,kl,ll))
+        ocean_Ylms = gravtk.ocean_stokes(LANDMASK, LMAX, MMAX=MMAX,
+            LOVE=(hl,kl,ll))
         ocean_str = '_OCN'
     else:
         # not distributing uniformly over ocean
@@ -237,11 +233,13 @@ def least_squares_mascons(input_file, LMAX, RAD,
         # ascii (.txt)
         # netCDF4 (.nc)
         # HDF5 (.H5)
-        data_Ylms = harmonics().from_file(input_file,format=DATAFORM,date=DATE)
+        data_Ylms = gravtk.harmonics().from_file(input_file,
+            format=DATAFORM, date=DATE)
     elif DATAFORM in ('index-ascii','index-netCDF4','index-HDF5'):
         # read from index file
         _,dataform = DATAFORM.split('-')
-        data_Ylms = harmonics().from_index(input_file,format=dataform,date=DATE)
+        data_Ylms = gravtk.harmonics().from_index(input_file,
+            format=dataform, date=DATE)
     # number of files within the index
     n_files = data_Ylms.shape[-1]
     # truncate to degree and order
@@ -277,7 +275,7 @@ def least_squares_mascons(input_file, LMAX, RAD,
     mascon_list = []
     for k in range(n_mas):
         # read mascon spherical harmonics
-        Ylms = harmonics().from_file(mascon_files[k],
+        Ylms = gravtk.harmonics().from_file(mascon_files[k],
             format=MASCON_FORMAT, date=False)
         # Calculating the total mass of each mascon (1 cmH2O uniform)
         area_tot[k] = 4.0*np.pi*(rad_e**3)*rho_e*Ylms.clm[0,0]/3.0
@@ -303,7 +301,9 @@ def least_squares_mascons(input_file, LMAX, RAD,
         # if mascon name contains degree and order info, remove
         mascon_name.append(mascon_base.replace(f'_L{LMAX:d}', ''))
     # create single harmonics object from list
-    mascon_Ylms = harmonics().from_list(mascon_list, date=False)
+    mascon_Ylms = gravtk.harmonics().from_list(mascon_list, date=False)
+    # clear mascon list variable
+    del mascon_list
 
     # Calculating the number of cos and sin harmonics between LMIN and LMAX
     # taking into account MMAX (if MMAX == LMAX then LMAX-MMAX=0)
@@ -393,10 +393,10 @@ def least_squares_mascons(input_file, LMAX, RAD,
     for k in range(n_mas):
         # output filename format:
         # mascon name, LMAX, Gaussian smoothing radii, filter flag
-        file_out='{0}{1}_L{2:d}{3}{4}{5}{6}.txt'.format(FILE_PREFIX,
-            mascon_name[k], LMAX, order_str, gw_str, ds_str, ocean_str)
-        # add output files to list object
-        output_files.append(os.path.join(OUTPUT_DIRECTORY,file_out))
+        fargs = (FILE_PREFIX, mascon_name[k], LMAX, order_str,
+            gw_str, ds_str, ocean_str)
+        file_format = '{0}{1}_L{2:d}{3}{4}{5}{6}.txt'
+        output_file = os.path.join(OUTPUT_DIRECTORY,file_format.format(*fargs))
 
         # Output mascon datafiles
         # Will output each mascon mass series
@@ -405,8 +405,7 @@ def least_squares_mascons(input_file, LMAX, RAD,
         # else:
         # mascon mass, mascon area
         # open output mascon time-series file
-        fid = open(os.path.join(OUTPUT_DIRECTORY,file_out),
-            mode='w', encoding='utf8')
+        fid = open(output_file, mode='w', encoding='utf8')
         # for each date
         for f in range(n_files):
             # Summing over all spherical harmonics for mascon k, and time t
@@ -431,46 +430,46 @@ def least_squares_mascons(input_file, LMAX, RAD,
         # close the output file
         fid.close()
         # change the permissions mode of the output file
-        os.chmod(os.path.join(OUTPUT_DIRECTORY,file_out), MODE)
+        os.chmod(output_file, MODE)
         # add output files to list object
-        output_files.append(os.path.join(OUTPUT_DIRECTORY,file_out))
+        output_files.append(output_file)
 
     # return the list of output files
     return output_files
 
 # PURPOSE: print a file log for the mascon analysis
-def output_log_file(arguments,output_files):
+def output_log_file(input_arguments, output_files):
     # format: calc_mascon_run_2002-04-01_PID-70335.log
     args = (time.strftime('%Y-%m-%d',time.localtime()), os.getpid())
     LOGFILE = 'calc_mascon_run_{0}_PID-{1:d}.log'.format(*args)
     # create a unique log and open the log file
-    DIRECTORY = os.path.expanduser(arguments.output_directory)
-    fid = utilities.create_unique_file(os.path.join(DIRECTORY,LOGFILE))
+    DIRECTORY = os.path.expanduser(input_arguments.output_directory)
+    fid = gravtk.utilities.create_unique_file(os.path.join(DIRECTORY,LOGFILE))
     logging.basicConfig(stream=fid, level=logging.INFO)
     # print argument values sorted alphabetically
     logging.info('ARGUMENTS:')
-    for arg, value in sorted(vars(arguments).items()):
-        logging.info('{0}: {1}'.format(arg, value))
+    for arg, value in sorted(vars(input_arguments).items()):
+        logging.info(f'{arg}: {value}')
     # print output files
     logging.info('\n\nOUTPUT FILES:')
     for f in output_files:
-        logging.info('{0}'.format(f))
+        logging.info(f)
     # close the log file
     fid.close()
 
 # PURPOSE: print a error file log for the mascon analysis
-def output_error_log_file(arguments):
+def output_error_log_file(input_arguments):
     # format: calc_mascon_failed_run_2002-04-01_PID-70335.log
     args = (time.strftime('%Y-%m-%d',time.localtime()), os.getpid())
     LOGFILE = 'calc_mascon_failed_run_{0}_PID-{1:d}.log'.format(*args)
     # create a unique log and open the log file
-    DIRECTORY = os.path.expanduser(arguments.output_directory)
-    fid = utilities.create_unique_file(os.path.join(DIRECTORY,LOGFILE))
+    DIRECTORY = os.path.expanduser(input_arguments.output_directory)
+    fid = gravtk.utilities.create_unique_file(os.path.join(DIRECTORY,LOGFILE))
     logging.basicConfig(stream=fid, level=logging.INFO)
     # print argument values sorted alphabetically
     logging.info('ARGUMENTS:')
-    for arg, value in sorted(vars(arguments).items()):
-        logging.info('{0}: {1}'.format(arg, value))
+    for arg, value in sorted(vars(input_arguments).items()):
+        logging.info(f'{arg}: {value}')
     # print traceback error
     logging.info('\n\nTRACEBACK ERROR:')
     traceback.print_exc(file=fid)
@@ -486,7 +485,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('infile',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
@@ -565,7 +564,7 @@ def arguments():
         default=False, action='store_true',
         help='Input spherical harmonic fields are data errors')
     # land-sea mask for redistributing mascon mass and land water flux
-    lsmask = utilities.get_data_path(['data','landsea_hd.nc'])
+    lsmask = gravtk.utilities.get_data_path(['data','landsea_hd.nc'])
     parser.add_argument('--mask',
         type=lambda p: os.path.abspath(os.path.expanduser(p)), default=lsmask,
         help='Land-sea mask for redistributing mascon mass and land water flux')

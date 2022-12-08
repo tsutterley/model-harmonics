@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_merra_monthly.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 
 Creates monthly MERRA-2 3D model level products syncing data from the
     Goddard Earth Sciences Data and Information Server Center (GES DISC)
@@ -49,6 +49,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 10/2022: add hard coded GES DISC subsetting api host option
     Updated 08/2022: adjust time range for CMR queries
@@ -80,8 +81,8 @@ import netCDF4
 import argparse
 import builtins
 import numpy as np
-import gravity_toolkit.time
-import model_harmonics.utilities
+import gravity_toolkit as gravtk
+import model_harmonics as mdlhmc
 
 # PURPOSE: sync local MERRA-2 files with GESDISC server
 def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
@@ -137,7 +138,7 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
 
     # for each unique date
     for YEAR in YEARS:
-        dpm = gravity_toolkit.time.calendar_days(YEAR)
+        dpm = gravtk.time.calendar_days(YEAR)
         # for each month of the year
         for i,days_per_month in enumerate(dpm):
             # year and month as strings
@@ -147,8 +148,8 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
             start_date = isotime_format.format(YY,MM,1.0,0.0,0.0,0.0)
             end_date = isotime_format.format(YY,MM,days_per_month,23.0,59.0,59.0)
             # query for data
-            ids,urls,mtimes = model_harmonics.utilities.cmr(SHORTNAME,
-                version=VERSION, start_date=start_date, end_date=end_date,
+            ids,urls,mtimes = mdlhmc.utilities.cmr(SHORTNAME, version=VERSION,
+                start_date=start_date, end_date=end_date,
                 provider='GES_DISC', verbose=VERBOSE)
             # skip years and months without any data
             if not ids:
@@ -168,12 +169,12 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
             # for each url
             for id,url,mtime in zip(ids,urls,mtimes):
                 # build subsetting API url for granule
-                request_url = model_harmonics.utilities.build_request(SHORTNAME,
+                request_url = mdlhmc.utilities.build_request(SHORTNAME,
                     VERSION, url, host='https://goldsmr5.gesdisc.eosdis.nasa.gov',
                     variables=[VARNAME,TNAME,QNAME])
                 # Create and submit request. There are a wide range of exceptions
                 # that can be thrown here, including HTTPError and URLError.
-                response = model_harmonics.utilities.from_http(request_url,
+                response = mdlhmc.utilities.from_http(request_url,
                     timeout=TIMEOUT,
                     context=None,
                     verbose=VERBOSE,
@@ -300,6 +301,10 @@ def ncdf_model_write(dinput, attributes, fill_value,
     # Defining file-level attributes
     for att_name,att_val in attributes['ROOT'].items():
         fileID.setncattr(att_name, att_val)
+    # add software information
+    fileID.software_reference = mdlhmc.version.project_name
+    fileID.software_version = mdlhmc.version.full_version
+    fileID.software_revision = mdlhmc.utilities.get_git_revision_hash()
     # date created
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
@@ -391,12 +396,12 @@ def main():
 
     # build a urllib opener for NASA GESDISC
     # Add the username and password for NASA Earthdata Login system
-    model_harmonics.utilities.build_opener(args.user, args.password,
+    mdlhmc.utilities.build_opener(args.user, args.password,
         password_manager=True, authorization_header=False)
 
     # check internet connection before attempting to run program
     HOST = 'https://goldsmr5.gesdisc.eosdis.nasa.gov/'
-    if model_harmonics.utilities.check_credentials(HOST):
+    if mdlhmc.utilities.check_credentials(HOST):
         gesdisc_merra_monthly(args.directory, args.shortname,
             VERSION=args.version,
             YEARS=args.year,

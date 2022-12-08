@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 jpl_ecco_v4_sync.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 
 Syncs ECCO Version 4 model outputs from the NASA JPL ECCO Drive server:
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
@@ -62,6 +62,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
@@ -101,7 +102,7 @@ import builtins
 import warnings
 import posixpath
 import lxml.etree
-import gravity_toolkit.utilities
+import gravity_toolkit as gravtk
 
 # PURPOSE: sync ECCO Version 4 model data from JPL ECCO drive server
 def jpl_ecco_v4_sync(ddir, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
@@ -156,8 +157,9 @@ def jpl_ecco_v4_sync(ddir, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
     PATH = [HOST,'drive','files',*model_path[MODEL]]
     # open connection with ECCO drive server at remote directory
     # find remote yearly directories for MODEL
-    years,mtimes = gravity_toolkit.utilities.drive_list(PATH,
-        timeout=TIMEOUT,build=False,parser=parser,pattern=R1,sort=True)
+    years,mtimes = gravtk.utilities.drive_list(PATH,
+        timeout=TIMEOUT, build=False, parser=parser,
+        pattern=R1, sort=True)
     for yr in years:
         # extract year from file
         if MODEL in ('V4r3',):
@@ -173,8 +175,9 @@ def jpl_ecco_v4_sync(ddir, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
         # full path to remote directory
         remote_dir = posixpath.join(*PATH)
         # read and parse request for files (find names and modified dates)
-        colnames,mtimes=gravity_toolkit.utilities.drive_list(PATH,
-            timeout=TIMEOUT,build=False,parser=parser,pattern=R3,sort=True)
+        colnames,mtimes = gravtk.utilities.drive_list(PATH,
+            timeout=TIMEOUT, build=False, parser=parser,
+            pattern=R3, sort=True)
         # for each file on the remote server
         for colname,remote_mtime in zip(colnames,mtimes):
             # remote and local versions of the file
@@ -202,18 +205,18 @@ def http_pull_file(remote_file, remote_mtime, local_file,
     if CHECKSUM and os.access(local_file, os.F_OK):
         # generate checksum hash for local file
         # open the local_file in binary read mode
-        local_hash = gravity_toolkit.utilities.get_hash(local_file)
+        local_hash = gravtk.utilities.get_hash(local_file)
         # Create and submit request.
         # There are a wide range of exceptions that can be thrown here
         # including HTTPError and URLError.
-        request = gravity_toolkit.utilities.urllib2.Request(remote_file)
-        response = gravity_toolkit.utilities.urllib2.urlopen(request,
+        request = gravtk.utilities.urllib2.Request(remote_file)
+        response = gravtk.utilities.urllib2.urlopen(request,
             timeout=TIMEOUT)
         # copy remote file contents to bytesIO object
         remote_buffer = io.BytesIO(response.read())
         remote_buffer.seek(0)
         # generate checksum hash for remote file
-        remote_hash = gravity_toolkit.utilities.get_hash(remote_buffer)
+        remote_hash = gravtk.utilities.get_hash(remote_buffer)
         # compare checksums
         if (local_hash != remote_hash):
             TEST = True
@@ -247,8 +250,8 @@ def http_pull_file(remote_file, remote_mtime, local_file,
                 # Create and submit request.
                 # There are a wide range of exceptions that can be thrown here
                 # including HTTPError and URLError.
-                request = gravity_toolkit.utilities.urllib2.Request(remote_file)
-                response = gravity_toolkit.utilities.urllib2.urlopen(request,
+                request = gravtk.utilities.urllib2.Request(remote_file)
+                response = gravtk.utilities.urllib2.urlopen(request,
                     timeout=TIMEOUT)
                 # copy contents to local file using chunked transfer encoding
                 # transfer should work properly with ascii and binary formats
@@ -343,12 +346,12 @@ def main():
 
     # build a urllib opener for JPL ECCO Drive
     # Add the username and password for NASA Earthdata Login system
-    gravity_toolkit.utilities.build_opener(args.user,args.webdav)
+    gravtk.utilities.build_opener(args.user,args.webdav)
 
     # check internet connection before attempting to run program
     # check JPL ECCO Drive credentials before attempting to run program
     DRIVE = f'https://{HOST}/drive/files'
-    if gravity_toolkit.utilities.check_credentials(DRIVE):
+    if gravtk.utilities.check_credentials(DRIVE):
         for MODEL in args.model:
             jpl_ecco_v4_sync(args.directory, MODEL, YEAR=args.year,
                 PRODUCT=args.product, TIMEOUT=args.timeout, LOG=args.log,

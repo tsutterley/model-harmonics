@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_harmonics.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Read MERRA-2 hybrid variables and converts to spherical harmonics
 MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
 
@@ -63,6 +63,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 10/2022: move polar stereographic scaling function to spatial
         add Greenland and Antarctic versions v1.2.1
@@ -92,13 +93,9 @@ import datetime
 import warnings
 import numpy as np
 import scipy.interpolate
-import gravity_toolkit.time
-import gravity_toolkit.utilities as utilities
-from gravity_toolkit.read_love_numbers import load_love_numbers
-from gravity_toolkit.harmonics import harmonics
-from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
-from gravity_toolkit.gen_point_load import gen_point_load
-from model_harmonics.spatial import scale_areas
+import gravity_toolkit as gravtk
+import geoid_toolkit as geoidtk
+import model_harmonics as mdlhmc
 # ignore pyproj and divide by zero warnings
 warnings.filterwarnings("ignore")
 
@@ -226,7 +223,7 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     reference_latitude = crs2.to_dict().pop('lat_ts')
 
     # Earth Parameters
-    ellipsoid_params = ref_ellipsoid('WGS84')
+    ellipsoid_params = geoidtk.ref_ellipsoid('WGS84')
     # semimajor axis of ellipsoid [m]
     a_axis = ellipsoid_params['a']
     #  first numerical eccentricity
@@ -249,11 +246,11 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     indx,indy = np.nonzero(fd['mask'])
     lon,lat = (gridlon[indx,indy],latitude_geocentric[indx,indy])
     # scaled areas
-    ps_scale = scale_areas(gridlat[indx,indy], flat=flat,
+    ps_scale = mdlhmc.spatial.scale_areas(gridlat[indx,indy], flat=flat,
         ref=reference_latitude)
     scaled_area = ps_scale*fd['area'][indx,indy]
     # read load love numbers
-    LOVE = load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
+    LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
         REFERENCE=REFERENCE)
     # upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
@@ -263,7 +260,7 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     rho_ice = 917.0
 
     # allocate for output spherical harmonics
-    Ylms = harmonics(lmax=LMAX, mmax=MMAX)
+    Ylms = gravtk.harmonics(lmax=LMAX, mmax=MMAX)
     Ylms.clm = np.zeros((LMAX+1,MMAX+1,nt))
     Ylms.slm = np.zeros((LMAX+1,MMAX+1,nt))
     Ylms.time = np.zeros((nt))
@@ -273,21 +270,25 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
         # reduce data for date and convert to mass (g)
         merra_mass = 1000.0*rho_ice*scaled_area*fd[VARIABLE][t,indx,indy]
         # convert to spherical harmonics
-        merra_Ylms = gen_point_load(merra_mass, lon, lat, LMAX=LMAX,
-            MMAX=MMAX, UNITS=1, LOVE=LOVE)
+        merra_Ylms = gravtk.gen_point_load(merra_mass, lon, lat,
+            LMAX=LMAX, MMAX=MMAX, UNITS=1, LOVE=LOVE)
         # copy harmonics for time step
         Ylms.clm[:,:,t] = merra_Ylms.clm[:,:].copy()
         Ylms.slm[:,:,t] = merra_Ylms.slm[:,:].copy()
         # copy date parameters for time step
         Ylms.time[t] = fd['time'][t].copy()
-        Ylms.month[t] = gravity_toolkit.time.calendar_to_grace(Ylms.time[t])
+        Ylms.month[t] = gravtk.time.calendar_to_grace(Ylms.time[t])
 
     # output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
+    # attributes for output files
+    attributes = {}
+    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
     # output spherical harmonic data file
     args = (FILE_VERSION,REGION.lower(),VARIABLE,LMAX,order_str,suffix[DATAFORM])
     FILE = 'gsfc_fdm_{0}_{1}_{2}_CLM_L{3:d}{4}.{5}'.format(*args)
-    Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM, date=True)
+    Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM,
+        date=True, **attributes)
     # change the permissions mode of the output file to MODE
     os.chmod(os.path.join(DIRECTORY,FILE),MODE)
 
@@ -299,7 +300,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     # working data directory
     parser.add_argument('--directory','-D',

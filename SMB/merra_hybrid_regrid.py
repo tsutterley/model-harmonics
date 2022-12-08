@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_regrid.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Read and regrid MERRA-2 hybrid variables
 MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
 
@@ -50,6 +50,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 10/2022: move polar stereographic scaling function to spatial
         add Greenland and Antarctic versions v1.2.1
@@ -80,11 +81,9 @@ import warnings
 import numpy as np
 import sklearn.neighbors
 import scipy.interpolate
-import gravity_toolkit.time
-import gravity_toolkit.utilities as utilities
-from gravity_toolkit.spatial import spatial
-from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
-from model_harmonics.spatial import scale_areas
+import gravity_toolkit as gravtk
+import geoid_toolkit as geoidtk
+import model_harmonics as mdlhmc
 # ignore pyproj and divide by zero warnings
 warnings.filterwarnings("ignore")
 
@@ -214,7 +213,7 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
     reference_latitude = crs2.to_dict().pop('lat_ts')
 
     # Earth Parameters
-    ellipsoid_params = ref_ellipsoid('WGS84', UNITS='CGS')
+    ellipsoid_params = geoidtk.ref_ellipsoid('WGS84', UNITS='CGS')
     # semimajor axis of ellipsoid [cm]
     a_axis = ellipsoid_params['a']
     #  first numerical eccentricity
@@ -239,7 +238,7 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
     indx,indy = np.nonzero(fd['mask'])
     lon,lat = (gridlon[indx,indy],latitude_geocentric[indx,indy])
     # scaled areas
-    ps_scale = scale_areas(gridlat[indx,indy], flat=flat,
+    ps_scale = mdlhmc.spatial.scale_areas(gridlat[indx,indy], flat=flat,
         ref=reference_latitude)
     scaled_area = ps_scale*fd['area'][indx,indy]
     npts = len(scaled_area)
@@ -247,7 +246,7 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
     rho_ice = 917.0
 
     # Output spatial data
-    grid = spatial(fill_value=fv)
+    grid = gravtk.spatial(fill_value=fv)
     grid.time = np.zeros((nt))
     grid.month = np.zeros((nt),dtype=np.int64)
 
@@ -350,6 +349,10 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
         fileID.title = 'GSFC-FDM remapping'
         fileID.source = f'version {VERSION}'
         fileID.reference = copy.copy(reference)
+        # add software information
+        fileID.software_reference = mdlhmc.version.project_name
+        fileID.software_version = mdlhmc.version.full_version
+        fileID.software_revision = mdlhmc.utilities.get_git_revision_hash()
         # date created
         fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
         # Closing the netCDF file
@@ -381,7 +384,7 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
         grid.mask[:,:,t] = np.logical_not(point_mask)
         # copy date parameters for time step
         grid.time[t] = fd['time'][t].copy()
-        grid.month[t] = gravity_toolkit.time.calendar_to_grace(grid.time[t])
+        grid.month[t] = gravtk.time.calendar_to_grace(grid.time[t])
 
     # update mask
     grid.update_mask()
@@ -402,7 +405,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     # working data directory
     parser.add_argument('--directory','-D',

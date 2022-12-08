@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 racmo_downscaled_cumulative.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Calculates cumulative anomalies of RACMO surface mass balance products
 
 COMMAND LINE OPTIONS:
@@ -27,6 +27,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 10/2022: added version 4.0 (RACMO2.3p2 for 1958-2022 from FGRN055)
     Updated 08/2022: updated docstrings to numpy documentation format
@@ -49,7 +50,8 @@ import netCDF4
 import argparse
 import numpy as np
 from datetime import date
-import gravity_toolkit.time
+import gravity_toolkit as gravtk
+import model_harmonics as mdlhmc
 
 # data product longnames
 longname = {}
@@ -232,17 +234,17 @@ def yearly_file_cumulative(input_dir, VERSION, PRODUCT, MEAN, GZIP=False):
         # calculate dates from delta times
         delta_time = fileID.variables['time'][:].copy()
         date_string = fileID.variables['time'].units
-        epoch,to_secs = gravity_toolkit.time.parse_date_string(date_string)
+        epoch,to_secs = gravtk.time.parse_date_string(date_string)
         # calculate time array in Julian days
-        JD = gravity_toolkit.time.convert_delta_time(delta_time*to_secs, epoch1=epoch,
+        JD = gravtk.time.convert_delta_time(delta_time*to_secs, epoch1=epoch,
             epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0) + 2400000.5
         # for each month
         for m in range(12):
             # convert from Julian days to calendar dates
-            YY,MM,DD,hh,mm,ss = gravity_toolkit.time.convert_julian(JD[m],
+            YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(JD[m],
                 format='tuple')
             # calculate time in year-decimal
-            dinput['TIME'][c] = gravity_toolkit.time.convert_calendar_decimal(YY,MM,
+            dinput['TIME'][c] = gravtk.time.convert_calendar_decimal(YY, MM,
                 day=DD, hour=hh, minute=mm, second=ss)
             # find variable of interest
             ncvar, = [v for v in fileID.variables.keys() if regex.match(v)]
@@ -340,15 +342,15 @@ def compressed_file_cumulative(input_dir, VERSION, PRODUCT, MEAN, GZIP=False):
     # Months since 1958-01-15 at 00:00:00
     delta_time = fileID.variables['time'][:].copy()
     date_string = fileID.variables['time'].units
-    epoch,to_secs = gravity_toolkit.time.parse_date_string(date_string)
+    epoch,to_secs = gravtk.time.parse_date_string(date_string)
     # calculate time array in Julian days
-    JD = gravity_toolkit.time.convert_delta_time(delta_time*to_secs, epoch1=epoch,
+    JD = gravtk.time.convert_delta_time(delta_time*to_secs, epoch1=epoch,
         epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0) + 2400000.5
     # convert from Julian days to calendar dates
-    YY,MM,DD,hh,mm,ss = gravity_toolkit.time.convert_julian(JD, format='tuple')
+    YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(JD, format='tuple')
     # calculate time in year-decimal
-    dinput['TIME'] = gravity_toolkit.time.convert_calendar_decimal(YY,MM,
-        day=DD,hour=hh,minute=mm,second=ss)
+    dinput['TIME'] = gravtk.time.convert_calendar_decimal(YY, MM,
+        day=DD, hour=hh, minute=mm, second=ss)
 
     # calculate cumulative
     CUMULATIVE = np.zeros((ny,nx))
@@ -429,6 +431,12 @@ def ncdf_racmo(dinput, FILENAME=None, UNITS=None, LONGNAME=None, VARNAME=None,
     # Defining attributes for date
     nc[TIMENAME].long_name = TIME_LONGNAME
     nc[TIMENAME].units = TIME_UNITS
+
+    # add software information
+    fileID.software_reference = mdlhmc.version.project_name
+    fileID.software_version = mdlhmc.version.full_version
+    fileID.software_revision = mdlhmc.utilities.get_git_revision_hash()
+    fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
     # global variable of NetCDF file
     fileID.TITLE = TITLE
     fileID.date_created = date.isoformat(date.today())

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_llc_tile_harmonics.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Reads monthly ECCO ocean bottom pressure anomalies from LLC tiles
     and converts to spherical harmonic coefficients
 
@@ -60,6 +60,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
@@ -74,20 +75,16 @@ UPDATE HISTORY:
 """
 from __future__ import print_function
 
+import sys
 import os
 import re
 import logging
 import netCDF4
 import argparse
 import numpy as np
-import gravity_toolkit.time
-import gravity_toolkit.spatial
-import gravity_toolkit.harmonics
-import gravity_toolkit.utilities as utilities
-from gravity_toolkit.read_love_numbers import load_love_numbers
-from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
-from geoid_toolkit.norm_gravity import norm_gravity
-from model_harmonics.gen_point_pressure import gen_point_pressure
+import gravity_toolkit as gravtk
+import geoid_toolkit as geoidtk
+import model_harmonics as mdlhmc
 
 # PURPOSE: convert monthly ECCO OBP data to spherical harmonics
 def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
@@ -136,9 +133,12 @@ def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     geoid_undulation = ncdf_geoid(input_geoid_file)
     # use geoid and depth to calculate bathymetry
     bathymetry = geoid_undulation - invariant['depth']
+    # attributes for output files
+    attributes = {}
+    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
 
     # Earth Parameters
-    ellipsoid_params = ref_ellipsoid('WGS84')
+    ellipsoid_params = geoidtk.ref_ellipsoid('WGS84')
     # semimajor axis of ellipsoid [m]
     a_axis = ellipsoid_params['a']
     #  first numerical eccentricity
@@ -160,10 +160,11 @@ def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     theta = (90.0 - latitude_geocentric)*np.pi/180.0
 
     # calculate normal gravity at latitudes and bathymetry
-    gamma_h,dgamma_dh = norm_gravity(latitude_geocentric,bathymetry,'WGS84')
+    gamma_h,dgamma_dh = geoidtk.norm_gravity(latitude_geocentric,
+        bathymetry, 'WGS84')
 
     # read load love numbers
-    LOVE = load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
+    LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
         REFERENCE=REFERENCE)
 
     # regular expression pattern to find files and extract dates
@@ -183,12 +184,12 @@ def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
             for key,val in fileID.variables.items():
                 obp_data[key] = val[:].copy()
         # allocate for output spherical harmonics
-        obp_Ylms = gravity_toolkit.harmonics(lmax=LMAX, mmax=MMAX)
+        obp_Ylms = gravtk.harmonics(lmax=LMAX, mmax=MMAX)
         obp_Ylms.clm = np.zeros((LMAX+1,MMAX+1))
         obp_Ylms.slm = np.zeros((LMAX+1,MMAX+1))
         # copy date information
         obp_Ylms.time = np.copy(obp_data['time'])
-        obp_Ylms.month = gravity_toolkit.time.calendar_to_grace(year,month)
+        obp_Ylms.month = gravtk.time.calendar_to_grace(year,month)
         # calculate harmonics for each spatial tile
         # add to the total set of harmonics
         for k in range(Nt):
@@ -204,14 +205,15 @@ def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
             lat = latitude_geocentric[k,indj,indi]
             lon = invariant['lon'][k,indj,indi]
             # calculate harmonics from pressure/gravity ratio
-            Ylms = gen_point_pressure(obp_tile, gamma_tile, rad_tile,
+            Ylms = mdlhmc.gen_point_pressure(obp_tile, gamma_tile, rad_tile,
                 lon, lat, AREA=area, LMAX=LMAX, MMAX=MMAX, LOVE=LOVE)
             # add tile Ylms to total for month
             obp_Ylms.add(Ylms)
         # output spherical harmonic data file
         args = (MODEL, LMAX, order_str, obp_Ylms.month, suffix[DATAFORM])
         FILE = output_file_format.format(*args)
-        obp_Ylms.to_file(os.path.join(ddir,output_sub,FILE),format=DATAFORM)
+        obp_Ylms.to_file(os.path.join(ddir,output_sub,FILE),
+            format=DATAFORM, **attributes)
         # change the permissions mode of the output file to MODE
         os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 
@@ -234,8 +236,8 @@ def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     for fi in sorted(output_files):
         # extract GRACE month
         grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int64)
-        YY,MM = gravity_toolkit.time.grace_to_calendar(grace_month)
-        tdec, = gravity_toolkit.time.convert_calendar_decimal(YY, MM)
+        YY,MM = gravtk.time.grace_to_calendar(grace_month)
+        tdec, = gravtk.time.convert_calendar_decimal(YY, MM)
         # full path to output file
         full_output_file = os.path.join(ddir,output_sub,fi)
         # print date, GRACE month and calendar month to date file
@@ -276,7 +278,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('model',
         type=str, nargs='+',
@@ -289,7 +291,7 @@ def arguments():
         default=os.getcwd(),
         help='Working data directory')
     # years to run
-    now = gravity_toolkit.time.datetime.datetime.now()
+    now = gravtk.time.datetime.datetime.now()
     parser.add_argument('--year','-Y',
         type=int, nargs='+', default=range(2000,now.year+1),
         help='Years of model outputs to run')

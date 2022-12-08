@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 racmo_smb_harmonics.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Read RACMO surface mass balance products and converts to spherical harmonics
 Shifts dates of SMB point masses to mid-month values to correspond with GRACE
 
@@ -49,6 +49,7 @@ PROGRAM DEPENDENCIES:
         and filters the GRACE/GRACE-FO coefficients for striping errors
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
@@ -69,18 +70,15 @@ from __future__ import print_function
 import sys
 import os
 import re
+import copy
 import gzip
 import uuid
 import logging
 import netCDF4
 import argparse
 import numpy as np
-import gravity_toolkit.time
-import gravity_toolkit.utilities as utilities
-from gravity_toolkit.harmonics import harmonics
-from gravity_toolkit.read_love_numbers import load_love_numbers
-from gravity_toolkit.gen_point_load import gen_point_load
-from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
+import gravity_toolkit as gravtk
+import geoid_toolkit as geoidtk
 
 # PURPOSE: convert RACMO surface mass balance products to spherical harmonics
 def racmo_smb_harmonics(model_file, VARIABLE,
@@ -94,7 +92,7 @@ def racmo_smb_harmonics(model_file, VARIABLE,
     MODE=0o775):
 
     # Earth Parameters
-    ellipsoid_params = ref_ellipsoid('WGS84')
+    ellipsoid_params = geoidtk.ref_ellipsoid('WGS84')
     # semimajor axis of ellipsoid [m]
     a_axis = ellipsoid_params['a']
     #  first numerical eccentricity
@@ -145,16 +143,16 @@ def racmo_smb_harmonics(model_file, VARIABLE,
     # time within netCDF files is days since epoch
     TIME = fileID.variables['time'][:].copy()
     time_string = fileID.variables['time'].units
-    epoch1,to_secs = gravity_toolkit.time.parse_date_string(time_string)
+    epoch1,to_secs = gravtk.time.parse_date_string(time_string)
     # calculate Julian day by converting to MJD and adding offset
-    JD = gravity_toolkit.time.convert_delta_time(TIME*to_secs,
+    JD = gravtk.time.convert_delta_time(TIME*to_secs,
         epoch1=epoch1, epoch2=(1858,11,17,0,0,0),
         scale=1.0/86400.0) + 2400000.5
     # convert from Julian days to calendar dates
-    YY,MM,DD,hh,mm,ss = gravity_toolkit.time.convert_julian(JD,
+    YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(JD,
         FORMAT='tuple')
     # convert from calendar dates to year-decimal
-    fd['time'] = gravity_toolkit.time.convert_calendar_decimal(YY,MM,
+    fd['time'] = gravtk.time.convert_calendar_decimal(YY,MM,
         day=DD,hour=hh,minute=mm,second=ss)
     # invalid data value
     fv = np.float64(fileID.variables[VARIABLE]._FillValue)
@@ -198,7 +196,7 @@ def racmo_smb_harmonics(model_file, VARIABLE,
     indy,indx = np.nonzero(fd['mask'])
     lon,lat = (fd['lon'][indy,indx],fd['lat'][indy,indx])
     # read load love numbers
-    LOVE = load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
+    LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
         REFERENCE=REFERENCE)
     # upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
@@ -206,7 +204,7 @@ def racmo_smb_harmonics(model_file, VARIABLE,
     order_str = 'M{MMAX:d}' if (MMAX != LMAX) else ''
 
     # allocate for output spherical harmonics
-    Ylms = harmonics(lmax=LMAX, mmax=MMAX)
+    Ylms = gravtk.harmonics(lmax=LMAX, mmax=MMAX)
     Ylms.clm = np.zeros((LMAX+1,MMAX+1,nt-1))
     Ylms.slm = np.zeros((LMAX+1,MMAX+1,nt-1))
     Ylms.time = np.zeros((nt-1))
@@ -215,8 +213,8 @@ def racmo_smb_harmonics(model_file, VARIABLE,
     for t in range(nt-1):
         # calculate date parameters for time step
         Ylms.time[t] = np.mean([fd['time'][t],fd['time'][t+1]])
-        Ylms.month[t] = gravity_toolkit.time.calendar_to_grace(Ylms.time[t])
-        dpm = gravity_toolkit.time.calendar_days(np.floor(Ylms.time[t]))
+        Ylms.month[t] = gravtk.time.calendar_to_grace(Ylms.time[t])
+        dpm = gravtk.time.calendar_days(np.floor(Ylms.time[t]))
         # calculate 2-month moving average
         # weighting by number of days in each month
         M1 = dpm[t % 12]*fd[VARIABLE][t,indy,indx]
@@ -224,21 +222,26 @@ def racmo_smb_harmonics(model_file, VARIABLE,
         W = np.float64(dpm[(t+1) % 12] + dpm[t % 12])
         # reduce data for date and convert to mass (g)
         ptms = 1000.0*fd['area'][indy,indx]*(M1+M2)/W
-        racmo_Ylms = gen_point_load(ptms, lon, lat, LMAX=LMAX,
+        racmo_Ylms = gravtk.gen_point_load(ptms, lon, lat, LMAX=LMAX,
             MMAX=MMAX, UNITS=1, LOVE=LOVE)
         # copy harmonics for time step
         Ylms.clm[:,:,t] = racmo_Ylms.clm[:,:].copy()
         Ylms.slm[:,:,t] = racmo_Ylms.slm[:,:].copy()
     # adjust months to be consistent
-    Ylms.month = gravity_toolkit.time.adjust_months(Ylms.month)
+    Ylms.month = gravtk.time.adjust_months(Ylms.month)
 
     # output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
+    # attributes for output files
+    attributes = {}
+    attributes['title'] = copy.copy(racmo_products[VARIABLE])
+    attributes['source'] = copy.copy(VARIABLE)
+    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
     # output spherical harmonic data file
     args = (VERSION,REGION,VARIABLE.upper(),LMAX,order_str,suffix[DATAFORM])
     FILE = '{0}_{1}_{2}_CLM_L{3:d}{4}.{5}'.format(*args)
     Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM,
-        date=True, title=racmo_products[VARIABLE])
+        date=True, **attributes)
     # change the permissions mode of the output file to MODE
     os.chmod(os.path.join(DIRECTORY,FILE),MODE)
 
@@ -250,7 +253,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('infile',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),

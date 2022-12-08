@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_geopotential_heights.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (12/2022)
 Reads temperature and specific humidity data to calculate geopotential height
     and pressure difference fields at half levels from reanalysis
 
@@ -28,6 +28,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
@@ -46,6 +47,7 @@ UPDATE HISTORY:
 """
 from __future__ import print_function
 
+import sys
 import os
 import re
 import time
@@ -53,7 +55,8 @@ import logging
 import netCDF4
 import argparse
 import numpy as np
-import gravity_toolkit.utilities as utilities
+import gravity_toolkit as gravtk
+import model_harmonics as mdlhmc
 
 # PURPOSE: reads temperature and specific humidity data to calculate
 # geopotential height fields at half levels from reanalysis
@@ -344,6 +347,14 @@ def ncdf_geopotential_write(dinput, fill_value, FILENAME=None, ZNAME=None,
     nc[DIFFNAME].long_name = 'Pressure_Differences_between_Levels'
     nc[DIFFNAME].units = 'Pa'
 
+    # add software information
+    fileID.software_reference = mdlhmc.version.project_name
+    fileID.software_version = mdlhmc.version.full_version
+    fileID.software_revision = mdlhmc.utilities.get_git_revision_hash()
+    fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
+    # date created
+    fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
+
     # Output NetCDF structure information
     logging.info(os.path.basename(FILENAME))
     logging.info(list(fileID.variables.keys()))
@@ -362,7 +373,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     choices = ['ERA-Interim','ERA5','MERRA-2']
     parser.add_argument('model',

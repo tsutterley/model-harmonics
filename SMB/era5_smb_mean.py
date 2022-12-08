@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 era5_smb_mean.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Reads monthly ERA5 datafiles to calculate multi-annual means
     of derived surface mass balance products
 
@@ -34,6 +34,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: lower case keyword arguments to output spatial
@@ -48,8 +49,7 @@ import logging
 import netCDF4
 import argparse
 import numpy as np
-import gravity_toolkit.time
-import gravity_toolkit.spatial
+import gravity_toolkit as gravtk
 
 # PURPOSE: read variables from ERA5 P-E files
 def read_era5_variables(era5_flux_file):
@@ -62,8 +62,8 @@ def read_era5_variables(era5_flux_file):
         dinput['longitude'] = fileID.variables['longitude'][:].copy()
         # convert time from netCDF4 units to Julian Days
         date_string = fileID.variables['time'].units
-        epoch,to_secs = gravity_toolkit.time.parse_date_string(date_string)
-        dinput['time'] = gravity_toolkit.time.convert_delta_time(
+        epoch,to_secs = gravtk.time.parse_date_string(date_string)
+        dinput['time'] = gravtk.time.convert_delta_time(
             to_secs*fileID.variables['time'][:],epoch1=epoch,
             epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0) + 2400000.5
         # read each variable of interest in ERA5 flux file
@@ -109,19 +109,26 @@ def era5_smb_mean(DIRECTORY,
     loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
     logging.basicConfig(level=loglevels[VERBOSE])
 
-
     # sign for each product to calculate total SMB
     smb_sign = {'tp':1.0,'e':-1.0}
     # output data file format and title
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
-    output_file_title = 'ERA5 Precipitation minus Evaporation'
     # output bad value
     fill_value = -9999.0
     # output dimensions and extents
     nlat,nlon = (721,1440)
 
+    # attributes for output files
+    attributes = {}
+    attributes['varname'] = 'SMB'
+    attributes['units'] = 'm w.e.'
+    attributes['longname'] = 'Equivalent_Water_Thickness'
+    attributes['title'] = 'ERA5 Precipitation minus Evaporation'
+    attributes['source'] = ', '.join(['tp','e'])
+    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+
     # mean balance flZux
-    era5_mean = gravity_toolkit.spatial(nlat=nlat,nlon=nlon,
+    era5_mean = gravtk.spatial(nlat=nlat,nlon=nlon,
         fill_value=fill_value)
     # output data and mask
     era5_mean.data = np.zeros((nlat,nlon))
@@ -139,19 +146,19 @@ def era5_smb_mean(DIRECTORY,
         # read netCDF4 files for variables of interest
         var = read_era5_variables(era5_flux_file)
         # days per month in year
-        dpm = gravity_toolkit.time.calendar_days(Y)
+        dpm = gravtk.time.calendar_days(Y)
         # for each month of data
         for i,t in enumerate(var['time']):
             # convert from Julian days to calendar dates
-            YY,MM,DD,hh,mm,ss = gravity_toolkit.time.convert_julian(t,
+            YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(t,
                 FORMAT='tuple')
             # spatial object for each month
-            dinput = gravity_toolkit.spatial(nlat=nlat,nlon=nlon,
+            dinput = gravtk.spatial(nlat=nlat,nlon=nlon,
                 fill_value=fill_value)
             dinput.lat = np.copy(var['latitude'])
             dinput.lon = np.copy(var['longitude'])
             # calculate time in year decimal
-            dinput.time = gravity_toolkit.time.convert_calendar_decimal(YY,
+            dinput.time = gravtk.time.convert_calendar_decimal(YY,
                 MM,day=DD,hour=hh,minute=mm,second=ss)
             # output data and mask
             dinput.data = np.zeros((nlat,nlon))
@@ -190,14 +197,12 @@ def era5_smb_mean(DIRECTORY,
             verbose=VERBOSE)
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
-        era5_mean.to_netCDF4(os.path.join(DIRECTORY,FILE),varname='SMB',
-            units='m w.e.', longname='Equivalent_Water_Thickness',
-            title=output_file_title, verbose=VERBOSE)
+        era5_mean.to_netCDF4(os.path.join(DIRECTORY,FILE),
+            verbose=VERBOSE, **attributes)
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
-        era5_mean.to_HDF5(os.path.join(DIRECTORY,FILE),varname='SMB',
-            units='m w.e.', longname='Equivalent_Water_Thickness',
-            title=output_file_title, verbose=VERBOSE)
+        era5_mean.to_HDF5(os.path.join(DIRECTORY,FILE),
+            verbose=VERBOSE, **attributes)
     # change the permissions mode
     os.chmod(os.path.join(DIRECTORY,FILE), MODE)
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 racmo_smb_cumulative.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Reads RACMO datafiles to calculate cumulative anomalies in derived surface
     mass balance products
 
@@ -29,6 +29,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: deprecation fixes for regular expressions
@@ -62,16 +63,15 @@ from __future__ import print_function
 import sys
 import os
 import re
-import copy
 import gzip
 import uuid
 import time
-import pyproj
 import logging
 import netCDF4
 import argparse
 import numpy as np
-import gravity_toolkit.time
+import gravity_toolkit as gravtk
+import model_harmonics as mdlhmc
 
 # PURPOSE: read and cumulative RACMO SMB SMB estimates
 def racmo_smb_cumulative(model_file, VARIABLE,
@@ -134,16 +134,16 @@ def racmo_smb_cumulative(model_file, VARIABLE,
 
     # parse date string within netCDF4 file
     date_string = attrs['time']['units']
-    epoch1,to_secs = gravity_toolkit.time.parse_date_string(date_string)
+    epoch1,to_secs = gravtk.time.parse_date_string(date_string)
     # calculate Julian day by converting to MJD and adding offset
-    JD = gravity_toolkit.time.convert_delta_time(fd['time']*to_secs,
+    JD = gravtk.time.convert_delta_time(fd['time']*to_secs,
         epoch1=epoch1, epoch2=(1858,11,17,0,0,0),
         scale=1.0/86400.0) + 2400000.5
     # convert from Julian days to calendar dates
-    YY,MM,DD,hh,mm,ss = gravity_toolkit.time.convert_julian(JD,
+    YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(JD,
         FORMAT='tuple')
     # convert from calendar dates to year-decimal
-    TIME = gravity_toolkit.time.convert_calendar_decimal(YY,MM,
+    TIME = gravtk.time.convert_calendar_decimal(YY,MM,
         day=DD,hour=hh,minute=mm,second=ss)
 
     # copy data to masked array
@@ -230,6 +230,13 @@ def racmo_smb_cumulative(model_file, VARIABLE,
     # output attribute for mean
     f_out.description = (f'Cumulative anomalies in {VERSION} {REGION} variables '
         f'relative to {RANGE[0]:4d}-{RANGE[1]:4d}')
+    # add software information
+    f_out.software_reference = mdlhmc.version.project_name
+    f_out.software_version = mdlhmc.version.full_version
+    f_out.software_revision = mdlhmc.utilities.get_git_revision_hash()
+    f_out.reference = f'Output from {os.path.basename(sys.argv[0])}'
+    # date created
+    f_out.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
     # Output NetCDF file information
     logging.info(list(f_out.variables.keys()))

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mean_monthly.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 
 Reads GLDAS monthly datafiles from http://ldas.gsfc.nasa.gov/gldas/
 Adding Soil Moisture, snow water equivalent (SWE) and total canopy storage
@@ -75,6 +75,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: can use variable loglevels for verbose output
@@ -111,13 +112,15 @@ import netCDF4
 import argparse
 import warnings
 import numpy as np
-from gravity_toolkit.time import convert_calendar_decimal
-from gravity_toolkit.spatial import spatial
+import gravity_toolkit as gravtk
+# attempt imports
 try:
     import pygrib
 except ModuleNotFoundError:
     warnings.filterwarnings("always")
     warnings.warn("pygrib not available")
+# ignore warnings
+warnings.filterwarnings("ignore")
 
 # GLDAS models
 gldas_products = {}
@@ -160,7 +163,7 @@ def gldas_mean_monthly(base_dir, MODEL, RANGE=None, SPATIAL=None, VERSION=None,
     ndates = 12*(RANGE[1]-RANGE[0]+1)
 
     # allocate for mean TWC and date
-    twc = spatial()
+    twc = gravtk.spatial()
     twc.data = np.zeros((nlat,nlon,ndates))
     twc.mask = np.ones((nlat,nlon,ndates),dtype=bool)
     twc.time = np.zeros((ndates))
@@ -190,7 +193,7 @@ def gldas_mean_monthly(base_dir, MODEL, RANGE=None, SPATIAL=None, VERSION=None,
             # set the mask for valid points
             twc.mask[ii,jj,c] = False
             # calculate date
-            twc.time[c] = convert_calendar_decimal(np.int64(YY),np.int64(MM))
+            twc.time[c] = gravtk.time.convert_calendar_decimal(int(YY), int(MM))
             # add 1 to counter
             c += 1
 
@@ -200,6 +203,12 @@ def gldas_mean_monthly(base_dir, MODEL, RANGE=None, SPATIAL=None, VERSION=None,
     # output to file
     args = (MODEL,SPATIAL,RANGE[0],RANGE[1],suffix[DATAFORM])
     FILE = 'GLDAS_{0}{1}_TWC_MEAN_{2:4d}-{3:4d}.{4}'.format(*args)
+    # attributes for output files
+    attributes = {}
+    attributes['units'] = 'cmwe'
+    attributes['longname'] = 'Equivalent_Water_Thickness'
+    attributes['title'] = gldas_products[MODEL]
+    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
         twc_mean.to_ascii(os.path.join(ddir,FILE),date=False,
@@ -207,13 +216,11 @@ def gldas_mean_monthly(base_dir, MODEL, RANGE=None, SPATIAL=None, VERSION=None,
     elif (DATAFORM == 'netCDF4'):
         # netCDF4 (.nc)
         twc_mean.to_netCDF4(os.path.join(ddir,FILE),verbose=VERBOSE,
-            units='cmwe',longname='Equivalent Water Thickness',
-            title=gldas_products[MODEL],date=False)
+            date=False, **attributes)
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
         twc_mean.to_HDF5(os.path.join(ddir,FILE),verbose=VERBOSE,
-            units='cmwe',longname='Equivalent Water Thickness',
-            title=gldas_products[MODEL],date=False)
+            date=False, **attributes)
     # change the permissions mode
     os.chmod(os.path.join(ddir,FILE), MODE)
 

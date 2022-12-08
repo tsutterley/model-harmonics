@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_mean.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Reads monthly MERRA-2 datafiles to calculate multi-annual means
     of derived surface mass balance products
 
@@ -47,6 +47,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: lower case keyword arguments to output spatial
@@ -68,12 +69,12 @@ from __future__ import print_function
 import sys
 import os
 import re
+import copy
 import logging
 import netCDF4
 import argparse
 import numpy as np
-import gravity_toolkit.time
-import gravity_toolkit.spatial
+import gravity_toolkit as gravtk
 
 # PURPOSE: read variables from MERRA-2 tavgM_2d_int and tavgM_2d_glc files
 def read_merra_variables(merra_flux_file, merra_ice_surface_file):
@@ -86,8 +87,8 @@ def read_merra_variables(merra_flux_file, merra_ice_surface_file):
         dinput['lat'] = fid1.variables['lat'][:].copy()
         # convert time from netCDF4 units to Julian Days
         date_string = fid1.variables['time'].units
-        epoch,to_secs = gravity_toolkit.time.parse_date_string(date_string)
-        dinput['time'] = gravity_toolkit.time.convert_delta_time(
+        epoch,to_secs = gravtk.time.parse_date_string(date_string)
+        dinput['time'] = gravtk.time.convert_delta_time(
             to_secs*fid1.variables['time'][:], epoch1=epoch,
             epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0) + 2400000.5
         # read each variable of interest in MERRA-2 flux file
@@ -137,13 +138,21 @@ def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     merra_sources['RAINFALL'] = ['PRECCU','PRECLS']
     merra_sources['SUBLIM'] = ['EVAP','WESNSC']
     merra_sources['RUNOFF'] = ['RUNOFF']
-    merra_reference = ', '.join(merra_sources[PRODUCT])
     # output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
     # output bad value
     fill_value = -9999.0
     # output dimensions and extents
     nlat,nlon = (361,576)
+
+    # attributes for output files
+    attributes = {}
+    attributes['varname'] = copy.copy(PRODUCT)
+    attributes['units'] = 'mm w.e.'
+    attributes['longname'] = 'Equivalent_Water_Thickness'
+    attributes['title'] = copy.copy(merra_products[PRODUCT])
+    attributes['source'] = ', '.join(merra_sources[PRODUCT])
+    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
 
     # years of available data between RANGE
     YEARS = sorted(map(str,range(int(RANGE[0]),int(RANGE[-1])+1)))
@@ -155,7 +164,7 @@ def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     rx = re.compile(regex_pattern.format('tavgM_2d_int_Nx'), re.VERBOSE)
 
     # mean balance flux
-    merra_mean = gravity_toolkit.spatial(nlat=nlat,nlon=nlon,
+    merra_mean = gravtk.spatial(nlat=nlat,nlon=nlon,
         fill_value=fill_value)
     # output data and mask
     merra_mean.data = np.zeros((nlat,nlon))
@@ -170,7 +179,7 @@ def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
         indices = np.argsort([rx.match(f1).group(3) for f1 in f])
         f = [f[indice] for indice in indices]
         # days per month in year
-        dpm = gravity_toolkit.time.calendar_days(int(Y))
+        dpm = gravtk.time.calendar_days(int(Y))
         # for each monthly file
         for M,f1 in enumerate(f):
             # extract parameters from input flux file
@@ -186,17 +195,17 @@ def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
             # read netCDF4 files for variables of interest
             var = read_merra_variables(merra_flux_file,merra_ice_surface_file)
             # convert from Julian days to calendar dates
-            YY,MM,DD,hh,mm,ss = gravity_toolkit.time.convert_julian(var['time'],
+            YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(var['time'],
                 FORMAT='tuple')
             # calculate the total seconds in month
             seconds = dpm[M]*24.0*60.0*60.0
             # spatial object for monthly variable
-            dinput = gravity_toolkit.spatial(nlat=nlat,nlon=nlon,
+            dinput = gravtk.spatial(nlat=nlat,nlon=nlon,
                 fill_value=fill_value)
             dinput.lat = np.copy(var['lat'])
             dinput.lon = np.copy(var['lon'])
             # calculate time in year decimal
-            dinput.time = gravity_toolkit.time.convert_calendar_decimal(YY,
+            dinput.time = gravtk.time.convert_calendar_decimal(YY,
                 MM,day=DD,hour=hh,minute=mm,second=ss)
             # output data and mask
             dinput.data = np.zeros((nlat,nlon))
@@ -262,21 +271,11 @@ def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
         merra_mean.to_netCDF4(os.path.join(DIRECTORY,FILE),
-            varname=PRODUCT,
-            units='mm w.e.',
-            longname='Equivalent_Water_Thickness',
-            title=merra_products[PRODUCT],
-            refernece=merra_reference,
-            verbose=VERBOSE)
+            verbose=VERBOSE, **attributes)
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
         merra_mean.to_HDF5(os.path.join(DIRECTORY,FILE),
-            varname=PRODUCT,
-            units='mm w.e.',
-            longname='Equivalent_Water_Thickness',
-            title=merra_products[PRODUCT],
-            reference=merra_reference,
-            verbose=VERBOSE)
+            verbose=VERBOSE, **attributes)
     # change the permissions mode
     os.chmod(os.path.join(DIRECTORY,FILE), MODE)
 

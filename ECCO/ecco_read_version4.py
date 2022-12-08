@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_read_version4.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 
 Calculates monthly ocean bottom pressure anomalies from ECCO Version 4 models
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
@@ -62,6 +62,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: lower case keyword arguments to output spatial
@@ -78,15 +79,15 @@ UPDATE HISTORY:
 """
 from __future__ import print_function
 
+import sys
 import os
 import re
 import logging
 import datetime
 import argparse
 import numpy as np
-import gravity_toolkit.time
-import gravity_toolkit.spatial
-from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
+import gravity_toolkit as gravtk
+import geoid_toolkit as geoidtk
 
 # PURPOSE: read ECCO2 V4 ocean bottom pressure data and calculate monthly
 # anomalies in absolute ocean bottom pressure
@@ -130,14 +131,14 @@ def ecco_read_version4(ddir, MODEL, YEARS, RANGE=None,
     gamma = 9.81
     rhonil = 1029
     # get reference parameters for WGS84 ellipsoid
-    WGS84 = ref_ellipsoid('WGS84')
+    WGS84 = geoidtk.ref_ellipsoid('WGS84')
     # semimajor and semiminor axes of the ellipsoid [m]
     a_axis = WGS84['a']
     b_axis = WGS84['b']
 
     # read depth data from ecco_depth_version4.py
     input_depth_file = os.path.join(ddir,'DEPTH.2020.720x360.nc')
-    depth = gravity_toolkit.spatial().from_netCDF4(input_depth_file,
+    depth = gravtk.spatial().from_netCDF4(input_depth_file,
         varname='depth', date=False)
 
     # read mean data from ecco_mean_version4.py
@@ -146,17 +147,17 @@ def ecco_read_version4(ddir, MODEL, YEARS, RANGE=None,
     # remove singleton dimensions
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
-        obp_mean = gravity_toolkit.spatial(
+        obp_mean = gravtk.spatial(
             spacing=[dlon,dlat], nlat=nlat, nlon=nlon,
             extent=extent, fill_value=fill_value).from_ascii(
             os.path.join(ddir,sd1,mean_file), date=False).squeeze()
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
-        obp_mean = gravity_toolkit.spatial().from_netCDF4(
+        obp_mean = gravtk.spatial().from_netCDF4(
             os.path.join(ddir,sd1,mean_file), date=False).squeeze()
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
-        obp_mean = gravity_toolkit.spatial().from_HDF5(
+        obp_mean = gravtk.spatial().from_HDF5(
             os.path.join(ddir,sd1,mean_file), date=False).squeeze()
 
     # output average ocean bottom pressure to file
@@ -172,25 +173,25 @@ def ecco_read_version4(ddir, MODEL, YEARS, RANGE=None,
     # read each input file
     for fi in sorted(flist):
         # Open netCDF4 datafile for reading
-        PHIBOT = gravity_toolkit.spatial(fill_value=np.nan).from_netCDF4(
+        PHIBOT = gravtk.spatial(fill_value=np.nan).from_netCDF4(
             os.path.join(ddir,sd1,fi),verbose=VERBOSE,
             latname=LATNAME,lonname=LONNAME,timename=TIMENAME,
             varname=VARNAME).transpose(axes=(1,2,0))
         PHIBOT.replace_invalid(fill_value)
         # time within netCDF files is days since epoch
         time_string = PHIBOT.attributes['time']['units']
-        epoch1,to_secs = gravity_toolkit.time.parse_date_string(time_string)
+        epoch1,to_secs = gravtk.time.parse_date_string(time_string)
         # read ocean bottom pressure anomalies for each month
         for m,delta_time in enumerate(to_secs*PHIBOT.time):
             # convert from ocean bottom pressure anomalies to absolute
-            obp = gravity_toolkit.spatial(spacing=[dlon,dlat],nlon=nlon,
+            obp = gravtk.spatial(spacing=[dlon,dlat],nlon=nlon,
                 nlat=nlat,fill_value=fill_value)
             obp.data = depth.data*rhonil*gamma + PHIBOT.data[:,:,m]*rhonil
             obp.mask = (depth.mask | PHIBOT.mask[:,:,m])
             obp.update_mask()
 
             # will calculate and remove the area average of the model
-            obp_anomaly = gravity_toolkit.spatial(fill_value=fill_value)
+            obp_anomaly = gravtk.spatial(fill_value=fill_value)
             # calculate dimension variables
             obp_anomaly.lon = np.arange(extent[0],extent[1]+dlon,dlon)
             obp_anomaly.lat = np.arange(extent[2],extent[3]+dlat,dlat)
@@ -198,14 +199,14 @@ def ecco_read_version4(ddir, MODEL, YEARS, RANGE=None,
             theta = (90.0 - obp_anomaly.lat)*np.pi/180.0
             phi = obp_anomaly.lon*np.pi/180.0
             # calculate Julian day by converting to MJD and adding offset
-            JD = gravity_toolkit.time.convert_delta_time(delta_time,
+            JD = gravtk.time.convert_delta_time(delta_time,
                 epoch1=epoch1, epoch2=(1858,11,17,0,0,0),
                 scale=1.0/86400.0) + 2400000.5
             # convert from Julian days to calendar dates
-            YY,MM,DD,hh,mm,ss = gravity_toolkit.time.convert_julian(JD,
+            YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(JD,
                 FORMAT='tuple')
             # convert from calendar dates to year-decimal
-            obp_anomaly.time, = gravity_toolkit.time.convert_calendar_decimal(
+            obp_anomaly.time, = gravtk.time.convert_calendar_decimal(
                 YY,MM,day=DD,hour=hh,minute=mm,second=ss)
 
             # global area average of each ocean bottom pressure map is removed
@@ -251,18 +252,21 @@ def ecco_read_version4(ddir, MODEL, YEARS, RANGE=None,
 
 # PURPOSE: wrapper function for outputting data to file
 def output_data(data,MODEL,FILENAME=None,DATAFORM=None,VERBOSE=False):
-    TITLE = f'Ocean_Bottom_Pressure_from_ECCO_{MODEL}_Model'
+    # attributes for output files
+    attributes = {}
+    attributes['units'] = 'Pa'
+    attributes['longname'] = 'pressure_at_sea_floor'
+    attributes['title'] =  f'Ocean_Bottom_Pressure_from_ECCO_{MODEL}_Model'
+    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
         data.to_ascii(FILENAME,verbose=VERBOSE)
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
-        data.to_netCDF4(FILENAME, verbose=VERBOSE, units='Pa',
-            longname='pressure_at_sea_floor', title=TITLE)
+        data.to_netCDF4(FILENAME, verbose=VERBOSE, **attributes)
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
-        data.to_HDF5(FILENAME, verbose=VERBOSE, units='Pa',
-            longname='pressure_at_sea_floor', title=TITLE)
+        data.to_HDF5(FILENAME, verbose=VERBOSE, **attributes)
 
 # PURPOSE: create argument parser
 def arguments():

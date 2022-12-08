@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_read_llc_tiles.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 
 Calculates monthly ocean bottom pressure anomalies from ECCO LLC tiles
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/nctiles_monthly
@@ -50,6 +50,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: can use variable loglevels for verbose output
@@ -59,6 +60,7 @@ UPDATE HISTORY:
 """
 from __future__ import print_function
 
+import sys
 import os
 import re
 import logging
@@ -66,7 +68,8 @@ import netCDF4
 import datetime
 import argparse
 import numpy as np
-import gravity_toolkit.time
+import gravity_toolkit as gravtk
+import model_harmonics as mdlhmc
 
 # PURPOSE: read ECCO tiled ocean bottom pressure data and calculate mean
 def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
@@ -156,7 +159,7 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
         # time within netCDF files is days since epoch
         TIME = fileID.variables[TIMENAME][:].copy()
         time_string = fileID.variables[TIMENAME].units
-        epoch1,to_secs = gravity_toolkit.time.parse_date_string(time_string)
+        epoch1,to_secs = gravtk.time.parse_date_string(time_string)
         # read ocean bottom pressure anomalies for each month
         for m,delta_time in enumerate(to_secs*TIME):
             # convert from ocean bottom pressure anomalies to absolute
@@ -177,14 +180,14 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
                 obp[key] = fileID.variables[key][:].copy()
 
             # calculate Julian day by converting to MJD and adding offset
-            JD = gravity_toolkit.time.convert_delta_time(delta_time,
+            JD = gravtk.time.convert_delta_time(delta_time,
                 epoch1=epoch1, epoch2=(1858,11,17,0,0,0),
                 scale=1.0/86400.0) + 2400000.5
             # convert from Julian days to calendar dates
-            YY,MM,DD,hh,mm,ss = gravity_toolkit.time.convert_julian(JD,
+            YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(JD,
                 FORMAT='tuple')
             # convert from calendar dates to year-decimal
-            obp['time'], = gravity_toolkit.time.convert_calendar_decimal(
+            obp['time'], = gravtk.time.convert_calendar_decimal(
                 YY,MM,day=DD,hour=hh,minute=mm,second=ss)
 
             # global area average of each ocean bottom pressure map is removed
@@ -283,6 +286,11 @@ def ncdf_tile_write(output, attributes, FILENAME=None, LONNAME=None,
     # add attribute for date created
     fileID.date_created = datetime.datetime.now().isoformat()
     fileID.title = attributes['title']
+    # add software information
+    fileID.software_reference = mdlhmc.version.project_name
+    fileID.software_version = mdlhmc.version.full_version
+    fileID.software_revision = mdlhmc.utilities.get_git_revision_hash()
+    fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
     # Output NetCDF structure information
     logging.info(FILENAME)
     logging.info(list(fileID.variables.keys()))

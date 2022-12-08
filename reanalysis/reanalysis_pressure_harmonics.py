@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_pressure_harmonics.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 Reads atmospheric surface pressure fields from reanalysis and calculates sets of
     spherical harmonics using a thin-layer 2D geometry with realistic earth
 
@@ -71,6 +71,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
@@ -109,14 +110,9 @@ import netCDF4
 import argparse
 import datetime
 import numpy as np
-import gravity_toolkit.time
-import gravity_toolkit.harmonics
-import gravity_toolkit.utilities as utilities
-from gravity_toolkit.read_love_numbers import load_love_numbers
-from gravity_toolkit.plm_holmes import plm_holmes
-from model_harmonics.gen_pressure_stokes import gen_pressure_stokes
-from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
-from geoid_toolkit.norm_gravity import norm_gravity
+import gravity_toolkit as gravtk
+import model_harmonics as mdlhmc
+import geoid_toolkit as geoidtk
 
 # PURPOSE: read atmospheric surface pressure fields and convert to harmonics
 def reanalysis_pressure_harmonics(base_dir, MODEL, YEARS, RANGE=None,
@@ -269,6 +265,9 @@ def reanalysis_pressure_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     output_sub = '{0}_PRESSURE_CLM_L{1:d}{2}{3}'.format(*args)
     if not os.access(os.path.join(ddir,output_sub),os.F_OK):
         os.makedirs(os.path.join(ddir,output_sub))
+    # attributes for output files
+    attributes = {}
+    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
 
     # read mean pressure field from calculate_mean_pressure.py
     mean_file = os.path.join(ddir,input_mean_file.format(RANGE[0],RANGE[1]))
@@ -290,13 +289,14 @@ def reanalysis_pressure_harmonics(base_dir, MODEL, YEARS, RANGE=None,
         (1.0 - 0.0089*np.cos(2.0*gridtheta))*(geopotential_height**2)/6.245e6
 
     # read load love numbers and calculate Legendre polynomials
-    LOVE = load_love_numbers(LMAX,LOVE_NUMBERS=LOVE_NUMBERS,REFERENCE=REFERENCE)
-    PLM, dPLM = plm_holmes(LMAX, np.cos(theta))
+    LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
+        REFERENCE=REFERENCE)
+    PLM, dPLM = gravtk.plm_holmes(LMAX, np.cos(theta))
     # read geoid heights and grid step size
     geoid,gridstep = ncdf_geoid(os.path.join(ddir,input_geoid_file))
 
     # Earth Parameters
-    ellipsoid_params = ref_ellipsoid(ELLIPSOID)
+    ellipsoid_params = geoidtk.ref_ellipsoid(ELLIPSOID)
     # semimajor and semiminor axes of ellipsoid [m]
     a_axis = ellipsoid_params['a']
     b_axis = ellipsoid_params['b']
@@ -313,7 +313,7 @@ def reanalysis_pressure_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     Z = (N * (1.0 - ecc1**2.0) + geoid + orthometric) * np.cos(gridtheta)
     R = np.sqrt(X**2.0 + Y**2.0 + Z**2.0)
     # calculate normal gravity at latitudes and heights above ellipsoid
-    gamma_h,dgamma_dh = norm_gravity(gridlat,height,ELLIPSOID)
+    gamma_h,dgamma_dh = geoidtk.norm_gravity(gridlat,height,ELLIPSOID)
 
     # step size in radians
     if (np.ndim(gridstep) == 0):
@@ -362,8 +362,8 @@ def reanalysis_pressure_harmonics(base_dir, MODEL, YEARS, RANGE=None,
             # convert time to Modified Julian Days
             delta_time=np.copy(fileID.variables[TIMENAME][:])
             date_string=fileID.variables[TIMENAME].units
-            epoch,to_secs=gravity_toolkit.time.parse_date_string(date_string)
-            MJD=gravity_toolkit.time.convert_delta_time(delta_time*to_secs,
+            epoch,to_secs = gravtk.time.parse_date_string(date_string)
+            MJD = gravtk.time.convert_delta_time(delta_time*to_secs,
                 epoch1=epoch, epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0)
         # iterate over Julian days
         for t,JD in enumerate(MJD+2400000.5):
@@ -373,19 +373,20 @@ def reanalysis_pressure_harmonics(base_dir, MODEL, YEARS, RANGE=None,
             if REDISTRIBUTE:
                 P[ii,jj] = np.sum(P[ii,jj]*AREA[ii,jj])/TOTAL_AREA
             # calculate spherical harmonics from pressure/gravity ratio
-            Ylms = gen_pressure_stokes(P, gamma_h, R, lon, lat,
+            Ylms = mdlhmc.gen_pressure_stokes(P, gamma_h, R, lon, lat,
                 LMAX=LMAX, MMAX=MMAX, PLM=PLM, LOVE=LOVE)
             # convert julian dates to calendar then to year-decimal
-            YY,MM,DD,hh,mm,ss = gravity_toolkit.time.convert_julian(JD,
+            YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(JD,
                 FORMAT='tuple')
-            Ylms.time,=gravity_toolkit.time.convert_calendar_decimal(YY,
+            Ylms.time, = gravtk.time.convert_calendar_decimal(YY,
                 MM, day=DD, hour=hh, minute=mm, second=ss)
             # calculate GRACE month from calendar dates
-            Ylms.month = gravity_toolkit.time.calendar_to_grace(YY, MM)
+            Ylms.month = gravtk.time.calendar_to_grace(YY, MM)
             # output data to file
             args = (MODEL.upper(),LMAX,order_str,Ylms.month,suffix[DATAFORM])
             FILE = output_file_format.format(*args)
-            Ylms.to_file(os.path.join(ddir,output_sub,FILE),format=DATAFORM)
+            Ylms.to_file(os.path.join(ddir,output_sub,FILE),
+                format=DATAFORM, **attributes)
             # set the permissions level of the output file to MODE
             os.chmod(os.path.join(ddir,output_sub,FILE), MODE)
 
@@ -398,8 +399,8 @@ def reanalysis_pressure_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     for fi in sorted(output_files):
         # extract GRACE month
         grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int64)
-        YY,MM = gravity_toolkit.time.grace_to_calendar(grace_month)
-        tdec, = gravity_toolkit.time.convert_calendar_decimal(YY, MM)
+        YY,MM = gravtk.time.grace_to_calendar(grace_month)
+        tdec, = gravtk.time.convert_calendar_decimal(YY, MM)
         # full path to output file
         full_output_file = os.path.join(ddir,output_sub,fi)
         # print date, GRACE month and calendar month to date file
@@ -468,7 +469,7 @@ def arguments():
             """,
         fromfile_prefix_chars="@"
     )
-    parser.convert_arg_line_to_args = utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     choices = ['ERA-Interim','ERA5','MERRA-2','NCEP-DOE-2','NCEP-CFSR','JRA-55']
     parser.add_argument('model',

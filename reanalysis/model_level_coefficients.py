@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 model_level_coefficients.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (12/2022)
 Creates a netCDF4 file of reanalysis A and B coefficients for model levels
 Model level coefficients are obtained using equation 3.17 of
     Simmons and Burridge (1981) and the methodology of Trenberth et al (1993)
@@ -40,16 +40,20 @@ REFERENCES:
         https://doi.org/10.5065/D6HX19NH
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2020: using argparse to set command line options
     Written 03/2018
 """
 from __future__ import print_function
 
+import sys
 import os
+import time
 import netCDF4
 import argparse
 import numpy as np
+import model_harmonics as mdlhmc
 
 # PURPOSE: create netCDF4 file with the model level A and B coefficients
 def model_level_coefficients(base_dir, MODEL, MODE=0o775):
@@ -147,6 +151,12 @@ def model_level_coefficients(base_dir, MODEL, MODE=0o775):
     # filling NetCDF4 variables
     for key,val in output.items():
         nc[key][:] = np.copy(val)
+    # add software information
+    fileID.software_reference = mdlhmc.version.project_name
+    fileID.software_version = mdlhmc.version.full_version
+    fileID.software_revision = mdlhmc.utilities.get_git_revision_hash()
+    # date created
+    fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
     # close the netCDF4 file
     fileID.close()
     # change the permissions level to MODE

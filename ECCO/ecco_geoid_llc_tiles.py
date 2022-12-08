@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_geoid_llc_tiles.py
-Written by Tyler Sutterley (05/2022)
+Written by Tyler Sutterley (12/2022)
 
 Calculates geoid heights for ECCO ocean model LLC tiles using model
     coefficients from the GFZ International Centre for Global Earth
@@ -41,6 +41,7 @@ PROGRAM DEPENDENCIES:
     gauss_weights.py: Computes Gaussian weights as a function of degree
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
@@ -50,14 +51,15 @@ UPDATE HISTORY:
 """
 from __future__ import print_function
 
+import sys
 import os
 import logging
 import netCDF4
 import datetime
 import argparse
 import numpy as np
-from geoid_toolkit.read_ICGEM_harmonics import read_ICGEM_harmonics
-from geoid_toolkit.geoid_undulation import geoid_undulation
+import geoid_toolkit as geoidtk
+import model_harmonics as mdlhmc
 
 # PURPOSE: read ECCO tiled ocean bottom pressure data and calculate mean
 def ecco_geoid_llc_tiles(input_file, output_file, GEOID=None,
@@ -79,7 +81,7 @@ def ecco_geoid_llc_tiles(input_file, output_file, GEOID=None,
     fill_value = -1e+10
 
     # read gravity model spherical harmonics
-    Ylms = read_ICGEM_harmonics(os.path.expanduser(GEOID), LMAX=LMAX)
+    Ylms = geoidtk.read_ICGEM_harmonics(os.path.expanduser(GEOID), LMAX=LMAX)
     # extract parameters
     R = np.float64(Ylms['radius'])
     GM = np.float64(Ylms['earth_gravity_constant'])
@@ -100,8 +102,9 @@ def ecco_geoid_llc_tiles(input_file, output_file, GEOID=None,
         lat = invariant['lat'][k,indj,indi]
         lon = invariant['lon'][k,indj,indi]
         # geoid height for valid points in tile
-        output['geoid'].data[k,indj,indi] = geoid_undulation(lat, lon,
-            'WGS84', Ylms['clm'], Ylms['slm'], LMAX, R, GM, GAUSS=0)
+        output['geoid'].data[k,indj,indi] = geoidtk.geoid_undulation(
+            lat, lon, 'WGS84', Ylms['clm'], Ylms['slm'], LMAX, R, GM,
+            GAUSS=0)
         output['geoid'].mask[k,indj,indi] = False
     # replace invalid data with fill value
     output['geoid'].data[output['geoid'].mask] = output['geoid'].fill_value
@@ -192,6 +195,11 @@ def ncdf_tile_write(output, attributes, FILENAME=None, LONNAME=None,
     fileID.radius = attributes['radius']
     fileID.earth_gravity_constant = attributes['earth_gravity_constant']
     fileID.max_degree = attributes['max_degree']
+    # add software information
+    fileID.software_reference = mdlhmc.version.project_name
+    fileID.software_version = mdlhmc.version.full_version
+    fileID.software_revision = mdlhmc.utilities.get_git_revision_hash()
+    fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
     # Output NetCDF structure information
     logging.info(FILENAME)
     logging.info(list(fileID.variables.keys()))

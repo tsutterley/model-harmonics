@@ -9,3 +9,5 @@ from pkg_resources import get_distribution
 version = get_distribution("model_harmonics").version
 # append "v" before the version
 full_version = f"v{version}"
+# get project name
+project_name = get_distribution("model_harmonics").project_name

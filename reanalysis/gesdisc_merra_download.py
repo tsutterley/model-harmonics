@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_merra_download.py
-Written by Tyler Sutterley (11/2022)
+Written by Tyler Sutterley (12/2022)
 
 This program downloads MERRA-2 products using a links list provided by the
     Goddard Earth Sciences Data and Information Server Center
@@ -48,6 +48,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: using python logging for handling verbose output
@@ -75,7 +76,7 @@ import getpass
 import logging
 import argparse
 import builtins
-import gravity_toolkit.utilities
+import gravity_toolkit as gravtk
 
 # PURPOSE: download MERRA-2 files from GESDISC using a links list file
 def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
@@ -107,7 +108,7 @@ def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
     # for each line in the links_list_file
     for f in lines:
         # extract filename from url
-        HOST = gravity_toolkit.utilities.url_split(f.decode('utf-8'))
+        HOST = gravtk.utilities.url_split(f.decode('utf-8'))
         if re.search(rb'LABEL\=(.*?)\&SHORTNAME',f):
             FILE, = re.findall(r'LABEL\=(.*?)\&SHORTNAME', f.decode('utf-8'))
         elif re.search(rb'MERRA2_(\d+)\.(.*?)\.(\d+)\.(.*?).nc',f):
@@ -124,12 +125,12 @@ def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
         try:
             # output local file
             local_file = os.path.join(DIRECTORY,FILE)
-            MD5 = gravity_toolkit.utilities.get_hash(local_file)
-            gravity_toolkit.utilities.from_http(HOST, timeout=TIMEOUT,
+            MD5 = gravtk.utilities.get_hash(local_file)
+            gravtk.utilities.from_http(HOST, timeout=TIMEOUT,
                 context=None, local=local_file, hash=MD5, fid=fid,
                 verbose=VERBOSE, mode=MODE)
         except:
-            remote_file = gravity_toolkit.utilities.posixpath.join(HOST)
+            remote_file = gravtk.utilities.posixpath.join(HOST)
             logging.critical(f'Link not downloaded: {remote_file}')
             continue
 
@@ -209,12 +210,12 @@ def main():
 
     # build a urllib opener for NASA GESDISC
     # Add the username and password for NASA Earthdata Login system
-    gravity_toolkit.utilities.build_opener(args.user, args.password,
+    gravtk.utilities.build_opener(args.user, args.password,
         password_manager=True, authorization_header=False)
 
     # check internet connection before attempting to run program
     HOST = 'http://disc.sci.gsfc.nasa.gov/'
-    if gravity_toolkit.utilities.check_credentials(HOST):
+    if gravtk.utilities.check_credentials(HOST):
         # for each links list file from GESDISC
         for FILE in args.file:
             gesdisc_merra_download(args.directory, FILE, TIMEOUT=args.timeout,
