@@ -64,6 +64,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 12/2022: single implicit import of spherical harmonic tools
+        use constants class in place of geoid-toolkit ref_ellipsoid
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers

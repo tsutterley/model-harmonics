@@ -52,6 +52,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 12/2022: single implicit import of spherical harmonic tools
+        use constants class in place of geoid-toolkit ref_ellipsoid
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Written 11/2022
 """

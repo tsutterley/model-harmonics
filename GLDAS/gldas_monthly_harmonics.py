@@ -96,6 +96,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 12/2022: single implicit import of spherical harmonic tools
+        use constants class in place of geoid-toolkit ref_ellipsoid
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 08/2022: convert to mid-month averages to correspond with GRACE
         can use a custom set of masks to reduce terrestrial water storage

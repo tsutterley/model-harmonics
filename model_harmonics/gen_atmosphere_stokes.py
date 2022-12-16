@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gen_atmosphere_stokes.py
-Written by Tyler Sutterley (04/2022)
+Written by Tyler Sutterley (12/2022)
 Calculates spherical harmonic fields from 3D atmospheric geopotential
     height and pressure difference fields
 
@@ -59,6 +59,7 @@ REFERENCE:
     76: 279-299, 2002. https://doi.org/10.1007/s00190-002-0216-2
 
 UPDATE HISTORY:
+    Updated 12/2022: constants class in place of geoid-toolkit ref_ellipsoid
     Updated 04/2022: updated docstrings to numpy documentation format
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 01/2021: added function docstrings
