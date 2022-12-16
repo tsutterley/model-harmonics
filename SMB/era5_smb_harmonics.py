@@ -42,7 +42,7 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     plm_holmes.py: computes fully-normalized associated Legendre polynomials
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
-    ref_ellipsoid.py: calculate reference parameters for common ellipsoids
+    constants.py: calculate reference parameters for common ellipsoids
     gen_stokes.py: converts a spatial field into a series of spherical harmonics
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
     destripe_harmonics.py: calculates the decorrelation (destriping) filter
@@ -71,7 +71,7 @@ import argparse
 import datetime
 import numpy as np
 import gravity_toolkit as gravtk
-import geoid_toolkit as geoidtk
+import model_harmonics as mdlhmc
 
 # PURPOSE: read ERA5 cumulative data and convert to spherical harmonics
 def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
@@ -122,12 +122,12 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
         input_mask |= fileID.variables['mask'][:].astype(bool)
         fileID.close()
 
-    # Earth Parameters
-    ellipsoid_params = geoidtk.ref_ellipsoid('WGS84')
+    # get reference parameters for ellipsoid
+    ellipsoid_params = mdlhmc.constants(ellipsoid='WGS84')
     # semimajor axis of ellipsoid [m]
-    a_axis = ellipsoid_params['a']
-    #  first numerical eccentricity
-    ecc1 = ellipsoid_params['ecc1']
+    a_axis = ellipsoid_params.a_axis
+    # first numerical eccentricity
+    ecc1 = ellipsoid_params.ecc1
     # convert from geodetic latitude to geocentric latitude
     # geodetic latitude in radians
     latitude_geodetic_rad = np.pi*gridlat/180.0

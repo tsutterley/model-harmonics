@@ -1,6 +1,6 @@
-========================
-gen_atmosphere_stokes.py
-========================
+=====================
+gen_atmosphere_stokes
+=====================
 
 - Converts 3D atmospheric geopotential height and pressure difference fields from the spatial domain to spherical harmonic coefficients [Boy2005]_ [Swenson2002]_
 

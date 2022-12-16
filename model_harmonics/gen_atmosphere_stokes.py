@@ -39,7 +39,7 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     plm_holmes.py: Computes fully normalized associated Legendre polynomials
     units.py: class for converting spherical harmonic data to specific units
-    ref_ellipsoid.py: calculate reference parameters for common ellipsoids
+    constants.py: calculate reference parameters for common ellipsoids
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
     destripe_harmonics.py: calculates the decorrelation (destriping) filter
         and filters the GRACE/GRACE-FO coefficients for striping errors
@@ -73,7 +73,7 @@ import numpy as np
 import gravity_toolkit.units
 import gravity_toolkit.harmonics
 from gravity_toolkit.plm_holmes import plm_holmes
-from geoid_toolkit.ref_ellipsoid import ref_ellipsoid
+from model_harmonics.constants import constants
 
 # PURPOSE: calculates spherical harmonic fields from 3D atmospheric
 # geopotential height and pressure difference fields
@@ -159,15 +159,15 @@ def gen_atmosphere_stokes(GPH, pressure, lon, lat, LMAX=60, MMAX=None,
     gridtheta = (90.0 - gridlat)*np.pi/180.0
 
     # Earth Parameters
-    ellipsoid_params = ref_ellipsoid(ELLIPSOID)
+    ellipsoid_params = constants(ellipsoid=ELLIPSOID)
     # semimajor axis of ellipsoid [m]
-    a_axis = ellipsoid_params['a']
+    a_axis = ellipsoid_params.a_axis
     # ellipsoidal flattening
-    flat = ellipsoid_params['f']
+    flat = ellipsoid_params.flat
     # Average Radius of the Earth having the same volume [m]
-    rad_e = ellipsoid_params['rad_e']
-    #  first numerical eccentricity
-    ecc1 = ellipsoid_params['ecc1']
+    rad_e = ellipsoid_params.rad_e
+    # first numerical eccentricity
+    ecc1 = ellipsoid_params.ecc1
     # convert from geodetic latitude to geocentric latitude
     # prime vertical radius of curvature
     N = a_axis/np.sqrt(1.0 - ecc1**2.0*np.cos(gridtheta)**2.0)

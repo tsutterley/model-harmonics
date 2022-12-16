@@ -43,7 +43,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
     utilities.py: download and management utilities for files
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
-    ref_ellipsoid.py: calculate reference parameters for common ellipsoids
+    constants.py: calculate reference parameters for common ellipsoids
     gen_point_load.py: calculates spherical harmonics from point masses
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
     destripe_harmonics.py: calculates the decorrelation (destriping) filter
@@ -67,7 +67,6 @@ import argparse
 import warnings
 import numpy as np
 import gravity_toolkit as gravtk
-import geoid_toolkit as geoidtk
 import model_harmonics as mdlhmc
 # ignore pyproj and divide by zero warnings
 warnings.filterwarnings("ignore")
@@ -154,14 +153,14 @@ def gemb_smb_harmonics(model_file,
     # polar stereographic standard parallel (latitude of true scale)
     reference_latitude = crs2.to_dict().pop('lat_ts')
 
-    # Earth Parameters
-    ellipsoid_params = geoidtk.ref_ellipsoid('WGS84')
-    # semimajor axis of ellipsoid [m]
-    a_axis = ellipsoid_params['a']
-    #  first numerical eccentricity
-    ecc1 = ellipsoid_params['ecc1']
+    # get reference parameters for ellipsoid
+    ellipsoid_params = mdlhmc.constants(ellipsoid='WGS84')
+    # semimajor axis of the ellipsoid [m]
+    a_axis = ellipsoid_params.a_axis
+    # first numerical eccentricity
+    ecc1 = ellipsoid_params.ecc1
     # flattening of the ellipsoid
-    flat = ellipsoid_params['f']
+    flat = ellipsoid_params.flat
     # convert from geodetic latitude to geocentric latitude
     # geodetic latitude in radians
     latitude_geodetic_rad = np.pi*gridlat/180.0

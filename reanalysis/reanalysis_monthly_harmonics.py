@@ -50,7 +50,7 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     plm_holmes.py: computes fully-normalized associated Legendre polynomials
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
-    ref_ellipsoid.py: calculate reference parameters for common ellipsoids
+    constants.py: calculate reference parameters for common ellipsoids
     gen_stokes.py: converts a spatial field into a series of spherical harmonics
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
     destripe_harmonics.py: calculates the decorrelation (destriping) filter
@@ -109,7 +109,7 @@ import argparse
 import datetime
 import numpy as np
 import gravity_toolkit as gravtk
-import geoid_toolkit as geoidtk
+import model_harmonics as mdlhmc
 
 # PURPOSE: read atmospheric surface pressure fields and convert to harmonics
 def reanalysis_monthly_harmonics(base_dir, MODEL, YEARS, RANGE=None,
@@ -252,11 +252,11 @@ def reanalysis_monthly_harmonics(base_dir, MODEL, YEARS, RANGE=None,
         REFERENCE=REFERENCE)
     PLM, dPLM = gravtk.plm_holmes(LMAX, np.cos(theta))
 
-    # Earth Parameters
-    ellipsoid_params = geoidtk.ref_ellipsoid(ELLIPSOID)
-    # semimajor and semiminor axes of ellipsoid [m]
-    a_axis = ellipsoid_params['a']
-    b_axis = ellipsoid_params['b']
+    # get reference parameters for ellipsoid
+    ellipsoid_params = mdlhmc.constants(ellipsoid=ELLIPSOID)
+    # semimajor and semiminor axes of the ellipsoid [m]
+    a_axis = ellipsoid_params.a_axis
+    b_axis = ellipsoid_params.b_axis
 
     # step size in radians
     gridstep = np.zeros((2))

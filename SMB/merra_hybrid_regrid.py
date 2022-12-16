@@ -46,7 +46,7 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
     utilities.py: download and management utilities for files
-    ref_ellipsoid.py: calculate reference parameters for common ellipsoids
+    constants.py: calculate reference parameters for common ellipsoids
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
@@ -82,7 +82,6 @@ import numpy as np
 import sklearn.neighbors
 import scipy.interpolate
 import gravity_toolkit as gravtk
-import geoid_toolkit as geoidtk
 import model_harmonics as mdlhmc
 # ignore pyproj and divide by zero warnings
 warnings.filterwarnings("ignore")
@@ -212,16 +211,16 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
     # polar stereographic standard parallel (latitude of true scale)
     reference_latitude = crs2.to_dict().pop('lat_ts')
 
-    # Earth Parameters
-    ellipsoid_params = geoidtk.ref_ellipsoid('WGS84', UNITS='CGS')
+    # get reference parameters for ellipsoid
+    ellipsoid_params = mdlhmc.constants(ellipsoid='WGS84', units='CGS')
     # semimajor axis of ellipsoid [cm]
-    a_axis = ellipsoid_params['a']
-    #  first numerical eccentricity
-    ecc1 = ellipsoid_params['ecc1']
+    a_axis = ellipsoid_params.a_axis
+    # first numerical eccentricity
+    ecc1 = ellipsoid_params.ecc1
     # flattening of the ellipsoid
-    flat = ellipsoid_params['f']
+    flat = ellipsoid_params.flat
     # Average Radius of the Earth with equal surface area [cm]
-    rad_e = ellipsoid_params['rad_e']
+    rad_e = ellipsoid_params.rad_e
     # convert from geodetic latitude to geocentric latitude
     # geodetic latitude in radians
     latitude_geodetic_rad = np.pi*gridlat/180.0

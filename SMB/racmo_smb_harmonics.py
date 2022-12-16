@@ -42,7 +42,7 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
     utilities.py: download and management utilities for files
-    ref_ellipsoid.py: calculate reference parameters for common ellipsoids
+    constants.py: calculate reference parameters for common ellipsoids
     gen_point_load.py: calculates spherical harmonics from point masses
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
     destripe_harmonics.py: calculates the decorrelation (destriping) filter
@@ -78,7 +78,7 @@ import netCDF4
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
-import geoid_toolkit as geoidtk
+import model_harmonics as mdlhmc
 
 # PURPOSE: convert RACMO surface mass balance products to spherical harmonics
 def racmo_smb_harmonics(model_file, VARIABLE,
@@ -91,12 +91,12 @@ def racmo_smb_harmonics(model_file, VARIABLE,
     GZIP=False,
     MODE=0o775):
 
-    # Earth Parameters
-    ellipsoid_params = geoidtk.ref_ellipsoid('WGS84')
-    # semimajor axis of ellipsoid [m]
-    a_axis = ellipsoid_params['a']
-    #  first numerical eccentricity
-    ecc1 = ellipsoid_params['ecc1']
+    # get reference parameters for ellipsoid
+    ellipsoid_params = mdlhmc.constants(ellipsoid='WGS84')
+    # semimajor axis of ellipsoid [cm]
+    a_axis = ellipsoid_params.a_axis
+    # first numerical eccentricity
+    ecc1 = ellipsoid_params.ecc1
 
     # RACMO SMB directory
     DIRECTORY = os.path.dirname(model_file)
