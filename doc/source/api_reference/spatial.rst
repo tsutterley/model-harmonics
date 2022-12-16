@@ -1,6 +1,6 @@
-==========
-spatial.py
-==========
+=======
+spatial
+=======
 
 Functions for reading, writing and processing spatial data
 

@@ -42,7 +42,7 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
     utilities.py: download and management utilities for files
-    ref_ellipsoid.py: calculate reference parameters for common ellipsoids
+    constants.py: calculate reference parameters for common ellipsoids
     gen_point_load.py: calculates spherical harmonics from point masses
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
     destripe_harmonics.py: calculates the decorrelation (destriping) filter
@@ -51,6 +51,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 12/2022: single implicit import of spherical harmonic tools
+        use constants class in place of geoid-toolkit ref_ellipsoid
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Written 10/2022
 """
@@ -67,7 +68,6 @@ import netCDF4
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
-import geoid_toolkit as geoidtk
 import model_harmonics as mdlhmc
 
 # data product longnames
@@ -157,14 +157,14 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
     # valid mask values
     fd['mask'] &= fileID.variables['MASK'][:,:].astype(bool)
 
-    # Earth Parameters
-    ellipsoid_params = geoidtk.ref_ellipsoid('WGS84')
-    # semimajor axis of ellipsoid [m]
-    a_axis = ellipsoid_params['a']
-    #  first numerical eccentricity
-    ecc1 = ellipsoid_params['ecc1']
+    # get reference parameters for ellipsoid
+    ellipsoid_params = mdlhmc.constants(ellipsoid='WGS84')
+    # semimajor axis of ellipsoid [cm]
+    a_axis = ellipsoid_params.a_axis
+    # first numerical eccentricity
+    ecc1 = ellipsoid_params.ecc1
     # flattening of the ellipsoid
-    flat = ellipsoid_params['f']
+    flat = ellipsoid_params.flat
 
     # convert from geodetic latitude to geocentric latitude
     # geodetic latitude in radians

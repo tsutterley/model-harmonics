@@ -50,7 +50,7 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     plm_holmes.py: computes fully-normalized associated Legendre polynomials
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
-    ref_ellipsoid.py: calculate reference parameters for common ellipsoids
+    constants.py: calculate reference parameters for common ellipsoids
     norm_gravity.py: calculates the normal gravity for locations on an ellipsoid
     gen_pressure_stokes.py: converts a pressure field into spherical harmonics
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
@@ -72,6 +72,7 @@ REFERENCES:
 
 UPDATE HISTORY:
     Updated 12/2022: single implicit import of spherical harmonic tools
+        use constants class in place of geoid-toolkit ref_ellipsoid
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
@@ -295,13 +296,13 @@ def reanalysis_pressure_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     # read geoid heights and grid step size
     geoid,gridstep = ncdf_geoid(os.path.join(ddir,input_geoid_file))
 
-    # Earth Parameters
-    ellipsoid_params = geoidtk.ref_ellipsoid(ELLIPSOID)
-    # semimajor and semiminor axes of ellipsoid [m]
-    a_axis = ellipsoid_params['a']
-    b_axis = ellipsoid_params['b']
-    #  first numerical eccentricity
-    ecc1 = ellipsoid_params['ecc1']
+    # get reference parameters for ellipsoid
+    ellipsoid_params = mdlhmc.constants(ellipsoid=ELLIPSOID)
+    # semimajor and semiminor axes of the ellipsoid [m]
+    a_axis = ellipsoid_params.a_axis
+    b_axis = ellipsoid_params.b_axis
+    # first numerical eccentricity
+    ecc1 = ellipsoid_params.ecc1
     # convert from geodetic latitude to geocentric latitude
     # prime vertical radius of curvature
     N = a_axis/np.sqrt(1.0 - ecc1**2.0*np.cos(gridtheta)**2.0)

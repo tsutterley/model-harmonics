@@ -52,7 +52,7 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
     spatial.py: spatial data class for reading, writing and processing data
-    ref_ellipsoid.py: calculate reference parameters for common ellipsoids
+    constants.py: calculate reference parameters for common ellipsoids
 
 REFERENCES:
     R. J. Greatbatch, "A note on the representation of steric sea level in
@@ -62,6 +62,7 @@ REFERENCES:
 
 UPDATE HISTORY:
     Updated 12/2022: single implicit import of spherical harmonic tools
+        use constants class in place of geoid-toolkit ref_ellipsoid
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: lower case keyword arguments to output spatial
@@ -84,7 +85,7 @@ import logging
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
-import geoid_toolkit as geoidtk
+import model_harmonics as mdlhmc
 
 # PURPOSE: read ECCO V4 ocean bottom pressure data and calculate mean
 def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
@@ -123,10 +124,10 @@ def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
     gamma = 9.81
     rhonil = 1029
     # get reference parameters for WGS84 ellipsoid
-    WGS84 = geoidtk.ref_ellipsoid('WGS84')
+    ellipsoid_params = mdlhmc.constants(ellipsoid='WGS84')
     # semimajor and semiminor axes of the ellipsoid [m]
-    a_axis = WGS84['a']
-    b_axis = WGS84['b']
+    a_axis = ellipsoid_params.a_axis
+    b_axis = ellipsoid_params.b_axis
 
     # read depth data from ecco_depth_version4.py
     input_depth_file = os.path.join(ddir,'DEPTH.2020.720x360.nc')

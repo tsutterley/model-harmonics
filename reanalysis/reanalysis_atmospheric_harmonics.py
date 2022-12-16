@@ -48,7 +48,7 @@ PROGRAM DEPENDENCIES:
     plm_holmes.py: computes fully-normalized associated Legendre polynomials
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
     gen_atmosphere_stokes.py: converts atmospheric fields to spherical harmonics
-    ref_ellipsoid.py: calculate reference parameters for common ellipsoids
+    constants.py: calculate reference parameters for common ellipsoids
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
     destripe_harmonics.py: calculates the decorrelation (destriping) filter
         and filters the GRACE/GRACE-FO coefficients for striping errors
@@ -69,6 +69,7 @@ REFERENCES:
 
 UPDATE HISTORY:
     Updated 12/2022: single implicit import of spherical harmonic tools
+        use constants class in place of geoid-toolkit ref_ellipsoid
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
@@ -105,7 +106,6 @@ import datetime
 import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
-import geoid_toolkit as geoidtk
 
 # PURPOSE: read atmospheric 3D geopotential height fields
 # converts model geopotential heights to spherical harmonics
@@ -217,11 +217,11 @@ def reanalysis_atmospheric_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     geoid,gridstep = ncdf_geoid(os.path.join(ddir,input_geoid_file))
     nlat,nlon = np.shape(geoid)
 
-    # Earth Parameters
-    ellipsoid_params = geoidtk.ref_ellipsoid(ELLIPSOID)
-    # semimajor and semiminor axes of ellipsoid [m]
-    a_axis = ellipsoid_params['a']
-    b_axis = ellipsoid_params['b']
+    # get reference parameters for ellipsoid
+    ellipsoid_params = mdlhmc.constants(ellipsoid=ELLIPSOID)
+    # semimajor and semiminor axes of the ellipsoid [m]
+    a_axis = ellipsoid_params.a_axis
+    b_axis = ellipsoid_params.b_axis
 
     # step size in radians
     if (np.ndim(gridstep) == 0):

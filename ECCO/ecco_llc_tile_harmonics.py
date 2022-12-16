@@ -49,6 +49,7 @@ PYTHON DEPENDENCIES:
 
 PROGRAM DEPENDENCIES:
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
+    constants.py: calculate reference parameters for common ellipsoids
     ref_ellipsoid.py: calculate reference parameters for common ellipsoids
     norm_gravity.py: calculates the normal gravity for locations on an ellipsoid
     gen_point_pressure.py: converts pressure point values to spherical harmonics
@@ -61,6 +62,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 12/2022: single implicit import of spherical harmonic tools
+        use constants class in place of geoid-toolkit ref_ellipsoid
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
@@ -138,11 +140,11 @@ def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
 
     # Earth Parameters
-    ellipsoid_params = geoidtk.ref_ellipsoid('WGS84')
+    ellipsoid_params = mdlhmc.constants(ellipsoid='WGS84')
     # semimajor axis of ellipsoid [m]
-    a_axis = ellipsoid_params['a']
-    #  first numerical eccentricity
-    ecc1 = ellipsoid_params['ecc1']
+    a_axis = ellipsoid_params.a_axis
+    # first numerical eccentricity
+    ecc1 = ellipsoid_params.ecc1
     # convert from geodetic latitude to geocentric latitude
     # geodetic latitude and longitude in radians
     latitude_geodetic_rad = np.pi*invariant['lat']/180.0

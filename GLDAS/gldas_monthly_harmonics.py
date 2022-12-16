@@ -85,7 +85,7 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     plm_holmes.py: computes fully-normalized associated Legendre polynomials
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
-    ref_ellipsoid.py: calculate reference parameters for common ellipsoids
+    constants.py: calculate reference parameters for common ellipsoids
     gen_stokes.py: converts a spatial field into a series of spherical harmonics
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
     destripe_harmonics.py: calculates the decorrelation (destriping) filter
@@ -96,6 +96,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 12/2022: single implicit import of spherical harmonic tools
+        use constants class in place of geoid-toolkit ref_ellipsoid
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 08/2022: convert to mid-month averages to correspond with GRACE
         can use a custom set of masks to reduce terrestrial water storage
@@ -144,7 +145,7 @@ import argparse
 import datetime
 import numpy as np
 import gravity_toolkit as gravtk
-import geoid_toolkit as geoidtk
+import model_harmonics as mdlhmc
 
 # GLDAS models
 gldas_products = {}
@@ -249,11 +250,11 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
         combined_mask |= arctic_mask[:,:]
 
     # Earth Parameters
-    ellipsoid_params = geoidtk.ref_ellipsoid('WGS84')
+    ellipsoid_params = mdlhmc.constants(ellipsoid='WGS84')
     # semimajor axis of ellipsoid [m]
-    a_axis = ellipsoid_params['a']
-    #  first numerical eccentricity
-    ecc1 = ellipsoid_params['ecc1']
+    a_axis = ellipsoid_params.a_axis
+    # first numerical eccentricity
+    ecc1 = ellipsoid_params.ecc1
     # convert from geodetic latitude to geocentric latitude
     # geodetic latitude in radians
     latitude_geodetic_rad = np.pi*gridlat/180.0

@@ -1,6 +1,6 @@
-======================
-gen_pressure_stokes.py
-======================
+===================
+gen_pressure_stokes
+===================
 
 - Converts pressure fields from the spatial domain to spherical harmonic coefficients [Boy2005]_ [Swenson2002]_
 

@@ -62,7 +62,7 @@ PYTHON DEPENDENCIES:
 
 PROGRAM DEPENDENCIES:
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
-    ref_ellipsoid.py: calculate reference parameters for common ellipsoids
+    constants.py: calculate reference parameters for common ellipsoids
     plm_holmes.py: Computes fully normalized associated Legendre polynomials
     gauss_weights.py: Computes the Gaussian weights as a function of degree
     harmonic_summation.py: calculates a spatial field from spherical harmonics
@@ -76,6 +76,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 12/2022: single implicit import of spherical harmonic tools
+        use constants class in place of geoid-toolkit ref_ellipsoid
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 08/2022: create verbose logger within main definition
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -115,7 +116,7 @@ import netCDF4
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
-import geoid_toolkit as geoidtk
+import model_harmonics as mdlhmc
 
 # GLDAS models
 gldas_products = {}
@@ -223,11 +224,11 @@ def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
         combined_mask |= arctic_mask[:,:]
 
     # Earth Parameters
-    ellipsoid_params = geoidtk.ref_ellipsoid('WGS84')
+    ellipsoid_params = mdlhmc.constants(ellipsoid='WGS84')
     # semimajor axis of ellipsoid [m]
-    a_axis = ellipsoid_params['a']
-    #  first numerical eccentricity
-    ecc1 = ellipsoid_params['ecc1']
+    a_axis = ellipsoid_params.a_axis
+    # first numerical eccentricity
+    ecc1 = ellipsoid_params.ecc1
     # convert from geodetic latitude to geocentric latitude
     # geodetic latitude in radians
     latitude_geodetic_rad = np.pi*gridlat/180.0
