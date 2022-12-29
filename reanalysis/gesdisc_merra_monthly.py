@@ -304,7 +304,6 @@ def ncdf_model_write(dinput, attributes, fill_value,
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
-    fileID.software_revision = mdlhmc.utilities.get_git_revision_hash()
     # date created
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 

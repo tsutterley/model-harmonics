@@ -233,7 +233,6 @@ def racmo_smb_cumulative(model_file, VARIABLE,
     # add software information
     f_out.software_reference = mdlhmc.version.project_name
     f_out.software_version = mdlhmc.version.full_version
-    f_out.software_revision = mdlhmc.utilities.get_git_revision_hash()
     f_out.reference = f'Output from {os.path.basename(sys.argv[0])}'
     # date created
     f_out.date_created = time.strftime('%Y-%m-%d',time.localtime())

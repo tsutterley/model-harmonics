@@ -351,7 +351,6 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
         # add software information
         fileID.software_reference = mdlhmc.version.project_name
         fileID.software_version = mdlhmc.version.full_version
-        fileID.software_revision = mdlhmc.utilities.get_git_revision_hash()
         # date created
         fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
         # Closing the netCDF file

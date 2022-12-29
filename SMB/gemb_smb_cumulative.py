@@ -218,7 +218,6 @@ def gemb_smb_cumulative(model_file,
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
-    fileID.software_revision = mdlhmc.utilities.get_git_revision_hash()
     # Output NetCDF file information
     logging.info(list(fileID.variables.keys()))
     # Closing the NetCDF file and getting the buffer object

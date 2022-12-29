@@ -448,7 +448,6 @@ def ncdf_racmo(dinput, FILENAME=None, UNITS=None, LONGNAME=None, VARNAME=None,
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
-    fileID.software_revision = mdlhmc.utilities.get_git_revision_hash()
     fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
     # global variable of NetCDF file
     fileID.TITLE = TITLE

@@ -154,7 +154,6 @@ def ncdf_pressure_write(dinput, fill_value, FILENAME=None, VARNAME=None,
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
-    fileID.software_revision = mdlhmc.utilities.get_git_revision_hash()
     fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
     # date created
     fileID.date_created = datetime.datetime.now().isoformat()

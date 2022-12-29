@@ -40,7 +40,7 @@ import numpy as np
 
 class constants(object):
     """
-    Class for converting spherical harmonic and spatial data to specific units
+    Class for gravitational and ellipsoidal parameters
 
     Parameters
     ----------

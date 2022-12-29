@@ -198,7 +198,6 @@ def ncdf_tile_write(output, attributes, FILENAME=None, LONNAME=None,
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
-    fileID.software_revision = mdlhmc.utilities.get_git_revision_hash()
     fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
     # Output NetCDF structure information
     logging.info(FILENAME)

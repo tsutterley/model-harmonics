@@ -212,7 +212,6 @@ def HDF5_GSFC_mascons(output_data, GIA,
     # add software information
     fileID.attrs['software_reference'] = mdlhmc.version.project_name
     fileID.attrs['software_version'] = mdlhmc.version.full_version
-    fileID.attrs['software_revision'] = mdlhmc.utilities.get_git_revision_hash()
     # Closing the HDF5 file
     fileID.close()
 
