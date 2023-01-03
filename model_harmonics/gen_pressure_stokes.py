@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gen_pressure_stokes.py
-Written by Tyler Sutterley (04/2022)
+Written by Tyler Sutterley (01/2023)
 Calculates spherical harmonic fields from spatial pressure fields
 
 CALLING SEQUENCE:
@@ -32,7 +32,8 @@ PYTHON DEPENDENCIES:
     numpy: Scientific Computing Tools For Python (https://numpy.org)
 
 PROGRAM DEPENDENCIES:
-    plm_holmes.py: Computes fully normalized associated Legendre polynomials
+    associated_legendre.py: Computes fully normalized associated
+        Legendre polynomials
     units.py: class for converting spherical harmonic data to specific units
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
     destripe_harmonics.py: calculates the decorrelation (destriping) filter
@@ -53,6 +54,7 @@ REFERENCE:
     76: 279-299, 2002. https://doi.org/10.1007/s00190-002-0216-2
 
 UPDATE HISTORY:
+    Updated 01/2023: refactored associated legendre polynomials
     Updated 04/2022: updated docstrings to numpy documentation format
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 02/2021: separate pressure and gravitational acceleration inputs
@@ -69,7 +71,7 @@ UPDATE HISTORY:
 import numpy as np
 import gravity_toolkit.units
 import gravity_toolkit.harmonics
-from gravity_toolkit.plm_holmes import plm_holmes
+from gravity_toolkit.associated_legendre import plm_holmes
 
 # PURPOSE: calculates spherical harmonic fields from pressure fields
 def gen_pressure_stokes(P, G, R, lon, lat, LMAX=60, MMAX=None,

@@ -63,7 +63,8 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
     constants.py: calculate reference parameters for common ellipsoids
-    plm_holmes.py: Computes fully normalized associated Legendre polynomials
+    associated_legendre.py: Computes fully normalized associated
+        Legendre polynomials
     gauss_weights.py: Computes the Gaussian weights as a function of degree
     harmonic_summation.py: calculates a spatial field from spherical harmonics
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO

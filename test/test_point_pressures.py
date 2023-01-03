@@ -52,10 +52,8 @@ def test_point_masses(NPTS):
     # calculate harmonics and degree amplitudes for each case
     grid_Ylms = gen_pressure_stokes(data, gs, rad_e, lon, lat,
         LMAX=60, LOVE=(hl,kl,ll))
-    grid_Ylms.amplitude()
     point_Ylms = gen_point_pressure(PRESSURE, G, rad_e, LON, LAT,
         AREA=AREA, LMAX=60, LOVE=(hl,kl,ll))
-    point_Ylms.amplitude()
 
     # check that harmonic data is equal to machine precision
     difference_Ylms = grid_Ylms.copy()
@@ -63,4 +61,4 @@ def test_point_masses(NPTS):
     harmonic_eps = np.finfo(np.float32).eps
     assert np.all(np.abs(difference_Ylms.clm) < harmonic_eps)
     # verify that the degree amplitudes are within tolerance
-    assert np.all(np.abs(grid_Ylms.amp - point_Ylms.amp) < harmonic_eps)
+    assert np.all(np.abs(grid_Ylms.amplitude - point_Ylms.amplitude) < harmonic_eps)

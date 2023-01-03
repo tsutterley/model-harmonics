@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gen_atmosphere_stokes.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (01/2023)
 Calculates spherical harmonic fields from 3D atmospheric geopotential
     height and pressure difference fields
 
@@ -37,7 +37,8 @@ PYTHON DEPENDENCIES:
     numpy: Scientific Computing Tools For Python (https://numpy.org)
 
 PROGRAM DEPENDENCIES:
-    plm_holmes.py: Computes fully normalized associated Legendre polynomials
+    associated_legendre.py: Computes fully normalized associated
+        Legendre polynomials
     units.py: class for converting spherical harmonic data to specific units
     constants.py: calculate reference parameters for common ellipsoids
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
@@ -59,6 +60,7 @@ REFERENCE:
     76: 279-299, 2002. https://doi.org/10.1007/s00190-002-0216-2
 
 UPDATE HISTORY:
+    Updated 01/2023: refactored associated legendre polynomials
     Updated 12/2022: constants class in place of geoid-toolkit ref_ellipsoid
     Updated 04/2022: updated docstrings to numpy documentation format
     Updated 05/2021: define int/float precision to prevent deprecation warning
@@ -73,7 +75,7 @@ UPDATE HISTORY:
 import numpy as np
 import gravity_toolkit.units
 import gravity_toolkit.harmonics
-from gravity_toolkit.plm_holmes import plm_holmes
+from gravity_toolkit.associated_legendre import plm_holmes
 from model_harmonics.constants import constants
 
 # PURPOSE: calculates spherical harmonic fields from 3D atmospheric
