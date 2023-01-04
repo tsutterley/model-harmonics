@@ -18,14 +18,14 @@ model-harmonics
    :target: https://pypi.python.org/pypi/model-harmonics/
 
 .. |Documentation Status| image:: https://readthedocs.org/projects/model-harmonics/badge/?version=latest
-   :target: https://read-grace-harmonics.readthedocs.io/projects/model-harmonics/en/latest/?badge=latest
+   :target: https://gravity-toolkit.readthedocs.io/projects/model-harmonics/en/latest/?badge=latest
 
 .. |zenodo| image:: https://zenodo.org/badge/325402443.svg
    :target: https://zenodo.org/badge/latestdoi/325402443
 
 Python tools for obtaining and working with model synthetic spherical harmonic coefficients for comparing with data from the the NASA/DLR Gravity Recovery and Climate Experiment (GRACE) and the NASA/GFZ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
 
-These are extension routines for the set of `read-GRACE-harmonics <https://github.com/tsutterley/read-GRACE-harmonics>`_ tools
+These are extension routines for the set of `gravity-toolkit <https://github.com/tsutterley/gravity-toolkit>`_ tools
 
 Resources
 #########
@@ -42,7 +42,7 @@ Dependencies
 ############
 
 - `geoid-toolkit: Python utilities for calculating geoid heights from static gravity field coefficients <https://github.com/tsutterley/geoid-toolkit/>`_
-- `read-GRACE-harmonics: Python tools for working with GRACE/GRACE-FO data <https://github.com/tsutterley/read-GRACE-harmonics/>`_
+- `gravity-toolkit: Python tools for working with GRACE/GRACE-FO data <https://github.com/tsutterley/gravity-toolkit/>`_
 - `pygrib: Python interface for reading and writing GRIB data <https://pypi.python.org/pypi/pygrib>`_
 - `cdsapi: Python client libraries for the CDS Web API <https://pypi.org/project/cdsapi/>`_
 - `fiona: Python wrapper for vector data access functions from the OGR library <https://fiona.readthedocs.io/en/latest/manual.html>`_

@@ -4,7 +4,7 @@ spatial
 
 Functions for reading, writing and processing spatial data
 
- - Adds additional modules to the GRACE/GRACE-FO `gravity_toolkit spatial class <https://github.com/tsutterley/read-GRACE-harmonics/blob/main/gravity_toolkit/spatial.py>`__
+ - Adds additional modules to the GRACE/GRACE-FO `gravity_toolkit spatial class <https://github.com/tsutterley/gravity-toolkit/blob/main/gravity_toolkit/spatial.py>`__
 
 `Source code`__
 

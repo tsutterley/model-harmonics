@@ -42,7 +42,7 @@ Dependencies
 These extension routines are dependent on:
 
 - `geoid-toolkit: Python utilities for calculating geoid heights from static gravity field coefficients <https://github.com/tsutterley/geoid-toolkit/>`_
-- `read-GRACE-harmonics: Python tools for working with GRACE/GRACE-FO time-variable gravity data <https://github.com/tsutterley/read-GRACE-harmonics>`_
+- `gravity-toolkit: Python tools for working with GRACE/GRACE-FO time-variable gravity data <https://github.com/tsutterley/gravity-toolkit>`_
 - `numpy: Scientific Computing Tools For Python <https://numpy.org>`_
 - `scipy: Scientific Tools for Python <https://docs.scipy.org/doc/>`_
 - `dateutil: powerful extensions to datetime <https://dateutil.readthedocs.io/en/stable/>`_
