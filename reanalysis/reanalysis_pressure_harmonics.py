@@ -48,7 +48,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 PROGRAM DEPENDENCIES:
-    plm_holmes.py: computes fully-normalized associated Legendre polynomials
+    associated_legendre.py: computes fully-normalized associated Legendre polynomials
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
     constants.py: calculate reference parameters for common ellipsoids
     norm_gravity.py: calculates the normal gravity for locations on an ellipsoid

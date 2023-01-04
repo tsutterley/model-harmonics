@@ -64,7 +64,7 @@ def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
     # set model specific parameters
     if (MODEL == 'NCEP-DOE-2'):
         # regular expression pattern for finding files
-        regex_pattern = 'pres.sfc.({0:4d}).nc$'
+        regex_pattern = r'pres.sfc.({0:4d}).nc$'
         FILL_VALUE = 'missing_value'
         # output file format
         output_file_format = 'pres.sfc.mon.mean.{0:4d}.nc'

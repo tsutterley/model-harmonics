@@ -45,7 +45,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 PROGRAM DEPENDENCIES:
-    plm_holmes.py: computes fully-normalized associated Legendre polynomials
+    associated_legendre.py: computes fully-normalized associated Legendre polynomials
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
     gen_atmosphere_stokes.py: converts atmospheric fields to spherical harmonics
     constants.py: calculate reference parameters for common ellipsoids
