@@ -116,7 +116,7 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
         # invariant parameters file
         input_invariant_file = 'MERRA2_101.const_2d_asm_Nx.00000000.nc4'
         # regular expression pattern for finding files
-        regex_pattern = 'MERRA2_\d{{3}}.tavgM_2d_slv_Nx.({0})(\d{{2}}).SUB.nc$'
+        regex_pattern = r'MERRA2_\d{{3}}.tavgM_2d_slv_Nx.({0})(\d{{2}}).SUB.nc$'
         # output file format
         output_file_format = 'MERRA2.Mean_PS.{0:4d}-{1:4d}.nc'
         VARNAME = 'PS'
