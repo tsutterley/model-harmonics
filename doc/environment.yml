@@ -31,5 +31,5 @@ dependencies:
   - pip:
      - sphinx-argparse>=0.4
      - geoid-toolkit
-     - git+https://github.com/tsutterley/read-GRACE-harmonics.git
+     - git+https://github.com/tsutterley/gravity-toolkit.git
      - ..

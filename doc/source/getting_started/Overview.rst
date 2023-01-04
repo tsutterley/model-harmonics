@@ -4,10 +4,10 @@ Overview
 
 This documentation is intended to explain how to compute spherical harmonics from model
 outputs for comparing with or correcting time-variable gravity measurements from the
-`GRACE/GRACE-FO <https://github.com/tsutterley/read-GRACE-harmonics>`_ missions.
+`GRACE/GRACE-FO <https://github.com/tsutterley/gravity-toolkit>`_ missions.
 This software was developed with the goal of supporting science applications for
 time-variable gravity.
-The ``model-harmonics`` projects consists of extension routines for the set of ``read-GRACE-harmonics`` tools.
+The ``model-harmonics`` projects consists of extension routines for the set of ``gravity-toolkit`` tools.
 
 ECCO
 ====
@@ -40,19 +40,19 @@ Ocean bottom pressure anomalies are converted to spherical harmonics following [
     :align: center
 
     digraph {
-        E [label="ECCO Ocean Bottom Pressure" shape=box style="filled" color="darkorchid"]
-        N [label="Geoid Height" shape=box style="filled" color="darkorchid"]
-        B [label="Ocean Bathymetry" shape=box style="filled" color="darkorchid"]
+        E [label="ECCO Ocean Bottom Pressure" shape=box style="filled" color="#7570b3"]
+        N [label="Geoid Height" shape=box style="filled" color="#7570b3"]
+        B [label="Ocean Bathymetry" shape=box style="filled" color="#7570b3"]
         M [URL="https://github.com/tsutterley/model-harmonics/blob/main/ECCO/ecco_mean_realtime.py"
             label="Calculate Temporal Mean" shape=box style="filled" color="gray"]
         R [URL="https://github.com/tsutterley/model-harmonics/blob/main/ECCO/ecco_read_realtime.py"
             label="Calculate Monthly Anomalies" shape=box style="filled" color="gray"]
         H [URL="https://github.com/tsutterley/model-harmonics/blob/main/ECCO/ecco_monthly_harmonics.py"
             label="Calculate Spherical Harmonics" shape=box style="filled" color="gray"]
-        S [URL="https://github.com/tsutterley/read-GRACE-harmonics/blob/main/scripts/combine_harmonics.py"
-            label="Spatial Maps" shape=box style="filled" color="mediumseagreen"]
+        S [URL="https://github.com/tsutterley/gravity-toolkit/blob/main/scripts/combine_harmonics.py"
+            label="Spatial Maps" shape=box style="filled" color="#1b9e77"]
         T [URL="https://github.com/tsutterley/model-harmonics/blob/main/scripts/least_squares_mascon_timeseries.py"
-            label="Time Series" shape=box style="filled" color="mediumseagreen"]
+            label="Time Series" shape=box style="filled" color="#1b9e77"]
         E -> M
         M -> R
         E -> R
@@ -92,18 +92,18 @@ Terrestrial water storage anomalies are converted to spherical harmonics followi
     :align: center
 
     digraph {
-        E [label="GLDAS Land Surface\nModel Outputs" shape=box style="filled" color="darkorchid"]
-        L [label="Vegetation and\nLand Surface Masks" shape=box style="filled" color="darkorchid"]
+        E [label="GLDAS Land Surface\nModel Outputs" shape=box style="filled" color="#7570b3"]
+        L [label="Vegetation and\nLand Surface Masks" shape=box style="filled" color="#7570b3"]
         M [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_mean_monthly.py"
             label="Calculate Temporal Mean" shape=box style="filled" color="gray"]
         R [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_read_monthly.py"
             label="Calculate Monthly Anomalies" shape=box style="filled" color="gray"]
         H [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_monthly_harmonics.py"
             label="Calculate Spherical Harmonics" shape=box style="filled" color="gray"]
-        S [URL="https://github.com/tsutterley/read-GRACE-harmonics/blob/main/scripts/combine_harmonics.py"
-            label="Spatial Maps" shape=box style="filled" color="mediumseagreen"]
+        S [URL="https://github.com/tsutterley/gravity-toolkit/blob/main/scripts/combine_harmonics.py"
+            label="Spatial Maps" shape=box style="filled" color="#1b9e77"]
         T [URL="https://github.com/tsutterley/model-harmonics/blob/main/scripts/least_squares_mascon_timeseries.py"
-            label="Time Series" shape=box style="filled" color="mediumseagreen"]
+            label="Time Series" shape=box style="filled" color="#1b9e77"]
         E -> M
         E -> R
         M -> R
@@ -159,17 +159,17 @@ Anomalies for each reanalysis are calculated relative to a multi-annual mean (su
     :align: center
 
     digraph {
-        E [label="Reanalysis Surface Pressure" shape=box style="filled" color="darkorchid"]
-        N [label="Geoid Height" shape=box style="filled" color="darkorchid"]
-        O [label="Model Orography" shape=box style="filled" color="darkorchid"]
+        E [label="Reanalysis Surface Pressure" shape=box style="filled" color="#7570b3"]
+        N [label="Geoid Height" shape=box style="filled" color="#7570b3"]
+        O [label="Model Orography" shape=box style="filled" color="#7570b3"]
         M [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/reanalysis_mean_pressure.py"
             label="Calculate Temporal Mean" shape=box style="filled" color="gray"]
         H [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/reanalysis_pressure_harmonics.py"
             label="Calculate Spherical Harmonics" shape=box style="filled" color="gray"]
-        S [URL="https://github.com/tsutterley/read-GRACE-harmonics/blob/main/scripts/combine_harmonics.py"
-            label="Spatial Maps" shape=box style="filled" color="mediumseagreen"]
+        S [URL="https://github.com/tsutterley/gravity-toolkit/blob/main/scripts/combine_harmonics.py"
+            label="Spatial Maps" shape=box style="filled" color="#1b9e77"]
         T [URL="https://github.com/tsutterley/model-harmonics/blob/main/scripts/least_squares_mascon_timeseries.py"
-            label="Time Series" shape=box style="filled" color="mediumseagreen"]
+            label="Time Series" shape=box style="filled" color="#1b9e77"]
         E -> M
         M -> H
         E -> H
@@ -184,21 +184,21 @@ Anomalies for each reanalysis are calculated relative to a multi-annual mean (su
     :align: center
 
     digraph {
-        E [label="Reanalysis Temperature\nand Specific Humidity" shape=box style="filled" color="darkorchid"]
+        E [label="Reanalysis Temperature\nand Specific Humidity" shape=box style="filled" color="#7570b3"]
         L [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/model_level_coefficients.py"
-            label="Model Level\nCoefficients" shape=box style="filled" color="darkorchid"]
-        N [label="Geoid Height" shape=box style="filled" color="darkorchid"]
-        O [label="Model Orography" shape=box style="filled" color="darkorchid"]
+            label="Model Level\nCoefficients" shape=box style="filled" color="#7570b3"]
+        N [label="Geoid Height" shape=box style="filled" color="#7570b3"]
+        O [label="Model Orography" shape=box style="filled" color="#7570b3"]
         G [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/reanalysis_geopotential_heights.py"
             label="Calculate Geopotential Heights\nand Pressure Differences" shape=box style="filled" color="gray"]
         M [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/reanalysis_mean_harmonics.py"
             label="Calculate Temporal Mean\nSpherical Harmonics" shape=box style="filled" color="gray"]
         H [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/reanalysis_atmospheric_harmonics.py"
             label="Calculate Spherical Harmonics" shape=box style="filled" color="gray"]
-        S [URL="https://github.com/tsutterley/read-GRACE-harmonics/blob/main/scripts/combine_harmonics.py"
-            label="Spatial Maps" shape=box style="filled" color="mediumseagreen"]
+        S [URL="https://github.com/tsutterley/gravity-toolkit/blob/main/scripts/combine_harmonics.py"
+            label="Spatial Maps" shape=box style="filled" color="#1b9e77"]
         T [URL="https://github.com/tsutterley/model-harmonics/blob/main/scripts/least_squares_mascon_timeseries.py"
-            label="Time Series" shape=box style="filled" color="mediumseagreen"]
+            label="Time Series" shape=box style="filled" color="#1b9e77"]
         E -> G
         L -> G
         O -> G
@@ -238,18 +238,18 @@ Surface mass balance anomalies are converted to spherical harmonics following [W
     :align: center
 
     digraph {
-        E [label="MERRA-2 Reanalysis\nModel Outputs" shape=box style="filled" color="darkorchid"]
-        L [label="Region Masks" shape=box style="filled" color="darkorchid"]
+        E [label="MERRA-2 Reanalysis\nModel Outputs" shape=box style="filled" color="#7570b3"]
+        L [label="Region Masks" shape=box style="filled" color="#7570b3"]
         M [URL="https://github.com/tsutterley/model-harmonics/blob/main/SMB/merra_smb_mean.py"
             label="Calculate Temporal Mean" shape=box style="filled" color="gray"]
         R [URL="https://github.com/tsutterley/model-harmonics/blob/main/SMB/merra_smb_cumulative.py"
             label="Calculate Cumulative Anomalies" shape=box style="filled" color="gray"]
         H [URL="https://github.com/tsutterley/model-harmonics/blob/main/SMB/merra_smb_harmonics.py"
             label="Calculate Spherical Harmonics" shape=box style="filled" color="gray"]
-        S [URL="https://github.com/tsutterley/read-GRACE-harmonics/blob/main/scripts/combine_harmonics.py"
-            label="Spatial Maps" shape=box style="filled" color="mediumseagreen"]
+        S [URL="https://github.com/tsutterley/gravity-toolkit/blob/main/scripts/combine_harmonics.py"
+            label="Spatial Maps" shape=box style="filled" color="#1b9e77"]
         T [URL="https://github.com/tsutterley/model-harmonics/blob/main/scripts/least_squares_mascon_timeseries.py"
-            label="Time Series" shape=box style="filled" color="mediumseagreen"]
+            label="Time Series" shape=box style="filled" color="#1b9e77"]
         E -> M
         E -> R
         M -> R
