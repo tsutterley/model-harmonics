@@ -117,8 +117,8 @@ import gravity_toolkit as gravtk
 try:
     import pygrib
 except ModuleNotFoundError:
-    warnings.filterwarnings("always")
-    warnings.warn("pygrib not available")
+    warnings.filterwarnings("module")
+    warnings.warn("pygrib not available", ImportWarning)
 # ignore warnings
 warnings.filterwarnings("ignore")
 

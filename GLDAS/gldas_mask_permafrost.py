@@ -75,13 +75,13 @@ import model_harmonics as mdlhmc
 try:
     import fiona
 except ModuleNotFoundError:
-    warnings.filterwarnings("always")
+    warnings.filterwarnings("module")
     warnings.warn("fiona not available")
     warnings.warn("Some functions will throw an exception if called")
 try:
     import shapely.geometry
 except ModuleNotFoundError:
-    warnings.filterwarnings("always")
+    warnings.filterwarnings("module")
     warnings.warn("shapely not available")
     warnings.warn("Some functions will throw an exception if called")
 # ignore warnings
