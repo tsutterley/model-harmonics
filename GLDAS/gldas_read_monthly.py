@@ -119,11 +119,14 @@ import datetime
 import numpy as np
 import gravity_toolkit.time
 from gravity_toolkit.spatial import spatial
+# attempt imports
 try:
     import pygrib
 except ModuleNotFoundError:
-    warnings.filterwarnings("always")
-    warnings.warn("pygrib not available")
+    warnings.filterwarnings("module")
+    warnings.warn("pygrib not available", ImportWarning)
+# ignore warnings
+warnings.filterwarnings("ignore")
 
 # GLDAS models
 gldas_products = {}

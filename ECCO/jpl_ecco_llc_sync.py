@@ -121,7 +121,7 @@ def jpl_ecco_llc_sync(ddir, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
     # print warning for Version 4, Revision 4
     # https://ecco-group.org/docs/ECCO_V4r4_errata.pdf
     if MODEL in ('V4r4',):
-        warnings.filterwarnings("always")
+        warnings.filterwarnings("module")
         warnings.warn("See Errata for V4r4 Atmospheric Pressure Forcing")
 
     # download the ECCO llc grid file

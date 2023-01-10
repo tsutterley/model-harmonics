@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (01/2023)
 Download and management utilities for syncing time and auxiliary files
 Adds additional modules to the gravity_toolkit utilities
 
@@ -10,6 +10,7 @@ PYTHON DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 01/2023: add default ssl context attribute with protocol
     Updated 12/2022: functions for managing and maintaining git repositories
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 10/2022: added option to use CMR provided GES DISC subsetting host
@@ -25,7 +26,7 @@ from gravity_toolkit.utilities import *
 # PURPOSE: get the git hash value
 def get_git_revision_hash(refname='HEAD', short=False):
     """
-    Get the git hash value for a particular reference
+    Get the ``git`` hash value for a particular reference
 
     Parameters
     ----------
@@ -48,7 +49,7 @@ def get_git_revision_hash(refname='HEAD', short=False):
 
 # PURPOSE: get the current git status
 def get_git_status():
-    """Get the status of a git repository as a boolean value
+    """Get the status of a ``git`` repository as a boolean value
     """
     # get path to .git directory from current file path
     filename = inspect.getframeinfo(inspect.currentframe()).filename
@@ -59,10 +60,14 @@ def get_git_status():
     with warnings.catch_warnings():
         return bool(subprocess.check_output(cmd))
 
+# default ssl context
+_default_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS)
+
 # PURPOSE: list a directory on NASA GES DISC https server
-def gesdisc_list(HOST,username=None,password=None,build=False,timeout=None,
-    urs='urs.earthdata.nasa.gov',parser=lxml.etree.HTMLParser(),
-    format='%Y-%m-%d %H:%M',pattern='',sort=False):
+def gesdisc_list(HOST, username=None, password=None, build=False,
+    timeout=None, urs='urs.earthdata.nasa.gov',
+    parser=lxml.etree.HTMLParser(), format='%Y-%m-%d %H:%M',
+    pattern='', sort=False):
     """
     List a directory on NASA GES DISC servers
 
@@ -81,7 +86,7 @@ def gesdisc_list(HOST,username=None,password=None,build=False,timeout=None,
     urs: str, default 'urs.earthdata.nasa.gov'
         Earthdata login URS 3 host
     parser: obj, default lxml.etree.HTMLParser()
-        HTML parser for lxml
+        HTML parser for ``lxml``
     format: str, default '%Y-%m-%d %H:%M'
         format for input time string
     pattern: str, default ''
@@ -252,7 +257,7 @@ def cmr(short_name, version=None, start_date=None, end_date=None,
     # Create cookie jar for storing cookies
     cookie_jar = CookieJar()
     handler.append(urllib2.HTTPCookieProcessor(cookie_jar))
-    handler.append(urllib2.HTTPSHandler(context=ssl.SSLContext()))
+    handler.append(urllib2.HTTPSHandler(context=_default_ssl_context))
     # create "opener" (OpenerDirector instance)
     opener = urllib2.build_opener(*handler)
     # build CMR query
