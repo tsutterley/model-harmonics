@@ -220,7 +220,7 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
                     try:
                         att_val = fileID.getncattr(att_name)
                         att_val = re.sub(r'inst\d+_3d',r'instM_3d',att_val)
-                    except Exception as e:
+                    except Exception as exc:
                         pass
                     else:
                         attributes['ROOT'][att_name] = att_val
@@ -261,7 +261,7 @@ def ncdf_attributes(fileID, var):
     for att_name in attributes_list:
         try:
             att_val = fileID[var].getncattr(att_name)
-        except Exception as e:
+        except Exception as exc:
             pass
         else:
             attributes[att_name] = att_val

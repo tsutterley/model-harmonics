@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 constants.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (01/2023)
 
 Gravitational and ellipsoidal parameters
 
@@ -21,9 +21,10 @@ INPUT:
         INTER = International
         KRASS = Krassovsky (USSR)
         MAIRY = Modified Airy (Ireland 1965/1975)
+        HGH80 = Hughes 1980 Ellipsoid used in some NSIDC data
         TOPEX = TOPEX/POSEIDON ellipsoid
         EGM96 = EGM 1996 gravity model
-        HGH80 = Hughes 1980 Ellipsoid used in some NSIDC data
+        IERS = IERS Numerical Standards (2010)
 
 PYTHON DEPENDENCIES:
     numpy: Scientific Computing Tools For Python
@@ -31,12 +32,20 @@ PYTHON DEPENDENCIES:
         https://numpy.org/doc/stable/user/numpy-for-matlab-users.html
 
 REFERENCE:
-    Hofmann-Wellenhof and Moritz (2006)
+    Hofmann-Wellenhof and Moritz, "Physical Geodesy" (2006)
+    IERS Numerical Standards
+        https://iers-conventions.obspm.fr/content/tn36.pdf
 
 UPDATE HISTORY:
+    Updated 01/2023: include main ellipsoid attributes in docstring
     Forked 12/2022 from ref_ellipsoid.py
 """
 import numpy as np
+
+_ellipsoids = ['CLK66', 'GRS67', 'GRS80', 'WGS72', 'WGS84', 'ATS77',
+    'NAD27', 'NAD83', 'INTER', 'KRASS', 'MAIRY', 'HGH80', 'TOPEX',
+    'EGM96', 'IERS']
+_units = ['MKS', 'CGS']
 
 class constants(object):
     """
@@ -61,22 +70,29 @@ class constants(object):
             - ``'MAIRY'``: Modified Airy (Ireland 1965/1975)
             - ``'TOPEX'``: TOPEX/POSEIDON ellipsoid
             - ``'EGM96'``: EGM 1996 gravity model
+            - ``'IERS'``: IERS Numerical Standards (2010)
     units: str, default `MKS`
         Output units
 
             - ``'MKS'``: meters, kilograms, seconds
             - ``'CGS'``: centimeters, grams, seconds
 
-    References
+    Attributes
     ----------
-    .. [HofmannWellenhof2006] B. Hofmann-Wellenhof and H. Moritz,
-        *Physical Geodesy*, 2nd Edition, 403 pp., (2006).
-        `doi: 10.1007/978-3-211-33545-1 <https://doi.org/10.1007/978-3-211-33545-1>`_
+    a_axis: float
+        Semi-major axis of the ellipsoid
+    flat: float
+        Flattening of the ellipsoid
+    omega: float
+        Angular velocity of the Earth
+    GM: float
+        Geocentric gravitational constant
     """
     np.seterr(invalid='ignore')
     def __init__(self, ellipsoid='WGS84', units='MKS'):
-        # validate units
-        assert units in ('MKS', 'CGS')
+        # validate ellipsoid and units
+        assert ellipsoid in _ellipsoids
+        assert units in _units
 
         # set parameters for ellipsoid
         if ellipsoid.upper() in ('CLK66','NAD27'):
@@ -129,6 +145,11 @@ class constants(object):
             self.a_axis = 6377340.189# [m] semimajor axis of the ellipsoid
             self.flat = 1/299.3249646# flattening of the ellipsoid
 
+        elif (ellipsoid.upper() == 'HGH80'):
+            # Hughes 1980 Ellipsoid used in some NSIDC data
+            self.a_axis = 6378273.0# [m] semimajor axis of the ellipsoid
+            self.flat = 1.0/298.279411123064# flattening of the ellipsoid
+
         elif (ellipsoid.upper() == 'TOPEX'):
             # TOPEX/POSEIDON ellipsoid
             self.a_axis = 6378136.3# [m] semimajor axis of the ellipsoid
@@ -141,13 +162,10 @@ class constants(object):
             self.flat = 1.0/298.256415099# flattening of the ellipsoid
             self.GM = 3.986004415e14# [m^3/s^2]
 
-        elif (ellipsoid.upper() == 'HGH80'):
-            # Hughes 1980 Ellipsoid used in some NSIDC data
-            self.a_axis = 6378273.0# [m] semimajor axis of the ellipsoid
-            self.flat = 1.0/298.279411123064# flattening of the ellipsoid
-
-        else:
-            raise ValueError('Incorrect reference ellipsoid Name')
+        elif (ellipsoid.upper() == 'IERS'):
+            # IERS Numerical Standards
+            self.a_axis = 6378136.6# [m] semimajor axis of the ellipsoid
+            self.flat = 1.0/298.25642# flattening of the ellipsoid
 
         # set default parameters if not listed as part of ellipsoid
         if ellipsoid.upper() not in ('GRS80','GRS67','NAD83','TOPEX','EGM96'):
