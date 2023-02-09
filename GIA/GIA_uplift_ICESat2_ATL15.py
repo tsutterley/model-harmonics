@@ -33,7 +33,7 @@ COMMAND LINE OPTIONS:
         netCDF4: reformatted GIA in netCDF4 format
         HDF5: reformatted GIA in HDF5 format
     --gia-file X: GIA file to read
-    -I, --iterate: Iterate over mask to solve for large matrices
+    -I, --iterate: Iterations over mask to solve for large matrices
     -V, --verbose: verbose output of processing run
     -M X, --mode X: Permissions mode of the files created
 
@@ -53,6 +53,7 @@ PROGRAM DEPENDENCIES:
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
     clenshaw_summation.py: calculate spatial field from spherical harmonics
     gauss_weights.py: Computes the Gaussian weights as a function of degree
+    harmonics.py: data class for working with spherical harmonics
     utilities.py: download and management utilities for files
 
 REFERENCE:
@@ -123,7 +124,7 @@ def calculate_GIA_uplift(input_file, LMAX,
     GIA_FILE=None,
     LOVE_NUMBERS=0,
     REFERENCE=None,
-    ITERATE=False,
+    ITERATIONS=1,
     MODE=0o775):
     """
     Calculate spatial fields of GIA crustal uplift to correct
@@ -151,7 +152,6 @@ def calculate_GIA_uplift(input_file, LMAX,
             - ``'HDF5'``: reformatted GIA in HDF5 format
     GIA_FILE: str or NoneType, default None
         full path to input GIA file
-
     LOVE_NUMBERS: int, default 0
         Treatment of the load Love numbers
 
@@ -166,6 +166,8 @@ def calculate_GIA_uplift(input_file, LMAX,
             - ``'CH'``: Center of Surface Height Figure
             - ``'CM'``: Center of Mass of Earth System
             - ``'CE'``: Center of Mass of Solid Earth
+    ITERATE: bool, default False
+        Iterate over mask to solve for large matrices
     MODE: oct, default 0o775
         Permissions mode of output files
 
@@ -222,6 +224,7 @@ def calculate_GIA_uplift(input_file, LMAX,
     nt, ny, nx = ATL15['delta_h'].shape
     grid_mapping_name = attrib['delta_h']['grid_mapping']
     crs_wkt = attrib[grid_mapping_name]['crs_wkt']
+    fill_value = attrib['delta_h']['_FillValue']
     # coordinate reference systems for converting from projection
     crs1 = pyproj.CRS.from_wkt(crs_wkt)
     crs2 = pyproj.CRS.from_epsg(4326)
@@ -272,20 +275,18 @@ def calculate_GIA_uplift(input_file, LMAX,
         attributes['y'][att_name] = cs_to_cf[1][att_name]
 
     # find valid points (bare-ice, near-shore ocean or ground)
-    if ITERATE:
+    if (ITERATIONS > 1):
         valid_mask = np.logical_not(ATL15['delta_h'].mask)
-        n_iterations = 100
     else:
         valid_mask = np.ones_like(ATL15['delta_h'].mask, dtype=bool)
-        n_iterations = 1
     # indices of valid points
     indy, indx = np.nonzero(np.any(valid_mask, axis=0))
     nind = len(indy)
     # allocate for output GIA uplift
     output_data['dhdt_gia'] = np.empty((ny, nx))
-    output_data['dhdt_gia'][:,:] = attrib['delta_h']['_FillValue']
-    for i in range(n_iterations):
-        ind = slice(i, nind, n_iterations)
+    output_data['dhdt_gia'][:,:] = fill_value
+    for i in range(ITERATIONS):
+        ind = slice(i, nind, ITERATIONS)
         iY, iX = (indy[ind], indx[ind])
         # Converting GIA rates to crustal uplift (Wahr et al., 2000)
         # convert from cm to meters uplift
@@ -304,7 +305,7 @@ def calculate_GIA_uplift(input_file, LMAX,
     attributes['dhdt_gia']['coordinates'] = 'y x'
     attributes['dhdt_gia']['units'] = 'm/yr'
     attributes['dhdt_gia']['grid_mapping'] = 'crs'
-    attributes['dhdt_gia']['_FillValue'] = attrib['delta_h']['_FillValue']
+    attributes['dhdt_gia']['_FillValue'] = fill_value
 
     # output file
     FILE = f'{PRD}_{RGN}_{RES}_GIA_{GIA_Ylms_rate.title}_L{LMAX:d}.nc'
@@ -439,8 +440,8 @@ def arguments():
         help='GIA file to read')
     # iterate over mask to solve for large matrices
     parser.add_argument('--iterate','-I',
-        default=False, action='store_true',
-        help='Iterate over mask to solve for large matrices')
+        type=uint, default=1,
+        help='Iterations over mask to solve for large matrices')
     # print information about each input and output file
     parser.add_argument('--verbose','-V',
         action='count', default=0,
@@ -451,6 +452,14 @@ def arguments():
         help='Permissions mode of output files')
     # return the parser
     return parser
+
+def uint(x):
+    """Argument parser type for positive integers
+    """
+    x = int(x)
+    if (x <= 0):
+        raise argparse.ArgumentTypeError('must be a positive integer')
+    return x
 
 # This is the main part of the program that calls the individual functions
 def main():
@@ -465,13 +474,13 @@ def main():
     # try to run the analysis with listed parameters
     try:
         info(args)
-        # run grace_spatial_maps algorithm with parameters
+        # run algorithm with parameters
         calculate_GIA_uplift(args.infile, args.lmax,
             GIA=args.gia,
             GIA_FILE=args.gia_file,
             LOVE_NUMBERS=args.love,
             REFERENCE=args.reference,
-            ITERATE=args.iterate,
+            ITERATIONS=args.iterate,
             MODE=args.mode)
     except Exception as exc:
         # if there has been an error exception
