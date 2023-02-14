@@ -86,7 +86,6 @@ import argparse
 import traceback
 import numpy as np
 import gravity_toolkit as gravtk
-import model_harmonics as mdlhmc
 
 # PURPOSE: keep track of threads
 def info(args):
@@ -210,16 +209,16 @@ def HDF5_GSFC_mascons(output_data, GIA,
     fileID.attrs['geospatial_lat_units'] = "degrees_north"
     fileID.attrs['geospatial_lon_units'] = "degrees_east"
     # add software information
-    fileID.attrs['software_reference'] = mdlhmc.version.project_name
-    fileID.attrs['software_version'] = mdlhmc.version.full_version
+    fileID.attrs['software_reference'] = gravtk.version.project_name
+    fileID.attrs['software_version'] = gravtk.version.full_version
     # Closing the HDF5 file
     fileID.close()
 
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
-        description="""Reads dates of GSFC GRACE mascon data files and assigns
-            the month number
+        description="""Calculates GIA equivalent water height corrections
+            for GSFC mascons at the central points of each mascon
             """,
         fromfile_prefix_chars="@"
     )
@@ -299,7 +298,7 @@ def main():
                 LOVE_NUMBERS=args.love,
                 REFERENCE=args.reference,
                 MODE=args.mode)
-        except Exception as e:
+        except Exception as exc:
             # if there has been an error exception
             # print the type, value, and stack trace of the
             # current exception being handled

@@ -250,7 +250,7 @@ def main():
     # get NASA Earthdata credentials
     try:
         args.user,_,args.password = netrc.netrc(args.netrc).authenticators(URS)
-    except Exception as e:
+    except Exception as exc:
         # check that NASA Earthdata credentials were entered
         if not args.user:
             prompt = f'Username for {URS}: '

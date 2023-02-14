@@ -1,19 +1,293 @@
 #!/usr/bin/env python
 u"""
 spatial.py
-Written by Tyler Sutterley (10/2022)
+Written by Tyler Sutterley (02/2023)
 Functions for reading, writing and processing spatial data
+Extends gravity_toolkit spatial module adding raster support
 
 PYTHON DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 02/2023: geotiff read and write to inheritance of spatial class
     Written 10/2022
 """
-# extend gravity_toolkit spatial
-from gravity_toolkit.spatial import *
+import os
+import uuid
+import logging
+import warnings
+import numpy as np
+import gravity_toolkit.spatial
+from model_harmonics.constants import constants
 
-def scale_areas(lat, flat=1.0/298.257223563, ref=70.0):
+# attempt imports
+try:
+    import osgeo.gdal, osgeo.osr, osgeo.gdalconst
+except (ImportError, ModuleNotFoundError) as exc:
+    warnings.filterwarnings("module")
+    warnings.warn("GDAL not available", ImportWarning)
+try:
+    import pyproj
+except (ImportError, ModuleNotFoundError) as exc:
+    warnings.filterwarnings("module")
+    warnings.warn("pyproj not available", ImportWarning)
+# ignore warnings
+warnings.filterwarnings("ignore")
+
+class raster(gravity_toolkit.spatial):
+    """
+    Inheritance of ``spatial`` class for reading and writing
+    raster data
+
+    Attributes
+    ----------
+    data: float
+        spatial grid data
+    mask: bool
+        spatial grid mask
+    x: float
+        x-coordinate array
+    y: float
+        y-coordinate array
+    lon: float
+        grid longitudes
+    lat: float
+        grid latitudes
+    fill_value: float or NoneType, default None
+        invalid value for spatial grid data
+    attributes: dict
+        attributes of spatial variables
+    extent: list, default [None,None,None,None]
+        spatial grid bounds
+        ``[minimum x, maximum x, minimum y, maximum y]``
+    spacing: list, default [None,None]
+        grid step size ``[x, y]``
+    shape: tuple
+        dimensions of spatial object
+    ndim: int
+        number of dimensions of spatial object
+    filename: str
+        input or output filename
+
+    """
+    np.seterr(invalid='ignore')
+    # inherit spatial class to read more data types
+    def __init__(self, projection=None, **kwargs):
+        super().__init__(**kwargs)
+        self.x = None
+        self.y = None
+        self.projection = projection
+
+    def from_geotiff(self, filename, **kwargs):
+        """
+        Read data from a geotiff file
+
+        Parameters
+        ----------
+        filename: str
+            full path of input geotiff file
+        compression: str or NoneType, default None
+            file compression type
+        bounds: list or NoneType, default bounds
+            extent of the file to read:
+            ``[minimum x, maximum x, minimum y, maximum y]``
+        """
+        # set filename
+        self.case_insensitive_filename(filename)
+        # set default keyword arguments
+        kwargs.setdefault('compression',None)
+        kwargs.setdefault('bounds',None)
+        # Open the geotiff file for reading
+        logging.info(self.filename)
+        if (kwargs['compression'] == 'gzip'):
+            # read as GDAL gzip virtual geotiff dataset
+            mmap_name = f"/vsigzip/{self.filename}"
+            ds = osgeo.gdal.Open(mmap_name)
+        elif (kwargs['compression'] == 'bytes'):
+            # read as GDAL memory-mapped (diskless) geotiff dataset
+            mmap_name = f"/vsimem/{uuid.uuid4().hex}"
+            osgeo.gdal.FileFromMemBuffer(mmap_name, self.filename.read())
+            ds = osgeo.gdal.Open(mmap_name)
+        else:
+            # read geotiff dataset
+            ds = osgeo.gdal.Open(self.filename, osgeo.gdalconst.GA_ReadOnly)
+        # get the spatial projection reference information
+        srs = ds.GetSpatialRef()
+        self.attributes['projection'] = srs.ExportToProj4()
+        self.attributes['wkt'] = srs.ExportToWkt()
+        # get dimensions
+        xsize = ds.RasterXSize
+        ysize = ds.RasterYSize
+        bsize = ds.RasterCount
+        # get geotiff info
+        info_geotiff = ds.GetGeoTransform()
+        self.spacing = (info_geotiff[1], info_geotiff[5])
+        # calculate image extents
+        xmin = info_geotiff[0]
+        ymax = info_geotiff[3]
+        xmax = xmin + (xsize-1)*info_geotiff[1]
+        ymin = ymax + (ysize-1)*info_geotiff[5]
+        # x and y pixel center coordinates (converted from upper left)
+        x = xmin + info_geotiff[1]/2.0 + np.arange(xsize)*info_geotiff[1]
+        y = ymax + info_geotiff[5]/2.0 + np.arange(ysize)*info_geotiff[5]
+        # if reducing to specified bounds
+        if kwargs['bounds'] is not None:
+            # reduced x and y limits
+            xlimits = (kwargs['bounds'][0],kwargs['bounds'][1])
+            ylimits = (kwargs['bounds'][2],kwargs['bounds'][3])
+            # Specify offset and rows and columns to read
+            xoffset = int((xlimits[0] - xmin)/info_geotiff[1])
+            yoffset = int((ymax - ylimits[1])/np.abs(info_geotiff[5]))
+            xcount = int((xlimits[1] - xlimits[0])/info_geotiff[1]) + 1
+            ycount = int((ylimits[1] - ylimits[0])/np.abs(info_geotiff[5])) + 1
+            # reduced x and y pixel center coordinates
+            self.x = x[slice(xoffset, xoffset + xcount, None)]
+            self.y = y[slice(yoffset, yoffset + ycount, None)]
+            # read reduced image with GDAL
+            self.data = ds.ReadAsArray(xoff=xoffset, yoff=yoffset,
+                xsize=xcount, ysize=ycount)
+            # reduced image extent (converted back to upper left)
+            xmin = np.min(self.x) - info_geotiff[1]/2.0
+            xmax = np.max(self.x) - info_geotiff[1]/2.0
+            ymin = np.min(self.y) - info_geotiff[5]/2.0
+            ymax = np.max(self.y) - info_geotiff[5]/2.0
+        else:
+            # x and y pixel center coordinates
+            self.x = np.copy(x)
+            self.y = np.copy(y)
+            # read full image with GDAL
+            self.data = ds.ReadAsArray()
+        # image extent
+        self.attributes['extent'] = (xmin, xmax, ymin, ymax)
+        # check if image has fill values
+        self.mask = np.zeros_like(self.data, dtype=bool)
+        # get invalid value (0 is falsy)
+        self.fill_value = ds.GetRasterBand(1).GetNoDataValue()
+        if self.fill_value or (self.fill_value == 0):
+            # mask invalid values
+            self.mask[:] = (self.data == self.fill_value)
+        # close the dataset
+        ds = None
+        self.update_dimensions()
+        self.update_mask()
+        return self
+
+    def to_geotiff(self, filename, **kwargs):
+        """
+        Write a spatial object to a geotiff file
+
+        Parameters
+        ----------
+        filename: str
+            full path of output geotiff file
+        driver: str, default 'cog'
+            GDAL driver
+
+                - ``'GTiff'``: GeoTIFF
+                - ``'cog'``: Cloud Optimized GeoTIFF
+        dtype: obj, default osgeo.gdal.GDT_Float64
+            GDAL data type
+        options: list, default ['COMPRESS=LZW']
+            GDAL driver creation options
+        """
+        # set filename
+        self.filename = os.path.expanduser(filename)
+        # set default keyword arguments
+        kwargs.setdefault('driver', 'GTiff')
+        kwargs.setdefault('dtype', osgeo.gdal.GDT_Float64)
+        kwargs.setdefault('options', ['COMPRESS=LZW'])
+        # verify grid dimensions to be iterable
+        self.expand_dims()
+        # grid shape
+        ny,nx,nband = np.shape(self.data)
+        # output as geotiff or specified driver
+        driver = osgeo.gdal.GetDriverByName(kwargs['driver'])
+        # set up the dataset with creation options
+        ds = driver.Create(self.filename, nx, ny, nband,
+            kwargs['dtype'], kwargs['options'])
+        # top left x, w-e pixel resolution, rotation
+        # top left y, rotation, n-s pixel resolution
+        xmin, xmax, ymin, ymax = self.attributes['extent']
+        dx, dy = self.spacing
+        ds.SetGeoTransform([xmin, dx, 0, ymax, 0, dy])
+        # set the spatial projection reference information
+        srs = osgeo.osr.SpatialReference()
+        srs.ImportFromWkt(self.attributes['wkt'])
+        # export
+        ds.SetProjection( srs.ExportToWkt() )
+        # for each band
+        for band in range(nband):
+            # set fill value for band (0 is falsy)
+            if self.fill_value or (self.fill_value == 0):
+                ds.GetRasterBand(band+1).SetNoDataValue(self.fill_value)
+            # write band to geotiff array
+            ds.GetRasterBand(band+1).WriteArray(self.data[:,:,band])
+        # print filename if verbose
+        logging.info(self.filename)
+        # close dataset
+        ds.FlushCache()
+
+    def get_latlon(self, srs_proj4=None, srs_wkt=None, srs_epsg=None):
+        """
+        Get the latitude and longitude of grid cells
+
+        Parameters
+        ----------
+        srs_proj4: str or NoneType, default None
+            PROJ4 projection string
+        srs_wkt: str or NoneType, default None
+            Well-Known Text (WKT) projection string
+        srs_epsg: int or NoneType, default None
+            EPSG projection code
+
+        Returns
+        -------
+        longitude: float
+            longitude coordinates of grid cells
+        latitude: float
+            latitude coordinates of grid cells
+        """
+        # set the spatial projection reference information
+        if srs_proj4 is not None:
+            source = pyproj.CRS.from_proj4(srs_proj4)
+        elif srs_wkt is not None:
+            source = pyproj.CRS.from_wkt(srs_wkt)
+        elif srs_epsg is not None:
+            source = pyproj.CRS.from_epsg(srs_epsg)
+        else:
+            source = pyproj.CRS.from_string(self.projection)
+        # target spatial reference (WGS84 latitude and longitude)
+        target = pyproj.CRS.from_epsg(4326)
+        # create transformation
+        transformer = pyproj.Transformer.from_crs(source, target,
+            always_xy=True)
+        # create meshgrid of points in original projection
+        x, y = np.meshgrid(self.x, self.y)
+        # convert coordinates to latitude and longitude
+        self.lon, self.lat = transformer.transform(x, y)
+        return self
+
+    def expand_dims(self):
+        """
+        Add a singleton dimension to a spatial object if non-existent
+        """
+        # output spatial with a third dimension
+        if (np.ndim(self.data) == 2):
+            self.data = self.data[:,:,None]
+            # try expanding mask variable
+            try:
+                self.mask = self.mask[:,:,None]
+            except Exception as exc:
+                pass
+        # get spacing and dimensions
+        self.update_dimensions()
+        self.update_mask()
+        return self
+
+# get WGS84 parameters in CGS (centimeters, grams, seconds)
+_wgs84 = constants(ellipsoid='WGS84', units='CGS')
+
+def scale_areas(lat, flat=_wgs84.flat, ref=70.0):
     """
     Calculates area scaling factors for a polar stereographic projection
     including special case of at the exact pole
