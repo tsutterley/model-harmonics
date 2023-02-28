@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 least_squares_mascons.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (02/2023)
 
 Calculates regional mass anomalies through a least-squares mascon procedure
     from an index of spherical harmonic coefficient files
@@ -19,10 +19,12 @@ COMMAND LINE OPTIONS:
     -m X, --mmax X: maximum spherical harmonic order
     -R X, --radius X: Gaussian smoothing radius (km)
     -d, --destripe: use decorrelation filter (destriping filter)
-    -n X, --love X: Load Love numbers dataset
+    -n X, --love X: Treatment of the Love Love numbers
         0: Han and Wahr (1995) values from PREM
         1: Gegout (2005) values from PREM
         2: Wang et al. (2012) values from PREM
+        3: Wang et al. (2012) values from PREM with hard sediment
+        4: Wang et al. (2012) values from PREM with soft sediment
     --reference X: Reference frame for load love numbers
         CF: Center of Surface Figure (default)
         CM: Center of Mass of Earth System
@@ -84,6 +86,7 @@ REFERENCES:
         https://doi.org/10.1029/2009GL039401
 
 UPDATE HISTORY:
+    Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -193,11 +196,11 @@ def least_squares_mascons(input_file, LMAX, RAD,
     parser = re.compile(r'^(?!\#|\%|$)', re.VERBOSE)
 
     # read arrays of kl, hl, and ll Love Numbers
-    hl,kl,ll = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
-        REFERENCE=REFERENCE)
+    LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
+        REFERENCE=REFERENCE, FORMAT='class')
 
     # Earth Parameters
-    factors = gravtk.units(lmax=LMAX).harmonic(hl,kl,ll)
+    factors = gravtk.units(lmax=LMAX).harmonic(*LOVE)
     # Average Density of the Earth [g/cm^3]
     rho_e = factors.rho_e
     # Average Radius of the Earth [cm]
@@ -221,8 +224,8 @@ def least_squares_mascons(input_file, LMAX, RAD,
     # Read Ocean function and convert to Ylms for redistribution
     if (REDISTRIBUTE_MASCONS | REDISTRIBUTE):
         # read Land-Sea Mask and convert to spherical harmonics
-        ocean_Ylms = gravtk.ocean_stokes(LANDMASK, LMAX, MMAX=MMAX,
-            LOVE=(hl,kl,ll))
+        ocean_Ylms = gravtk.ocean_stokes(LANDMASK, LMAX,
+            MMAX=MMAX, LOVE=LOVE)
         ocean_str = '_OCN'
     else:
         # not distributing uniformly over ocean
@@ -349,7 +352,7 @@ def least_squares_mascons(input_file, LMAX, RAD,
                 # Data Spherical Harmonics
                 Y_lm[ii,:] = np.copy(data_harm[l,m,:])
                 # degree dependent factor to convert to mass
-                fact[ii] = (2.0*l+1.0)/(1.0 + kl[l])
+                fact[ii] = (2.0*l+1.0)/(1.0 + LOVE.kl[l])
                 # degree dependent smoothing
                 wt_lm[ii] = np.copy(wt[l])
                 # add 1 to counter
@@ -516,8 +519,10 @@ def arguments():
     # 0: Han and Wahr (1995) values from PREM
     # 1: Gegout (2005) values from PREM
     # 2: Wang et al. (2012) values from PREM
+    # 3: Wang et al. (2012) values from PREM with hard sediment
+    # 4: Wang et al. (2012) values from PREM with soft sediment
     parser.add_argument('--love','-n',
-        type=int, default=0, choices=[0,1,2],
+        type=int, default=0, choices=[0,1,2,3,4],
         help='Treatment of the Load Love numbers')
     # option for setting reference frame for gravitational load love number
     # reference frame options (CF, CM, CE)

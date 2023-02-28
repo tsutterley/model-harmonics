@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_cumulative.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (02/2023)
 Reads MERRA-2 hybrid datafiles to calculate cumulative anomalies in
     derived surface mass balance products
 MERRA-2 Hybrid model outputs provided by Brooke Medley at GSFC
@@ -33,6 +33,7 @@ PYTHON DEPENDENCIES:
          https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 02/2023: new doi for Medley (2022) Cryosphere paper
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 10/2022: add Greenland and Antarctic versions v1.2.1
@@ -327,7 +328,7 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION,
     fileID.references = ("Medley, B., Neumann, T. A., Zwally, H. J., "
         "Smith, B. E., and Stevens, C. M.: Simulations of Firn Processes "
         "over the Greenland and Antarctic Ice Sheets: 1980--2021, "
-        "The Cryosphere, https://doi.org/10.5194/tc-2020-266, 2022.")
+        "The Cryosphere, https://doi.org/10.5194/tc-16-3971-2022, 2022.")
     fileID.institution = "NASA Goddard Space Flight Center (GSFC)"
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
