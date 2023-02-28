@@ -12,10 +12,12 @@ INPUTS:
 COMMAND LINE OPTIONS:
     -h, --help: list the command line options
     -l X, --lmax X: maximum spherical harmonic degree
-    -n X, --love X: Load Love numbers dataset
+    -n X, --love X: Treatment of the Love Love numbers
         0: Han and Wahr (1995) values from PREM
         1: Gegout (2005) values from PREM
         2: Wang et al. (2012) values from PREM
+        3: Wang et al. (2012) values from PREM with hard sediment
+        4: Wang et al. (2012) values from PREM with soft sediment
     --reference X: Reference frame for load love numbers
         CF: Center of Surface Figure (default)
         CM: Center of Mass of Earth System
@@ -66,6 +68,8 @@ REFERENCE:
 
 UPDATE HISTORY:
     Updated 02/2023: added iterate option to reduce memory load for 1km files
+        add debug logging for ATL15 netCDF4 variables
+        use love numbers class with additional attributes
     Updated 12/2022: single implicit import of gravity toolkit
     Updated 11/2022: use f-strings for formatting verbose output
     Updated 05/2022: use argparse descriptions within documentation
@@ -109,7 +113,12 @@ def read_ATL15(infile, group='delta_h'):
     ATL15 = {}
     attributes = {}
     with netCDF4.Dataset(os.path.expanduser(infile),'r') as fileID:
-        for key,val in fileID[group].variables.items():
+        # check if reading from root group or sub-group
+        ncf = fileID.groups[group] if group else fileID
+        # netCDF4 structure information
+        logging.debug(os.path.expanduser(infile))
+        logging.debug(list(ncf.variables.keys()))
+        for key,val in ncf.variables.items():
             ATL15[key] = val[:].copy()
             attributes[key] = {}
             for att_name in val.ncattrs():
@@ -234,8 +243,9 @@ def calculate_GIA_uplift(input_file, LMAX,
     crs_to_dict = crs1.to_dict()
 
     # read arrays of kl, hl, and ll Love Numbers
-    hl,kl,ll = gravtk.load_love_numbers(LMAX,
-        LOVE_NUMBERS=LOVE_NUMBERS, REFERENCE=REFERENCE)
+    LOVE = gravtk.load_love_numbers(LMAX,
+        LOVE_NUMBERS=LOVE_NUMBERS, REFERENCE=REFERENCE,
+        FORMAT='class')
 
     # input GIA spherical harmonic datafiles
     GIA_Ylms_rate = gravtk.gia(lmax=LMAX).from_GIA(GIA_FILE, GIA=GIA)
@@ -293,7 +303,7 @@ def calculate_GIA_uplift(input_file, LMAX,
         output_data['dhdt_gia'][iY,iX] = 0.01*gravtk.clenshaw_summation(
             GIA_Ylms_rate.clm, GIA_Ylms_rate.slm,
             gridlon[iY,iX], latitude_geocentric[iY,iX],
-            LMAX=LMAX, RAD=0, UNITS=6, LOVE=(hl,kl,ll),
+            LMAX=LMAX, RAD=0, UNITS=6, LOVE=LOVE,
             ASTYPE=np.float64, SCALE=1e-32)
 
     # GIA correction attributes
@@ -409,8 +419,10 @@ def arguments():
     # 0: Han and Wahr (1995) values from PREM
     # 1: Gegout (2005) values from PREM
     # 2: Wang et al. (2012) values from PREM
+    # 3: Wang et al. (2012) values from PREM with hard sediment
+    # 4: Wang et al. (2012) values from PREM with soft sediment
     parser.add_argument('--love','-n',
-        type=int, default=0, choices=[0,1,2],
+        type=int, default=0, choices=[0,1,2,3,4],
         help='Treatment of the Load Love numbers')
     # option for setting reference frame for gravitational load love number
     # reference frame options (CF, CM, CE)

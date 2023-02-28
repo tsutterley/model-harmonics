@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_monthly_harmonics.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (02/2023)
 Reads monthly ECCO ocean bottom pressure anomalies and converts to
     spherical harmonic coefficients
 
@@ -22,10 +22,12 @@ COMMAND LINE OPTIONS:
     -Y X, --year X: Years to run
     -l X, --lmax X: maximum spherical harmonic degree
     -m X, --mmax X: maximum spherical harmonic order
-    -n X, --love X: Load Love numbers dataset
+    -n X, --love X: Treatment of the Love Love numbers
         0: Han and Wahr (1995) values from PREM
         1: Gegout (2005) values from PREM
         2: Wang et al. (2012) values from PREM
+        3: Wang et al. (2012) values from PREM with hard sediment
+        4: Wang et al. (2012) values from PREM with soft sediment
     --reference X: Reference frame for load love numbers
         CF: Center of Surface Figure (default)
         CM: Center of Mass of Earth System
@@ -63,6 +65,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
         use constants class in place of geoid-toolkit ref_ellipsoid
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -198,7 +201,7 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
 
     # read load love numbers
     LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
-        REFERENCE=REFERENCE)
+        REFERENCE=REFERENCE, FORMAT='class')
     # calculate Legendre polynomials
     PLM, dPLM = gravtk.plm_holmes(LMAX,np.cos(theta[:,0]))
 
@@ -327,8 +330,10 @@ def arguments():
     # 0: Han and Wahr (1995) values from PREM
     # 1: Gegout (2005) values from PREM
     # 2: Wang et al. (2012) values from PREM
+    # 3: Wang et al. (2012) values from PREM with hard sediment
+    # 4: Wang et al. (2012) values from PREM with soft sediment
     parser.add_argument('--love','-n',
-        type=int, default=0, choices=[0,1,2],
+        type=int, default=0, choices=[0,1,2,3,4],
         help='Treatment of the Load Love numbers')
     # option for setting reference frame for gravitational load love number
     # reference frame options (CF, CM, CE)

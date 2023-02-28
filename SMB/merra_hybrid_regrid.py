@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_regrid.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (02/2023)
 Read and regrid MERRA-2 hybrid variables
 MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
 
@@ -50,6 +50,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 02/2023: new doi for Medley (2022) Cryosphere paper
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 10/2022: move polar stereographic scaling function to spatial
@@ -128,7 +129,7 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
     reference = ("Medley, B., Neumann, T. A., Zwally, H. J., "
         "Smith, B. E., and Stevens, C. M.: Simulations of Firn Processes "
         "over the Greenland and Antarctic Ice Sheets: 1980--2021, "
-        "The Cryosphere, https://doi.org/10.5194/tc-2020-266, 2022.")
+        "The Cryosphere, https://doi.org/10.5194/tc-16-3971-2022, 2022.")
     # Open the MERRA-2 Hybrid NetCDF file for reading
     if GZIP:
         # read as in-memory (diskless) netCDF4 dataset

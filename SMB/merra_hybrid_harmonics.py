@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_harmonics.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (02/2023)
 Read MERRA-2 hybrid variables and converts to spherical harmonics
 MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
 
@@ -24,10 +24,12 @@ COMMAND LINE OPTIONS:
     --mask X: netCDF4 mask files for reducing to regions
     -l X, --lmax X: maximum spherical harmonic degree
     -m X, --mmax X: maximum spherical harmonic order
-    -n X, --love X: Load Love numbers dataset
+    -n X, --love X: Treatment of the Love Love numbers
         0: Han and Wahr (1995) values from PREM
         1: Gegout (2005) values from PREM
         2: Wang et al. (2012) values from PREM
+        3: Wang et al. (2012) values from PREM with hard sediment
+        4: Wang et al. (2012) values from PREM with soft sediment
     --reference X: Reference frame for load love numbers
         CF: Center of Surface Figure (default)
         CM: Center of Mass of Earth System
@@ -63,6 +65,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 10/2022: move polar stereographic scaling function to spatial
@@ -250,7 +253,7 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     scaled_area = ps_scale*fd['area'][indx,indy]
     # read load love numbers
     LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
-        REFERENCE=REFERENCE)
+        REFERENCE=REFERENCE, FORMAT='class')
     # upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
     # output string for both LMAX == MMAX and LMAX != MMAX cases
@@ -340,8 +343,10 @@ def arguments():
     # 0: Han and Wahr (1995) values from PREM
     # 1: Gegout (2005) values from PREM
     # 2: Wang et al. (2012) values from PREM
+    # 3: Wang et al. (2012) values from PREM with hard sediment
+    # 4: Wang et al. (2012) values from PREM with soft sediment
     parser.add_argument('--love','-n',
-        type=int, default=0, choices=[0,1,2],
+        type=int, default=0, choices=[0,1,2,3,4],
         help='Treatment of the Load Love numbers')
     # option for setting reference frame for gravitational load love number
     # reference frame options (CF, CM, CE)

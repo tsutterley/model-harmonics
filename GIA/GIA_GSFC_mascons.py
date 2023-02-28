@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 GIA_GSFC_mascons.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (02/2023)
 Calculates GIA equivalent water height corrections for GSFC mascons at the
     central points of each mascon
 
@@ -24,10 +24,12 @@ COMMAND LINE OPTIONS:
         HDF5: reformatted GIA in HDF5 format
     --gia-file X: GIA file to read
     -l X, --lmax X: maximum degree of spherical harmonics
-    -n X, --love X: Load Love numbers dataset
+    -n X, --love X: Treatment of the Love Love numbers
         0: Han and Wahr (1995) values from PREM
         1: Gegout (2005) values from PREM
         2: Wang et al. (2012) values from PREM
+        3: Wang et al. (2012) values from PREM with hard sediment
+        4: Wang et al. (2012) values from PREM with soft sediment
     --reference X: Reference frame for load love numbers
         CF: Center of Surface Figure (default)
         CM: Center of Mass of Earth System
@@ -60,6 +62,7 @@ REFERENCES:
         Bollettino di Geodesia e Scienze (1982)
 
 UPDATE HISTORY:
+    Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use full data citation from GIA import function
@@ -115,7 +118,7 @@ def GIA_GSFC_mascons(grace_file, GIA=None, GIA_FILE=None, LMAX=0,
 
     # read load love numbers
     LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
-        REFERENCE=REFERENCE)
+        REFERENCE=REFERENCE, FORMAT='class')
 
     # input GIA spherical harmonic datafiles
     GIA_Ylms = gravtk.read_GIA_model(GIA_FILE, GIA=GIA, LMAX=LMAX)
@@ -257,8 +260,10 @@ def arguments():
     # 0: Han and Wahr (1995) values from PREM
     # 1: Gegout (2005) values from PREM
     # 2: Wang et al. (2012) values from PREM
+    # 3: Wang et al. (2012) values from PREM with hard sediment
+    # 4: Wang et al. (2012) values from PREM with soft sediment
     parser.add_argument('--love','-n',
-        type=int, default=0, choices=[0,1,2],
+        type=int, default=0, choices=[0,1,2,3,4],
         help='Treatment of the Load Love numbers')
     # option for setting reference frame for gravitational load love number
     # reference frame options (CF, CM, CE)
