@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_scaling_factors.py
-Written by Tyler Sutterley (02/2023)
+Written by Tyler Sutterley (03/2023)
 
 Reads monthly GLDAS total water storage anomalies and monthly
     spherical harmonic coefficients
@@ -78,6 +78,9 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
+        output all data within a single ascii, netCDF or HDF5 file
+        use new scaling_factors inheritance of spatial class
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
         use constants class in place of geoid-toolkit ref_ellipsoid
@@ -274,37 +277,40 @@ def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
         calendar_year,calendar_month = gravtk.time.grace_to_calendar(gm)
         # GLDAS monthly data file from read_gldas_monthly.py
         args=(MODEL,SPACING,calendar_year,calendar_month,suffix[DATAFORM])
-        f1='GLDAS_{0}{1}_TWC_{2:4d}_{3:02d}.{4}'.format(*args)
-        # spherical harmonic data file
-        args=(MODEL,SPACING,LMAX,order_str,gm,suffix[DATAFORM])
-        f2='GLDAS_{0}{1}_TWC_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
+        f1 = 'GLDAS_{0}{1}_TWC_{2:4d}_{3:02d}.{4}'.format(*args)
         # read data files for data format
         if (DATAFORM == 'ascii'):
             # ascii (.txt)
             gldas_data = gravtk.spatial(spacing=[dlon,dlat],nlat=nlat,
                 nlon=nlon,extent=extent).from_ascii(os.path.join(ddir,sub1,f1))
-            gldas_Ylms = gravtk.harmonics().from_ascii(os.path.join(ddir,sub2,f2))
         elif (DATAFORM == 'netCDF4'):
             # netCDF4 (.nc)
             gldas_data = gravtk.spatial().from_netCDF4(os.path.join(ddir,sub1,f1))
-            gldas_Ylms = gravtk.harmonics().from_netCDF4(os.path.join(ddir,sub2,f2))
         elif (DATAFORM == 'HDF5'):
             # HDF5 (.H5)
             gldas_data = gravtk.spatial().from_HDF5(os.path.join(ddir,sub1,f1))
-            gldas_Ylms = gravtk.harmonics().from_HDF5(os.path.join(ddir,sub2,f2))
+        # replace fill value points and certain vegetation types with 0
+        gldas_data.replace_invalid(0.0, mask=combined_mask)
+        # convert to spherical harmonics
+        gldas_Ylms = gravtk.gen_stokes(gldas_data.data, glon,
+            latitude_geocentric[:,0], LMAX=LMAX, MMAX=MMAX,
+            PLM=PLM, LOVE=LOVE)
         # if destriping the monthly GLDAS spherical harmonic data
         if DESTRIPE:
             gldas_Ylms = gldas_Ylms.destripe()
         # convolve with degree dependent weighting
         gldas_Ylms.convolve(dfactor*wt)
+        # calculate date information
+        gldas_Ylms.time, = gravtk.time.convert_calendar_decimal(
+            calendar_year, calendar_month)
+        gldas_Ylms.month = np.copy(gm)
         # convert spherical harmonics to output spatial grid
         gldas_grid = gldas_data.zeros_like()
         gldas_grid.time = np.copy(gldas_Ylms.time)
         gldas_grid.month = np.copy(gldas_Ylms.month)
         gldas_grid.data = gravtk.harmonic_summation(gldas_Ylms.clm, gldas_Ylms.slm,
             gldas_data.lon, gldas_data.lat, LMAX=LMAX, PLM=PLM).T
-        # replace fill value points and certain vegetation types with 0
-        gldas_data.replace_invalid(0.0, mask=combined_mask)
+        # replace fill value points
         gldas_grid.replace_invalid(0.0)
         gldas_grid.update_mask()
         # append original and processed data to list
@@ -312,59 +318,68 @@ def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
         processed.append(gldas_grid)
 
     # create merged spatial objects from lists
-    gldas_data = gravtk.spatial().from_list(original, clear=True)
-    gldas_grid = gravtk.spatial().from_list(processed, clear=True)
+    gldas_data = gravtk.scaling_factors().from_list(original, clear=True)
+    gldas_grid = gravtk.scaling_factors().from_list(processed, clear=True)
     # calculate scaling factors and scaling factor errors
+    # calculate power of the original data
     gldas_kfactor = gldas_grid.kfactor(gldas_data)
-    # calculate power of original data
-    gldas_power = gldas_data.sum(power=2.0).power(0.5)
 
     # output file format
     file_format = 'GLDAS_{0}{1}_TWC_{2}_L{3:d}{4}{5}{6}_{7:03d}-{8:03d}.{9}'
+    # field mapping for output spatial variables
+    field_mapping = dict(lon='lon', lat='lat', data='kfactor',
+        error='error', magnitude='power')
     # attributes for output files
-    attributes = {}
-    attributes['title'] = gldas_products[MODEL]
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes = dict(ROOT={}, kfactor={}, error={}, power={}, lon={}, lat={})
+    attributes['ROOT']['institution'] = 'NASA Goddard Space Flight Center (GSFC)'
+    attributes['ROOT']['project'] = 'Global Land Data Assimilation System (GLDAS)'
+    attributes['ROOT']['title'] = gldas_products[MODEL]
+    attributes['ROOT']['product_version'] = f'{MODEL} v{VERSION}'
+    attributes['ROOT']['product_name'] = 'TWC'
+    attributes['ROOT']['product_type'] = 'gravity_field'
+    attributes['ROOT']['earth_model'] = LOVE.model
+    attributes['ROOT']['earth_love_numbers'] = LOVE.citation
+    attributes['ROOT']['reference_frame'] = LOVE.reference
+    attributes['ROOT']['max_degree'] = LMAX
+    attributes['ROOT']['max_order'] = MMAX
+    attributes['ROOT']['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    # add attributes for latitude and longitude
+    attributes['lon'] = {}
+    attributes['lon']['long_name'] = 'longitude'
+    attributes['lon']['units'] = 'degrees_east'
+    attributes['lat'] = {}
+    attributes['lat']['long_name'] = 'latitude'
+    attributes['lat']['units'] = 'degrees_north'
+    # add attributes for scaling factor
+    attributes['kfactor']['units'] = 'unitless'
+    attributes['kfactor']['longname'] = 'Scaling_Factor'
+    attributes['kfactor']['description'] = 'Best fit scaling factor for GLDAS data'
+    # add attributes for scaling error
+    attributes['error']['units'] = 'cmwe'
+    attributes['error']['longname'] = 'Scaling_Error'
+    attributes['error']['description'] = ('RMS difference between the scaled '
+        'GLDAS and original GLDAS data')
+    # add attributes for power of original data
+    attributes['power']['units'] = 'cmwe'
+    attributes['power']['longname'] = 'Power'
+    attributes['power']['description'] = 'Magnitude of the original GLDAS data'
 
     # Output scaling factor file
-    f3 = file_format.format(MODEL,SPACING,'kfactor',LMAX,order_str,gw_str,
+    f2 = file_format.format(MODEL,SPACING,'kfactor',LMAX,order_str,gw_str,
         ds_str,grace_month[0],grace_month[-1],suffix[DATAFORM])
-    attributes['units'] = 'unitless'
-    attributes['longname'] = 'Scaling_Factor'
-    output_data(gldas_kfactor, FILENAME=os.path.join(ddir,sub2,f3),
-        DATAFORM=DATAFORM, KEY='data', MODE=MODE, **attributes)
-    # Output scaling factor error file
-    f4 = file_format.format(MODEL,SPACING,'kf_error',LMAX,order_str,gw_str,
-        ds_str,grace_month[0],grace_month[-1],suffix[DATAFORM])
-    attributes['units'] = 'cmwe'
-    attributes['longname'] = 'Scaling_Factor_Error'
-    output_data(gldas_kfactor, FILENAME=os.path.join(ddir,sub2,f4),
-        DATAFORM=DATAFORM, KEY='error', MODE=MODE, **attributes)
-    # Output scaling factor power file
-    f5 = file_format.format(MODEL,SPACING,'power',LMAX,order_str,gw_str,
-        ds_str,grace_month[0],grace_month[-1],suffix[DATAFORM])
-    attributes['units'] = 'cmwe'
-    attributes['longname'] = 'Power'
-    output_data(gldas_power, FILENAME=os.path.join(ddir,sub2,f5),
-        DATAFORM=DATAFORM, KEY='data', MODE=MODE, **attributes)
-
-# PURPOSE: wrapper function for outputting data to file
-def output_data(data, FILENAME=None, KEY='data', DATAFORM=None,
-    MODE=0o775, **kwargs):
-    # copy data to output
-    output = data.copy()
-    setattr(output,'data',getattr(data,KEY))
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
-        output.to_ascii(FILENAME, date=False)
+        gldas_kfactor.to_ascii(os.path.join(ddir,sub2,f2))
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
-        output.to_netCDF4(FILENAME, date=False, **kwargs)
+        gldas_kfactor.to_netCDF4(os.path.join(ddir,sub2,f2), date=False,
+            field_mapping=field_mapping, attributes=attributes)
     elif (DATAFORM == 'HDF5'):
-        # HDF5 (.H5)
-        output.to_HDF5(FILENAME, date=False, **kwargs)
+        # HDF5 (.h5)
+        gldas_kfactor.to_HDF5(os.path.join(ddir,sub2,f2), date=False,
+            field_mapping=field_mapping, attributes=attributes)
     # change the permissions mode of the output file
-    os.chmod(FILENAME, MODE)
+    os.chmod(os.path.join(ddir,sub2,f2), MODE)
 
 # PURPOSE: create argument parser
 def arguments():
