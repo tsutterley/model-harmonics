@@ -229,7 +229,7 @@ def gemb_smb_harmonics(model_file,
     attributes['institution'] = 'NASA Jet Propulsion Laboratory (JPL)'
     attributes['project'] = 'Glacier Energy and Mass Balance (GEMB)'
     attributes['product_region'] = region
-    attributes['product_version'] = version
+    attributes['product_version'] = version.replace('_','.')
     attributes['product_name'] = 'SMB'
     attributes['product_type'] = 'gravity_field'
     # add attributes for earth parameters

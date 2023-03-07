@@ -193,8 +193,8 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
         else:
             # replace fill value points points with 0
             era5_data.replace_invalid(0.0)
-        # append to spatial list
-        spatial_list.append(era5_data)
+        # extend monthly values to spatial list
+        spatial_list.extend(era5_data)
     # convert to combined data cube and clear memory from spatial list
     era5_data = gravtk.spatial().from_list(spatial_list, clear=True)
     nlat,nlon,nt = era5_data.shape

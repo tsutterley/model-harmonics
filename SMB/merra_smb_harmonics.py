@@ -147,7 +147,6 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     attributes['project'] = 'MERRA2'
     attributes['title'] = copy.copy(merra_products[PRODUCT])
     attributes['source'] = ', '.join(merra_sources[PRODUCT])
-    attributes['product_region'] = REGION
     attributes['product_name'] = PRODUCT
     attributes['product_version'] = VERSION
     attributes['product_type'] = 'gravity_field'

@@ -185,8 +185,8 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
     attributes = {}
     attributes['institution'] = 'NASA Goddard Space Flight Center (GSFC)'
     attributes['project'] = 'Global Land Data Assimilation System (GLDAS)'
-    attributes['product_version'] = f'{MODEL} {VERSION}'
-    attributes['product_name'] = 'TWS'
+    attributes['product_version'] = f'{MODEL} v{VERSION}'
+    attributes['product_name'] = 'TWC'
     attributes['product_type'] = 'gravity_field'
     attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
 
