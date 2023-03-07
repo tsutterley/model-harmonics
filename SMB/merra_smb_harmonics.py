@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_harmonics.py
-Written by Tyler Sutterley (02/2023)
+Written by Tyler Sutterley (03/2023)
 Reads monthly MERRA-2 surface mass balance anomalies and
     converts to spherical harmonic coefficients
 
@@ -65,6 +65,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -114,10 +115,11 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     DATAFORM=None, MODE=0o775):
 
     # setup subdirectories
-    cumul_sub = f'{PRODUCT}.5.12.4.CUMUL.{RANGE[0]:d}.{RANGE[1]:d}'
+    VERSION = '5.12.4'
+    cumul_sub = f'{PRODUCT}.{VERSION}.CUMUL.{RANGE[0]:d}.{RANGE[1]:d}'
     # Creating output subdirectory if it doesn't exist
     prefix = f'{REGION}_' if REGION else ''
-    output_sub = f'{prefix}{PRODUCT}_5.12.4_CUMUL_CLM_L{LMAX:d}'
+    output_sub = f'{prefix}{PRODUCT}_{VERSION}_CUMUL_CLM_L{LMAX:d}'
     if (not os.access(os.path.join(ddir,output_sub), os.F_OK)):
         os.makedirs(os.path.join(ddir,output_sub),MODE)
     # titles for each output data product
@@ -141,8 +143,14 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
 
     # attributes for output files
     attributes = {}
+    attributes['institution'] = 'NASA Goddard Space Flight Center (GSFC)'
+    attributes['project'] = 'MERRA2'
     attributes['title'] = copy.copy(merra_products[PRODUCT])
     attributes['source'] = ', '.join(merra_sources[PRODUCT])
+    attributes['product_region'] = REGION
+    attributes['product_name'] = PRODUCT
+    attributes['product_version'] = VERSION
+    attributes['product_type'] = 'gravity_field'
     attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
 
     # upper bound of spherical harmonic orders (default = LMAX)
@@ -196,6 +204,13 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     # read load love numbers
     LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
         REFERENCE=REFERENCE, FORMAT='class')
+    # add attributes for earth parameters
+    attributes['earth_model'] = LOVE.model
+    attributes['earth_love_numbers'] = LOVE.citation
+    attributes['reference_frame'] = LOVE.reference
+    # add attributes for maximum degree and order
+    attributes['max_degree'] = LMAX
+    attributes['max_order'] = MMAX
 
     # calculate Legendre polynomials
     PLM, dPLM = gravtk.plm_holmes(LMAX, np.cos(theta))
@@ -241,6 +256,10 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
                 varname=PRODUCT)
             M2 = gravtk.spatial().from_HDF5(os.path.join(ddir,cumul_sub,FILES[t+1]),
                 varname=PRODUCT)
+        # attributes for input files
+        attributes['lineage'] = []
+        attributes['lineage'].append(os.path.basename(M1.filename))
+        attributes['lineage'].append(os.path.basename(M2.filename))
 
         # if reducing to a region of interest before converting to harmonics
         if np.any(input_mask):
@@ -265,11 +284,13 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
         # calculate GRACE/GRACE-FO month
         merra_Ylms.month = gravtk.time.calendar_to_grace(
             np.float64(YY), np.float64(MM))
+        # add attributes to output harmonics
+        merra_Ylms.attributes['ROOT'] = attributes
         # output spherical harmonic data file
-        args=(MOD,PRODUCT,LMAX,order_str,merra_Ylms.month,suffix[DATAFORM])
+        args = (MOD,PRODUCT,LMAX,order_str,merra_Ylms.month,suffix[DATAFORM])
         FILE='MERRA2_{0}_tavgM_2d_{1}_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
         merra_Ylms.to_file(os.path.join(ddir,output_sub,FILE),
-            format=DATAFORM, **attributes)
+            format=DATAFORM)
         # change the permissions mode of the output file to MODE
         os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 
@@ -389,7 +410,7 @@ def main():
     args,_ = parser.parse_known_args()
 
     # create logger for verbosity level
-    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[args.verbose])
 
     # run program for each input product

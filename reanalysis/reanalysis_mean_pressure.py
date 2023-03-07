@@ -82,7 +82,7 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
     VERBOSE=False, MODE=0o775):
 
     # create logger for verbosity level
-    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[VERBOSE])
 
     # directory setup

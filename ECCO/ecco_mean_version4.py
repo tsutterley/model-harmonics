@@ -92,7 +92,7 @@ def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
     VERBOSE=False, MODE=0o775):
 
     # create logger for verbosity level
-    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[VERBOSE])
 
     # input and output subdirectories

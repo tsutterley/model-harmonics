@@ -113,7 +113,7 @@ def merra_smb_mask(input_file, output_file, VARNAME=None,
     MODE=0o775):
 
     # create logger for verbosity level
-    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[VERBOSE])
 
     # create output directory if non-existent

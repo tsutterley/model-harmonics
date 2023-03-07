@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 era5_smb_harmonics.py
-Written by Tyler Sutterley (02/2023)
+Written by Tyler Sutterley (03/2023)
 Reads monthly ERA5 surface mass balance anomalies and
     converts to spherical harmonic coefficients
 
@@ -54,6 +54,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
         use constants class in place of geoid-toolkit ref_ellipsoid
@@ -94,8 +95,11 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
 
     # attributes for output files
     attributes = {}
+    attributes['project'] = 'ECMWF atmospheric reanalysis'
     attributes['title'] = 'ERA5 Precipitation minus Evaporation'
+    attributes['product_name'] = 'P-E'
     attributes['source'] = ', '.join(['tp','e'])
+    attributes['product_type'] = 'gravity_field'
     attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
 
     # upper bound of spherical harmonic orders (default = LMAX)
@@ -149,6 +153,13 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     # read load love numbers
     LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
         REFERENCE=REFERENCE, FORMAT='class')
+    # add attributes for earth parameters
+    attributes['earth_model'] = LOVE.model
+    attributes['earth_love_numbers'] = LOVE.citation
+    attributes['reference_frame'] = LOVE.reference
+    # add attributes for maximum degree and order
+    attributes['max_degree'] = LMAX
+    attributes['max_order'] = MMAX
 
     # calculate Legendre polynomials
     PLM, dPLM = gravtk.plm_holmes(LMAX, np.cos(theta))
@@ -193,6 +204,10 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
         # convert data to m w.e.
         M1 = era5_data.index(i).scale(1000.0)
         M2 = era5_data.index(i+1).scale(1000.0)
+        # attributes for input files
+        attributes['lineage'] = []
+        attributes['lineage'].append(os.path.basename(M1.filename))
+        attributes['lineage'].append(os.path.basename(M2.filename))
         # calculate 2-month moving average
         # weighting by number of days in each month
         dpm = gravtk.time.calendar_days(np.floor(M1.time))
@@ -205,11 +220,12 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
         era5_Ylms.time = np.mean([M1.time, M2.time])
         era5_Ylms.month = gravtk.time.calendar_to_grace(
             era5_Ylms.time)
+        # add attributes to output harmonics
+        era5_Ylms.attributes['ROOT'] = attributes
         # output spherical harmonic data file
         args = (LMAX, order_str, era5_Ylms.month, suffix[DATAFORM])
         FILE = 'ERA5_CUMUL_P-E_CLM_L{0:d}{1}_{2:03d}.{3}'.format(*args)
-        era5_Ylms.to_file(os.path.join(ddir,output_sub,FILE),
-            format=DATAFORM, **attributes)
+        era5_Ylms.to_file(os.path.join(ddir,output_sub,FILE), format=DATAFORM)
         # change the permissions mode of the output file to MODE
         os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 
@@ -325,7 +341,7 @@ def main():
     args,_ = parser.parse_known_args()
 
     # create logger
-    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[args.verbose])
 
     # run program with parameters

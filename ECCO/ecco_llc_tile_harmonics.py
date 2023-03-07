@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_llc_tile_harmonics.py
-Written by Tyler Sutterley (02/2023)
+Written by Tyler Sutterley (03/2023)
 Reads monthly ECCO ocean bottom pressure anomalies from LLC tiles
     and converts to spherical harmonic coefficients
 
@@ -63,6 +63,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 03/2023: add attributes to output netCDF4 and HDF5 files
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
         use constants class in place of geoid-toolkit ref_ellipsoid
@@ -140,6 +141,12 @@ def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     bathymetry = geoid_undulation - invariant['depth']
     # attributes for output files
     attributes = {}
+    attributes['institution'] = 'NASA Jet Propulsion Laboratory (JPL)'
+    PROJECT = 'Estimating the Circulation and Climate of the Ocean (ECCO)'
+    attributes['project'] = PROJECT
+    attributes['product_version'] = MODEL
+    attributes['product_name'] = VARNAME
+    attributes['product_type'] = 'gravity_field'
     attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
 
     # Earth Parameters
@@ -171,6 +178,13 @@ def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     # read load love numbers
     LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
         REFERENCE=REFERENCE, FORMAT='class')
+    # add attributes for earth parameters
+    attributes['earth_model'] = LOVE.model
+    attributes['earth_love_numbers'] = LOVE.citation
+    attributes['reference_frame'] = LOVE.reference
+    # add attributes for maximum degree and order
+    attributes['max_degree'] = LMAX
+    attributes['max_order'] = MMAX
 
     # regular expression pattern to find files and extract dates
     regex_years = r'\d+' if (YEARS is None) else '|'.join(map(str,YEARS))
@@ -214,11 +228,18 @@ def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
                 lon, lat, AREA=area, LMAX=LMAX, MMAX=MMAX, LOVE=LOVE)
             # add tile Ylms to total for month
             obp_Ylms.add(Ylms)
+        # attributes for input files
+        attributes['lineage'] = []
+        attributes['lineage'].append(os.path.basename(input_invariant_file))
+        attributes['lineage'].append(os.path.basename(input_geoid_file))
+        attributes['lineage'].append(os.path.basename(f))
+        # add attributes to output harmonics
+        obp_Ylms.attributes['ROOT'] = attributes
         # output spherical harmonic data file
         args = (MODEL, LMAX, order_str, obp_Ylms.month, suffix[DATAFORM])
         FILE = output_file_format.format(*args)
         obp_Ylms.to_file(os.path.join(ddir,output_sub,FILE),
-            format=DATAFORM, **attributes)
+            format=DATAFORM, date=True)
         # change the permissions mode of the output file to MODE
         os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 
@@ -343,7 +364,7 @@ def main():
     args,_ = parser.parse_known_args()
 
     # create logger
-    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[args.verbose])
 
     # for each ECCO model

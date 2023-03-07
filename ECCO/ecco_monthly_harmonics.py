@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_monthly_harmonics.py
-Written by Tyler Sutterley (02/2023)
+Written by Tyler Sutterley (03/2023)
 Reads monthly ECCO ocean bottom pressure anomalies and converts to
     spherical harmonic coefficients
 
@@ -65,6 +65,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
         use constants class in place of geoid-toolkit ref_ellipsoid
@@ -132,6 +133,8 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
 
     # parameters for each model
     if MODEL in ('kf080i','dr080i'):
+        # variable name
+        VARNAME = 'OBP'
         # grid step size
         dlon,dlat = (1.0,1.0)
         # grid extent
@@ -142,6 +145,8 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
         # indices to read
         indices = np.arange(1,2*LAT_MAX+2).astype(np.int64)
     elif MODEL in ('Cube92',):
+        # variable name
+        VARNAME = 'PHIBOT'
         # grid step size
         dlon,dlat = (0.25,0.25)
         # grid extent
@@ -151,6 +156,8 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
         # indices to read (all)
         indices = Ellipsis
     elif MODEL in ('V4r3','V4r4'):
+        # variable name
+        VARNAME = 'PHIBOT'
         # grid step size
         dlon,dlat = (0.5,0.5)
         # grid extent
@@ -159,8 +166,15 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
         input_geoid_file = os.path.join(ddir,'EGM_2008.720x360.nc')
         # indices to read (all)
         indices = Ellipsis
+
     # attributes for output files
     attributes = {}
+    attributes['institution'] = 'NASA Jet Propulsion Laboratory (JPL)'
+    PROJECT = 'Estimating the Circulation and Climate of the Ocean (ECCO)'
+    attributes['project'] = PROJECT
+    attributes['product_version'] = MODEL
+    attributes['product_name'] = VARNAME
+    attributes['product_type'] = 'gravity_field'
     attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
 
     # input grid dimensions
@@ -202,6 +216,14 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     # read load love numbers
     LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
         REFERENCE=REFERENCE, FORMAT='class')
+    # add attributes for earth parameters
+    attributes['earth_model'] = LOVE.model
+    attributes['earth_love_numbers'] = LOVE.citation
+    attributes['reference_frame'] = LOVE.reference
+    # add attributes for maximum degree and order
+    attributes['max_degree'] = LMAX
+    attributes['max_order'] = MMAX
+
     # calculate Legendre polynomials
     PLM, dPLM = gravtk.plm_holmes(LMAX,np.cos(theta[:,0]))
 
@@ -236,11 +258,18 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
             PLM=PLM, LOVE=LOVE)
         obp_Ylms.time = np.copy(obp_data.time)
         obp_Ylms.month = gravtk.time.calendar_to_grace(year,month)
+        # attributes for input files
+        attributes['lineage'] = []
+        attributes['lineage'].append(os.path.basename(input_depth_file))
+        attributes['lineage'].append(os.path.basename(input_geoid_file))
+        attributes['lineage'].append(os.path.basename(f))
+        # add attributes to output harmonics
+        obp_Ylms.attributes['ROOT'] = attributes
         # output spherical harmonic data file
         args = (MODEL, LMAX, order_str, obp_Ylms.month, suffix[DATAFORM])
         FILE = output_file_format.format(*args)
         obp_Ylms.to_file(os.path.join(ddir,output_sub,FILE),
-            format=DATAFORM, **attributes)
+            format=DATAFORM)
         # change the permissions mode of the output file to MODE
         os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 
@@ -362,7 +391,7 @@ def main():
     args,_ = parser.parse_known_args()
 
     # create logger
-    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[args.verbose])
 
     # for each ECCO model

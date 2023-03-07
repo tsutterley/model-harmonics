@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gemb_smb_harmonics.py
-Written by Tyler Sutterley (02/2023)
+Written by Tyler Sutterley (03/2023)
 Read GEMB SMB variables and convert to spherical harmonics
 Shifts dates of SMB point masses to mid-month values to correspond with GRACE
 
@@ -53,6 +53,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
         use constants class in place of geoid-toolkit ref_ellipsoid
@@ -225,12 +226,27 @@ def gemb_smb_harmonics(model_file,
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
     # attributes for output files
     attributes = {}
+    attributes['institution'] = 'NASA Jet Propulsion Laboratory (JPL)'
+    attributes['project'] = 'Glacier Energy and Mass Balance (GEMB)'
+    attributes['product_region'] = region
+    attributes['product_version'] = version
+    attributes['product_name'] = 'SMB'
+    attributes['product_type'] = 'gravity_field'
+    # add attributes for earth parameters
+    attributes['earth_model'] = LOVE.model
+    attributes['earth_love_numbers'] = LOVE.citation
+    attributes['reference_frame'] = LOVE.reference
+    # add attributes for maximum degree and order
+    attributes['max_degree'] = LMAX
+    attributes['max_order'] = MMAX
+    attributes['lineage'] = os.path.basename(model_file)
     attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    # add attributes to output harmonics
+    Ylms.attributes['ROOT'] = attributes
     # output spherical harmonic data file
     args = (version,region,'SMB',LMAX,order_str,suffix[DATAFORM])
     FILE = 'GEMB_{0}_{1}_{2}_CLM_L{3:d}{4}.{5}'.format(*args)
-    Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM,
-        date=True, **attributes)
+    Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM, date=True)
     # change the permissions mode of the output file to MODE
     os.chmod(os.path.join(DIRECTORY,FILE),MODE)
 
@@ -294,7 +310,7 @@ def main():
     args,_ = parser.parse_known_args()
 
     # create logger
-    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[args.verbose])
 
     # run program
