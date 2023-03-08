@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_monthly_harmonics.py
-Written by Tyler Sutterley (02/2023)
+Written by Tyler Sutterley (03/2023)
 
 Reads monthly GLDAS total water storage anomalies and converts to
     spherical harmonic coefficients
@@ -97,6 +97,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
         use constants class in place of geoid-toolkit ref_ellipsoid
@@ -182,6 +183,11 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
         os.makedirs(os.path.join(ddir,output_sub),MODE)
     # attributes for output files
     attributes = {}
+    attributes['institution'] = 'NASA Goddard Space Flight Center (GSFC)'
+    attributes['project'] = 'Global Land Data Assimilation System (GLDAS)'
+    attributes['product_version'] = f'{MODEL} v{VERSION}'
+    attributes['product_name'] = 'TWC'
+    attributes['product_type'] = 'gravity_field'
     attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
 
     # upper bound of spherical harmonic orders (default = LMAX)
@@ -275,6 +281,13 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
     # read load love numbers
     LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
         REFERENCE=REFERENCE, FORMAT='class')
+    # add attributes for earth parameters
+    attributes['earth_model'] = LOVE.model
+    attributes['earth_love_numbers'] = LOVE.citation
+    attributes['reference_frame'] = LOVE.reference
+    # add attributes for maximum degree and order
+    attributes['max_degree'] = LMAX
+    attributes['max_order'] = MMAX
 
     # calculate Legendre polynomials
     PLM, dPLM = gravtk.plm_holmes(LMAX, np.cos(theta))
@@ -306,6 +319,10 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
             # HDF5 (.H5)
             M1 = gravtk.spatial().from_HDF5(os.path.join(ddir,subdir,fi))
             M2 = gravtk.spatial().from_HDF5(os.path.join(ddir,subdir,FILES[t+1]))
+        # attributes for input files
+        attributes['lineage'] = []
+        attributes['lineage'].append(os.path.basename(M1.filename))
+        attributes['lineage'].append(os.path.basename(M2.filename))
 
         # replace fill value points and certain vegetation types with 0
         M1.replace_invalid(0.0, mask=combined_mask)
@@ -323,12 +340,14 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
         gldas_Ylms.time, = gravtk.time.convert_calendar_decimal(YY,MM)
         # calculate GRACE/GRACE-FO month
         gldas_Ylms.month = gravtk.time.calendar_to_grace(YY,MM)
+        # add attributes to output harmonics
+        gldas_Ylms.attributes['ROOT'] = attributes
 
         # output spherical harmonic data file
         args=(MODEL,SPACING,LMAX,order_str,gldas_Ylms.month,suffix[DATAFORM])
         FILE='GLDAS_{0}{1}_TWC_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
         gldas_Ylms.to_file(os.path.join(ddir,output_sub,FILE),
-            format=DATAFORM, **attributes)
+            format=DATAFORM)
         # change the permissions mode of the output file to MODE
         os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
 
@@ -447,7 +466,7 @@ def main():
     args,_ = parser.parse_known_args()
 
     # create logger
-    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[args.verbose])
 
     # for each GLDAS model

@@ -34,6 +34,8 @@ except (ImportError, ModuleNotFoundError) as exc:
 # ignore warnings
 warnings.filterwarnings("ignore")
 
+# PURPOSE: additional routines for the spatial module
+# for reading and writing raster data
 class raster(gravity_toolkit.spatial):
     """
     Inheritance of ``spatial`` class for reading and writing

@@ -87,7 +87,7 @@ def ecco_mean_realtime(ddir, MODEL, RANGE=None, DATAFORM=None,
     VERBOSE=False, MODE=0o775):
 
     # create logger for verbosity level
-    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[VERBOSE])
 
     # set up regular expression for finding directories to run from RANGE

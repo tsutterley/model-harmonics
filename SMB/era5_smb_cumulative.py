@@ -107,7 +107,7 @@ def era5_smb_cumulative(DIRECTORY,
     MODE=0o775):
 
     # create logger for verbosity level
-    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[VERBOSE])
 
     # ERA5 output cumulative subdirectory

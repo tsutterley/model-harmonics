@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_mean_harmonics.py
-Written by Tyler Sutterley (02/2023)
+Written by Tyler Sutterley (03/2023)
 Reads atmospheric geopotential heights fields from reanalysis and calculates
     a multi-annual mean set of spherical harmonics using a 3D geometry
 
@@ -69,6 +69,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
         use constants class in place of geoid-toolkit ref_ellipsoid
@@ -113,7 +114,7 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
     VERBOSE=False, MODE=0o775):
 
     # create logger for verbosity level
-    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[VERBOSE])
 
     # directory setup
@@ -196,6 +197,12 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
         os.makedirs(os.path.join(ddir,output_sub))
     # attributes for output files
     attributes = {}
+    attributes['project'] = MODEL
+    attributes['product_type'] = 'gravity_field'
+    # attributes for input files
+    attributes['lineage'] = []
+    attributes['lineage'].append(os.path.basename(input_invariant_file))
+    attributes['lineage'].append(os.path.basename(input_geoid_file))
     attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
 
     # read model latitude and longitude from invariant parameters file
@@ -209,9 +216,18 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
     gridphi = gridlon*np.pi/180.0
     gridtheta = (90.0 - gridlat)*np.pi/180.0
 
-    # read load love numbers and calculate Legendre polynomials
+    # read load love numbers
     LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
         REFERENCE=REFERENCE, FORMAT='class')
+    # add attributes for earth parameters
+    attributes['earth_model'] = LOVE.model
+    attributes['earth_love_numbers'] = LOVE.citation
+    attributes['reference_frame'] = LOVE.reference
+    # add attributes for maximum degree and order
+    attributes['max_degree'] = LMAX
+    attributes['max_order'] = MMAX
+
+    # calculate Legendre polynomials
     PLM, dPLM = gravtk.plm_holmes(LMAX, np.cos(theta))
     # read geoid heights and grid step size
     geoid,gridstep = ncdf_geoid(os.path.join(ddir,input_geoid_file))
@@ -253,6 +269,8 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
     for fi in input_files:
         # read model level geopotential height data
         fileID = netCDF4.Dataset(os.path.join(ddir,fi),'r')
+        # append file to lineage
+        attributes['lineage'].append(os.path.basename(fi))
         # extract shape from geopotential variable
         ntime,nlevels,nlat,nlon = fileID.variables[ZNAME].shape
         # convert time to Modified Julian Days
@@ -289,12 +307,14 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
 
     # divide by the number of dates to calculate mean from totals
     mean_Ylms = gravtk.harmonics().from_list(harmonics_list).mean()
+    # add attributes to output harmonics
+    mean_Ylms.attributes['ROOT'] = attributes
 
     # output mean spherical harmonics file
     args = (MODEL.upper(), LMAX, order_str, RANGE[0], RANGE[1], suffix[DATAFORM])
     output_mean_file = '{0}_MEAN_CLM_L{1:d}{2}_{3:4d}-{4:4d}.{5}'.format(*args)
     mean_Ylms.to_file(os.path.join(ddir,output_sub,output_mean_file),
-        format=DATAFORM, verbose=VERBOSE, **attributes)
+        format=DATAFORM, verbose=VERBOSE)
     # set the permissions level of the output file to MODE
     os.chmod(os.path.join(ddir,output_sub,output_mean_file), MODE)
 

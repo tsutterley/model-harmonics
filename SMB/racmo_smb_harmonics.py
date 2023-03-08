@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 racmo_smb_harmonics.py
-Written by Tyler Sutterley (02/2023)
+Written by Tyler Sutterley (03/2023)
 Read RACMO surface mass balance products and converts to spherical harmonics
 Shifts dates of SMB point masses to mid-month values to correspond with GRACE
 
@@ -51,6 +51,7 @@ PROGRAM DEPENDENCIES:
         and filters the GRACE/GRACE-FO coefficients for striping errors
 
 UPDATE HISTORY:
+    Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
         use constants class in place of geoid-toolkit ref_ellipsoid
@@ -238,14 +239,27 @@ def racmo_smb_harmonics(model_file, VARIABLE,
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
     # attributes for output files
     attributes = {}
+    attributes['project'] = 'Regional Atmospheric and Climate Model (RACMO)'
     attributes['title'] = copy.copy(racmo_products[VARIABLE])
-    attributes['source'] = copy.copy(VARIABLE)
+    attributes['product_region'] = REGION
+    attributes['product_version'] = VERSION
+    attributes['product_name'] = VARIABLE
+    attributes['product_type'] = 'gravity_field'
+    # add attributes for earth parameters
+    attributes['earth_model'] = LOVE.model
+    attributes['earth_love_numbers'] = LOVE.citation
+    attributes['reference_frame'] = LOVE.reference
+    # add attributes for maximum degree and order
+    attributes['max_degree'] = LMAX
+    attributes['max_order'] = MMAX
+    attributes['lineage'] = os.path.basename(model_file)
     attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    # add attributes to output harmonics
+    Ylms.attributes['ROOT'] = attributes
     # output spherical harmonic data file
     args = (VERSION,REGION,VARIABLE.upper(),LMAX,order_str,suffix[DATAFORM])
     FILE = '{0}_{1}_{2}_CLM_L{3:d}{4}.{5}'.format(*args)
-    Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM,
-        date=True, **attributes)
+    Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM, date=True)
     # change the permissions mode of the output file to MODE
     os.chmod(os.path.join(DIRECTORY,FILE),MODE)
 
@@ -316,7 +330,7 @@ def main():
     args,_ = parser.parse_known_args()
 
     # create logger
-    loglevels = [logging.CRITICAL,logging.INFO,logging.DEBUG]
+    loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[args.verbose])
 
     # run program
