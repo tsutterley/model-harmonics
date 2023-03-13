@@ -86,6 +86,7 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     :hidden:
     :caption: Reanalysis
 
+    api_reference/aod1b_global_uplift.rst
     api_reference/cds_reanalysis_retrieve.rst
     api_reference/ecmwf_reanalysis_retrieve.rst
     api_reference/gesdisc_merra_download.rst
