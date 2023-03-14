@@ -216,9 +216,9 @@ def aod1b_global_uplift(base_dir,
     attributes['lat']['long_name'] = 'latitude'
     attributes['lat']['units'] = 'degrees_north'
     # Defining attributes for dataset
-    attributes['data'] = {}
-    attributes['data']['long_name'] = 'Elastic_Crustal_Uplift'
-    attributes['data']['units'] = 'mm'
+    attributes['z'] = {}
+    attributes['z']['long_name'] = 'Elastic_Crustal_Uplift'
+    attributes['z']['units'] = 'mm'
     # Defining attributes for date
     attributes['time'] = {}
     attributes['time']['long_name'] = 'time'
