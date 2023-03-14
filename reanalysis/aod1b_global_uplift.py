@@ -335,12 +335,12 @@ def aod1b_global_uplift(base_dir,
                 grid.data[:,:,i] = gravtk.harmonic_summation(
                     iYlm.clm, iYlm.slm, grid.lon, grid.lat,
                     LMAX=LMAX, PLM=PLM).T
-            # add attributes to output harmonics
+            # update attributes for time
             attributes['time']['units'] = \
                 f'hours since {YY}-{MM}-01T00:00:00'
-            grid.attributes = copy.copy(attributes)
             # output spatial data to file
-            grid.to_file(output_file, format=DATAFORM)
+            grid.to_file(output_file, format=DATAFORM,
+                attributes=attributes)
             # set the permissions mode of the output file
             os.chmod(output_file, MODE)
             # append output file to list
