@@ -154,7 +154,7 @@ def aod1b_global_uplift(base_dir,
     regex_year = r'\d{4}' if YEAR is None else r'|'.join(f'{y:d}' for y in YEAR)
     tx = re.compile(rf'AOD1B_({regex_year})-(\d+)_\d+\.(tar\.gz|tgz)$', re.X)
     # and the calendar day from the ascii file (.asc or gzipped .asc.gz)
-    fx = re.compile(rf'AOD1B_{regex_year}-\d+-(\d+)_X_\d+.asc(.gz)?$', re.X)
+    fx = re.compile(r'AOD1B_\d+-\d+-(\d+)_X_\d+.asc(.gz)?$', re.X)
     # compile regular expressions operator for the clm/slm headers
     # for the specific AOD1b product
     hx = re.compile(rf'^DATA.*SET.*{DSET}', re.X)
