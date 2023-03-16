@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 era5_smb_cumulative.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (03/2023)
 Reads ERA5 datafiles to calculate monthly cumulative anomalies
     in derived surface mass balance products
 
@@ -34,6 +34,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 03/2023: updated inputs to spatial from_ascii function
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -155,9 +156,10 @@ def era5_smb_cumulative(DIRECTORY,
     # remove singleton dimensions
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
-        era5_mean = gravtk.spatial(spacing=[dlon,dlat],
-            nlat=nlat, nlon=nlon, extent=extent).from_ascii(
-            os.path.join(DIRECTORY,mean_file), date=False).squeeze()
+        era5_mean = gravtk.spatial().from_ascii(
+            os.path.join(DIRECTORY,mean_file),
+            date=False, spacing=[dlon,dlat],
+            nlat=nlat, nlon=nlon, extent=extent).squeeze()
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
         era5_mean = gravtk.spatial().from_netCDF4(

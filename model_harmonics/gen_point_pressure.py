@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gen_point_pressure.py
-Written by Tyler Sutterley (04/2022)
+Written by Tyler Sutterley (03/2023)
 Calculates gravitational spherical harmonic coefficients for pressure
     values at individual points assuming a disc geometry
 
@@ -49,6 +49,7 @@ REFERENCES:
         https://doi.org/10.1007/s00190-011-0522-7
 
 UPDATE HISTORY:
+    Updated 03/2023: simplified recursion and unit degree factors
     Updated 04/2022: updated docstrings to numpy documentation format
     Written 02/2021
 """
@@ -98,7 +99,7 @@ def gen_point_pressure(P, G, R, lon, lat, AREA=None, LMAX=60, MMAX=None,
     References
     ----------
     .. [Boy2005] J.-P. Boy and B. F. Chao, "Precise evaluation of
-        atmospheric loading effects on Earth's time‐variable gravity field",
+        atmospheric loading effects on Earth's time-variable gravity field",
         *Journal of Geophysical Research: Solid Earth*, 110(B08412), (2005).
         `doi: 10.1029/2002JB002333 <https://doi.org/10.1029/2002JB002333>`_
     .. [Farrell1972] W. E. Farrell, "Deformation of the Earth by surface loads",
@@ -130,25 +131,21 @@ def gen_point_pressure(P, G, R, lon, lat, AREA=None, LMAX=60, MMAX=None,
     phi = np.pi*lon.flatten()/180.0
     theta = np.pi*(90.0 - lat.flatten())/180.0
 
-    # extract arrays of kl, hl, and ll Love Numbers
-    hl,kl,ll = LOVE
     # SH Degree dependent factors to convert into fully normalized SH's
-    factors = gravity_toolkit.units(lmax=LMAX).spatial(hl,kl,ll)
+    factors = gravity_toolkit.units(lmax=LMAX).spatial(*LOVE)
     # Earth Parameters
-    # Average Density of the Earth [kg/m^3]
-    rho_e = 1000.0*factors.rho_e
     # Average Radius of the Earth [m]
     rad_e = factors.rad_e/100.0
     # Coefficient for calculating Stokes coefficients for a disc load
     # From Jacob et al (2012), Farrell (1972) and Longman (1962)
-    dfactor = 3.0*(1.0 + kl[factors.l])/(rad_e*rho_e*(1.0 + 2.0*factors.l)**2)
+    dfactor = 4.0*np.pi*factors.mmwe/(1.0 + 2.0*factors.l)
 
     # Calculating legendre polynomials of the disc
     # alpha will be 1 - the ratio of the input area with the half sphere
     alpha = (1.0 - AREA.flatten()/(2.0*np.pi*rad_e**2))
-    # seed for Legendre Polynomial recursion
-    Pm2 = np.copy(alpha)
+    # seeds for Legendre Polynomial recursion (degrees l-1, l)
     Pm1 = np.ones((npts))
+    Pl = np.ones((npts))
 
     # Initializing output spherical harmonic matrices
     Ylms = gravity_toolkit.harmonics(lmax=LMAX, mmax=MMAX)
@@ -157,15 +154,8 @@ def gen_point_pressure(P, G, R, lon, lat, AREA=None, LMAX=60, MMAX=None,
     # for each degree l
     for l in range(LMAX+1):
         m1 = np.min([l,MMAX]) + 1
-        # unnormalized Legendre polynomials for degree l
-        if (l == 0):
-            # l=0 is a special case
-            Pl = np.ones((npts))
-        else:
-            # Calculating legendre polynomials for degree l
-            Pl = ((2.0*l-1.0)/l)*alpha*Pm1 - ((l-1.0)/l)*Pm2
         # Calculating legendre polynomials for degree l+1
-        Pp1 = ((2.0*l+1.0)/(l+1.0))*alpha*Pl - (l/(l+1.0))*Pm1
+        Pp1 = ((2.0*l + 1.0)/(l+1.0))*alpha*Pl - (l/(l + 1.0))*Pm1
         # legendre polynomials of the disc (unnormalized)
         # from Longman (1962) and Jacob et al (2012)
         Pdisc = (Pm1 - Pp1)/2.0
@@ -178,8 +168,8 @@ def gen_point_pressure(P, G, R, lon, lat, AREA=None, LMAX=60, MMAX=None,
         Ylms.clm[l,:m1] = SPH.real[:m1]
         Ylms.slm[l,:m1] = SPH.imag[:m1]
         # update unnormalized Legendre polynomials for recursion
-        Pm2[:] = np.copy(Pm1)
         Pm1[:] = np.copy(Pl)
+        Pl[:] = np.copy(Pp1)
     # return the output spherical harmonics object
     return Ylms
 

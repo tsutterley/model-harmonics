@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_read_monthly.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (03/2023)
 
 Reads GLDAS monthly datafiles from http://ldas.gsfc.nasa.gov/gldas/
 Adding Soil Moisture, snow water equivalent (SWE) and total canopy storage
@@ -78,6 +78,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 03/2023: updated inputs to spatial from_ascii function
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -168,9 +169,9 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
     mean_file = 'GLDAS_{0}{1}_TWC_MEAN_{2:4d}-{3:4d}.{4}'.format(*args)
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
-        twc_mean = spatial(spacing=[dlon,dlat], nlat=nlat, nlon=nlon,
-            extent=extent).from_ascii(os.path.join(ddir,mean_file),
-            date=False)
+        twc_mean = spatial().from_ascii(os.path.join(ddir,mean_file),
+            date=False, spacing=[dlon,dlat], nlat=nlat, nlon=nlon,
+            extent=extent)
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
         twc_mean = spatial().from_netCDF4(os.path.join(ddir,mean_file),
@@ -243,7 +244,7 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
                 # set the mask for valid points
                 twc.mask[ii,jj] = False
                 # calculate date
-                twc.time = gravity_toolkit.time.convert_calendar_decimal(
+                twc.time, = gravity_toolkit.time.convert_calendar_decimal(
                     np.int64(YY),np.int64(MM))
 
                 # output to file

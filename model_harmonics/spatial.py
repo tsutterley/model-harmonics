@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 spatial.py
-Written by Tyler Sutterley (02/2023)
+Written by Tyler Sutterley (03/2023)
 Functions for reading, writing and processing spatial data
 Extends gravity_toolkit spatial module adding raster support
 
@@ -9,6 +9,7 @@ PYTHON DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 03/2023: convert spacing and extent to raster class properties
     Updated 02/2023: geotiff read and write to inheritance of spatial class
     Written 10/2022
 """
@@ -170,7 +171,6 @@ class raster(gravity_toolkit.spatial):
             self.mask[:] = (self.data == self.fill_value)
         # close the dataset
         ds = None
-        self.update_dimensions()
         self.update_mask()
         return self
 
@@ -269,6 +269,23 @@ class raster(gravity_toolkit.spatial):
         self.lon, self.lat = transformer.transform(x, y)
         return self
 
+    @property
+    def spacing(self):
+        """Step size of ``raster`` object ``[x, y]``
+        """
+        return (self.x[1] - self.x[0], self.y[1] - self.y[0])
+
+    @property
+    def extent(self):
+        """Bounds of ``raster`` object
+        ``[minimum x, maximum x, minimum y, maximum y]``
+        """
+        xmin = np.min(self.x)
+        xmax = np.max(self.x)
+        ymin = np.min(self.y)
+        ymax = np.max(self.y)
+        return [xmin, xmax, ymin, ymax]
+
     def expand_dims(self):
         """
         Add a singleton dimension to a spatial object if non-existent
@@ -282,7 +299,6 @@ class raster(gravity_toolkit.spatial):
             except Exception as exc:
                 pass
         # get spacing and dimensions
-        self.update_dimensions()
         self.update_mask()
         return self
 

@@ -98,6 +98,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
+        updated inputs to spatial from_ascii function
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
         use constants class in place of geoid-toolkit ref_ellipsoid
@@ -307,10 +308,10 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
         # read data file for data format
         if (DATAFORM == 'ascii'):
             # ascii (.txt)
-            M1 = gravtk.spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
-                extent=extent).from_ascii(os.path.join(ddir,subdir,fi))
-            M2 = gravtk.spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
-                extent=extent).from_ascii(os.path.join(ddir,subdir,FILES[t+1]))
+            M1 = gravtk.spatial().from_ascii(os.path.join(ddir,subdir,fi),
+                spacing=[dlon,dlat], nlat=nlat, nlon=nlon, extent=extent)
+            M2 = gravtk.spatial().from_ascii(os.path.join(ddir,subdir,FILES[t+1]),
+                spacing=[dlon,dlat], nlat=nlat, nlon=nlon, extent=extent)
         elif (DATAFORM == 'netCDF4'):
             # netCDF4 (.nc)
             M1 = gravtk.spatial().from_netCDF4(os.path.join(ddir,subdir,fi))
