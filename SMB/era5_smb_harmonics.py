@@ -55,6 +55,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
+        updated inputs to spatial from_ascii function
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
         use constants class in place of geoid-toolkit ref_ellipsoid
@@ -176,8 +177,10 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
         # read data file for data format
         if (DATAFORM == 'ascii'):
             # ascii (.txt)
-            era5_data = gravtk.spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
-                extent=extent).from_ascii(os.path.join(ddir,cumul_sub,fi))
+            era5_data = gravtk.spatial().from_ascii(
+                os.path.join(ddir,cumul_sub,fi),
+                spacing=[dlon,dlat], nlat=nlat, nlon=nlon,
+                extent=extent)
         elif (DATAFORM == 'netCDF4'):
             # netCDF4 (.nc)
             era5_data = gravtk.spatial().from_netCDF4(

@@ -282,10 +282,6 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
     # allocate for output data and mask
     grid.data = np.zeros((nlat,nlon,nt))
     grid.mask = np.zeros((nlat,nlon,nt),dtype=bool)
-    # update attributes
-    grid.update_spacing()
-    grid.update_extents()
-    grid.update_dimensions()
 
     # Finding bin indices by finding the closest lat/lon
     # calculates the great circle distance between the

@@ -174,11 +174,11 @@ def HDF5_GSFC_mascons(output_data, GIA,
     # GIA correction
     attrib['gia'] = {}
     attrib['gia']['long_name'] = 'Equivalent_water_height'
-    attrib['gia']['model'] = GIA['title']
+    attrib['gia']['model'] = str(GIA['title'])
     attrib['gia']['description'] = ('Equivalent water thickness rate due '
         'to Glacial Isostatic Adjustment (GIA)')
-    attrib['gia']['source'] = GIA['citation']
-    attrib['gia']['reference'] = GIA['reference']
+    attrib['gia']['source'] = str(GIA['citation'])
+    attrib['gia']['reference'] = str(GIA['reference'])
     attrib['gia']['coordinates'] = '/mascon/lat_center /mascon/lon_center'
     attrib['gia']['units'] = 'cm/yr'
     # groups for each key

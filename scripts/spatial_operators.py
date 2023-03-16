@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 spatial_operators.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (03/2023)
 Performs basic operations on spatial files
 
 CALLING SEQUENCE:
@@ -48,6 +48,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 03/2023: updated inputs to spatial from_file function
     Updated 12/2022: single implicit import of spherical harmonic tools
         added function to attempt to get variable attributes
         copy input date variables to output spatial object
@@ -136,13 +137,15 @@ def spatial_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, DDEG=None,
             # ascii (.txt)
             # netCDF4 (.nc)
             # HDF5 (.H5)
-            dinput[i] = gravtk.spatial(spacing=[dlon, dlat], nlat=nlat,
-                nlon=nlon).from_file(fi, format=DATAFORM[i], date=DATE)
+            dinput[i] = gravtk.spatial().from_file(fi,
+                format=DATAFORM[i], date=DATE, spacing=[dlon, dlat],
+                nlat=nlat, nlon=nlon)
         elif DATAFORM[i] in ('index-ascii', 'index-netCDF4', 'index-HDF5'):
             # read from index file
             _,dataform = DATAFORM[i].split('-')
-            dinput[i] = gravtk.spatial(spacing=[dlon, dlat], nlat=nlat,
-                nlon=nlon).from_index(fi, format=dataform, date=DATE)
+            dinput[i] = gravtk.spatial().from_index(fi,
+                format=dataform, date=DATE, spacing=[dlon, dlat],
+                nlat=nlat, nlon=nlon)
 
     # operate on input files
     if (OPERATION == 'add'):

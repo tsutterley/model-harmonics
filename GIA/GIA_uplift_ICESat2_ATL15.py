@@ -309,9 +309,9 @@ def calculate_GIA_uplift(input_file, LMAX,
     # GIA correction attributes
     attributes['dhdt_gia'] = {}
     attributes['dhdt_gia']['long_name'] = 'Viscoelastic Crustal Uplift'
-    attributes['dhdt_gia']['model'] = GIA_Ylms_rate.citation
-    attributes['dhdt_gia']['description'] = GIA_Ylms_rate.title
-    attributes['dhdt_gia']['reference'] = GIA_Ylms_rate.reference
+    attributes['dhdt_gia']['model'] = str(GIA_Ylms_rate.citation)
+    attributes['dhdt_gia']['description'] = str(GIA_Ylms_rate.title)
+    attributes['dhdt_gia']['reference'] = str(GIA_Ylms_rate.reference)
     attributes['dhdt_gia']['coordinates'] = 'y x'
     attributes['dhdt_gia']['units'] = 'm/yr'
     attributes['dhdt_gia']['grid_mapping'] = 'crs'

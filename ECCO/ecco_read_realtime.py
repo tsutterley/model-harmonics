@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_read_realtime.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (03/2023)
 
 Reads 12-hour ECCO ocean bottom pressure data from JPL
 Calculates monthly anomalies on an equirectangular grid
@@ -51,6 +51,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 03/2023: updated inputs to spatial from_ascii function
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -102,6 +103,12 @@ def ecco_read_realtime(ddir, MODEL, YEARS, RANGE=None, DATAFORM=None,
 
     # bad value
     fill_value = -1e+10
+    # attributes for output files
+    attributes = {}
+    attributes['units'] = 'Pa'
+    attributes['longname'] = 'Bottom_Pressure'
+    attributes['title'] = f'Ocean_Bottom_Pressure_from_ECCO-JPL_{MODEL}_Model'
+    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
     # output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
 
@@ -120,18 +127,18 @@ def ecco_read_realtime(ddir, MODEL, YEARS, RANGE=None, DATAFORM=None,
     mean_file = 'ECCO_{0}_OBP_MEAN_{1:4d}-{2:4d}.{3}'.format(*args)
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
-        obp_mean = gravtk.spatial(spacing=[1.0,1.0],
-            nlat=158, nlon=360, extent=[0.5,359.5,-LAT_MAX,LAT_MAX],
-            fill_value=fill_value).from_ascii(os.path.join(ddir,mean_file),
-            date=False)
+        obp_mean = gravtk.spatial(fill_value=fill_value).from_ascii(
+            os.path.join(ddir,mean_file), date=False,
+            spacing=[1.0,1.0], nlat=158, nlon=360,
+            extent=[0.5,359.5,-LAT_MAX,LAT_MAX],)
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
         obp_mean = gravtk.spatial().from_netCDF4(
-            os.path.join(ddir,mean_file),date=False)
+            os.path.join(ddir,mean_file), date=False)
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
         obp_mean = gravtk.spatial().from_HDF5(
-            os.path.join(ddir,mean_file),date=False)
+            os.path.join(ddir,mean_file), date=False)
 
     # output subdirectory for monthly datasets
     outdir = f'ECCO_{MODEL}_AveRmvd_OBP'
@@ -277,32 +284,14 @@ def ecco_read_realtime(ddir, MODEL, YEARS, RANGE=None, DATAFORM=None,
                 # output to file
                 args = (MODEL,YY[0],mm,suffix[DATAFORM])
                 FILE='ECCO_{0}_AveRmvd_OBP_{1:4.0f}_{2:02.0f}.{3}'.format(*args)
-                output_data(obp_monthly_anomaly,MODEL,DATAFORM=DATAFORM,
-                    VERBOSE=VERBOSE,FILENAME=os.path.join(ddir,outdir,FILE))
+                obp_monthly_anomaly.to_file(os.path.join(ddir,outdir,FILE),
+                    format=DATAFORM, **attributes)
                 # change the permissions mode of the output file to MODE
                 os.chmod(os.path.join(ddir,outdir,FILE),MODE)
 
     # close output file and change the permissions to MODE
     fid.close()
     os.chmod(os.path.join(ddir,outdir,output_average_file),MODE)
-
-# PURPOSE: wrapper function for outputting data to file
-def output_data(data,MODEL,FILENAME=None,DATAFORM=None,VERBOSE=False):
-    # attributes for output files
-    attributes = {}
-    attributes['units'] = 'Pa'
-    attributes['longname'] = 'Bottom_Pressure'
-    attributes['title'] = f'Ocean_Bottom_Pressure_from_ECCO-JPL_{MODEL}_Model'
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
-    if (DATAFORM == 'ascii'):
-        # ascii (.txt)
-        data.to_ascii(FILENAME,verbose=VERBOSE)
-    elif (DATAFORM == 'netCDF4'):
-        # netcdf (.nc)
-        data.to_netCDF4(FILENAME, verbose=VERBOSE, **attributes)
-    elif (DATAFORM == 'HDF5'):
-        # HDF5 (.H5)
-        data.to_HDF5(FILENAME, verbose=VERBOSE, **attributes)
 
 # PURPOSE: create argument parser
 def arguments():

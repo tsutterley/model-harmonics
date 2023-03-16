@@ -81,6 +81,7 @@ UPDATE HISTORY:
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
         output all data within a single ascii, netCDF or HDF5 file
         use new scaling_factors inheritance of spatial class
+        updated inputs to spatial from_ascii function
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
         use constants class in place of geoid-toolkit ref_ellipsoid
@@ -281,8 +282,8 @@ def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
         # read data files for data format
         if (DATAFORM == 'ascii'):
             # ascii (.txt)
-            gldas_data = gravtk.spatial(spacing=[dlon,dlat],nlat=nlat,
-                nlon=nlon,extent=extent).from_ascii(os.path.join(ddir,sub1,f1))
+            gldas_data = gravtk.spatial().from_ascii(os.path.join(ddir,sub1,f1),
+                spacing=[dlon,dlat], nlat=nlat, nlon=nlon, extent=extent)
         elif (DATAFORM == 'netCDF4'):
             # netCDF4 (.nc)
             gldas_data = gravtk.spatial().from_netCDF4(os.path.join(ddir,sub1,f1))

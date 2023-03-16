@@ -66,6 +66,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
+        updated inputs to spatial from_ascii function
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
         use constants class in place of geoid-toolkit ref_ellipsoid
@@ -241,9 +242,9 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
         year,month = np.array(rx.findall(f).pop(), dtype=np.int64)
         # read input data file
         if (DATAFORM == 'ascii'):
-            obp_data = gravtk.spatial(spacing=[dlon,dlat],
-                nlat=150,nlon=360,extent=extent).from_ascii(
-                os.path.join(ddir,input_sub,f))
+            obp_data = gravtk.spatial().from_ascii(
+                os.path.join(ddir,input_sub,f), spacing=[dlon,dlat],
+                nlat=150, nlon=360, extent=extent)
         elif (DATAFORM == 'netCDF4'):
             obp_data = gravtk.spatial().from_netCDF4(
                 os.path.join(ddir,input_sub,f))

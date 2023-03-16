@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_read_version4.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (03/2023)
 
 Calculates monthly ocean bottom pressure anomalies from ECCO Version 4 models
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
@@ -62,6 +62,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 03/2023: updated inputs to spatial from_ascii function
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -147,10 +148,10 @@ def ecco_read_version4(ddir, MODEL, YEARS, RANGE=None,
     # remove singleton dimensions
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
-        obp_mean = gravtk.spatial(
+        obp_mean = gravtk.spatial(fill_value=fill_value).from_ascii(
+            os.path.join(ddir,sd1,mean_file), date=False,
             spacing=[dlon,dlat], nlat=nlat, nlon=nlon,
-            extent=extent, fill_value=fill_value).from_ascii(
-            os.path.join(ddir,sd1,mean_file), date=False).squeeze()
+            extent=extent).squeeze()
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
         obp_mean = gravtk.spatial().from_netCDF4(

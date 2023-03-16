@@ -66,6 +66,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
+        updated inputs to spatial from_ascii function
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -239,10 +240,10 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
         # read data file for data format
         if (DATAFORM == 'ascii'):
             # ascii (.txt)
-            M1 = gravtk.spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
-                extent=extent).from_ascii(os.path.join(ddir,cumul_sub,fi))
-            M2 = gravtk.spatial(spacing=[dlon,dlat],nlat=nlat,nlon=nlon,
-                extent=extent).from_ascii(os.path.join(ddir,cumul_sub,FILES[t+1]))
+            M1 = gravtk.spatial().from_ascii(os.path.join(ddir,cumul_sub,fi),
+                spacing=[dlon,dlat], nlat=nlat, nlon=nlon, extent=extent)
+            M2 = gravtk.spatial().from_ascii(os.path.join(ddir,cumul_sub,FILES[t+1]),
+                spacing=[dlon,dlat], nlat=nlat, nlon=nlon, extent=extent)
         elif (DATAFORM == 'netCDF4'):
             # netCDF4 (.nc)
             M1 = gravtk.spatial().from_netCDF4(os.path.join(ddir,cumul_sub,fi),
