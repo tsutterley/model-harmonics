@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_monthly_pressure.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (03/2023)
 Reads daily atmospheric pressure fields from reanalysis and outputs monthly averages
 
 INPUTS:
@@ -31,6 +31,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 03/2023: use full path to output file in verbose logging
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: can use variable loglevels for verbose output
@@ -159,7 +160,7 @@ def ncdf_pressure_write(dinput, fill_value, FILENAME=None, VARNAME=None,
     fileID.date_created = datetime.datetime.now().isoformat()
 
     # Output NetCDF structure information
-    logging.info(os.path.basename(FILENAME))
+    logging.info(FILENAME)
     logging.info(list(fileID.variables.keys()))
 
     # Closing the NetCDF file

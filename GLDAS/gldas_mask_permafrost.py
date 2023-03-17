@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mask_permafrost.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (03/2023)
 
 Creates a mask for GLDAS data based on the permafrost/surface classification
 from the NSIDC Circum-Arctic Map of Permafrost and Ground-Ice Conditions
@@ -46,6 +46,7 @@ REFERENCES:
         ground ice conditions. Boulder, CO: National Snow and Ice Data Center.
 
 UPDATE HISTORY:
+    Updated 03/2023: use full path to output file in verbose logging
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 07/2022: place some imports behind try/except statements
@@ -214,7 +215,7 @@ def ncdf_mask_write(output_data, FILENAME=None):
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
     # Output NetCDF structure information
-    logging.info(os.path.basename(FILENAME))
+    logging.info(FILENAME)
     logging.info(list(fileID.variables.keys()))
 
     # Closing the NetCDF file

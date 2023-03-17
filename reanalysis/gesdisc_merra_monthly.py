@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_merra_monthly.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (03/2023)
 
 Creates monthly MERRA-2 3D model level products syncing data from the
     Goddard Earth Sciences Data and Information Server Center (GES DISC)
@@ -49,6 +49,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 03/2023: use full path to output file in verbose logging
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 10/2022: add hard coded GES DISC subsetting api host option
@@ -308,7 +309,7 @@ def ncdf_model_write(dinput, attributes, fill_value,
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
     # Output NetCDF structure information
-    logging.info(os.path.basename(FILENAME))
+    logging.info(FILENAME)
     logging.info(list(fileID.variables.keys()))
 
     # Closing the NetCDF file

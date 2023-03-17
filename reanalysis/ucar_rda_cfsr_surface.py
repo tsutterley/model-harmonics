@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ucar_rda_cfsr_surface.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (03/2023)
 
 Downloads NCEP-CFSR products using a links list csh file provided by the
     NCAR/UCAR Research Data Archive (RDA): https://rda.ucar.edu/
@@ -53,6 +53,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 03/2023: debug-level logging for lines within download file
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -151,7 +152,7 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
         # for each file in the year
         for i in sorted(remote_lines):
             # print input file to be read into memory
-            print(valid_lines[i])
+            logging.debug(valid_lines[i])
             # Create and submit request. There are a wide range of exceptions
             # local = os.path.join(DIRECTORY,valid_lines[i])
             response = gravtk.utilities.from_http([HOST,valid_lines[i]],
@@ -264,7 +265,7 @@ def ncdf_model_write(dinput, fill_value, VARNAME=None, LONNAME=None,
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
     # Output NetCDF structure information
-    logging.info(os.path.basename(FILENAME))
+    logging.info(FILENAME)
     logging.info(list(fileID.variables.keys()))
 
     # Closing the NetCDF file

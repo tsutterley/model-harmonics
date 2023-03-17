@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_merra_subset.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (03/2023)
 
 Subsets monthly MERRA-2 products for specific variables from the
     Goddard Earth Sciences Data and Information Server Center (GES DISC)
@@ -24,6 +24,7 @@ COMMAND LINE OPTIONS:
     -W X, --password X: password for NASA Earthdata Login
     -N X, --netrc X: path to .netrc file for authentication
     -D X, --directory X: Working data directory
+    -H X, --host X: Hostname for the GESDISC subsetting API
     -s X, --shortname X: MERRA-2 product shortname
     -v X, --version X: MERRA-2 version
     -Y X, --year X: years to sync
@@ -51,6 +52,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 03/2023: added option for defining the GESDISC API hostname
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 10/2022: added flatten option to not create output subdirectories
@@ -71,9 +73,9 @@ import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
 
 # PURPOSE: subsets MERRA-2 files for specific variables
-def gesdisc_merra_subset(base_dir, SHORTNAME, VERSION=None, YEARS=None,
-    VARIABLES=None, TIMEOUT=None, FLATTEN=False, LOG=False, CLOBBER=False,
-    MODE=None):
+def gesdisc_merra_subset(base_dir, SHORTNAME, HOST=None, VERSION=None,
+    YEARS=None, VARIABLES=None, TIMEOUT=None, FLATTEN=False, LOG=False,
+    CLOBBER=False, MODE=None):
     # set up data directory
     if FLATTEN:
         DIRECTORY = os.path.expanduser(base_dir)
@@ -123,8 +125,9 @@ def gesdisc_merra_subset(base_dir, SHORTNAME, VERSION=None, YEARS=None,
                 local_file = os.path.join(DIRECTORY, FILE)
                 # get subsetting API url for granule
                 request_url = mdlhmc.utilities.build_request(
-                    SHORTNAME, VERSION, url, variables=VARIABLES,
-                    bbox=[-90,-180,90,180], LABEL=FILE)
+                    SHORTNAME, VERSION, url, host=HOST,
+                    variables=VARIABLES, bbox=[-90,-180,90,180],
+                    LABEL=FILE)
                 # copy subsetted file and update modified dates
                 http_pull_file(request_url, mtime, local_file,
                     TIMEOUT=TIMEOUT, CLOBBER=CLOBBER, MODE=0o775)
@@ -198,6 +201,11 @@ def arguments():
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         default=os.getcwd(),
         help='Working data directory')
+    # GESDISC subsetting host
+    HOST = 'https://goldsmr4.gesdisc.eosdis.nasa.gov/'
+    parser.add_argument('--host','-H',
+        type=str, default=HOST,
+        help='Hostname for the GESDISC subsetting API')
     # MERRA-2 product shortname
     parser.add_argument('--shortname','-s',
         type=str, default='M2TMNXSLV',
@@ -266,9 +274,9 @@ def main():
         password_manager=True, authorization_header=False)
 
     # check internet connection before attempting to run program
-    HOST = 'https://goldsmr5.gesdisc.eosdis.nasa.gov/'
-    if mdlhmc.utilities.check_credentials(HOST):
+    if mdlhmc.utilities.check_credentials(args.host):
         gesdisc_merra_subset(args.directory, args.shortname,
+            HOST=args.host,
             VERSION=args.version,
             YEARS=args.year,
             VARIABLES=args.variables,
