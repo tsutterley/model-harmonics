@@ -204,7 +204,7 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
 
     # for each month of data
     for i in range(nt-1):
-        # convert data to m w.e.
+        # convert data to mm w.e.
         M1 = era5_data.index(i).scale(1000.0)
         M2 = era5_data.index(i+1).scale(1000.0)
         # attributes for input files

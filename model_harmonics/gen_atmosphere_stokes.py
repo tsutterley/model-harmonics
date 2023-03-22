@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gen_atmosphere_stokes.py
-Written by Tyler Sutterley (01/2023)
+Written by Tyler Sutterley (03/2023)
 Calculates spherical harmonic fields from 3D atmospheric geopotential
     height and pressure difference fields
 
@@ -60,6 +60,7 @@ REFERENCE:
     76: 279-299, 2002. https://doi.org/10.1007/s00190-002-0216-2
 
 UPDATE HISTORY:
+    Updated 03/2023: improve typing for variables in docstrings
     Updated 01/2023: refactored associated legendre polynomials
     Updated 12/2022: constants class in place of geoid-toolkit ref_ellipsoid
     Updated 04/2022: updated docstrings to numpy documentation format
@@ -88,13 +89,13 @@ def gen_atmosphere_stokes(GPH, pressure, lon, lat, LMAX=60, MMAX=None,
 
     Parameters
     ----------
-    GPH: float
+    GPH: np.ndarray
         geopotential heights at model levels
-    pressure: float
+    pressure: np.ndarray
         pressure differences between model levels
-    lon: float
+    lon: np.ndarray
         longitude array
-    lat: float
+    lat: np.ndarray
         latitude array
     LMAX: int, default 60
         Upper bound of Spherical Harmonic Degrees
@@ -102,9 +103,9 @@ def gen_atmosphere_stokes(GPH, pressure, lon, lat, LMAX=60, MMAX=None,
         Upper bound of Spherical Harmonic Orders
     ELLIPSOID: str or NoneType, default None
         reference ellipsoid name
-    GEOID: float or NoneType, default None
+    GEOID: np.ndarray or NoneType, default None
         geoid height
-    PLM: float or NoneType, default None
+    PLM: np.ndarray or NoneType, default None
         Legendre polynomials
     LOVE: tuple or NoneType, default None
         Load Love numbers up to degree LMAX (``hl``, ``kl``, ``ll``)
@@ -116,13 +117,13 @@ def gen_atmosphere_stokes(GPH, pressure, lon, lat, LMAX=60, MMAX=None,
 
     Returns
     -------
-    clm: float
+    clm: np.ndarray
         fully-normalized cosine spherical harmonic coefficients
-    slm: float
+    slm: np.ndarray
         fully-normalized sine spherical harmonic coefficients
-    l: int
+    l: np.ndarray
         spherical harmonic degree to LMAX
-    m: int
+    m: np.ndarray
         spherical harmonic order to MMAX
 
     References

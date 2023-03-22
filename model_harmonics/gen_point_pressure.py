@@ -50,6 +50,7 @@ REFERENCES:
 
 UPDATE HISTORY:
     Updated 03/2023: simplified recursion and unit degree factors
+        improve typing for variables in docstrings
     Updated 04/2022: updated docstrings to numpy documentation format
     Written 02/2021
 """
@@ -66,17 +67,17 @@ def gen_point_pressure(P, G, R, lon, lat, AREA=None, LMAX=60, MMAX=None,
 
     Parameters
     ----------
-    P: float
+    P: np.ndarray
         Pressure (Pa)
-    G: float
+    G: np.ndarray
         Gravitational acceleration (m/s\ :sup:`2`)
-    R: float
+    R: np.ndarray
         Radius at point (m)
-    lon: float
+    lon: np.ndarray
         longitude of points
-    lat: float
+    lat: np.ndarray
         latitude of points
-    AREA: float or NoneType, default None
+    AREA: np.ndarray or NoneType, default None
         Area of each pressure cell (m\ :sup:`2`)
     LMAX: int, defualt 60
         Upper bound of Spherical Harmonic Degrees
@@ -87,13 +88,13 @@ def gen_point_pressure(P, G, R, lon, lat, AREA=None, LMAX=60, MMAX=None,
 
     Returns
     -------
-    clm: float
+    clm: np.ndarray
         fully-normalized cosine spherical harmonic coefficients
-    slm: float
+    slm: np.ndarray
         fully-normalized sine spherical harmonic coefficients
-    l: int
+    l: np.ndarray
         spherical harmonic degree to LMAX
-    m: int
+    m: np.ndarray
         spherical harmonic order to MMAX
 
     References
@@ -117,7 +118,7 @@ def gen_point_pressure(P, G, R, lon, lat, AREA=None, LMAX=60, MMAX=None,
         spherical rectangle", *Journal of Geophysical Research*, 78(11), (1973).
         `doi: 10.1029/JB078i011p01760 <https://doi.org/10.1029/JB078i011p01760>`_
     .. [Swenson2002] S. Swenson and J. Wahr, "Estimated effects of the vertical
-        structure of atmospheric mass on the time‐variable geoid",
+        structure of atmospheric mass on the time-variable geoid",
         *Journal of Geophysical Research*, 107(B9), 2194, (2002).
         `doi: 10.1029/2000JB000024 <https://doi.org/10.1029/2000JB000024>`_
     """
@@ -174,7 +175,7 @@ def gen_point_pressure(P, G, R, lon, lat, AREA=None, LMAX=60, MMAX=None,
     return Ylms
 
 # calculate spherical harmonics of degree l evaluated at (theta,phi)
-def spherical_harmonic_matrix(l,PGR,phi,theta,coeff):
+def spherical_harmonic_matrix(l, PGR, phi, theta, coeff):
     """
     Calculates spherical harmonics of degree l evaluated at coordinates
 
@@ -182,18 +183,18 @@ def spherical_harmonic_matrix(l,PGR,phi,theta,coeff):
     ----------
     l: int
         spherical harmonic degree
-    PGR: float
+    PGR: np.ndarray
         pressure/gravity ratio
-    phi: float
+    phi: np.ndarray
         longitude of points in radians
-    theta: float
+    theta: np.ndarray
         colatitude of points in radians
-    coeff: float
+    coeff: np.ndarray
         degree-dependent factor for converting units
 
     Returns
     -------
-    Ylms: float
+    Ylms: np.ndarray
         spherical harmonic coefficients in Eulerian form
     """
     # calculate normalized legendre polynomials (points, order)

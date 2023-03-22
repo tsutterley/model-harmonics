@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_regrid.py
-Written by Tyler Sutterley (02/2023)
+Written by Tyler Sutterley (03/2023)
 Read and regrid MERRA-2 hybrid variables
 MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
 
@@ -50,6 +50,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 03/2023 attributes from units class for writing to netCDF4/HDF5
     Updated 02/2023: new doi for Medley (2022) Cryosphere paper
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -388,8 +389,9 @@ def merra_hybrid_regrid(base_dir, REGION, VARIABLE, YEARS,
     # output regridded data file
     FILE='gsfc_fdm_{0}_{1}_{2}.nc'.format(FILE_VERSION,REGION.lower(),VARIABLE)
     # output grid to netCDF4 (.nc)
-    grid.to_netCDF4(os.path.join(DIRECTORY,FILE), varname=VARIABLE, units='cmwe',
-        longname='Equivalent Water Thickness', reference=reference)
+    units_name, units_longname = gravtk.units.get_attributes('cmwe')
+    grid.to_netCDF4(os.path.join(DIRECTORY,FILE), varname=VARIABLE,
+        units=units_name, longname=units_longname, reference=reference)
     # change the permissions mode
     os.chmod(os.path.join(DIRECTORY,FILE), MODE)
 

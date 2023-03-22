@@ -10,6 +10,7 @@ PYTHON DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 03/2023: convert spacing and extent to raster class properties
+        improve typing for variables in docstrings
     Updated 02/2023: geotiff read and write to inheritance of spatial class
     Written 10/2022
 """
@@ -44,17 +45,17 @@ class raster(gravity_toolkit.spatial):
 
     Attributes
     ----------
-    data: float
+    data: np.ndarray
         spatial grid data
-    mask: bool
+    mask: np.ndarray
         spatial grid mask
-    x: float
+    x: np.ndarray
         x-coordinate array
-    y: float
+    y: np.ndarray
         y-coordinate array
-    lon: float
+    lon: np.ndarray
         grid longitudes
-    lat: float
+    lat: np.ndarray
         grid latitudes
     fill_value: float or NoneType, default None
         invalid value for spatial grid data
@@ -244,9 +245,9 @@ class raster(gravity_toolkit.spatial):
 
         Returns
         -------
-        longitude: float
+        longitude: np.ndarray
             longitude coordinates of grid cells
-        latitude: float
+        latitude: np.ndarray
             latitude coordinates of grid cells
         """
         # set the spatial projection reference information
@@ -312,7 +313,7 @@ def scale_areas(lat, flat=_wgs84.flat, ref=70.0):
 
     Parameters
     ----------
-    lat: float,
+    lat: np.ndarray,
         latitude (degrees north)
     flat: float, default 1.0/298.257223563
         ellipsoidal flattening
@@ -321,7 +322,7 @@ def scale_areas(lat, flat=_wgs84.flat, ref=70.0):
 
     Returns
     -------
-    scale: float
+    scale: np.ndarray
         area scaling factors at input latitudes
 
     References
