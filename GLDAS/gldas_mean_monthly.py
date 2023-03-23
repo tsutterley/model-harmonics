@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mean_monthly.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (03/2023)
 
 Reads GLDAS monthly datafiles from http://ldas.gsfc.nasa.gov/gldas/
 Adding Soil Moisture, snow water equivalent (SWE) and total canopy storage
@@ -75,6 +75,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 03/2023: attributes from units class for writing to netCDF4/HDF5
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -205,8 +206,9 @@ def gldas_mean_monthly(base_dir, MODEL, RANGE=None, SPATIAL=None, VERSION=None,
     FILE = 'GLDAS_{0}{1}_TWC_MEAN_{2:4d}-{3:4d}.{4}'.format(*args)
     # attributes for output files
     attributes = {}
-    attributes['units'] = 'cmwe'
-    attributes['longname'] = 'Equivalent_Water_Thickness'
+    units_name, units_longname = gravtk.units.get_attributes('cmwe')
+    attributes['units'] = units_name
+    attributes['longname'] = units_longname
     attributes['title'] = gldas_products[MODEL]
     attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
     if (DATAFORM == 'ascii'):

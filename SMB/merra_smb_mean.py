@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_mean.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (03/2023)
 Reads monthly MERRA-2 datafiles to calculate multi-annual means
     of derived surface mass balance products
 
@@ -47,6 +47,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 03/2023: attributes from units class for writing to netCDF4/HDF5
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -148,8 +149,9 @@ def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     # attributes for output files
     attributes = {}
     attributes['varname'] = copy.copy(PRODUCT)
-    attributes['units'] = 'mm w.e.'
-    attributes['longname'] = 'Equivalent_Water_Thickness'
+    units_name, units_longname = gravtk.units.get_attributes('mmwe')
+    attributes['units'] = units_name
+    attributes['longname'] = units_longname
     attributes['title'] = copy.copy(merra_products[PRODUCT])
     attributes['source'] = ', '.join(merra_sources[PRODUCT])
     attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'

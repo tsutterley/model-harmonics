@@ -79,6 +79,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 03/2023: updated inputs to spatial from_ascii function
+        use attributes from units class for writing to netCDF4/HDF5 files
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -118,8 +119,8 @@ import argparse
 import warnings
 import datetime
 import numpy as np
-import gravity_toolkit.time
-from gravity_toolkit.spatial import spatial
+import gravity_toolkit as gravtk
+
 # attempt imports
 try:
     import pygrib
@@ -169,16 +170,16 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
     mean_file = 'GLDAS_{0}{1}_TWC_MEAN_{2:4d}-{3:4d}.{4}'.format(*args)
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
-        twc_mean = spatial().from_ascii(os.path.join(ddir,mean_file),
+        twc_mean = gravtk.spatial().from_ascii(os.path.join(ddir,mean_file),
             date=False, spacing=[dlon,dlat], nlat=nlat, nlon=nlon,
             extent=extent)
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
-        twc_mean = spatial().from_netCDF4(os.path.join(ddir,mean_file),
+        twc_mean = gravtk.spatial().from_netCDF4(os.path.join(ddir,mean_file),
             date=False)
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
-        twc_mean = spatial().from_HDF5(os.path.join(ddir,mean_file),
+        twc_mean = gravtk.spatial().from_HDF5(os.path.join(ddir,mean_file),
             date=False)
 
     # find directories for each year within directory
@@ -190,8 +191,9 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
 
     # attributes for output files
     attributes = {}
-    attributes['units'] = 'cmwe'
-    attributes['longname'] = 'Equivalent_Water_Thickness'
+    units_name, units_longname = gravtk.units.get_attributes('cmwe')
+    attributes['units'] = units_name
+    attributes['longname'] = units_longname
     attributes['title'] = gldas_products[MODEL]
     attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
 
@@ -223,7 +225,7 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
             # 2) Output file currently doesn't exist
             if CLOBBER or TEST:
                 # output twc spatial field
-                twc = spatial()
+                twc = gravtk.spatial()
                 twc.data = np.zeros((nlat,nlon))
                 twc.mask = np.ones((nlat,nlon),dtype=bool)
                 # read GRIB or netCDF4 file
@@ -244,7 +246,7 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
                 # set the mask for valid points
                 twc.mask[ii,jj] = False
                 # calculate date
-                twc.time, = gravity_toolkit.time.convert_calendar_decimal(
+                twc.time, = gravtk.time.convert_calendar_decimal(
                     np.int64(YY),np.int64(MM))
 
                 # output to file
