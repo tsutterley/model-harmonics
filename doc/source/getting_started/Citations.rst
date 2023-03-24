@@ -4,22 +4,29 @@ Citation Information
 
 References
 ##########
+
 The programs included in this software have contributed
 most recently to the following work:
 
     I. Velicogna, Y. Mohajerani, G. A, F. Landerer, J. Mouginot, B. No\ |euml|\ l,
     E. Rignot, T. C. Sutterley, M. van den Broeke, J. M. van Wessem, and D. Wiese,
     "Continuity of ice sheet mass loss in Greenland and Antarctica from the GRACE
-    and GRACE Follow‐On missions", *Geophysical Research Letters*, 47,
-    (2020). `doi:10.1029/2020GL087291 <https://doi.org/10.1029/2020GL087291>`_
+    and GRACE Follow-On missions", *Geophysical Research Letters*, 47,
+    (2020). `doi: 10.1029/2020GL087291 <https://doi.org/10.1029/2020GL087291>`_
 
-    T. C. Sutterley, I. Velicogna, and C.-W. Hsu, "Self‐Consistent Ice Mass Balance
-    and Regional Sea Level From Time‐Variable Gravity", *Earth and Space Science*, 7,
-    (2020). `doi:10.1029/2019EA000860 <https://doi.org/10.1029/2019EA000860>`_
+    T. C. Sutterley, I. Velicogna, and C.-W. Hsu, "Self-Consistent Ice Mass Balance
+    and Regional Sea Level From Time-Variable Gravity", *Earth and Space Science*, 7,
+    (2020). `doi: 10.1029/2019EA000860 <https://doi.org/10.1029/2019EA000860>`_
 
     T. C. Sutterley and I. Velicogna, "Improved estimates of geocenter variability
     from time-variable gravity and ocean model outputs", *Remote Sensing*, 11(18),
-    2108, (2019). `doi:10.3390/rs11182108 <https://doi.org/10.3390/rs11182108>`_
+    2108, (2019). `doi: 10.3390/rs11182108 <https://doi.org/10.3390/rs11182108>`_
+
+If you have used ``model-harmonics`` in your work, please consider citing our library:
+
+    T. C. Sutterley, et al., "model-harmonics: Python tools for working with
+    spherical harmonic coefficients from atmospheric, oceanic and land surface models",
+    (2020). `doi: 10.5281/zenodo.7502727 <https://doi.org/10.5281/zenodo.7502727>`_
 
 Contributors
 ############
