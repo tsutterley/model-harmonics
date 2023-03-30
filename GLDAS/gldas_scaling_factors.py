@@ -82,6 +82,7 @@ UPDATE HISTORY:
         output all data within a single ascii, netCDF or HDF5 file
         use new scaling_factors inheritance of spatial class
         updated inputs to spatial from_ascii function
+        use spatial function for calculating geocentric latitude
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
         use constants class in place of geoid-toolkit ref_ellipsoid
@@ -235,19 +236,11 @@ def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
     ellipsoid_params = mdlhmc.constants(ellipsoid='WGS84')
     # semimajor axis of ellipsoid [m]
     a_axis = ellipsoid_params.a_axis
-    # first numerical eccentricity
-    ecc1 = ellipsoid_params.ecc1
-    # convert from geodetic latitude to geocentric latitude
-    # geodetic latitude in radians
-    latitude_geodetic_rad = np.pi*gridlat/180.0
-    # prime vertical radius of curvature
-    N = a_axis/np.sqrt(1.0 - ecc1**2.*np.sin(latitude_geodetic_rad)**2.)
-    # calculate X, Y and Z from geodetic latitude and longitude
-    X = N * np.cos(latitude_geodetic_rad) * np.cos(np.pi*gridlon/180.0)
-    Y = N * np.cos(latitude_geodetic_rad) * np.sin(np.pi*gridlon/180.0)
-    Z = (N * (1.0 - ecc1**2.0)) * np.sin(latitude_geodetic_rad)
+    # ellipsoidal flattening
+    flat = ellipsoid_params.flat
     # calculate geocentric latitude and convert to degrees
-    latitude_geocentric = 180.0*np.arctan(Z / np.sqrt(X**2.0 + Y**2.0))/np.pi
+    latitude_geocentric = mdlhmc.spatial.geocentric_latitude(gridlon, gridlat,
+        a_axis=a_axis, flat=flat)
     # colatitude in radians
     theta = (90.0 - latitude_geocentric[:,0])*np.pi/180.0
 

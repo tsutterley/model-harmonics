@@ -10,6 +10,7 @@ CALLING SEQUENCE:
 
 COMMAND LINE OPTIONS:
     --mask X: netCDF4 mask files for reducing to regions
+    --area X: netCDF4 area files for calculating mass
     -l X, --lmax X: maximum spherical harmonic degree
     -m X, --mmax X: maximum spherical harmonic order
     -n X, --love X: Treatment of the Love Love numbers
@@ -54,6 +55,8 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
+        use spatial function for calculating geocentric latitude
+        add option for adding area file for calculating mass
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
         use constants class in place of geoid-toolkit ref_ellipsoid
@@ -87,6 +90,7 @@ def set_projection(REGION):
 # PURPOSE: read GEMB SMB estimates and convert to spherical harmonics
 def gemb_smb_harmonics(model_file,
     MASKS=None,
+    AREA=None,
     LMAX=None,
     MMAX=None,
     LOVE_NUMBERS=0,
@@ -124,11 +128,17 @@ def gemb_smb_harmonics(model_file,
     fd['x'] = fileID.variables['x'][:].copy()
     fd['y'] = fileID.variables['y'][:].copy()
     xg,yg = np.meshgrid(fd['x'],fd['y'])
-    # calculate grid areas (assume fully ice covered)
+    # calculate grid areas (read file or assume fully ice covered)
     fd['area'] = np.zeros((ny,nx))
-    dx = np.abs(fd['x'][1] - fd['x'][0])
-    dy = np.abs(fd['y'][1] - fd['y'][0])
-    fd['area'][:,:] = dx*dy
+    if AREA is None:
+        dx = np.abs(fd['x'][1] - fd['x'][0])
+        dy = np.abs(fd['y'][1] - fd['y'][0])
+        fd['area'][:,:] = dx*dy
+    else:
+        # read area file (km^2)
+        fileID = netCDF4.Dataset(AREA, 'r')
+        fd['area'][:,:] = 1e6*fileID.variables['area'][:]
+        fileID.close()
     # close the NetCDF files
     fileID.close()
 
@@ -162,21 +172,11 @@ def gemb_smb_harmonics(model_file,
     ellipsoid_params = mdlhmc.constants(ellipsoid='WGS84')
     # semimajor axis of the ellipsoid [m]
     a_axis = ellipsoid_params.a_axis
-    # first numerical eccentricity
-    ecc1 = ellipsoid_params.ecc1
-    # flattening of the ellipsoid
+    # ellipsoidal flattening
     flat = ellipsoid_params.flat
-    # convert from geodetic latitude to geocentric latitude
-    # geodetic latitude in radians
-    latitude_geodetic_rad = np.pi*gridlat/180.0
-    # prime vertical radius of curvature
-    N = a_axis/np.sqrt(1.0 - ecc1**2.*np.sin(latitude_geodetic_rad)**2.)
-    # calculate X, Y and Z from geodetic latitude and longitude
-    X = N * np.cos(latitude_geodetic_rad) * np.cos(np.pi*gridlon/180.0)
-    Y = N * np.cos(latitude_geodetic_rad) * np.sin(np.pi*gridlon/180.0)
-    Z = (N * (1.0 - ecc1**2.0)) * np.sin(latitude_geodetic_rad)
     # calculate geocentric latitude and convert to degrees
-    latitude_geocentric = 180.0*np.arctan(Z / np.sqrt(X**2.0 + Y**2.0))/np.pi
+    latitude_geocentric = mdlhmc.spatial.geocentric_latitude(gridlon, gridlat,
+        a_axis=a_axis, flat=flat)
 
     # reduce latitude and longitude to valid and masked points
     indy,indx = np.nonzero(fd['mask'])
@@ -267,6 +267,11 @@ def arguments():
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         nargs='+', default=[],
         help='netCDF4 masks file for reducing to regions')
+    # area file for reducing to regions
+    parser.add_argument('--area',
+        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        nargs='+', default=[],
+        help='netCDF4 area file for calculating mass')
     # maximum spherical harmonic degree and order
     parser.add_argument('--lmax','-l',
         type=int, default=60,
@@ -316,6 +321,7 @@ def main():
     # run program
     gemb_smb_harmonics(args.infile,
         MASKS=args.mask,
+        AREA=args.area,
         LMAX=args.lmax,
         MMAX=args.mmax,
         LOVE_NUMBERS=args.love,

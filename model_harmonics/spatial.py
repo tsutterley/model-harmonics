@@ -11,6 +11,7 @@ PYTHON DEPENDENCIES:
 UPDATE HISTORY:
     Updated 03/2023: convert spacing and extent to raster class properties
         improve typing for variables in docstrings
+        add function for calculating geocentric latitude from geodetic
     Updated 02/2023: geotiff read and write to inheritance of spatial class
     Written 10/2022
 """
@@ -305,6 +306,46 @@ class raster(gravity_toolkit.spatial):
 
 # get WGS84 parameters in CGS (centimeters, grams, seconds)
 _wgs84 = constants(ellipsoid='WGS84', units='CGS')
+
+# PURPOSE: calculate the geocentric latitudes
+def geocentric_latitude(lon, lat, a_axis=_wgs84.a_axis, flat=_wgs84.flat):
+    """
+    Converts from geodetic latitude to geocentric latitude for an ellipsoid
+
+    Parameters
+    ----------
+    lon: np.ndarray,
+        longitude (degrees east)
+    lat: np.ndarray,
+        geodetic latitude (degrees north)
+    a_axis: float, default 6378137.0
+        semimajor axis of the ellipsoid
+    flat: float, default 1.0/298.257223563
+        ellipsoidal flattening
+
+    Returns
+    -------
+    geocentric_latitude: np.ndarray
+        latitude intersecting the center of the Earth (degrees north)
+
+    References
+    ----------
+    .. [1] Snyder, J P (1982) Map Projections used by the U.S. Geological Survey
+        Forward formulas for the ellipsoid.  Geological Survey Bulletin
+        1532, U.S. Government Printing Office.
+    """
+    # first numerical eccentricity
+    ecc1 = np.sqrt((2.0*flat - flat**2)*a_axis**2)/a_axis
+    # geodetic latitude in radians
+    latitude_geodetic_rad = np.pi*lat/180.0
+    # prime vertical radius of curvature
+    N = a_axis/np.sqrt(1.0 - ecc1**2.*np.sin(latitude_geodetic_rad)**2.)
+    # calculate X, Y and Z from geodetic latitude and longitude
+    X = N * np.cos(latitude_geodetic_rad) * np.cos(np.pi*lon/180.0)
+    Y = N * np.cos(latitude_geodetic_rad) * np.sin(np.pi*lon/180.0)
+    Z = (N * (1.0 - ecc1**2.0)) * np.sin(latitude_geodetic_rad)
+    # calculate geocentric latitude and convert to degrees
+    return 180.0*np.arctan(Z / np.sqrt(X**2.0 + Y**2.0))/np.pi
 
 def scale_areas(lat, flat=_wgs84.flat, ref=70.0):
     """
