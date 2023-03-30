@@ -272,7 +272,6 @@ def arguments():
     # area file for reducing to regions
     parser.add_argument('--area',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        nargs='+', default=[],
         help='netCDF4 area file for calculating mass')
     # maximum spherical harmonic degree and order
     parser.add_argument('--lmax','-l',
