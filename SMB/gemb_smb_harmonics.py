@@ -128,6 +128,9 @@ def gemb_smb_harmonics(model_file,
     fd['x'] = fileID.variables['x'][:].copy()
     fd['y'] = fileID.variables['y'][:].copy()
     xg,yg = np.meshgrid(fd['x'],fd['y'])
+    # close the NetCDF files
+    fileID.close()
+
     # calculate grid areas (read file or assume fully ice covered)
     fd['area'] = np.ma.zeros((ny,nx), fill_value=fv)
     fd['area'].mask = np.zeros((ny,nx), dtype=bool)
@@ -140,8 +143,6 @@ def gemb_smb_harmonics(model_file,
         fileID = netCDF4.Dataset(AREA, 'r')
         fd['area'][:,:] = 1e6*fileID.variables['area'][:]
         fileID.close()
-    # close the NetCDF files
-    fileID.close()
 
     # create mask object for reducing data
     if not MASKS:
