@@ -140,6 +140,7 @@ def gemb_smb_harmonics(model_file,
         fd['area'].data[:,:] = dx*dy
     else:
         # read area file (km^2)
+        logging.info(AREA)
         fileID = netCDF4.Dataset(AREA, 'r')
         fd['area'][:,:] = 1e6*fileID.variables['area'][:]
         fileID.close()
