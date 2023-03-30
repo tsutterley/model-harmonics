@@ -129,11 +129,12 @@ def gemb_smb_harmonics(model_file,
     fd['y'] = fileID.variables['y'][:].copy()
     xg,yg = np.meshgrid(fd['x'],fd['y'])
     # calculate grid areas (read file or assume fully ice covered)
-    fd['area'] = np.zeros((ny,nx))
+    fd['area'] = np.ma.zeros((ny,nx), fill_value=fv)
+    fd['area'].mask = np.zeros((ny,nx), dtype=bool)
     if AREA is None:
         dx = np.abs(fd['x'][1] - fd['x'][0])
         dy = np.abs(fd['y'][1] - fd['y'][0])
-        fd['area'][:,:] = dx*dy
+        fd['area'].data[:,:] = dx*dy
     else:
         # read area file (km^2)
         fileID = netCDF4.Dataset(AREA, 'r')
@@ -153,9 +154,10 @@ def gemb_smb_harmonics(model_file,
         fileID = netCDF4.Dataset(mask_file,'r')
         fd['mask'] |= fileID.variables['mask'][:].astype(bool)
         fileID.close()
-    # indices of valid GEMB hybrid data
+    # indices of valid GEMB data
     fd['mask'] &= (fd['accum_SMB'].data[0,:,:] != fv)
     fd['mask'] &= np.isfinite(fd['accum_SMB'].data[0,:,:])
+    fd['mask'] &= np.logical_not(fd['area'].mask)
 
     # pyproj transformer for converting to input coordinates (EPSG)
     MODEL_EPSG = set_projection(region)
