@@ -182,7 +182,7 @@ def racmo_smb_harmonics(model_file, VARIABLE,
         logging.info(mask_file)
         fileID = netCDF4.Dataset(mask_file,'r')
         fd['mask'] |= fileID.variables['maskgrounded2d'][:].astype(bool)
-        fileID.close()a_axis
+        fileID.close()
     # indices of valid RACMO data
     fd['mask'] &= (fd[VARIABLE].data[0,:,:] != fv)
 
