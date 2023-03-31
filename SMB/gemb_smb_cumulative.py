@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gemb_smb_cumulative.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (03/2023)
 Calculates cumulative anomalies of GEMB surface mass balance products
 
 CALLING SEQUENCE:
@@ -21,6 +21,7 @@ PYTHON DEPENDENCIES:
          https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 03/2023: regular expression pattern can find if periphery
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Written 10/2022
@@ -61,9 +62,10 @@ def gemb_smb_cumulative(model_file,
     # GEMB directory
     DIRECTORY = os.path.dirname(model_file)
     # regular expression pattern for extracting parameters
-    pattern = r'GEMB_(Greenland|Antarctica)_SMB_\d{4}_\d{4}_mesh_\d+km_(v.*?).nc$'
-    region, version = re.findall(pattern, model_file).pop()
-    output_file = f'GEMB_{region}_SMB_cumul_{version}.nc'
+    pattern = (r'GEMB_(Greenland|Antarctica)(_and_Periphery)?_'
+        r'SMB_\d{4}_\d{4}_mesh_\d+km_(v.*?).nc$')
+    region, periphery, version = re.findall(pattern, model_file).pop()
+    output_file = f'GEMB_{region}{periphery}_SMB_cumul_{version}.nc'
 
     # Open the GEMB NetCDF file for reading
     fileID = netCDF4.Dataset(os.path.expanduser(model_file), 'r')

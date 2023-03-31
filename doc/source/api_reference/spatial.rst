@@ -17,4 +17,6 @@ General Methods
 .. autoclass:: model_harmonics.spatial.raster
    :members:
 
+.. autofunction:: model_harmonics.spatial.geocentric_latitude
+
 .. autofunction:: model_harmonics.spatial.scale_areas
