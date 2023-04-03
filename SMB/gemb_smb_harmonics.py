@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gemb_smb_harmonics.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (04/2023)
 Read GEMB SMB variables and convert to spherical harmonics
 Shifts dates of SMB point masses to mid-month values to correspond with GRACE
 
@@ -9,6 +9,7 @@ CALLING SEQUENCE:
     python gemb_smb_harmonics.py --lmax 60 --verbose <path_to_gemb_file>
 
 COMMAND LINE OPTIONS:
+    -P X, --product X: GEMB product to convert to harmonics
     --mask X: netCDF4 mask files for reducing to regions
     --area X: netCDF4 area files for calculating mass
     -l X, --lmax X: maximum spherical harmonic degree
@@ -54,6 +55,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 04/2023: added option to convert firn air content variables
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
         use spatial function for calculating geocentric latitude
         add option for adding area file for calculating mass
@@ -89,6 +91,7 @@ def set_projection(REGION):
 
 # PURPOSE: read GEMB SMB estimates and convert to spherical harmonics
 def gemb_smb_harmonics(model_file,
+    VARIABLE='accum_SMB',
     MASKS=None,
     AREA=None,
     LMAX=None,
@@ -115,15 +118,15 @@ def gemb_smb_harmonics(model_file,
     fd = {}
     # read reduced time variables
     fd['time'] = fileID.variables['time'][:].copy()
-    # read surface mass balance variables
-    fd['accum_SMB'] = fileID.variables['accum_SMB'][:,:,:].copy()
+    # read surface mass balance or firn variables
+    fd[VARIABLE] = fileID.variables[VARIABLE][:,:,:].copy()
     # invalid data value
     try:
-        fv = np.float64(fileID.variables['accum_SMB']._FillValue)
+        fv = np.float64(fileID.variables[VARIABLE]._FillValue)
     except (ValueError,AttributeError):
         fv = np.nan
-    # input shape of GEMB firn data
-    nt,ny,nx = np.shape(fd['accum_SMB'])
+    # input shape of GEMB surface mass balance or firn data
+    nt,ny,nx = np.shape(fd[VARIABLE])
     # extract x and y coordinate arrays
     fd['x'] = fileID.variables['x'][:].copy()
     fd['y'] = fileID.variables['y'][:].copy()
@@ -157,8 +160,8 @@ def gemb_smb_harmonics(model_file,
         fd['mask'] |= fileID.variables['mask'][:].astype(bool)
         fileID.close()
     # indices of valid GEMB data
-    fd['mask'] &= (fd['accum_SMB'].data[0,:,:] != fv)
-    fd['mask'] &= np.isfinite(fd['accum_SMB'].data[0,:,:])
+    fd['mask'] &= (fd[VARIABLE].data[0,:,:] != fv)
+    fd['mask'] &= np.isfinite(fd[VARIABLE].data[0,:,:])
     fd['mask'] &= np.logical_not(fd['area'].mask)
 
     # pyproj transformer for converting to input coordinates (EPSG)
@@ -178,6 +181,8 @@ def gemb_smb_harmonics(model_file,
     a_axis = ellipsoid_params.a_axis
     # ellipsoidal flattening
     flat = ellipsoid_params.flat
+    # Average Radius of the Earth with equal surface area [m]
+    rad_e = ellipsoid_params.rad_e
     # calculate geocentric latitude and convert to degrees
     latitude_geocentric = mdlhmc.spatial.geocentric_latitude(gridlon, gridlat,
         a_axis=a_axis, flat=flat)
@@ -188,7 +193,23 @@ def gemb_smb_harmonics(model_file,
     # scaled areas
     ps_scale = mdlhmc.spatial.scale_areas(gridlat[indy,indx], flat=flat,
         ref=reference_latitude)
-    scaled_area = ps_scale*fd['area'][indy,indx]
+
+    # unit parameters for each input variable type
+    if (VARIABLE == 'accum_SMB'):
+        # densities of meteoric ice
+        rho_ice = 917.0
+        # scaling factor to convert inputs from from kg/m^2 to g
+        scaling_factor = 1000.0*rho_ice*ps_scale*fd['area'][indy,indx]
+        product_name = 'SMB'
+        # use named point mass units code (grams)
+        UNITS = 1
+    elif (VARIABLE == 'dFAC'):
+        # areas in terms of solid angle (steradians)
+        scaling_factor = ps_scale*fd['area'][indy,indx]/(rad_e**2)
+        product_name = 'FAC'
+        # use custom UNITS to keep as inputs but use 4-pi norm
+        UNITS = np.ones_like(scaling_factor)/(4.0*np.pi)
+
     # read load love numbers
     LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
         REFERENCE=REFERENCE, FORMAT='class')
@@ -196,15 +217,13 @@ def gemb_smb_harmonics(model_file,
     MMAX = np.copy(LMAX) if not MMAX else MMAX
     # output string for both LMAX == MMAX and LMAX != MMAX cases
     order_str = 'M{MMAX:d}' if (MMAX != LMAX) else ''
-    # densities of meteoric ice
-    rho_ice = 917.0
 
     # allocate for output spherical harmonics
     Ylms = gravtk.harmonics(lmax=LMAX, mmax=MMAX)
     Ylms.clm = np.zeros((LMAX+1,MMAX+1,nt-1))
     Ylms.slm = np.zeros((LMAX+1,MMAX+1,nt-1))
     Ylms.time = np.zeros((nt-1))
-    Ylms.month = np.zeros((nt-1),dtype=np.int64)
+    Ylms.month = np.zeros((nt-1), dtype=np.int64)
     # for each time step
     for t in range(nt-1):
         # calculate date parameters for time step
@@ -214,17 +233,17 @@ def gemb_smb_harmonics(model_file,
         dpm = gravtk.time.calendar_days(np.floor(Ylms.time[t]))
         # calculate 2-month moving average
         # weighting by number of days in each month
-        M1 = dpm[t % 12]*fd['accum_SMB'][t,indy,indx]
-        M2 = dpm[(t+1) % 12]*fd['accum_SMB'][t+1,indy,indx]
+        M1 = dpm[t % 12]*fd[VARIABLE][t,indy,indx]
+        M2 = dpm[(t+1) % 12]*fd[VARIABLE][t+1,indy,indx]
         W = np.float64(dpm[(t+1) % 12] + dpm[t % 12])
-        # reduce data for date and convert to mass (g)
-        GEMB_mass = 1000.0*rho_ice*scaled_area*(M1+M2)/W
+        # reduce data for date and scale
+        scaled = scaling_factor*(M1+M2)/W
         # convert to spherical harmonics
-        GEMB_Ylms = gravtk.gen_point_load(GEMB_mass, lon, lat,
-            LMAX=LMAX, MMAX=MMAX, UNITS=1, LOVE=LOVE)
+        YLMS = gravtk.gen_point_load(scaled, lon, lat,
+            LMAX=LMAX, MMAX=MMAX, UNITS=UNITS, LOVE=LOVE)
         # copy harmonics for time step
-        Ylms.clm[:,:,t] = GEMB_Ylms.clm[:,:].copy()
-        Ylms.slm[:,:,t] = GEMB_Ylms.slm[:,:].copy()
+        Ylms.clm[:,:,t] = YLMS.clm[:,:].copy()
+        Ylms.slm[:,:,t] = YLMS.slm[:,:].copy()
 
     # output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
@@ -234,12 +253,13 @@ def gemb_smb_harmonics(model_file,
     attributes['project'] = 'Glacier Energy and Mass Balance (GEMB)'
     attributes['product_region'] = region
     attributes['product_version'] = version.replace('_','.')
-    attributes['product_name'] = 'SMB'
+    attributes['product_name'] = product_name
     attributes['product_type'] = 'gravity_field'
-    # add attributes for earth parameters
-    attributes['earth_model'] = LOVE.model
-    attributes['earth_love_numbers'] = LOVE.citation
-    attributes['reference_frame'] = LOVE.reference
+    # add attributes for earth parameters if converting from mass
+    if (VARIABLE == 'accum_SMB'):
+        attributes['earth_model'] = LOVE.model
+        attributes['earth_love_numbers'] = LOVE.citation
+        attributes['reference_frame'] = LOVE.reference
     # add attributes for maximum degree and order
     attributes['max_degree'] = LMAX
     attributes['max_order'] = MMAX
@@ -248,7 +268,7 @@ def gemb_smb_harmonics(model_file,
     # add attributes to output harmonics
     Ylms.attributes['ROOT'] = attributes
     # output spherical harmonic data file
-    args = (version,region,'SMB',LMAX,order_str,suffix[DATAFORM])
+    args = (version,region,product_name,LMAX,order_str,suffix[DATAFORM])
     FILE = 'GEMB_{0}_{1}_{2}_CLM_L{3:d}{4}.{5}'.format(*args)
     Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM, date=True)
     # change the permissions mode of the output file to MODE
@@ -257,7 +277,7 @@ def gemb_smb_harmonics(model_file,
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
-        description="""Read GEMB SMB variables and convert to spherical harmonics
+        description="""Read GEMB variables and convert to spherical harmonics
             """,
         fromfile_prefix_chars="@"
     )
@@ -266,6 +286,10 @@ def arguments():
     parser.add_argument('infile',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
         help='GEMB SMB file to run')
+    # GEMB product to convert to spherical harmonics
+    parser.add_argument('--product','-P',
+        type=str, default='accum_SMB', choices=('accum_SMB','dFAC'),
+        help='GEMB product to calculate')
     # mask file for reducing to regions
     parser.add_argument('--mask',
         type=lambda p: os.path.abspath(os.path.expanduser(p)),
@@ -323,6 +347,7 @@ def main():
 
     # run program
     gemb_smb_harmonics(args.infile,
+        PRODUCT=args.product,
         MASKS=args.mask,
         AREA=args.area,
         LMAX=args.lmax,
