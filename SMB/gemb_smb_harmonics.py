@@ -208,7 +208,7 @@ def gemb_smb_harmonics(model_file,
         scaling_factor = ps_scale*fd['area'][indy,indx]/(rad_e**2)
         product_name = 'FAC'
         # use custom UNITS to keep as inputs but use 4-pi norm
-        UNITS = np.ones_like(scaling_factor)/(4.0*np.pi)
+        UNITS = np.ones((LMAX+1))/(4.0*np.pi)
 
     # read load love numbers
     LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,

@@ -250,7 +250,7 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
         # areas in terms of solid angle (steradians)
         scaling_factor = ps_scale*fd['area'][indx,indy]/(rad_e**2)
         # use custom UNITS to keep as inputs but use 4-pi norm
-        UNITS = np.ones_like(scaling_factor)/(4.0*np.pi)
+        UNITS = np.ones((LMAX+1))/(4.0*np.pi)
     else:
         # densities of meteoric ice
         rho_ice = 917.0
