@@ -199,7 +199,7 @@ def gemb_smb_harmonics(model_file,
 
     # unit parameters for each input variable type
     if (VARIABLE == 'accum_SMB'):
-        # densities of meteoric ice
+        # densities of meteoric ice [kg/m^3]
         rho_ice = 917.0
         # scaling factor to convert inputs from from meters ice eq to g
         scaling_factor = 1000.0*rho_ice*ps_scale*fd['area'][indy,indx]

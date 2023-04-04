@@ -256,7 +256,7 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
         # output spherical harmonic units
         harmonic_units = copy.copy(variable_units)
     else:
-        # densities of meteoric ice
+        # densities of meteoric ice [kg/m^3]
         rho_ice = 917.0
         # scaling factor to convert inputs from from meters ice eq to g
         scaling_factor = 1000.0*rho_ice*ps_scale*fd['area'][indx,indy]
