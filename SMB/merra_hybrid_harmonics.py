@@ -341,7 +341,7 @@ def arguments():
         help='Version of firn model to calculate')
     # products from firn model
     parser.add_argument('--product','-P',
-        type=str, default='SMB',
+        type=str, default='SMB_a',
         help='MERRA-2 hybrid product to calculate')
     # years to run
     now = datetime.datetime.now()
