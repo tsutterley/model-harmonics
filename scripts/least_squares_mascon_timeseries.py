@@ -43,6 +43,12 @@ COMMAND LINE OPTIONS:
     --fit-method X: method for fitting sensitivity kernel to harmonics
         1: mass coefficients
         2: geoid coefficients
+    -s X, --solver X: Least squares solver for sensitivity kernels
+        inv: matrix inversion
+        lstsq: least squares solution
+        gelsy: complete orthogonal factorization
+        gelss: singular value decomposition (SVD)
+        gelsd: singular value decomposition (SVD) with divide and conquer method
     --redistribute-mass: redistribute input mass fields over the ocean
     --harmonic-errors: input spherical harmonic fields are data errors
     --remove-file X: Monthly files to be removed from the harmonic data
@@ -69,19 +75,11 @@ PROGRAM DEPENDENCIES:
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
     ocean_stokes.py: reads a land-sea mask and converts to spherical harmonics
     spatial.py: spatial data class for reading, writing and processing data
-    ncdf_read.py: reads input spatial data from netCDF4 files
-    hdf5_read.py: reads input spatial data from HDF5 files
-    ncdf_write.py: writes output spatial data to netCDF4
-    hdf5_write.py: writes output spatial data to HDF5
     gen_stokes.py: converts a spatial field into spherical harmonic coefficients
     gauss_weights.py: Computes the Gaussian weights as a function of degree
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
     destripe_harmonics.py: calculates the decorrelation (destriping) filter
         and filters the GRACE/GRACE-FO coefficients for striping errors
-    ncdf_read_stokes.py: reads spherical harmonic netcdf files
-    ncdf_stokes.py: writes output spherical harmonic data to netcdf
-    hdf5_read_stokes.py: reads spherical harmonic HDF5 files
-    hdf5_stokes.py: writes output spherical harmonic data to HDF5
     units.py: class for converting GRACE/GRACE-FO Level-2 data to specific units
     utilities.py: download and management utilities for files
 
@@ -165,8 +163,9 @@ import re
 import time
 import logging
 import argparse
-import numpy as np
 import traceback
+import numpy as np
+import scipy.linalg
 import gravity_toolkit as gravtk
 
 # PURPOSE: keep track of threads
@@ -194,6 +193,7 @@ def least_squares_mascons(input_file, LMAX, RAD,
     MASCON_FORMAT=None,
     REDISTRIBUTE_MASCONS=False,
     FIT_METHOD=0,
+    SOLVER=None,
     REDISTRIBUTE=False,
     DATA_ERROR=False,
     REMOVE_FILES=None,
@@ -454,8 +454,13 @@ def least_squares_mascons(input_file, LMAX, RAD,
         kern_i[i] = 1.0*fit_factor[i]
         # spherical harmonics solution for the
         # mascon sensitivity kernels
-        # Least Squares Solutions: Inv(X'.X).(X'.Y)
-        kern_lm = np.linalg.lstsq(MA_lm,kern_i,rcond=-1)[0]
+        if (SOLVER == 'inv'):
+            kern_lm = np.dot(np.linalg.inv(MA_lm), kern_i)
+        elif (SOLVER == 'lstsq'):
+            kern_lm = np.linalg.lstsq(MA_lm, kern_i, rcond=-1)[0]
+        elif SOLVER in ('gelsd', 'gelsy', 'gelss'):
+            kern_lm, res, rnk, s = scipy.linalg.lstsq(MA_lm, kern_i,
+                lapack_driver=SOLVER)
         for k in range(n_mas):
             A_lm[i,k] = kern_lm[k]*area_tot[k]
 
@@ -626,6 +631,11 @@ def arguments():
     parser.add_argument('--fit-method',
         type=int, default=1, choices=(1,2),
         help='Method for fitting sensitivity kernel to harmonics')
+    # least squares solver
+    choices = ('inv','lstsq','gelsd', 'gelsy', 'gelss')
+    parser.add_argument('--solver','-s',
+        type=str, default='lstsq', choices=choices,
+        help='Least squares solver for sensitivity kernel solutions')
     # redistribute total mass over the ocean
     parser.add_argument('--redistribute-mass',
         default=False, action='store_true',
@@ -700,6 +710,7 @@ def main():
             MASCON_FORMAT=args.mascon_format,
             REDISTRIBUTE_MASCONS=args.redistribute_mascons,
             FIT_METHOD=args.fit_method,
+            SOLVER=args.solver,
             REDISTRIBUTE=args.redistribute_mass,
             DATA_ERROR=args.harmonic_errors,
             REMOVE_FILES=args.remove_file,

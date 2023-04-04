@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_harmonics.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (04/2023)
 Read MERRA-2 hybrid variables and converts to spherical harmonics
 MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
 
@@ -19,7 +19,7 @@ COMMAND LINE OPTIONS:
         v1.1
         v1.2
         v1.2.1
-    -P X, --product X: MERRA-2 hybrid product to calculate
+    -P X, --product X: MERRA-2 hybrid product to convert to harmonics
     -Y X, --year X: Years to run
     --mask X: netCDF4 mask files for reducing to regions
     -l X, --lmax X: maximum spherical harmonic degree
@@ -65,6 +65,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 04/2023: added option to convert firn air content variables
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
         use spatial function for calculating geocentric latitude
     Updated 02/2023: use love numbers class with additional attributes
@@ -132,7 +133,7 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
         FILE_VERSION = copy.copy(VERSION)
         args = (VERSION,REGION.lower(),suffix)
         hybrid_file = 'gsfc_fdm_{0}_{1}.nc{2}'.format(*args)
-    elif (REGION.lower() == 'ais'):
+    elif VARIABLE in ('FAC','height','h_a') or (REGION.lower() == 'ais'):
         FILE_VERSION = VERSION.replace('.','_')
         args = (FILE_VERSION,REGION.lower(),suffix)
         hybrid_file = 'gsfc_fdm_{0}_{1}.nc{2}'.format(*args)
@@ -175,6 +176,8 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     fd[VARIABLE] = np.squeeze(fileID.variables[VARIABLE][imin:imax+1,:,:])
     # invalid data value
     fv = np.float64(fileID.variables[VARIABLE]._FillValue)
+    # input variable units
+    variable_units = fileID.variables[VARIABLE].units
     # input shape of MERRA-2 Hybrid firn data
     nt,nx,ny = np.shape(fd[VARIABLE])
     # extract x and y coordinate arrays from grids if applicable
@@ -232,6 +235,8 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     a_axis = ellipsoid_params.a_axis
     # ellipsoidal flattening
     flat = ellipsoid_params.flat
+    # Average Radius of the Earth with equal surface area [m]
+    rad_e = ellipsoid_params.rad_e
     # calculate geocentric latitude and convert to degrees
     latitude_geocentric = mdlhmc.spatial.geocentric_latitude(gridlon, gridlat,
         a_axis=a_axis, flat=flat)
@@ -242,7 +247,24 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     # scaled areas
     ps_scale = mdlhmc.spatial.scale_areas(gridlat[indx,indy], flat=flat,
         ref=reference_latitude)
-    scaled_area = ps_scale*fd['area'][indx,indy]
+    # unit parameters for each input variable type
+    if VARIABLE in ('FAC','height','h_a'):
+        # areas in terms of solid angle (steradians)
+        scaling_factor = ps_scale*fd['area'][indx,indy]/(rad_e**2)
+        # use custom UNITS to keep as inputs but use 4-pi norm
+        UNITS = np.ones((LMAX+1))/(4.0*np.pi)
+        # output spherical harmonic units
+        harmonic_units = copy.copy(variable_units)
+    else:
+        # densities of meteoric ice [kg/m^3]
+        rho_ice = 917.0
+        # scaling factor to convert inputs from from meters ice eq to g
+        scaling_factor = 1000.0*rho_ice*ps_scale*fd['area'][indx,indy]
+        # use named point mass units code (grams)
+        UNITS = 1
+        # output spherical harmonic units
+        harmonic_units = 'Geodesy_Normalization'
+
     # read load love numbers
     LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
         REFERENCE=REFERENCE, FORMAT='class')
@@ -250,25 +272,23 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     MMAX = np.copy(LMAX) if not MMAX else MMAX
     # output string for both LMAX == MMAX and LMAX != MMAX cases
     order_str = 'M{MMAX:d}' if (MMAX != LMAX) else ''
-    # densities of meteoric ice
-    rho_ice = 917.0
 
     # allocate for output spherical harmonics
     Ylms = gravtk.harmonics(lmax=LMAX, mmax=MMAX)
     Ylms.clm = np.zeros((LMAX+1,MMAX+1,nt))
     Ylms.slm = np.zeros((LMAX+1,MMAX+1,nt))
     Ylms.time = np.zeros((nt))
-    Ylms.month = np.zeros((nt),dtype=np.int64)
+    Ylms.month = np.zeros((nt), dtype=np.int64)
     # for each time step
     for t in range(nt):
-        # reduce data for date and convert to mass (g)
-        merra_mass = 1000.0*rho_ice*scaled_area*fd[VARIABLE][t,indx,indy]
+        # reduce data for date and scale
+        scaled = scaling_factor*fd[VARIABLE][t,indx,indy]
         # convert to spherical harmonics
-        merra_Ylms = gravtk.gen_point_load(merra_mass, lon, lat,
-            LMAX=LMAX, MMAX=MMAX, UNITS=1, LOVE=LOVE)
+        YLMS = gravtk.gen_point_load(scaled, lon, lat,
+            LMAX=LMAX, MMAX=MMAX, UNITS=UNITS, LOVE=LOVE)
         # copy harmonics for time step
-        Ylms.clm[:,:,t] = merra_Ylms.clm[:,:].copy()
-        Ylms.slm[:,:,t] = merra_Ylms.slm[:,:].copy()
+        Ylms.clm[:,:,t] = YLMS.clm[:,:].copy()
+        Ylms.slm[:,:,t] = YLMS.slm[:,:].copy()
         # copy date parameters for time step
         Ylms.time[t] = fd['time'][t].copy()
         Ylms.month[t] = gravtk.time.calendar_to_grace(Ylms.time[t])
@@ -297,7 +317,8 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     # output spherical harmonic data file
     args = (FILE_VERSION,REGION.lower(),VARIABLE,LMAX,order_str,suffix[DATAFORM])
     FILE = 'gsfc_fdm_{0}_{1}_{2}_CLM_L{3:d}{4}.{5}'.format(*args)
-    Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM, date=True)
+    Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM,
+        date=True, units=harmonic_units)
     # change the permissions mode of the output file to MODE
     os.chmod(os.path.join(DIRECTORY,FILE),MODE)
 
@@ -327,7 +348,7 @@ def arguments():
         help='Version of firn model to calculate')
     # products from firn model
     parser.add_argument('--product','-P',
-        type=str, default=('SMB_a','h_a'), nargs='+',
+        type=str, default='SMB_a',
         help='MERRA-2 hybrid product to calculate')
     # years to run
     now = datetime.datetime.now()
@@ -390,17 +411,16 @@ def main():
     logging.basicConfig(level=loglevels[args.verbose])
 
     # run program
-    for VARIABLE in args.product:
-        merra_hybrid_harmonics(args.directory, args.region, VARIABLE, args.year,
-            VERSION=args.version,
-            MASKS=args.mask,
-            LMAX=args.lmax,
-            MMAX=args.mmax,
-            LOVE_NUMBERS=args.love,
-            REFERENCE=args.reference,
-            DATAFORM=args.format,
-            GZIP=args.gzip,
-            MODE=args.mode)
+    merra_hybrid_harmonics(args.directory, args.region, args.product, args.year,
+        VERSION=args.version,
+        MASKS=args.mask,
+        LMAX=args.lmax,
+        MMAX=args.mmax,
+        LOVE_NUMBERS=args.love,
+        REFERENCE=args.reference,
+        DATAFORM=args.format,
+        GZIP=args.gzip,
+        MODE=args.mode)
 
 # run main program
 if __name__ == '__main__':
