@@ -156,8 +156,9 @@ import re
 import time
 import logging
 import argparse
-import numpy as np
 import traceback
+import numpy as np
+import scipy.linalg
 import gravity_toolkit as gravtk
 
 # PURPOSE: keep track of threads
