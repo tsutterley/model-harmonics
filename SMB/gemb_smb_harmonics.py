@@ -201,7 +201,7 @@ def gemb_smb_harmonics(model_file,
     if (VARIABLE == 'accum_SMB'):
         # densities of meteoric ice
         rho_ice = 917.0
-        # scaling factor to convert inputs from from kg/m^2 to g
+        # scaling factor to convert inputs from from meters ice eq to g
         scaling_factor = 1000.0*rho_ice*ps_scale*fd['area'][indy,indx]
         product_name = 'SMB'
         # use named point mass units code (grams)
