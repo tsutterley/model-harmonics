@@ -125,6 +125,8 @@ def gemb_smb_harmonics(model_file,
         fv = np.float64(fileID.variables[VARIABLE]._FillValue)
     except (ValueError,AttributeError):
         fv = np.nan
+    # input variable units
+    variable_units = fileID.variables[VARIABLE].units
     # input shape of GEMB surface mass balance or firn data
     nt,ny,nx = np.shape(fd[VARIABLE])
     # extract x and y coordinate arrays
@@ -203,12 +205,16 @@ def gemb_smb_harmonics(model_file,
         product_name = 'SMB'
         # use named point mass units code (grams)
         UNITS = 1
+        # output spherical harmonic units
+        harmonic_units = 'Geodesy_Normalization'
     elif (VARIABLE == 'dFAC'):
         # areas in terms of solid angle (steradians)
         scaling_factor = ps_scale*fd['area'][indy,indx]/(rad_e**2)
         product_name = 'FAC'
         # use custom UNITS to keep as inputs but use 4-pi norm
         UNITS = np.ones((LMAX+1))/(4.0*np.pi)
+        # output spherical harmonic units
+        harmonic_units = copy.copy(variable_units)
 
     # read load love numbers
     LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,

@@ -176,6 +176,8 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     fd[VARIABLE] = np.squeeze(fileID.variables[VARIABLE][imin:imax+1,:,:])
     # invalid data value
     fv = np.float64(fileID.variables[VARIABLE]._FillValue)
+    # input variable units
+    variable_units = fileID.variables[VARIABLE].units
     # input shape of MERRA-2 Hybrid firn data
     nt,nx,ny = np.shape(fd[VARIABLE])
     # extract x and y coordinate arrays from grids if applicable
@@ -251,6 +253,8 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
         scaling_factor = ps_scale*fd['area'][indx,indy]/(rad_e**2)
         # use custom UNITS to keep as inputs but use 4-pi norm
         UNITS = np.ones((LMAX+1))/(4.0*np.pi)
+        # output spherical harmonic units
+        harmonic_units = copy.copy(variable_units)
     else:
         # densities of meteoric ice
         rho_ice = 917.0
@@ -258,6 +262,8 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
         scaling_factor = 1000.0*rho_ice*ps_scale*fd['area'][indx,indy]
         # use named point mass units code (grams)
         UNITS = 1
+        # output spherical harmonic units
+        harmonic_units = 'Geodesy_Normalization'
 
     # read load love numbers
     LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
@@ -311,7 +317,8 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     # output spherical harmonic data file
     args = (FILE_VERSION,REGION.lower(),VARIABLE,LMAX,order_str,suffix[DATAFORM])
     FILE = 'gsfc_fdm_{0}_{1}_{2}_CLM_L{3:d}{4}.{5}'.format(*args)
-    Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM, date=True)
+    Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM,
+        date=True, units=harmonic_units)
     # change the permissions mode of the output file to MODE
     os.chmod(os.path.join(DIRECTORY,FILE),MODE)
 

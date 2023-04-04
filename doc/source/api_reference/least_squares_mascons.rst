@@ -36,6 +36,15 @@ Calling Sequence
         * ``1``: mass coefficients
         * ``2``: geoid coefficients
 
+    --solver -s : @replace
+        Least squares solver for degree one solutions
+
+        * ``'inv'``: matrix inversion
+        * ``'lstsq'``: least squares solution
+        * ``'gelsy'``: complete orthogonal factorization solution
+        * ``'gelss'``: singular value decomposition (SVD) solution
+        * ``'gelsd'``: singular value decomposition (SVD) solution with a divide and conquer method
+
 References
 ##########
 
