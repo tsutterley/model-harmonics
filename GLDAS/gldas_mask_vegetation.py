@@ -69,13 +69,13 @@ def gldas_mask_vegetation(ddir, SPACING=None, MODE=0o775):
     dinput['longitude'] = longlimit_west + np.arange(nx)*dx
     dinput['latitude'] = latlimit_south + np.arange(ny)*dy
     # read MODIS vegetation index binary file
-    mask_input = np.fromfile(os.path.join(ddir,input_file),'>f4')
+    mask_input = np.fromfile(ddir.joinpath(input_file),'>f4')
     dinput['index'] = np.zeros((ny,nx),dtype=np.uint16)
     dinput['index'][:,:] = mask_input.reshape(ny,nx)
     # write to output netCDF4 (.nc)
-    ncdf_index_write(dinput, FILENAME=os.path.join(ddir,output_file))
+    ncdf_index_write(dinput, FILENAME=ddir.joinpath(output_file))
     # change the permission level to MODE
-    os.chmod(os.path.join(ddir,output_file),MODE)
+    os.chmod(ddir.joinpath(output_file),MODE)
 
 # PURPOSE: write vegetation index data to netCDF4 file
 def ncdf_index_write(dinput, FILENAME=None):
@@ -129,7 +129,7 @@ def ncdf_index_write(dinput, FILENAME=None):
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
+    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # date created
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
@@ -150,8 +150,7 @@ def arguments():
     # command line parameters
     # working data directory for location of GLDAS data
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # model spatial resolution
     # 10: 1.0 degrees latitude/longitude

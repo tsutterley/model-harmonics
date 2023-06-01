@@ -148,10 +148,10 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None,
         GRAVITY = 1.0
 
     # read model orography for dimensions
-    geopotential,lon,lat=ncdf_invariant(os.path.join(ddir,input_invariant_file),
+    geopotential,lon,lat=ncdf_invariant(ddir.joinpath(input_invariant_file),
         LONNAME,LATNAME,SURFNAME)
     # read parameters for calculating pressures at levels
-    lev,A,B,AI,BI=ncdf_coordinates(os.path.join(ddir,input_coordinate_file),
+    lev,A,B,AI,BI=ncdf_coordinates(ddir.joinpath(input_coordinate_file),
         LEVELNAME,ANAME,BNAME,AINTERFACE,BINTERFACE)
     # Gas constant for dry air
     R_dry = 287.06
@@ -163,7 +163,7 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None,
     # for each reanalysis file
     for fi in sorted(input_files):
         # read input temperature and specific humidity data
-        fid1 = netCDF4.Dataset(os.path.join(ddir,fi),'r')
+        fid1 = netCDF4.Dataset(ddir.joinpath(fi),'r')
         # extract shape from temperature variable
         ntime,nlevels,nlat,nlon = fid1.variables[TNAME].shape
         # invalid value
@@ -184,17 +184,17 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None,
             # extract date from monthly files
             MOD,YEAR,MONTH = np.array(rx.findall(fi).pop(), dtype=np.float64)
             # output monthly filename
-            FILE = os.path.join(ddir,output_file_format.format(MOD,YEAR,MONTH))
+            FILE = ddir.joinpath(output_file_format.format(MOD,YEAR,MONTH))
             # read surface pressure
             surface_pressure = np.copy(fid1.variables[VARNAME][:])
         elif MODEL in ('ERA-Interim','ERA5'):
             # extract year from file name
             YEAR, = np.array(rx.findall(fi),dtype=np.int64)
             # output yearly filename
-            FILE = os.path.join(ddir,output_file_format.format(YEAR))
+            FILE = ddir.joinpath(output_file_format.format(YEAR))
             # read input surface pressure data
             pressure_file = input_pressure_file.format(YEAR)
-            with netCDF4.Dataset(os.path.join(ddir,pressure_file),'r') as fid2:
+            with netCDF4.Dataset(ddir.joinpath(pressure_file),'r') as fid2:
                 surface_pressure = np.copy(fid2.variables[VARNAME][:])
 
         # iterate over dates
@@ -351,7 +351,7 @@ def ncdf_geopotential_write(dinput, fill_value, FILENAME=None, ZNAME=None,
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
+    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # date created
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
@@ -382,8 +382,7 @@ def arguments():
         help='Reanalysis Model')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # years to run
     now = time.gmtime()

@@ -111,9 +111,9 @@ def cds_reanalysis_retrieve(base_dir, server, YEAR,
                 'variable': surface_variable_dict[surf],
                 "format" : "netcdf",
                 'product_type': 'monthly_averaged_reanalysis',
-            }, os.path.join(ddir,output_surface_file))
+            }, ddir.joinpath(output_surface_file))
             # change the permissions mode to MODE
-            os.chmod(os.path.join(ddir,output_surface_file), MODE)
+            os.chmod(ddir.joinpath(output_surface_file), MODE)
 
         # if retrieving the model level data
         if LEVEL:
@@ -131,9 +131,9 @@ def cds_reanalysis_retrieve(base_dir, server, YEAR,
                 "stream": "moda",
                 "type": "an",
                 "format" : "netcdf",
-            }, os.path.join(ddir,output_level_file))
+            }, ddir.joinpath(output_level_file))
             # change the permissions mode to MODE
-            os.chmod(os.path.join(ddir,output_level_file), MODE)
+            os.chmod(ddir.joinpath(output_level_file), MODE)
 
     # if retrieving the model invariant parameters
     if INVARIANT:
@@ -157,9 +157,9 @@ def cds_reanalysis_retrieve(base_dir, server, YEAR,
             ],
             'product_type': 'monthly_averaged_reanalysis',
             "format" : "netcdf",
-        }, os.path.join(ddir,output_invariant_file))
+        }, ddir.joinpath(output_invariant_file))
         # change the permissions mode to MODE
-        os.chmod(os.path.join(ddir,output_invariant_file), MODE)
+        os.chmod(ddir.joinpath(output_invariant_file), MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -178,8 +178,7 @@ def arguments():
         help='CDS api key')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # years to retrieve
     now = time.gmtime()

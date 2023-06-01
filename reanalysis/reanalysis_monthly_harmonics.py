@@ -235,8 +235,8 @@ def reanalysis_monthly_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     # output subdirectory
     args = (MODEL.upper(),LMAX,order_str,ocean_str)
     output_sub = '{0}_CLM_L{1:d}{2}{3}'.format(*args)
-    if not os.access(os.path.join(ddir,output_sub),os.F_OK):
-        os.makedirs(os.path.join(ddir,output_sub))
+    if not os.access(ddir.joinpath(output_sub),os.F_OK):
+        os.makedirs(ddir.joinpath(output_sub))
     # attributes for output files
     attributes = {}
     # attributes for output files
@@ -245,7 +245,7 @@ def reanalysis_monthly_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     attributes['product_type'] = 'gravity_field'
 
     # read mean pressure field from calculate_mean_pressure.py
-    mean_file = os.path.join(ddir,input_mean_file.format(RANGE[0],RANGE[1]))
+    mean_file = ddir.joinpath(input_mean_file.format(RANGE[0],RANGE[1]))
     mean_pressure,lon,lat=ncdf_mean_pressure(mean_file,VARNAME,LONNAME,LATNAME)
     nlat,nlon = np.shape(mean_pressure)
     # calculate colatitude
@@ -280,7 +280,7 @@ def reanalysis_monthly_harmonics(base_dir, MODEL, YEARS, RANGE=None,
 
     # get indices of land-sea mask if redistributing oceanic points
     if REDISTRIBUTE:
-        ii,jj = ncdf_landmask(os.path.join(ddir,input_mask_file),MASKNAME,OCEAN)
+        ii,jj = ncdf_landmask(ddir.joinpath(input_mask_file),MASKNAME,OCEAN)
         # calculate total area of oceanic points
         TOTAL_AREA = np.sum(AREA[ii,jj])
 
@@ -290,10 +290,10 @@ def reanalysis_monthly_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     input_files = sorted([fi for fi in os.listdir(ddir) if rx.match(fi)])
     # open output date and index files
     output_date_file = f'{MODEL.upper()}_DATES.txt'
-    fid1 = open(os.path.join(ddir,output_sub,output_date_file),
+    fid1 = open(ddir.joinpath(output_sub,output_date_file),
         mode='w', encoding='utf8')
     output_index_file = f'{MODEL}_index.txt'
-    fid2 = open(os.path.join(ddir,output_sub,output_index_file),
+    fid2 = open(ddir.joinpath(output_sub,output_index_file),
         mode='w', encoding='utf8')
     # date file header information
     print('{0:8} {1:10}'.format('Month','Date'), file=fid1)
@@ -303,7 +303,7 @@ def reanalysis_monthly_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     # for each reanalysis file
     for fi in input_files:
         # read input data
-        with netCDF4.Dataset(os.path.join(ddir,fi),'r') as fileID:
+        with netCDF4.Dataset(ddir.joinpath(fi),'r') as fileID:
             # check dimensions for expver slice
             if (fileID.variables[VARNAME].ndim == 4):
                 pressure = ncdf_expver(fileID, VARNAME)
@@ -341,16 +341,16 @@ def reanalysis_monthly_harmonics(base_dir, MODEL, YEARS, RANGE=None,
             # output data to file
             args = (MODEL.upper(),LMAX,order_str,Ylms.month,suffix[DATAFORM])
             FILE = output_file_format.format(*args)
-            Ylms.to_file(os.path.join(ddir,output_sub,FILE),
+            Ylms.to_file(ddir.joinpath(output_sub,FILE),
                 format=DATAFORM)
             # set the permissions level of the output file to MODE
-            os.chmod(os.path.join(ddir,output_sub,FILE), MODE)
+            os.chmod(ddir.joinpath(output_sub,FILE), MODE)
 
     # output file format for spherical harmonic data
     args = (MODEL.upper(),LMAX,order_str,suffix[DATAFORM])
     output_regex = re.compile(r'{0}_CLM_L{1:d}{2}_(\d+).{3}'.format(*args))
     # find all output harmonic files (not just ones created in run)
-    output_files = [fi for fi in os.listdir(os.path.join(ddir,output_sub))
+    output_files = [fi for fi in os.listdir(ddir.joinpath(output_sub))
         if re.match(output_regex,fi)]
     for fi in sorted(output_files):
         # extract GRACE month
@@ -358,7 +358,7 @@ def reanalysis_monthly_harmonics(base_dir, MODEL, YEARS, RANGE=None,
         YY,MM = gravtk.time.grace_to_calendar(grace_month)
         tdec, = gravtk.time.convert_calendar_decimal(YY, MM)
         # full path to output file
-        full_output_file = os.path.join(ddir,output_sub,fi)
+        full_output_file = ddir.joinpath(output_sub,fi)
         # print date, GRACE month and calendar month to date file
         fid1.write('{0:11.6f} {1:03d} {2:02.0f}\n'.format(tdec,grace_month,MM))
         # print output file to index
@@ -367,8 +367,8 @@ def reanalysis_monthly_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     fid1.close()
     fid2.close()
     # set the permissions level of the output date and index files to MODE
-    os.chmod(os.path.join(ddir,output_sub,output_date_file), MODE)
-    os.chmod(os.path.join(ddir,output_sub,output_index_file), MODE)
+    os.chmod(ddir.joinpath(output_sub,output_date_file), MODE)
+    os.chmod(ddir.joinpath(output_sub,output_index_file), MODE)
 
 # PURPOSE: read reanalysis mean pressure from calculate_mean_pressure.py
 def ncdf_mean_pressure(FILENAME,VARNAME,LONNAME,LATNAME):
@@ -421,8 +421,7 @@ def arguments():
         help='Reanalysis Model')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # years to run
     now = datetime.datetime.now()

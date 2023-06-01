@@ -94,10 +94,10 @@ def ecmwf_reanalysis_retrieve(base_dir, server, MODEL, YEAR, LEVEL=False,
             "stream": "moda",
             "type": "an",
             "format" : "netcdf",
-            "target": os.path.join(ddir,output_temperature_file),
+            "target": ddir.joinpath(output_temperature_file),
         })
         # change the permissions mode to MODE
-        os.chmod(os.path.join(ddir,output_temperature_file), MODE)
+        os.chmod(ddir.joinpath(output_temperature_file), MODE)
 
         # retrieve the surface pressure field
         output_surface_file = output_filename.format(MODEL,"SP",y)
@@ -112,10 +112,10 @@ def ecmwf_reanalysis_retrieve(base_dir, server, MODEL, YEAR, LEVEL=False,
             "stream": "moda",
             "type": "an",
             "format" : "netcdf",
-            "target": os.path.join(ddir,output_surface_file),
+            "target": ddir.joinpath(output_surface_file),
         })
         # change the permissions mode to MODE
-        os.chmod(os.path.join(ddir,output_surface_file), MODE)
+        os.chmod(ddir.joinpath(output_surface_file), MODE)
 
         # retrieve the mean sea level pressure field
         output_pressure_file = output_filename.format(MODEL,"MSL",y)
@@ -130,10 +130,10 @@ def ecmwf_reanalysis_retrieve(base_dir, server, MODEL, YEAR, LEVEL=False,
             "stream": "moda",
             "type": "an",
             "format" : "netcdf",
-            "target": os.path.join(ddir,output_pressure_file),
+            "target": ddir.joinpath(output_pressure_file),
         })
         # change the permissions mode to MODE
-        os.chmod(os.path.join(ddir,output_pressure_file), MODE)
+        os.chmod(ddir.joinpath(output_pressure_file), MODE)
 
         # if retrieving the model level data
         if LEVEL:
@@ -151,10 +151,10 @@ def ecmwf_reanalysis_retrieve(base_dir, server, MODEL, YEAR, LEVEL=False,
                 "stream": "moda",
                 "type": "an",
                 "format" : "netcdf",
-                "target": os.path.join(ddir,output_level_file),
+                "target": ddir.joinpath(output_level_file),
             })
             # change the permissions mode to MODE
-            os.chmod(os.path.join(ddir,output_level_file), MODE)
+            os.chmod(ddir.joinpath(output_level_file), MODE)
 
     # if retrieving the model invariant parameters
     if INVARIANT:
@@ -173,10 +173,10 @@ def ecmwf_reanalysis_retrieve(base_dir, server, MODEL, YEAR, LEVEL=False,
             "time": "12:00:00",
             "type": "an",
             "format" : "netcdf",
-            "target": os.path.join(ddir,output_invariant_file),
+            "target": ddir.joinpath(output_invariant_file),
         })
         # change the permissions mode to MODE
-        os.chmod(os.path.join(ddir,output_invariant_file), MODE)
+        os.chmod(ddir.joinpath(output_invariant_file), MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -202,8 +202,7 @@ def arguments():
         help='ECMWF api email')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # years to retrieve
     now = time.gmtime()

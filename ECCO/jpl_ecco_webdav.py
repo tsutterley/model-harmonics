@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 jpl_ecco_webdav.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (05/2023)
 
 Retrieves and prints a user's JPL ECCO Drive WebDAV credentials
 
@@ -45,6 +45,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -60,6 +61,7 @@ import os
 import netrc
 import base64
 import getpass
+import pathlib
 import builtins
 import argparse
 import posixpath
@@ -111,8 +113,7 @@ def arguments():
         type=str, default=os.environ.get('EARTHDATA_PASSWORD'),
         help='Password for NASA Earthdata Login')
     parser.add_argument('--netrc','-N',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.path.join(os.path.expanduser('~'),'.netrc'),
+        type=pathlib.Path, default=pathlib.Path.home().joinpath('.netrc'),
         help='Path to .netrc file for authentication')
     # append to netrc
     parser.add_argument('--append','-A',
@@ -152,9 +153,9 @@ def main():
         # output to terminal or append to netrc file
         if args.append:
             # append to netrc file and set permissions level
-            with open(args.netrc, mode='a+') as f:
+            with args.netrc.open(mode='a+') as f:
                 f.write(f'machine {args.user} login {HOST} password {WEBDAV}\n')
-                os.chmod(args.netrc, 0o600)
+            args.netrc.chmod(0o600)
         else:
             print(f'\nWebDAV Password for {args.user}@{HOST}:\n\t{WEBDAV}')
 

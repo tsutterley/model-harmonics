@@ -90,7 +90,7 @@ def gesdisc_merra_subset(base_dir, SHORTNAME, HOST=None, VERSION=None,
         # format: NASA_GESDISC_MERRA2_subset_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
         LOGFILE = f'NASA_GESDISC_MERRA2_subset_{today}.log'
-        fid = open(os.path.join(DIRECTORY,LOGFILE), mode='w', encoding='utf8')
+        fid = open(DIRECTORY.joinpath(LOGFILE), mode='w', encoding='utf8')
         logging.basicConfig(stream=fid, level=logging.INFO)
         logging.info(f'NASA MERRA-2 Sync Log ({today})')
         logging.info(f'PRODUCT: {SHORTNAME}.{VERSION}')
@@ -122,7 +122,7 @@ def gesdisc_merra_subset(base_dir, SHORTNAME, HOST=None, VERSION=None,
                 # build filename for output
                 fileBasename,_ = os.path.splitext(id)
                 FILE = f'{fileBasename}.SUB.nc'
-                local_file = os.path.join(DIRECTORY, FILE)
+                local_file = DIRECTORY.joinpath(FILE)
                 # get subsetting API url for granule
                 request_url = mdlhmc.utilities.build_request(
                     SHORTNAME, VERSION, url, host=HOST,
@@ -135,7 +135,7 @@ def gesdisc_merra_subset(base_dir, SHORTNAME, HOST=None, VERSION=None,
     # close log file and set permissions level to MODE
     if LOG:
         fid.close()
-        os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
+        os.chmod(DIRECTORY.joinpath(LOGFILE), MODE)
 
 # PURPOSE: pull file from a remote host checking if file exists locally
 # and if the remote file is newer than the local file
@@ -193,13 +193,11 @@ def arguments():
         type=str, default=os.environ.get('EARTHDATA_PASSWORD'),
         help='Password for NASA Earthdata Login')
     parser.add_argument('--netrc','-N',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.path.join(os.path.expanduser('~'),'.netrc'),
+        type=pathlib.Path, default=pathlib.Path.home().joinpath('.netrc'),
         help='Path to .netrc file for authentication')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # GESDISC subsetting host
     HOST = 'https://goldsmr4.gesdisc.eosdis.nasa.gov/'

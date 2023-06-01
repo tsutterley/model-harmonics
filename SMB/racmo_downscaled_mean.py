@@ -448,7 +448,7 @@ def ncdf_racmo(dinput, FILENAME=None, UNITS=None, LONGNAME=None, VARNAME=None,
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
+    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # global variable of NetCDF file
     fileID.TITLE = TITLE
     fileID.date_created = date.isoformat(date.today())
@@ -549,8 +549,7 @@ def arguments():
     # command line parameters
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # Downscaled version
     # 1.0: RACMO2.3/XGRN11

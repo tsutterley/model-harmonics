@@ -177,7 +177,7 @@ def racmo_smb_cumulative(model_file, VARIABLE,
 
     # Output NetCDF filename
     FILE = f'{VERSION}_{REGION}_{VARIABLE.upper()}_cumul.nc'
-    logging.info(os.path.join(DIRECTORY,FILE))
+    logging.info(DIRECTORY.joinpath(FILE))
 
     # output MERRA-2 data file with cumulative data
     if GZIP:
@@ -186,7 +186,7 @@ def racmo_smb_cumulative(model_file, VARIABLE,
             format='NETCDF4')
     else:
         # opening NetCDF file for writing
-        f_out = netCDF4.Dataset(os.path.join(DIRECTORY,FILE),'w',
+        f_out = netCDF4.Dataset(DIRECTORY.joinpath(FILE),'w',
             format="NETCDF4")
 
     # python dictionary with netCDF4 variables
@@ -233,7 +233,7 @@ def racmo_smb_cumulative(model_file, VARIABLE,
     # add software information
     f_out.software_reference = mdlhmc.version.project_name
     f_out.software_version = mdlhmc.version.full_version
-    f_out.reference = f'Output from {os.path.basename(sys.argv[0])}'
+    f_out.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # date created
     f_out.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
@@ -247,11 +247,11 @@ def racmo_smb_cumulative(model_file, VARIABLE,
     # write RACMO data file to gzipped file
     if GZIP:
         # copy bytes to file
-        with gzip.open(os.path.join(DIRECTORY,FILE), 'wb') as f:
+        with gzip.open(DIRECTORY.joinpath(FILE), 'wb') as f:
             f.write(nc_buffer)
 
     # change the permissions mode
-    os.chmod(os.path.join(DIRECTORY,FILE), MODE)
+    os.chmod(DIRECTORY.joinpath(FILE), MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -262,7 +262,7 @@ def arguments():
     )
     # command line parameters
     parser.add_argument('infile',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='RACMO SMB file to run')
     # products from SMB model
     choices = ['precip','rainfall','refreeze','runoff','smb',

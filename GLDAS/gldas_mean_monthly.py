@@ -173,7 +173,7 @@ def gldas_mean_monthly(base_dir, MODEL, RANGE=None, SPATIAL=None, VERSION=None,
     # for each year within years_range
     for i,yr in enumerate(year_dir):
         # find all GRIB/netCDF4 files within directory
-        f = [f for f in os.listdir(os.path.join(ddir,yr)) if rx.match(f)]
+        f = [f for f in os.listdir(ddir.joinpath(yr)) if rx.match(f)]
         # for each GRIB/netCDF4 file
         for fi in sorted(f):
             # Getting date information from file
@@ -181,13 +181,13 @@ def gldas_mean_monthly(base_dir, MODEL, RANGE=None, SPATIAL=None, VERSION=None,
             # read GRIB or netCDF4 file
             if (SFX == 'grb'):
                 SM,SWE,CW,twc.lat,twc.lon,twc.fill_value = \
-                    grib_twc_read(os.path.join(ddir,yr,fi))
+                    grib_twc_read(ddir.joinpath(yr,fi))
             elif (SFX == 'nc4'):
                 SM,SWE,CW,twc.lat,twc.lon,twc.fill_value = \
-                    ncdf_twc_read(os.path.join(ddir,yr,fi))
+                    ncdf_twc_read(ddir.joinpath(yr,fi))
             elif (SFX == 'grb.SUB.nc4'):
                 SM,SWE,CW,twc.lat,twc.lon,twc.fill_value = \
-                    subset_twc_read(os.path.join(ddir,yr,fi))
+                    subset_twc_read(ddir.joinpath(yr,fi))
             # converting from kg/m^2 to cm water equivalent (cmwe)
             ii,jj = np.nonzero(SWE != twc.fill_value)
             twc.data[ii,jj,c] = 0.1*(SM[ii,jj] + SWE[ii,jj] + CW[ii,jj])
@@ -210,21 +210,21 @@ def gldas_mean_monthly(base_dir, MODEL, RANGE=None, SPATIAL=None, VERSION=None,
     attributes['units'] = units_name
     attributes['longname'] = units_longname
     attributes['title'] = gldas_products[MODEL]
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
-        twc_mean.to_ascii(os.path.join(ddir,FILE),date=False,
+        twc_mean.to_ascii(ddir.joinpath(FILE),date=False,
             verbose=VERBOSE)
     elif (DATAFORM == 'netCDF4'):
         # netCDF4 (.nc)
-        twc_mean.to_netCDF4(os.path.join(ddir,FILE),verbose=VERBOSE,
+        twc_mean.to_netCDF4(ddir.joinpath(FILE),verbose=VERBOSE,
             date=False, **attributes)
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
-        twc_mean.to_HDF5(os.path.join(ddir,FILE),verbose=VERBOSE,
+        twc_mean.to_HDF5(ddir.joinpath(FILE),verbose=VERBOSE,
             date=False, **attributes)
     # change the permissions mode
-    os.chmod(os.path.join(ddir,FILE), MODE)
+    os.chmod(ddir.joinpath(FILE), MODE)
 
 # PURPOSE: read a GLDAS GRIB file for snow_water_eq and soil_moisture
 def grib_twc_read(FILENAME):
@@ -320,8 +320,7 @@ def arguments():
         help='GLDAS land surface model')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # start and end years to run for mean
     parser.add_argument('--mean','-m',

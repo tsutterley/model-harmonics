@@ -154,12 +154,12 @@ def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     attributes['longname'] = units_longname
     attributes['title'] = copy.copy(merra_products[PRODUCT])
     attributes['source'] = ', '.join(merra_sources[PRODUCT])
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # years of available data between RANGE
     YEARS = sorted(map(str,range(int(RANGE[0]),int(RANGE[-1])+1)))
     # check that are years for RANGE are available
-    CHECK = [Y in os.listdir(os.path.join(DIRECTORY,P1)) for Y in YEARS]
+    CHECK = [Y in DIRECTORY.iterdir().joinpath(P1)) for Y in YEARS]
     if not np.all(CHECK):
         raise Exception('Not all years available on file system')
     # compile regular expression operator for flux product
@@ -176,7 +176,7 @@ def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     # for each input file
     for Y in YEARS:
         # find input files for PRODUCT
-        f=[f for f in os.listdir(os.path.join(DIRECTORY,P1,Y)) if rx.match(f)]
+        f=[f for f in DIRECTORY.iterdir().joinpath(P1,Y)) if rx.match(f)]
         # sort files by month
         indices = np.argsort([rx.match(f1).group(3) for f1 in f])
         f = [f[indice] for indice in indices]
@@ -190,8 +190,8 @@ def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
             args = (MOD,'tavgM_2d_glc_Nx',Y1,M1)
             f2 = 'MERRA2_{0}.{1}.{2}{3}.nc4'.format(*args)
             # full path for flux and ice surface files
-            merra_flux_file = os.path.join(DIRECTORY,P1,Y,f1)
-            merra_ice_surface_file = os.path.join(DIRECTORY,P2,Y,f2)
+            merra_flux_file = DIRECTORY.joinpath(P1,Y,f1)
+            merra_ice_surface_file = DIRECTORY.joinpath(P2,Y,f2)
             if not os.access(merra_ice_surface_file,os.F_OK):
                 raise FileNotFoundError(f'File {f2} not in file system')
             # read netCDF4 files for variables of interest
@@ -268,18 +268,18 @@ def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     FILE = 'MERRA2.tavgM_2d_{0}_mean_Nx.{1:4d}-{2:4d}.{3}'.format(*args)
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
-        merra_mean.to_ascii(os.path.join(DIRECTORY,FILE),
+        merra_mean.to_ascii(DIRECTORY.joinpath(FILE),
             verbose=VERBOSE)
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
-        merra_mean.to_netCDF4(os.path.join(DIRECTORY,FILE),
+        merra_mean.to_netCDF4(DIRECTORY.joinpath(FILE),
             verbose=VERBOSE, **attributes)
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
-        merra_mean.to_HDF5(os.path.join(DIRECTORY,FILE),
+        merra_mean.to_HDF5(DIRECTORY.joinpath(FILE),
             verbose=VERBOSE, **attributes)
     # change the permissions mode
-    os.chmod(os.path.join(DIRECTORY,FILE), MODE)
+    os.chmod(DIRECTORY.joinpath(FILE), MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -296,8 +296,7 @@ def arguments():
         help='MERRA-2 derived product')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # start and end years to run for mean
     parser.add_argument('--mean','-m',

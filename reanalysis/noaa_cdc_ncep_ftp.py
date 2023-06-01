@@ -69,7 +69,7 @@ def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
         # format: NOAA_CDC_NCEP-DOE-2_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
         LOGFILE = f'NOAA_CDC_NCEP-DOE-2_sync_{today}.log'
-        fid1 = open(os.path.join(DIRECTORY,LOGFILE), mode='w', encoding='utf8')
+        fid1 = open(DIRECTORY.joinpath(LOGFILE), mode='w', encoding='utf8')
         logging.basicConfig(stream=fid1, level=logging.INFO)
         logging.info(f'NOAA CDC Sync Log ({today})')
         logging.info('PRODUCT: NCEP-DOE-2')
@@ -89,7 +89,7 @@ def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
         timeout=TIMEOUT, basename=True, pattern=R1, sort=True)
     for fi,mtime in zip(remote_files,remote_mtimes):
         # extract filename from regex object
-        local_file = os.path.join(DIRECTORY,fi)
+        local_file = DIRECTORY.joinpath(fi)
         MD5 = gravtk.utilities.get_hash(local_file)
         gravtk.utilities.from_ftp(posixpath.join(*HOST,fi),
             local=local_file, timeout=TIMEOUT, hash=MD5,
@@ -98,7 +98,7 @@ def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
     # get mask file
     if MASK:
         # extract filename from regex object
-        local_file = os.path.join(DIRECTORY,'land.nc')
+        local_file = DIRECTORY.joinpath('land.nc')
         MD5 = gravtk.utilities.get_hash(local_file)
         gravtk.utilities.from_ftp(posixpath.join(*HOST,'land.nc'),
             local=local_file, timeout=TIMEOUT, hash=MD5,
@@ -107,7 +107,7 @@ def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
     # get invariant file
     if INVARIANT:
         # extract filename from regex object
-        local_file = os.path.join(DIRECTORY,'hgt.sfc.nc')
+        local_file = DIRECTORY.joinpath('hgt.sfc.nc')
         MD5 = gravtk.utilities.get_hash(local_file)
         gravtk.utilities.from_ftp(posixpath.join(*HOST,'hgt.sfc.nc'),
             local=local_file, timeout=TIMEOUT, hash=MD5,
@@ -116,7 +116,7 @@ def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
     # close log file and set permissions level to MODE
     if LOG:
         fid1.close()
-        os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
+        os.chmod(DIRECTORY.joinpath(LOGFILE), MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -128,8 +128,7 @@ def arguments():
     # command line parameters
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # years to retrieve
     now = time.gmtime()

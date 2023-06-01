@@ -145,7 +145,7 @@ def reanalysis_inverse_barometer(base_dir, MODEL, YEAR=None, RANGE=None,
         OCEAN = 1
 
     # read mean pressure field
-    mean_file = os.path.join(ddir,input_mean_file.format(RANGE[0],RANGE[1]))
+    mean_file = ddir.joinpath(input_mean_file.format(RANGE[0],RANGE[1]))
     mean_pressure,lon,lat=ncdf_mean_pressure(mean_file,VARNAME,LONNAME,LATNAME)
     # shape of mean pressure field
     ny,nx = np.shape(mean_pressure)
@@ -173,7 +173,7 @@ def reanalysis_inverse_barometer(base_dir, MODEL, YEAR=None, RANGE=None,
         (a_axis**4)*(np.cos(gridtheta)**2))
     # read land-sea mask to find ocean values
     # ocean pressure points will be based on reanalysis mask
-    MASK = ncdf_landmask(os.path.join(ddir,input_mask_file),MASKNAME,OCEAN)
+    MASK = ncdf_landmask(ddir.joinpath(input_mask_file),MASKNAME,OCEAN)
     # calculate total area of reanalysis ocean
     # ocean pressure points will be based on reanalysis mask
     ii,jj = np.nonzero(MASK)
@@ -203,7 +203,7 @@ def reanalysis_inverse_barometer(base_dir, MODEL, YEAR=None, RANGE=None,
             # output inverse barometer filename
             FILENAME = output_file_format.format(YEAR,MONTH,DAY)
         # read netCDF4 mean sea level file
-        with netCDF4.Dataset(os.path.join(ddir,fi),'r') as fileID:
+        with netCDF4.Dataset(ddir.joinpath(fi),'r') as fileID:
             # number of time points in file
             nt, = fileID.variables[TIMENAME].shape
             # extract time and time units
@@ -246,12 +246,12 @@ def reanalysis_inverse_barometer(base_dir, MODEL, YEAR=None, RANGE=None,
             dinput[IBNAME] = -SLP*(DENSITY*gs)**-1
             # output to file
             ncdf_IB_write(dinput, fill_value,
-                FILENAME=os.path.join(ddir,FILENAME), IBNAME=IBNAME,
+                FILENAME=ddir.joinpath(FILENAME), IBNAME=IBNAME,
                 LONNAME=LONNAME, LATNAME=LATNAME, TIMENAME=TIMENAME,
                 TIME_UNITS=TIME_UNITS, TIME_LONGNAME=TIME_LONGNAME,
                 UNITS=UNITS, DENSITY=DENSITY)
             # change permissions mode
-            os.chmod(os.path.join(ddir,FILENAME),MODE)
+            os.chmod(ddir.joinpath(FILENAME),MODE)
 
 # PURPOSE: write output inverse barometer fields data to file
 def ncdf_IB_write(dinput, fill_value, FILENAME=None, IBNAME=None,
@@ -291,7 +291,7 @@ def ncdf_IB_write(dinput, fill_value, FILENAME=None, IBNAME=None,
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
+    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # date created
     fileID.date_created = datetime.datetime.now().isoformat()
 
@@ -322,8 +322,7 @@ def arguments():
         help='Reanalysis Model')
     # directory with reanalysis data
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # years to run
     now = datetime.datetime.now()

@@ -93,7 +93,7 @@ def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
         # format: NASA_GESDISC_MERRA2_download_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
         LOGFILE = f'NASA_GESDISC_MERRA2_download_{today}.log'
-        fid = open(os.path.join(DIRECTORY,LOGFILE), mode='w', encoding='utf8')
+        fid = open(DIRECTORY.joinpath(LOGFILE), mode='w', encoding='utf8')
         logging.basicConfig(stream=fid, level=loglevel)
         logging.info(f'NASA MERRA-2 Sync Log ({today})')
     else:
@@ -124,7 +124,7 @@ def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
         # that can be thrown here, including HTTPError and URLError.
         try:
             # output local file
-            local_file = os.path.join(DIRECTORY,FILE)
+            local_file = DIRECTORY.joinpath(FILE)
             MD5 = gravtk.utilities.get_hash(local_file)
             gravtk.utilities.from_http(HOST, timeout=TIMEOUT,
                 context=None, local=local_file, hash=MD5, fid=fid,
@@ -137,7 +137,7 @@ def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
     # close log file and set permissions level to MODE
     if LOG:
         fid.close()
-        os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
+        os.chmod(DIRECTORY.joinpath(LOGFILE), MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -149,7 +149,7 @@ def arguments():
     )
     # command line parameters
     parser.add_argument('file',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='+',
+        type=pathlib.Path, nargs='+',
         help='GESDISC links list file')
     # NASA Earthdata credentials
     parser.add_argument('--user','-U',
@@ -159,13 +159,11 @@ def arguments():
         type=str, default=os.environ.get('EARTHDATA_PASSWORD'),
         help='Password for NASA Earthdata Login')
     parser.add_argument('--netrc','-N',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.path.join(os.path.expanduser('~'),'.netrc'),
+        type=pathlib.Path, default=pathlib.Path.home().joinpath('.netrc'),
         help='Path to .netrc file for authentication')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # connection timeout
     parser.add_argument('--timeout','-t',

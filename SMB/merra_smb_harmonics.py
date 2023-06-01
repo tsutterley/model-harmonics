@@ -122,8 +122,8 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     # Creating output subdirectory if it doesn't exist
     prefix = f'{REGION}_' if REGION else ''
     output_sub = f'{prefix}{PRODUCT}_{VERSION}_CUMUL_CLM_L{LMAX:d}'
-    if (not os.access(os.path.join(ddir,output_sub), os.F_OK)):
-        os.makedirs(os.path.join(ddir,output_sub),MODE)
+    if (not os.access(ddir.joinpath(output_sub), os.F_OK)):
+        os.makedirs(ddir.joinpath(output_sub),MODE)
     # titles for each output data product
     merra_products = {}
     merra_products['SMB'] = 'MERRA-2 Surface Mass Balance'
@@ -152,7 +152,7 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     attributes['product_name'] = PRODUCT
     attributes['product_version'] = VERSION
     attributes['product_type'] = 'gravity_field'
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
@@ -214,7 +214,7 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     regex_pattern = r'MERRA2_(\d+).tavgM_2d_{0}_cumul_Nx.(({1})(\d{{2}})).{2}$'
     rx = re.compile(regex_pattern.format(*args), re.VERBOSE)
     # will be out of order for 2020 due to September reprocessing
-    FILES = sorted([fi for fi in os.listdir(os.path.join(ddir,cumul_sub))
+    FILES = sorted([fi for fi in os.listdir(ddir.joinpath(cumul_sub))
         if rx.match(fi)])
     # sort files by month
     indices = np.argsort([rx.match(f1).group(2) for f1 in FILES])
@@ -233,21 +233,21 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
         # read data file for data format
         if (DATAFORM == 'ascii'):
             # ascii (.txt)
-            M1 = gravtk.spatial().from_ascii(os.path.join(ddir,cumul_sub,fi),
+            M1 = gravtk.spatial().from_ascii(ddir.joinpath(cumul_sub,fi),
                 spacing=[dlon,dlat], nlat=nlat, nlon=nlon, extent=extent)
-            M2 = gravtk.spatial().from_ascii(os.path.join(ddir,cumul_sub,FILES[t+1]),
+            M2 = gravtk.spatial().from_ascii(ddir.joinpath(cumul_sub,FILES[t+1]),
                 spacing=[dlon,dlat], nlat=nlat, nlon=nlon, extent=extent)
         elif (DATAFORM == 'netCDF4'):
             # netCDF4 (.nc)
-            M1 = gravtk.spatial().from_netCDF4(os.path.join(ddir,cumul_sub,fi),
+            M1 = gravtk.spatial().from_netCDF4(ddir.joinpath(cumul_sub,fi),
                 varname=PRODUCT)
-            M2 = gravtk.spatial().from_netCDF4(os.path.join(ddir,cumul_sub,FILES[t+1]),
+            M2 = gravtk.spatial().from_netCDF4(ddir.joinpath(cumul_sub,FILES[t+1]),
                 varname=PRODUCT)
         elif (DATAFORM == 'HDF5'):
             # HDF5 (.H5)
-            M1 = gravtk.spatial().from_HDF5(os.path.join(ddir,cumul_sub,fi),
+            M1 = gravtk.spatial().from_HDF5(ddir.joinpath(cumul_sub,fi),
                 varname=PRODUCT)
-            M2 = gravtk.spatial().from_HDF5(os.path.join(ddir,cumul_sub,FILES[t+1]),
+            M2 = gravtk.spatial().from_HDF5(ddir.joinpath(cumul_sub,FILES[t+1]),
                 varname=PRODUCT)
         # attributes for input files
         attributes['lineage'] = []
@@ -282,27 +282,27 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
         # output spherical harmonic data file
         args = (MOD,PRODUCT,LMAX,order_str,merra_Ylms.month,suffix[DATAFORM])
         FILE='MERRA2_{0}_tavgM_2d_{1}_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
-        merra_Ylms.to_file(os.path.join(ddir,output_sub,FILE),
+        merra_Ylms.to_file(ddir.joinpath(output_sub,FILE),
             format=DATAFORM)
         # change the permissions mode of the output file to MODE
-        os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
+        os.chmod(ddir.joinpath(output_sub,FILE),MODE)
 
     # Output date ascii file
     output_date_file = f'MERRA2_{PRODUCT}_DATES.txt'
-    fid1 = open(os.path.join(ddir,output_sub,output_date_file),
+    fid1 = open(ddir.joinpath(output_sub,output_date_file),
         mode='w', encoding='utf8')
     # date file header information
     print('{0:8} {1:^6} {2:^5}'.format('Mid-date','GRACE','Month'), file=fid1)
     # index file listing all output spherical harmonic files
     output_index_file = 'index.txt'
-    fid2 = open(os.path.join(ddir,output_sub,output_index_file),
+    fid2 = open(ddir.joinpath(output_sub,output_index_file),
         mode='w', encoding='utf8')
     # find all available output files
     args = (PRODUCT, LMAX, order_str, suffix[DATAFORM])
     output_pattern = r'MERRA2_(\d+)_tavgM_2d_{0}_CLM_L{1:d}{2}_([-]?\d+).{3}'
     output_regex = re.compile(output_pattern.format(*args), re.VERBOSE)
     # find all output ECCO OBP harmonic files (not just ones created in run)
-    output_files=[fi for fi in os.listdir(os.path.join(ddir,output_sub))
+    output_files=[fi for fi in os.listdir(ddir.joinpath(output_sub))
         if re.match(output_regex,fi)]
     for fi in sorted(output_files):
         # extract GRACE month
@@ -310,7 +310,7 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
         YY,MM = gravtk.time.grace_to_calendar(grace_month)
         tdec, = gravtk.time.convert_calendar_decimal(YY, MM)
         # full path to output file
-        full_output_file = os.path.join(ddir,output_sub,fi)
+        full_output_file = ddir.joinpath(output_sub,fi)
         # print date, GRACE month and calendar month to date file
         fid1.write('{0:11.6f} {1:03d} {2:02.0f}\n'.format(tdec,grace_month,MM))
         # print output file to index
@@ -319,8 +319,8 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     fid1.close()
     fid2.close()
     # set the permissions level of the output date and index files to MODE
-    os.chmod(os.path.join(ddir,output_sub,output_date_file), MODE)
-    os.chmod(os.path.join(ddir,output_sub,output_index_file), MODE)
+    os.chmod(ddir.joinpath(output_sub,output_date_file), MODE)
+    os.chmod(ddir.joinpath(output_sub,output_index_file), MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -338,8 +338,7 @@ def arguments():
         help='MERRA-2 derived product')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # start and end years to run for mean
     parser.add_argument('--mean',
@@ -357,7 +356,7 @@ def arguments():
         help='Region name for subdirectory')
     # mask file for reducing to regions
     parser.add_argument('--mask',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         nargs='+', default=[],
         help='netCDF4 masks file for reducing to regions')
     # maximum spherical harmonic degree and order

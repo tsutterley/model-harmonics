@@ -170,7 +170,7 @@ import gravity_toolkit as gravtk
 
 # PURPOSE: keep track of threads
 def info(args):
-    logging.info(os.path.basename(sys.argv[0]))
+    logging.info(pathlib.Path(sys.argv[0]).name)
     logging.info(args)
     logging.info(f'module name: {__name__}')
     if hasattr(os, 'getppid'):
@@ -509,7 +509,7 @@ def output_log_file(input_arguments, output_files):
     LOGFILE = 'calc_mascon_run_{0}_PID-{1:d}.log'.format(*args)
     # create a unique log and open the log file
     DIRECTORY = os.path.expanduser(input_arguments.output_directory)
-    fid = gravtk.utilities.create_unique_file(os.path.join(DIRECTORY,LOGFILE))
+    fid = gravtk.utilities.create_unique_file(DIRECTORY.joinpath(LOGFILE))
     logging.basicConfig(stream=fid, level=logging.INFO)
     # print argument values sorted alphabetically
     logging.info('ARGUMENTS:')
@@ -529,7 +529,7 @@ def output_error_log_file(input_arguments):
     LOGFILE = 'calc_mascon_failed_run_{0}_PID-{1:d}.log'.format(*args)
     # create a unique log and open the log file
     DIRECTORY = os.path.expanduser(input_arguments.output_directory)
-    fid = gravtk.utilities.create_unique_file(os.path.join(DIRECTORY,LOGFILE))
+    fid = gravtk.utilities.create_unique_file(DIRECTORY.joinpath(LOGFILE))
     logging.basicConfig(stream=fid, level=logging.INFO)
     # print argument values sorted alphabetically
     logging.info('ARGUMENTS:')
@@ -553,12 +553,11 @@ def arguments():
     parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('infile',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='Input index file with spherical harmonic data files')
     # working data directory
     parser.add_argument('--output-directory','-O',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Output directory for mascon files')
     parser.add_argument('--file-prefix','-P',
         type=str,
@@ -618,7 +617,7 @@ def arguments():
         help='Input data format')
     # mascon index file and parameters
     parser.add_argument('--mascon-file',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='Index file of mascons spherical harmonics')
     parser.add_argument('--mascon-format',
         type=str, default='netCDF4', choices=['ascii','netCDF4','HDF5'],
@@ -646,7 +645,7 @@ def arguments():
         help='Input spherical harmonic fields are data errors')
     # monthly files to be removed from the harmonic data
     parser.add_argument('--remove-file',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='+',
+        type=pathlib.Path, nargs='+',
         help='Monthly files to be removed from the harmonic data')
     choices = []
     choices.extend(['ascii','netCDF4','HDF5'])
@@ -660,7 +659,7 @@ def arguments():
     # land-sea mask for redistributing mascon mass and land water flux
     lsmask = gravtk.utilities.get_data_path(['data','landsea_hd.nc'])
     parser.add_argument('--mask',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)), default=lsmask,
+        type=pathlib.Path, default=lsmask,
         help='Land-sea mask for redistributing mascon mass and land water flux')
     # Output log file for each job in forms
     # calc_mascon_run_2002-04-01_PID-00000.log

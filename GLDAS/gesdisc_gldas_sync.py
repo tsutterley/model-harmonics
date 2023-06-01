@@ -131,7 +131,7 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
         # format: NASA_GESDISC_GLDAS_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
         LOGFILE = f'NASA_GESDISC_GLDAS_{MODEL}_sync_{today}.log'
-        logging.basicConfig(filename=os.path.join(DIRECTORY,LOGFILE),
+        logging.basicConfig(filename=DIRECTORY.joinpath(LOGFILE),
             level=logging.INFO)
         logging.info(f'NASA GLDAS Sync Log ({today})')
     else:
@@ -159,12 +159,12 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
             version=VERSION, start_date=start_date, end_date=end_date,
             provider='GES_DISC', verbose=True)
         # recursively create local directory for data
-        if not os.access(os.path.join(DIRECTORY,PRODUCT,Y), os.F_OK):
-            os.makedirs(os.path.join(DIRECTORY,PRODUCT,Y), mode=MODE)
+        if not os.access(DIRECTORY.joinpath(PRODUCT,Y), os.F_OK):
+            os.makedirs(DIRECTORY.joinpath(PRODUCT,Y), mode=MODE)
         # sync model granules
         for id,url,mtime in zip(ids,urls,mtimes):
             # local version of the granule
-            local_file = os.path.join(DIRECTORY,PRODUCT,Y,id)
+            local_file = DIRECTORY.joinpath(PRODUCT,Y,id)
             # copy file from remote directory comparing modified dates
             http_pull_file(url, mtime, local_file,
                 TIMEOUT=TIMEOUT, LIST=LIST, CLOBBER=CLOBBER,
@@ -172,7 +172,7 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
 
     # close log file and set permissions level to MODE
     if LOG:
-        os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
+        os.chmod(DIRECTORY.joinpath(LOGFILE), MODE)
 
 # PURPOSE: pull file from a remote host checking if file exists locally
 # and if the remote file is newer than the local file
@@ -234,13 +234,11 @@ def arguments():
         type=str, default=os.environ.get('EARTHDATA_PASSWORD'),
         help='Password for NASA Earthdata Login')
     parser.add_argument('--netrc','-N',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.path.join(os.path.expanduser('~'),'.netrc'),
+        type=pathlib.Path, default=pathlib.Path.home().joinpath('.netrc'),
         help='Path to .netrc file for authentication')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # years to download
     now = time.gmtime()

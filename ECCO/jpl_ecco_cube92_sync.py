@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 jpl_ecco_cube92_sync.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (05/2023)
 
 Converts ECCO2 Cube92 daily model outputs from the NASA JPL ECCO2 server
     into monthly averages
@@ -53,6 +53,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -96,7 +97,7 @@ def jpl_ecco_cube92_sync(ddir, YEAR=None, PRODUCT=None, TIMEOUT=None,
     LOG=False, VERBOSE=False, MODE=None):
 
     # check if directory exists and recursively create if not
-    DIRECTORY = os.path.join(ddir, 'cube92_latlon_quart_90S90N')
+    DIRECTORY = ddir.joinpath('cube92_latlon_quart_90S90N')
     os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
 
     # remote subdirectory for Cube92 data on JPL ECCO data server
@@ -111,7 +112,7 @@ def jpl_ecco_cube92_sync(ddir, YEAR=None, PRODUCT=None, TIMEOUT=None,
         today = time.strftime('%Y-%m-%d',time.localtime())
         args = (PRODUCT, today)
         LOGFILE = f'JPL_ECCO2_Cube92_{PRODUCT}_sync_{today}.log'
-        fid1 = open(os.path.join(DIRECTORY,LOGFILE), mode='w', encoding='utf8')
+        fid1 = open(DIRECTORY.joinpath(LOGFILE), mode='w', encoding='utf8')
         logging.basicConfig(stream=fid1,level=logging.INFO)
         logging.info(f'ECCO2 Cube92 {PRODUCT} Sync Log ({today})')
     else:
@@ -172,15 +173,15 @@ def jpl_ecco_cube92_sync(ddir, YEAR=None, PRODUCT=None, TIMEOUT=None,
             monthly = gravtk.spatial().from_list(daily).mean()
             # output to netCDF4 file
             FILE = f'{PRODUCT}.{dim1}x{dim2}.{YY}{MM+1:02d}.nc'
-            monthly.to_netCDF4(os.path.join(DIRECTORY,FILE),
+            monthly.to_netCDF4(DIRECTORY.joinpath(FILE),
                 date=True, verbose=VERBOSE, **kwargs)
             # set permissions mode to MODE
-            os.chmod(os.path.join(DIRECTORY,FILE), MODE)
+            os.chmod(DIRECTORY.joinpath(FILE), MODE)
 
     # close log file and set permissions level to MODE
     if LOG:
         fid1.close()
-        os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
+        os.chmod(DIRECTORY.joinpath(LOGFILE), MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -198,13 +199,11 @@ def arguments():
         type=str, default=os.environ.get('ECCO_PASSWORD'),
         help='WebDAV password for JPL ECCO Drive Login')
     parser.add_argument('--netrc','-N',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.path.join(os.path.expanduser('~'),'.netrc'),
+        type=pathlib.Path, default=pathlib.Path.home().joinpath('.netrc'),
         help='Path to .netrc file for authentication')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # ECCO model years to sync
     now = time.gmtime()

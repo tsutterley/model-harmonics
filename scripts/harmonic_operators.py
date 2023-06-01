@@ -171,7 +171,7 @@ def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
 
     # attributes for output files
     attributes = {}
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # write spherical harmonic file in data format
     output.to_file(OUTPUT_FILE, format=DATAFORM[-1],
@@ -188,10 +188,10 @@ def arguments():
     # command line options
     # input and output file
     parser.add_argument('infiles',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='+',
+        type=pathlib.Path, nargs='+',
         help='Input files')
     parser.add_argument('outfile',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs=1,
+        type=pathlib.Path, nargs=1,
         help='Output file')
     # operation to run
     choices = ['add','subtract','multiply','divide','mean',

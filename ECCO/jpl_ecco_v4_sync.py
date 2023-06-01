@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 jpl_ecco_v4_sync.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (05/2023)
 
 Syncs ECCO Version 4 model outputs from the NASA JPL ECCO Drive server:
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
@@ -62,6 +62,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -97,6 +98,7 @@ import netrc
 import shutil
 import getpass
 import logging
+import pathlib
 import argparse
 import builtins
 import warnings
@@ -109,8 +111,9 @@ def jpl_ecco_v4_sync(ddir, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
     LOG=False, LIST=False, CLOBBER=False, CHECKSUM=False, MODE=None):
 
     # check if directory exists and recursively create if not
-    DIRECTORY = os.path.join(ddir, f'ECCO-{MODEL}')
-    os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
+    ddir = pathlib.Path(ddir).expanduser().absolute()
+    DIRECTORY = ddir.joinpath(f'ECCO-{MODEL}')
+    DIRECTORY.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # remote https server for ECCO data
     HOST = 'https://ecco.jpl.nasa.gov'
@@ -121,9 +124,8 @@ def jpl_ecco_v4_sync(ddir, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
     if LOG:
         # format: JPL_ECCO_V4r4_PHIBOT_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = f'JPL_ECCO_{MODEL}_{PRODUCT}_{today}.log'
-        logging.basicConfig(filename=os.path.join(DIRECTORY,LOGFILE),
-            level=logging.INFO)
+        LOGFILE = DIRECTORY.joinpath(f'JPL_ECCO_{MODEL}_{PRODUCT}_{today}.log')
+        logging.basicConfig(filename=LOGFILE, level=logging.INFO)
         logging.info(f'ECCO Version 4 {PRODUCT} Sync Log ({today})')
     else:
         # standard output (terminal output)
@@ -182,7 +184,7 @@ def jpl_ecco_v4_sync(ddir, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
         for colname,remote_mtime in zip(colnames,mtimes):
             # remote and local versions of the file
             remote_file = posixpath.join(remote_dir,colname)
-            local_file = os.path.join(DIRECTORY,colname)
+            local_file = DIRECTORY.joinpath(colname)
             http_pull_file(remote_file, remote_mtime, local_file,
                 TIMEOUT=TIMEOUT, LIST=LIST, CLOBBER=CLOBBER,
                 CHECKSUM=CHECKSUM, MODE=MODE)
@@ -192,7 +194,7 @@ def jpl_ecco_v4_sync(ddir, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
 
     # close log file and set permissions level to MODE
     if LOG:
-        os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
+        LOGFILE.chmod(mode=MODE)
 
 # PURPOSE: pull file from a remote host checking if file exists locally
 # and if the remote file is newer than the local file
@@ -202,7 +204,7 @@ def http_pull_file(remote_file, remote_mtime, local_file,
     TEST = False
     OVERWRITE = ' (clobber)'
     # check if local version of file exists
-    if CHECKSUM and os.access(local_file, os.F_OK):
+    if CHECKSUM and local_file.exists():
         # generate checksum hash for local file
         # open the local_file in binary read mode
         local_hash = gravtk.utilities.get_hash(local_file)
@@ -221,9 +223,9 @@ def http_pull_file(remote_file, remote_mtime, local_file,
         if (local_hash != remote_hash):
             TEST = True
             OVERWRITE = f' (checksums: {local_hash} {remote_hash})'
-    elif os.access(local_file, os.F_OK):
+    elif local_file.exists():
         # check last modification time of local file
-        local_mtime = os.stat(local_file).st_mtime
+        local_mtime = local_file.stat().st_mtime
         # if remote file is newer: overwrite the local file
         if (remote_mtime > local_mtime):
             TEST = True
@@ -241,10 +243,10 @@ def http_pull_file(remote_file, remote_mtime, local_file,
             # chunked transfer encoding size
             CHUNK = 16 * 1024
             # copy bytes or transfer file
-            if CHECKSUM and os.access(local_file, os.F_OK):
+            if CHECKSUM and local_file.exists():
                 # store bytes to file using chunked transfer encoding
                 remote_buffer.seek(0)
-                with open(local_file, 'wb') as f:
+                with local_file.open(mode='wb') as f:
                     shutil.copyfileobj(remote_buffer, f, CHUNK)
             else:
                 # Create and submit request.
@@ -258,8 +260,8 @@ def http_pull_file(remote_file, remote_mtime, local_file,
                 with open(local_file, 'wb') as f:
                     shutil.copyfileobj(response, f, CHUNK)
             # keep remote modification time of file and local access time
-            os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
-            os.chmod(local_file, MODE)
+            os.utime(local_file, (local_file.stat().st_atime, remote_mtime))
+            local_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -281,13 +283,11 @@ def arguments():
         type=str, default=os.environ.get('ECCO_PASSWORD'),
         help='WebDAV password for JPL ECCO Drive Login')
     parser.add_argument('--netrc','-N',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.path.join(os.path.expanduser('~'),'.netrc'),
+        type=pathlib.Path, default=pathlib.Path.home().joinpath('.netrc'),
         help='Path to .netrc file for authentication')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # ECCO model years to sync
     parser.add_argument('--year','-Y',

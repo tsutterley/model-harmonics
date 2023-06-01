@@ -162,7 +162,7 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
         TIMENAME = 'time'
 
     # read model orography for dimensions
-    geopotential,lon,lat=ncdf_invariant(os.path.join(ddir,input_invariant_file),
+    geopotential,lon,lat=ncdf_invariant(ddir.joinpath(input_invariant_file),
         LONNAME,LATNAME,ZNAME)
     nlat,nlon = np.shape(geopotential)
     # read each reanalysis pressure field and calculate mean
@@ -180,7 +180,7 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
     # for each reanalysis file
     for fi in input_files:
         # read input data
-        with netCDF4.Dataset(os.path.join(ddir,fi),'r') as fileID:
+        with netCDF4.Dataset(ddir.joinpath(fi),'r') as fileID:
             # check dimensions for expver slice
             if (fileID.variables[VARNAME].ndim == 4):
                 pressure = ncdf_expver(fileID, VARNAME)
@@ -222,14 +222,14 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
     attributes['units'] = 'Pa'
     attributes['longname'] = 'surface_pressure'
     attributes['title'] = f'Surface_Pressure_from_{MODEL}_Model'
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # output to file
     FILE = output_file_format.format(RANGE[0], RANGE[1])
     # netcdf (.nc)
-    p_mean.to_netCDF4(os.path.join(ddir,FILE), verbose=VERBOSE, **attributes)
+    p_mean.to_netCDF4(ddir.joinpath(FILE), verbose=VERBOSE, **attributes)
     # change the permissions mode of the output file to MODE
-    os.chmod(os.path.join(ddir,FILE),MODE)
+    os.chmod(ddir.joinpath(FILE),MODE)
 
 # PURPOSE: extract pressure variable from a 4d netCDF4 dataset
 # ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
@@ -275,8 +275,7 @@ def arguments():
         help='Reanalysis Model')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # start and end years to run for mean
     parser.add_argument('--mean',

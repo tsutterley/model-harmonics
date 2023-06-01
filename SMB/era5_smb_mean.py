@@ -125,7 +125,7 @@ def era5_smb_mean(DIRECTORY,
     attributes['longname'] = 'Equivalent_Water_Thickness'
     attributes['title'] = 'ERA5 Precipitation minus Evaporation'
     attributes['source'] = ', '.join(['tp','e'])
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # mean balance flZux
     era5_mean = gravtk.spatial(nlat=nlat,nlon=nlon,
@@ -139,7 +139,7 @@ def era5_smb_mean(DIRECTORY,
     for Y in range(int(RANGE[0]),int(RANGE[-1])+1):
         # full path for flux file
         f1 = f'ERA5-Monthly-P-E-{Y:4d}.nc'
-        era5_flux_file = os.path.join(DIRECTORY,f1)
+        era5_flux_file = DIRECTORY.joinpath(f1)
         logging.info(era5_flux_file)
         if not os.access(era5_flux_file,os.F_OK):
             raise FileNotFoundError(f'File {f1} not in file system')
@@ -193,18 +193,18 @@ def era5_smb_mean(DIRECTORY,
     FILE = 'ERA5-Mean-P-E-{0:4d}-{1:4d}.{2}'.format(*args)
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
-        era5_mean.to_ascii(os.path.join(DIRECTORY,FILE),
+        era5_mean.to_ascii(DIRECTORY.joinpath(FILE),
             verbose=VERBOSE)
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
-        era5_mean.to_netCDF4(os.path.join(DIRECTORY,FILE),
+        era5_mean.to_netCDF4(DIRECTORY.joinpath(FILE),
             verbose=VERBOSE, **attributes)
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
-        era5_mean.to_HDF5(os.path.join(DIRECTORY,FILE),
+        era5_mean.to_HDF5(DIRECTORY.joinpath(FILE),
             verbose=VERBOSE, **attributes)
     # change the permissions mode
-    os.chmod(os.path.join(DIRECTORY,FILE), MODE)
+    os.chmod(DIRECTORY.joinpath(FILE), MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -217,8 +217,7 @@ def arguments():
     # command line parameters
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # start and end years to run for mean
     parser.add_argument('--mean','-m',

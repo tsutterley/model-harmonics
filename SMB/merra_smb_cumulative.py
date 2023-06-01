@@ -122,8 +122,8 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     # MERRA-2 output cumulative subdirectory
     cumul_sub = f'{PRODUCT}.5.12.4.CUMUL.{RANGE[0]:d}.{RANGE[1]:d}'
     # make cumulative subdirectory
-    if not os.access(os.path.join(DIRECTORY,cumul_sub), os.F_OK):
-        os.mkdir(os.path.join(DIRECTORY,cumul_sub), MODE)
+    if not os.access(DIRECTORY.joinpath(cumul_sub), os.F_OK):
+        os.mkdir(DIRECTORY.joinpath(cumul_sub), MODE)
 
     # regular expression operator to find datafiles (and not the xml files)
     regex_pattern = r'MERRA2_(\d+).{0}.(\d{{4}})(\d{{2}}).nc4(?!.xml)'
@@ -164,7 +164,7 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     attributes['longname'] = units_longname
     attributes['title'] = copy.copy(merra_products[PRODUCT])
     attributes['source'] = ', '.join(merra_sources[PRODUCT])
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # read mean data from merra_smb_mean.py
     args=(PRODUCT, RANGE[0], RANGE[1], suffix[DATAFORM])
@@ -173,22 +173,22 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
         merra_mean = gravtk.spatial().from_ascii(
-            os.path.join(DIRECTORY,mean_file),
+            DIRECTORY.joinpath(mean_file),
             date=False, spacing=[dlon,dlat],
             nlat=nlat, nlon=nlon, extent=extent).squeeze()
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
         merra_mean = gravtk.spatial().from_netCDF4(
-            os.path.join(DIRECTORY,mean_file),
+            DIRECTORY.joinpath(mean_file),
             date=False, varname=PRODUCT).squeeze()
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
         merra_mean = gravtk.spatial().from_HDF5(
-            os.path.join(DIRECTORY,mean_file),
+            DIRECTORY.joinpath(mean_file),
             date=False, varname=PRODUCT).squeeze()
 
     # find years of available data
-    YEARS = sorted([d for d in os.listdir(os.path.join(DIRECTORY,P1))
+    YEARS = sorted([d for d in DIRECTORY.iterdir().joinpath(P1))
         if re.match(r'\d{4}',d)])
     # check that are years are available
     CHECK = [str(Y) in YEARS for Y in range(int(YEARS[0]),int(YEARS[-1])+1)]
@@ -208,7 +208,7 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     # for each input file
     for Y in YEARS:
         # find input files for PRODUCT
-        f=[f for f in os.listdir(os.path.join(DIRECTORY,P1,Y)) if rx.match(f)]
+        f=[f for f in DIRECTORY.iterdir().joinpath(P1,Y)) if rx.match(f)]
         # sort files by month
         indices = np.argsort([rx.match(f1).group(3) for f1 in f])
         f = [f[indice] for indice in indices]
@@ -222,8 +222,8 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
             args = (MOD,'tavgM_2d_glc_Nx',Y1,M1)
             f2 = 'MERRA2_{0}.{1}.{2}{3}.nc4'.format(*args)
             # full path for flux and ice surface files
-            merra_flux_file = os.path.join(DIRECTORY,P1,Y,f1)
-            merra_ice_surface_file = os.path.join(DIRECTORY,P2,Y,f2)
+            merra_flux_file = DIRECTORY.joinpath(P1,Y,f1)
+            merra_ice_surface_file = DIRECTORY.joinpath(P2,Y,f2)
             if not os.access(merra_ice_surface_file,os.F_OK):
                 raise FileNotFoundError(f'File {f2} not in file system')
             # read netCDF4 files for variables of interest
@@ -292,18 +292,18 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
             FILE = 'MERRA2_{0}.tavgM_2d_{1}_cumul_Nx.{2}{3}.{4}'.format(*args)
             if (DATAFORM == 'ascii'):
                 # ascii (.txt)
-                output.to_ascii(os.path.join(DIRECTORY,cumul_sub,FILE),
+                output.to_ascii(DIRECTORY.joinpath(cumul_sub,FILE),
                     verbose=VERBOSE)
             elif (DATAFORM == 'netCDF4'):
                 # netcdf (.nc)
-                output.to_netCDF4(os.path.join(DIRECTORY,cumul_sub,FILE),
+                output.to_netCDF4(DIRECTORY.joinpath(cumul_sub,FILE),
                     verbose=VERBOSE, **attributes)
             elif (DATAFORM == 'HDF5'):
                 # HDF5 (.H5)
-                output.to_HDF5(os.path.join(DIRECTORY,cumul_sub,FILE),
+                output.to_HDF5(DIRECTORY.joinpath(cumul_sub,FILE),
                     verbose=VERBOSE, **attributes)
             # change the permissions mode
-            os.chmod(os.path.join(DIRECTORY,cumul_sub,FILE), MODE)
+            os.chmod(DIRECTORY.joinpath(cumul_sub,FILE), MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -320,8 +320,7 @@ def arguments():
         help='MERRA-2 derived product')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # start and end years to run for mean
     parser.add_argument('--mean','-m',

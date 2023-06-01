@@ -181,8 +181,8 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
     subdir = f'GLDAS_{MODEL}{SPACING}_{TEMPORAL}{V2}'
     # Creating output subdirectory if it doesn't exist
     output_sub = f'GLDAS_{MODEL}{SPACING}{V1}_TWC_CLM_L{LMAX:d}'
-    if (not os.access(os.path.join(ddir,output_sub), os.F_OK)):
-        os.makedirs(os.path.join(ddir,output_sub),MODE)
+    if (not os.access(ddir.joinpath(output_sub), os.F_OK)):
+        os.makedirs(ddir.joinpath(output_sub),MODE)
     # attributes for output files
     attributes = {}
     attributes['institution'] = 'NASA Goddard Space Flight Center (GSFC)'
@@ -190,7 +190,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
     attributes['product_version'] = f'{MODEL} v{VERSION}'
     attributes['product_name'] = 'TWC'
     attributes['product_type'] = 'gravity_field'
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
@@ -211,7 +211,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
 
     # GLDAS MOD44W land mask modified for HYMAP
     landmask_file = f'GLDASp5_landmask_{SPACING}d.nc4'
-    with netCDF4.Dataset(os.path.join(ddir,landmask_file),'r') as fileID:
+    with netCDF4.Dataset(ddir.joinpath(landmask_file),'r') as fileID:
         GLDAS_mask = fileID.variables['GLDAS_mask'][:].squeeze()
         glon = fileID.variables['lon'][:].copy()
         glat = fileID.variables['lat'][:].copy()
@@ -231,7 +231,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
         # mask combining vegetation index, permafrost index and Arctic mask
         # read vegetation index file
         vegetation_file = f'modmodis_domveg20_{SPACING}.nc'
-        with netCDF4.Dataset(os.path.join(ddir,vegetation_file),'r') as fileID:
+        with netCDF4.Dataset(ddir.joinpath(vegetation_file),'r') as fileID:
             vegetation_index = fileID.variables['index'][:].copy()
         # 0: missing value
         # 13: Urban and Built-Up
@@ -244,7 +244,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
             combined_mask |= (vegetation_index == invalid_keys)
         # read Permafrost index file
         permafrost_file = f'permafrost_mod44w_{SPACING}.nc'
-        with netCDF4.Dataset(os.path.join(ddir,permafrost_file),'r') as fileID:
+        with netCDF4.Dataset(ddir.joinpath(permafrost_file),'r') as fileID:
             permafrost_index = fileID.variables['mask'][:]
         # 1: Continuous Permafrost
         # 2: Discontinuous Permafrost
@@ -255,7 +255,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
             combined_mask |= (permafrost_index == invalid_keys)
         # read Arctic mask file
         arctic_file = f'arcticmask_mod44w_{SPACING}.nc'
-        with netCDF4.Dataset(os.path.join(ddir,arctic_file),'r') as fileID:
+        with netCDF4.Dataset(ddir.joinpath(arctic_file),'r') as fileID:
             arctic_mask = fileID.variables['mask'][:].astype(bool)
         # arctic mask
         combined_mask |= arctic_mask[:,:]
@@ -290,7 +290,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
     regex_years = r'\d+' if (YEARS is None) else r'|'.join(map(str,YEARS))
     args = (MODEL, SPACING, regex_years, suffix[DATAFORM])
     rx = re.compile(r'GLDAS_{0}{1}_TWC_({2})_(\d+)\.{3}$'.format(*args))
-    FILES = sorted([fi for fi in os.listdir(os.path.join(ddir,subdir))
+    FILES = sorted([fi for fi in os.listdir(ddir.joinpath(subdir))
         if rx.match(fi)])
 
     # for each input file
@@ -301,18 +301,18 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
         # read data file for data format
         if (DATAFORM == 'ascii'):
             # ascii (.txt)
-            M1 = gravtk.spatial().from_ascii(os.path.join(ddir,subdir,fi),
+            M1 = gravtk.spatial().from_ascii(ddir.joinpath(subdir,fi),
                 spacing=[dlon,dlat], nlat=nlat, nlon=nlon, extent=extent)
-            M2 = gravtk.spatial().from_ascii(os.path.join(ddir,subdir,FILES[t+1]),
+            M2 = gravtk.spatial().from_ascii(ddir.joinpath(subdir,FILES[t+1]),
                 spacing=[dlon,dlat], nlat=nlat, nlon=nlon, extent=extent)
         elif (DATAFORM == 'netCDF4'):
             # netCDF4 (.nc)
-            M1 = gravtk.spatial().from_netCDF4(os.path.join(ddir,subdir,fi))
-            M2 = gravtk.spatial().from_netCDF4(os.path.join(ddir,subdir,FILES[t+1]))
+            M1 = gravtk.spatial().from_netCDF4(ddir.joinpath(subdir,fi))
+            M2 = gravtk.spatial().from_netCDF4(ddir.joinpath(subdir,FILES[t+1]))
         elif (DATAFORM == 'HDF5'):
             # HDF5 (.H5)
-            M1 = gravtk.spatial().from_HDF5(os.path.join(ddir,subdir,fi))
-            M2 = gravtk.spatial().from_HDF5(os.path.join(ddir,subdir,FILES[t+1]))
+            M1 = gravtk.spatial().from_HDF5(ddir.joinpath(subdir,fi))
+            M2 = gravtk.spatial().from_HDF5(ddir.joinpath(subdir,FILES[t+1]))
         # attributes for input files
         attributes['lineage'] = []
         attributes['lineage'].append(os.path.basename(M1.filename))
@@ -340,26 +340,26 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
         # output spherical harmonic data file
         args=(MODEL,SPACING,LMAX,order_str,gldas_Ylms.month,suffix[DATAFORM])
         FILE='GLDAS_{0}{1}_TWC_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
-        gldas_Ylms.to_file(os.path.join(ddir,output_sub,FILE),
+        gldas_Ylms.to_file(ddir.joinpath(output_sub,FILE),
             format=DATAFORM)
         # change the permissions mode of the output file to MODE
-        os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
+        os.chmod(ddir.joinpath(output_sub,FILE),MODE)
 
     # Output date ascii file
     output_date_file = f'GLDAS_{MODEL}{SPACING}_TWC_DATES.txt'
-    fid1 = open(os.path.join(ddir,output_sub,output_date_file),
+    fid1 = open(ddir.joinpath(output_sub,output_date_file),
         mode='w', encoding='utf8')
     # date file header information
     print('{0:8} {1:^6} {2:^5}'.format('Mid-date','GRACE','Month'), file=fid1)
     # index file listing all output spherical harmonic files
     output_index_file = 'index.txt'
-    fid2 = open(os.path.join(ddir,output_sub,output_index_file),
+    fid2 = open(ddir.joinpath(output_sub,output_index_file),
         mode='w', encoding='utf8')
     # find all available output files
     args = (MODEL, SPACING, LMAX, order_str, suffix[DATAFORM])
     output_regex=r'GLDAS_{0}{1}_TWC_CLM_L{2:d}{3}_([-]?\d+).{4}'.format(*args)
     # find all output ECCO OBP harmonic files (not just ones created in run)
-    output_files=[fi for fi in os.listdir(os.path.join(ddir,output_sub))
+    output_files=[fi for fi in os.listdir(ddir.joinpath(output_sub))
         if re.match(output_regex,fi)]
     for fi in sorted(output_files):
         # extract GRACE month
@@ -367,7 +367,7 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
         YY,MM = gravtk.time.grace_to_calendar(grace_month)
         tdec, = gravtk.time.convert_calendar_decimal(YY, MM)
         # full path to output file
-        full_output_file = os.path.join(ddir,output_sub,fi)
+        full_output_file = ddir.joinpath(output_sub,fi)
         # print date, GRACE month and calendar month to date file
         fid1.write('{0:11.6f} {1:03d} {2:02.0f}\n'.format(tdec,grace_month,MM))
         # print output file to index
@@ -376,8 +376,8 @@ def gldas_monthly_harmonics(ddir, MODEL, YEARS,
     fid1.close()
     fid2.close()
     # set the permissions level of the output date and index files to MODE
-    os.chmod(os.path.join(ddir,output_sub,output_date_file), MODE)
-    os.chmod(os.path.join(ddir,output_sub,output_index_file), MODE)
+    os.chmod(ddir.joinpath(output_sub,output_date_file), MODE)
+    os.chmod(ddir.joinpath(output_sub,output_index_file), MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -394,8 +394,7 @@ def arguments():
         help='GLDAS land surface model')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # years to run
     now = datetime.datetime.now()
@@ -414,7 +413,7 @@ def arguments():
         help='Spatial resolution of models to run')
     # mask file for reducing to regions
     parser.add_argument('--mask',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         nargs='+', default=[],
         help='netCDF4 masks file for reducing to regions')
     # maximum spherical harmonic degree and order

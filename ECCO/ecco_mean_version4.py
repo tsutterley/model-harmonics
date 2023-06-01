@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_mean_version4.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (05/2023)
 
 Calculates mean of ocean bottom pressure data from the ECCO ocean model
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
@@ -61,6 +61,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
         use constants class in place of geoid-toolkit ref_ellipsoid
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -79,9 +80,9 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import logging
+import pathlib
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
@@ -96,7 +97,8 @@ def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
     logging.basicConfig(level=loglevels[VERBOSE])
 
     # input and output subdirectories
-    sd = f'ECCO-{MODEL}'
+    ddir = pathlib.Path(ddir).expanduser().absolute()
+    output_dir = ddir.joinpath(f'ECCO-{MODEL}')
     # output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
 
@@ -130,7 +132,7 @@ def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
     b_axis = ellipsoid_params.b_axis
 
     # read depth data from ecco_depth_version4.py
-    input_depth_file = os.path.join(ddir,'DEPTH.2020.720x360.nc')
+    input_depth_file = ddir.joinpath('DEPTH.2020.720x360.nc')
     depth = gravtk.spatial().from_netCDF4(input_depth_file,
         varname='depth', date=False)
 
@@ -138,7 +140,7 @@ def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
     regex_years = r'|'.join(rf'{y:d}' for y in range(RANGE[0],RANGE[1]+1))
     rx1 = re.compile(rf'PHIBOT([\.\_])({regex_years})(_(\d+))?.nc$')
     # find input files
-    input_files = [fi for fi in os.listdir(os.path.join(ddir,sd)) if rx1.match(fi)]
+    input_files = [fi for fi in output_dir.iterdir() if rx1.match(fi.name)]
 
     # output multi-annual mean
     obp_mean = gravtk.spatial(fill_value=fill_value)
@@ -154,12 +156,12 @@ def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
     # counter variable for dates
     count = 0.0
     # read each input file
-    for t,fi in enumerate(input_files):
+    for t,input_file in enumerate(input_files):
         # Open netCDF4 datafile for reading
-        PHIBOT = gravtk.spatial(fill_value=np.nan).from_netCDF4(
-            os.path.join(ddir,sd,fi),verbose=VERBOSE,
-            latname=LATNAME,lonname=LONNAME,timename=TIMENAME,
-            varname=VARNAME).transpose(axes=(1,2,0))
+        field_mapping = gravtk.spatial().default_field_mapping(
+            [LONNAME, LATNAME, VARNAME, TIMENAME])
+        PHIBOT = gravtk.spatial(fill_value=np.nan).from_netCDF4(input_file,
+            verbose=VERBOSE, field_mapping=field_mapping).transpose(axes=(1,2,0))
         PHIBOT.replace_invalid(fill_value)
         # time within netCDF files is days since epoch
         time_string = PHIBOT.attributes['time']['units']
@@ -220,24 +222,23 @@ def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
     attributes['units'] = 'Pa'
     attributes['longname'] = 'pressure_at_sea_floor'
     attributes['title'] = f'Ocean_Bottom_Pressure_from_ECCO_{MODEL}_Model'
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # output to file
     args = (MODEL, RANGE[0], RANGE[1], suffix[DATAFORM])
     FILE = 'ECCO_{0}_OBP_MEAN_{1:4d}-{2:4d}.{3}'.format(*args)
+    output_file = output_dir.joinpath(FILE)
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
-        obp_mean.to_ascii(os.path.join(ddir,sd,FILE),verbose=VERBOSE)
+        obp_mean.to_ascii(output_file, verbose=VERBOSE)
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
-        obp_mean.to_netCDF4(os.path.join(ddir,sd,FILE),
-            verbose=VERBOSE, **attributes)
+        obp_mean.to_netCDF4(output_file, verbose=VERBOSE, **attributes)
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
-        obp_mean.to_HDF5(os.path.join(ddir,sd,FILE),
-            verbose=VERBOSE, **attributes)
+        obp_mean.to_HDF5(output_file, verbose=VERBOSE, **attributes)
     # change the permissions mode of the output file to MODE
-    os.chmod(os.path.join(ddir,sd,FILE),MODE)
+    output_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -254,8 +255,7 @@ def arguments():
         help='ECCO Version 4 Model')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # start and end years to run for mean
     parser.add_argument('--mean','-m',

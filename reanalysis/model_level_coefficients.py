@@ -63,7 +63,7 @@ def model_level_coefficients(base_dir, MODEL, MODE=0o775):
         # output netCDF4 file
         output_coordinate_file = 'ERA5_coordvars.nc'
         # read input file
-        dinput = np.loadtxt(os.path.join(ddir,'ERA5_coordvars.txt'))
+        dinput = np.loadtxt(ddir.joinpath('ERA5_coordvars.txt'))
         # create output dictionary with variables
         output = {}
         # interfaces
@@ -136,7 +136,7 @@ def model_level_coefficients(base_dir, MODEL, MODE=0o775):
         output['b_half']=(output['b_interface'][1:]+output['b_interface'][0:-1])/2.0
 
     # output coefficients to netCDF4 file
-    fileID = netCDF4.Dataset(os.path.join(ddir,output_coordinate_file),'w')
+    fileID = netCDF4.Dataset(ddir.joinpath(output_coordinate_file),'w')
     # Defining the NetCDF4 dimensions and creating dimension variables
     nc = {}
     for key in ['lvl','intf']:
@@ -159,7 +159,7 @@ def model_level_coefficients(base_dir, MODEL, MODE=0o775):
     # close the netCDF4 file
     fileID.close()
     # change the permissions level to MODE
-    os.chmod(os.path.join(ddir,output_coordinate_file), MODE)
+    os.chmod(ddir.joinpath(output_coordinate_file), MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -176,8 +176,7 @@ def arguments():
         help='Reanalysis Model')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # permissions mode of the directories and files retrieved
     parser.add_argument('--mode','-M',

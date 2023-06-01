@@ -137,10 +137,10 @@ def gemb_smb_cumulative(model_file,
     fd['accum_SMB'].data[fd['accum_SMB'].mask] = fd['accum_SMB'].fill_value
 
     # Output NetCDF filename
-    logging.info(os.path.join(DIRECTORY,output_file))
+    logging.info(DIRECTORY.joinpath(output_file))
 
     # output GEMB data file with cumulative data
-    fileID = netCDF4.Dataset(os.path.join(DIRECTORY,output_file),'w',
+    fileID = netCDF4.Dataset(DIRECTORY.joinpath(output_file),'w',
         format="NETCDF4")
 
     # Defining the NetCDF dimensions
@@ -226,7 +226,7 @@ def gemb_smb_cumulative(model_file,
     fileID.close()
 
     # change the permissions mode
-    os.chmod(os.path.join(DIRECTORY,output_file), MODE)
+    os.chmod(DIRECTORY.joinpath(output_file), MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -237,7 +237,7 @@ def arguments():
     )
     # command line parameters
     parser.add_argument('infile',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='GEMB file to run')
     # start and end years to run for mean
     parser.add_argument('--mean','-m',

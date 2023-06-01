@@ -193,8 +193,8 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
     # output subdirectory
     args = (MODEL.upper(),LMAX,order_str,ocean_str)
     output_sub = '{0}_ATMOSPHERE_CLM_L{1:d}{2}{3}'.format(*args)
-    if not os.access(os.path.join(ddir,output_sub),os.F_OK):
-        os.makedirs(os.path.join(ddir,output_sub))
+    if not os.access(ddir.joinpath(output_sub),os.F_OK):
+        os.makedirs(ddir.joinpath(output_sub))
     # attributes for output files
     attributes = {}
     attributes['project'] = MODEL
@@ -203,10 +203,10 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
     attributes['lineage'] = []
     attributes['lineage'].append(os.path.basename(input_invariant_file))
     attributes['lineage'].append(os.path.basename(input_geoid_file))
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # read model latitude and longitude from invariant parameters file
-    with netCDF4.Dataset(os.path.join(ddir,input_invariant_file),'r') as fileID:
+    with netCDF4.Dataset(ddir.joinpath(input_invariant_file),'r') as fileID:
         lon = fileID.variables[LONNAME][:].copy()
         lat = fileID.variables[LATNAME][:].copy()
     # calculate colatitude
@@ -230,7 +230,7 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
     # calculate Legendre polynomials
     PLM, dPLM = gravtk.plm_holmes(LMAX, np.cos(theta))
     # read geoid heights and grid step size
-    geoid,gridstep = ncdf_geoid(os.path.join(ddir,input_geoid_file))
+    geoid,gridstep = ncdf_geoid(ddir.joinpath(input_geoid_file))
 
     # get reference parameters for ellipsoid
     ellipsoid_params = mdlhmc.constants(ellipsoid=ELLIPSOID)
@@ -253,7 +253,7 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
 
     # get indices of land-sea mask if redistributing oceanic points
     if REDISTRIBUTE:
-        ii,jj = ncdf_landmask(os.path.join(ddir,input_mask_file),MASKNAME,OCEAN)
+        ii,jj = ncdf_landmask(ddir.joinpath(input_mask_file),MASKNAME,OCEAN)
         # calculate total area of oceanic points
         TOTAL_AREA = np.sum(AREA[ii,jj])
 
@@ -268,7 +268,7 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
     # for each reanalysis file
     for fi in input_files:
         # read model level geopotential height data
-        fileID = netCDF4.Dataset(os.path.join(ddir,fi),'r')
+        fileID = netCDF4.Dataset(ddir.joinpath(fi),'r')
         # append file to lineage
         attributes['lineage'].append(os.path.basename(fi))
         # extract shape from geopotential variable
@@ -313,10 +313,10 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
     # output mean spherical harmonics file
     args = (MODEL.upper(), LMAX, order_str, RANGE[0], RANGE[1], suffix[DATAFORM])
     output_mean_file = '{0}_MEAN_CLM_L{1:d}{2}_{3:4d}-{4:4d}.{5}'.format(*args)
-    mean_Ylms.to_file(os.path.join(ddir,output_sub,output_mean_file),
+    mean_Ylms.to_file(ddir.joinpath(output_sub,output_mean_file),
         format=DATAFORM, verbose=VERBOSE)
     # set the permissions level of the output file to MODE
-    os.chmod(os.path.join(ddir,output_sub,output_mean_file), MODE)
+    os.chmod(ddir.joinpath(output_sub,output_mean_file), MODE)
 
 # PURPOSE: read geoid height netCDF4 files from read_gfz_geoid_grids.py
 def ncdf_geoid(FILENAME):
@@ -349,8 +349,7 @@ def arguments():
         help='Reanalysis Model')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # mean pressure field to calculate
     parser.add_argument('--mean',

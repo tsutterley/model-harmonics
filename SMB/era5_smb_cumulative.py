@@ -114,12 +114,12 @@ def era5_smb_cumulative(DIRECTORY,
     # ERA5 output cumulative subdirectory
     cumul_sub = 'ERA5-Cumul-P-E-{0:4d}-{1:4d}'.format(*RANGE)
     # make cumulative subdirectory
-    if not os.access(os.path.join(DIRECTORY,cumul_sub), os.F_OK):
-        os.mkdir(os.path.join(DIRECTORY,cumul_sub), MODE)
+    if not os.access(DIRECTORY.joinpath(cumul_sub), os.F_OK):
+        os.mkdir(DIRECTORY.joinpath(cumul_sub), MODE)
 
     # regular expression pattern for finding files
     rx = re.compile(r'ERA5\-Monthly\-P-E\-(\d{4})\.nc$', re.VERBOSE)
-    input_files = sorted([f for f in os.listdir(DIRECTORY) if rx.match(f)])
+    input_files = sorted([f for f in DIRECTORY.iterdir() if rx.match(f)])
     # sign for each product to calculate total SMB
     smb_sign = {'tp':1.0,'e':-1.0}
     # output data file format and title
@@ -139,7 +139,7 @@ def era5_smb_cumulative(DIRECTORY,
     attributes['longname'] = 'Equivalent_Water_Thickness'
     attributes['title'] = 'ERA5 Precipitation minus Evaporation'
     attributes['source'] = ', '.join(['tp','e'])
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # test that all years are available
     start_year, = rx.findall(input_files[0])
@@ -147,7 +147,7 @@ def era5_smb_cumulative(DIRECTORY,
     for Y in range(int(start_year),int(end_year)+1):
         # full path for flux file
         f1 = f'ERA5-Monthly-P-E-{Y:4d}.nc'
-        if not os.access(os.path.join(DIRECTORY,f1), os.F_OK):
+        if not os.access(DIRECTORY.joinpath(f1), os.F_OK):
             raise FileNotFoundError(f'File {f1} not in file system')
 
     # read mean data from era5_smb_mean.py
@@ -157,18 +157,18 @@ def era5_smb_cumulative(DIRECTORY,
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
         era5_mean = gravtk.spatial().from_ascii(
-            os.path.join(DIRECTORY,mean_file),
+            DIRECTORY.joinpath(mean_file),
             date=False, spacing=[dlon,dlat],
             nlat=nlat, nlon=nlon, extent=extent).squeeze()
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
         era5_mean = gravtk.spatial().from_netCDF4(
-            os.path.join(DIRECTORY,mean_file),
+            DIRECTORY.joinpath(mean_file),
             date=False, varname='SMB').squeeze()
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
         era5_mean = gravtk.spatial().from_HDF5(
-            os.path.join(DIRECTORY,mean_file),
+            DIRECTORY.joinpath(mean_file),
             date=False, varname='SMB').squeeze()
 
     # cumulative mass anomalies calculated by removing mean balance flux
@@ -181,7 +181,7 @@ def era5_smb_cumulative(DIRECTORY,
     # for each input file
     for f1 in input_files:
         # full path for flux files
-        era5_flux_file = os.path.join(DIRECTORY,f1)
+        era5_flux_file = DIRECTORY.joinpath(f1)
         Y1, = rx.findall(f1)
         # days per month in year
         dpm = gravtk.time.calendar_days(int(Y1))
@@ -238,18 +238,18 @@ def era5_smb_cumulative(DIRECTORY,
         FILE = 'ERA5-Cumul-P-E-{0}.{1}'.format(Y1,suffix[DATAFORM])
         if (DATAFORM == 'ascii'):
             # ascii (.txt)
-            output.to_ascii(os.path.join(DIRECTORY,cumul_sub,FILE),
+            output.to_ascii(DIRECTORY.joinpath(cumul_sub,FILE),
                 verbose=VERBOSE)
         elif (DATAFORM == 'netCDF4'):
             # netcdf (.nc)
-            output.to_netCDF4(os.path.join(DIRECTORY,cumul_sub,FILE),
+            output.to_netCDF4(DIRECTORY.joinpath(cumul_sub,FILE),
                 verbose=VERBOSE, **attributes)
         elif (DATAFORM == 'HDF5'):
             # HDF5 (.H5)
-            output.to_HDF5(os.path.join(DIRECTORY,cumul_sub,FILE),
+            output.to_HDF5(DIRECTORY.joinpath(cumul_sub,FILE),
                 verbose=VERBOSE, **attributes)
         # change the permissions mode
-        os.chmod(os.path.join(DIRECTORY,cumul_sub,FILE), MODE)
+        os.chmod(DIRECTORY.joinpath(cumul_sub,FILE), MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -262,8 +262,7 @@ def arguments():
     # command line parameters
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # start and end years to run for mean
     parser.add_argument('--mean','-m',

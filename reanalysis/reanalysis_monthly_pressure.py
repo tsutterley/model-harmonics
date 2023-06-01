@@ -87,7 +87,7 @@ def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
         # for each input file
         for fi in input_files:
             # read input data
-            p = gravtk.spatial().from_netCDF4(os.path.join(ddir,fi),
+            p = gravtk.spatial().from_netCDF4(ddir.joinpath(fi),
                 varname=VARNAME, timename=TIMENAME, lonname=LONNAME,
                 latname=LATNAME).transpose(axes=(1,2,0))
             p.fill_value = p.attributes['data'][FILL_VALUE]
@@ -114,7 +114,7 @@ def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
         dinput[TIMENAME] = np.copy(p_month.time)
 
         # save to file
-        FILE = os.path.join(ddir,output_file_format.format(YEAR))
+        FILE = ddir.joinpath(output_file_format.format(YEAR))
         ncdf_pressure_write(dinput, p.fill_value, FILENAME=FILE,
             VARNAME=VARNAME, LONNAME=LONNAME, LATNAME=LATNAME, TIMENAME=TIMENAME,
             TIME_UNITS=TIME_UNITS, TIME_LONGNAME=TIME_LONGNAME)
@@ -155,7 +155,7 @@ def ncdf_pressure_write(dinput, fill_value, FILENAME=None, VARNAME=None,
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
+    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # date created
     fileID.date_created = datetime.datetime.now().isoformat()
 
@@ -183,8 +183,7 @@ def arguments():
         help='Reanalysis Model')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # years to run
     now = datetime.datetime.now()

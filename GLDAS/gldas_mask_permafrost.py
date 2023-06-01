@@ -113,7 +113,7 @@ def gldas_mask_permafrost(ddir, SPACING=None, SHAPEFILE=None, MODE=0o775):
     dinput['longitude'] = longlimit_west + np.arange(nx)*dx
     dinput['latitude'] = latlimit_south + np.arange(ny)*dy
     # read GLDAS mask binary file
-    binary_input = np.fromfile(os.path.join(ddir,input_file),'>f4')
+    binary_input = np.fromfile(ddir.joinpath(input_file),'>f4')
     mask_input = binary_input.reshape(ny,nx).astype(bool)
     # create meshgrid of lat and long
     gridlon,gridlat = np.meshgrid(dinput['longitude'],dinput['latitude'])
@@ -169,9 +169,9 @@ def gldas_mask_permafrost(ddir, SPACING=None, SHAPEFILE=None, MODE=0o775):
     dinput['mask'] = np.zeros((ny,nx),dtype=np.uint8)
     dinput['mask'][ii,jj] = intersection_mask[:]
     # write to output netCDF4 (.nc)
-    ncdf_mask_write(dinput, FILENAME=os.path.join(ddir,output_file))
+    ncdf_mask_write(dinput, FILENAME=ddir.joinpath(output_file))
     # change the permission level to MODE
-    os.chmod(os.path.join(ddir,output_file), MODE)
+    os.chmod(ddir.joinpath(output_file), MODE)
 
 # PURPOSE: write permafrost mask to netCDF4 file
 def ncdf_mask_write(output_data, FILENAME=None):
@@ -210,7 +210,7 @@ def ncdf_mask_write(output_data, FILENAME=None):
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
+    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # date created
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
@@ -232,8 +232,7 @@ def arguments():
     # command line parameters
     # working data directory for location of GLDAS data
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # model spatial resolution
     # 10: 1.0 degrees latitude/longitude
@@ -243,7 +242,7 @@ def arguments():
         help='Spatial resolution of models to run')
     # input shapefile to run
     parser.add_argument('--shapefile','-F',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='Shapefile to run')
     # verbosity settings
     # verbose will output information about each output file

@@ -212,7 +212,7 @@ def ncdf_mask_write(dinput, FILENAME=None):
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
+    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # date created
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
@@ -233,10 +233,10 @@ def arguments():
     # command line parameters
     # input and output file
     parser.add_argument('infile',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='?',
+        type=pathlib.Path, nargs='?',
         help='Input file')
     parser.add_argument('outfile',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='?',
+        type=pathlib.Path, nargs='?',
         help='Output file')
     # variable from input file to extract as mask
     parser.add_argument('--variable','-v',
@@ -244,7 +244,7 @@ def arguments():
         help='Variable from input netCDF4 file to extract')
     # input shapefiles to run
     parser.add_argument('--shapefile','-F',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         nargs='+', help='Shapefiles to run')
     # minimum area threshold for polygons within shapefiles
     parser.add_argument('--area','-A',

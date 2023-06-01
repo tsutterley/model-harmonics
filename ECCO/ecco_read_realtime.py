@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_read_realtime.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (05/2023)
 
 Reads 12-hour ECCO ocean bottom pressure data from JPL
 Calculates monthly anomalies on an equirectangular grid
@@ -51,6 +51,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: updated inputs to spatial from_ascii function
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -77,9 +78,9 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import logging
+import pathlib
 import datetime
 import argparse
 import numpy as np
@@ -97,9 +98,14 @@ def ecco_read_realtime(ddir, MODEL, YEARS, RANGE=None, DATAFORM=None,
     # set up regular expression for finding directories to run from YEAR
     regex_years = r'|'.join([rf'{y:d}' for y in YEARS])
     rx = re.compile(rf'{MODEL}_({regex_years})', re.VERBOSE)
-    # Finding subdirectories
-    input_dir = sorted([sd for sd in os.listdir(ddir) if \
-        (os.path.isdir(os.path.join(ddir,sd)) & bool(rx.match(sd)))])
+
+    # input and output subdirectories
+    ddir = pathlib.Path(ddir).expanduser().absolute()
+    d1 = sorted([sd for sd in ddir.iterdir() if sd.is_dir() &
+        bool(rx.match(sd.name))])
+    d2 = ddir.joinpath(f'ECCO_{MODEL}_AveRmvd_OBP')
+    # recursively create subdirectory if it doesn't exist
+    d2.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # bad value
     fill_value = -1e+10
@@ -108,7 +114,7 @@ def ecco_read_realtime(ddir, MODEL, YEARS, RANGE=None, DATAFORM=None,
     attributes['units'] = 'Pa'
     attributes['longname'] = 'Bottom_Pressure'
     attributes['title'] = f'Ocean_Bottom_Pressure_from_ECCO-JPL_{MODEL}_Model'
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
 
@@ -128,43 +134,34 @@ def ecco_read_realtime(ddir, MODEL, YEARS, RANGE=None, DATAFORM=None,
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
         obp_mean = gravtk.spatial(fill_value=fill_value).from_ascii(
-            os.path.join(ddir,mean_file), date=False,
+            ddir.joinpath(mean_file), date=False,
             spacing=[1.0,1.0], nlat=158, nlon=360,
             extent=[0.5,359.5,-LAT_MAX,LAT_MAX],)
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
         obp_mean = gravtk.spatial().from_netCDF4(
-            os.path.join(ddir,mean_file), date=False)
+            ddir.joinpath(mean_file), date=False)
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
         obp_mean = gravtk.spatial().from_HDF5(
-            os.path.join(ddir,mean_file), date=False)
-
-    # output subdirectory for monthly datasets
-    outdir = f'ECCO_{MODEL}_AveRmvd_OBP'
-    # Creating subdirectory if it doesn't exist
-    if (not os.access(os.path.join(ddir,outdir), os.F_OK)):
-        os.mkdir(os.path.join(ddir,outdir),MODE)
+            ddir.joinpath(mean_file), date=False)
 
     # output average ocean bottom pressure to file
-    output_average_file = f'ECCO_{MODEL}_Global_Average_OBP.txt'
-    fid = open(os.path.join(ddir,outdir,output_average_file),
-        mode='w', encoding='utf8')
+    output_average_file = d2.joinpath(f'ECCO_{MODEL}_Global_Average_OBP.txt')
+    fid = output_average_file.open(mode='w', encoding='utf8')
 
     # for each yearly subdirectory
-    for i in input_dir:
-        subdir = sorted([sd for sd in os.listdir(os.path.join(ddir,i)) if
-            (os.path.isdir(os.path.join(ddir,i,sd)) &
-            bool(re.match(r'n10day_\d+_\d+',sd)))])
+    for i in d1:
+        subdir = sorted([sd for sd in i.iterdir() if sd.is_dir() &
+            bool(re.match(r'n10day_\d+_\d+', sd.name))])
         # for each subdirectory
         for j in subdir:
             # find the input file within the subdirectory
-            fi = [fi for fi in os.listdir(os.path.join(ddir,i,j)) if
-                bool(re.match(r'OBP_(.*?).cdf',fi))]
             # skip subdirectory if file not found
             try:
-                input_file = os.path.join(ddir,i,j,fi[0])
-                os.access(input_file, os.F_OK)
+                input_file, = [fi for fi in j.iterdir() if
+                    bool(re.match(r'OBP_(.*?).cdf', fi.name))]
+                assert input_file.exists()
             except:
                 continue
 
@@ -172,6 +169,7 @@ def ecco_read_realtime(ddir, MODEL, YEARS, RANGE=None, DATAFORM=None,
             # change order of axes to be lat/lon/time
             obp = gravtk.spatial(fill_value=fill_value).from_netCDF4(
                 input_file,verbose=VERBOSE,varname='OBP').transpose(axes=(1,2,0))
+
             # Getting the data from each netCDF variable
             nlat,nlon,nt = obp.shape
             # Dating scheme is hours from UNIX time (1970-01-01)
@@ -283,15 +281,16 @@ def ecco_read_realtime(ddir, MODEL, YEARS, RANGE=None, DATAFORM=None,
                 obp_monthly_anomaly.update_mask()
                 # output to file
                 args = (MODEL,YY[0],mm,suffix[DATAFORM])
-                FILE='ECCO_{0}_AveRmvd_OBP_{1:4.0f}_{2:02.0f}.{3}'.format(*args)
-                obp_monthly_anomaly.to_file(os.path.join(ddir,outdir,FILE),
+                f2 = 'ECCO_{0}_AveRmvd_OBP_{1:4.0f}_{2:02.0f}.{3}'.format(*args)
+                output_file = d2.joinpath(f2)
+                obp_monthly_anomaly.to_file(output_file,
                     format=DATAFORM, **attributes)
                 # change the permissions mode of the output file to MODE
-                os.chmod(os.path.join(ddir,outdir,FILE),MODE)
+                output_file.chmod(mode=MODE)
 
     # close output file and change the permissions to MODE
     fid.close()
-    os.chmod(os.path.join(ddir,outdir,output_average_file),MODE)
+    output_average_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -308,8 +307,7 @@ def arguments():
         help='ECCO Near Real-Time Model')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # years to run
     now = datetime.datetime.now()

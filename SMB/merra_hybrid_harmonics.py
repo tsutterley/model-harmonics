@@ -147,14 +147,14 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     # Open the MERRA-2 Hybrid NetCDF file for reading
     if GZIP:
         # read as in-memory (diskless) netCDF4 dataset
-        with gzip.open(os.path.join(DIRECTORY,hybrid_file),'r') as f:
+        with gzip.open(DIRECTORY.joinpath(hybrid_file),'r') as f:
             fileID = netCDF4.Dataset(uuid.uuid4().hex, memory=f.read())
     else:
         # read netCDF4 dataset
-        fileID = netCDF4.Dataset(os.path.join(DIRECTORY,hybrid_file), 'r')
+        fileID = netCDF4.Dataset(DIRECTORY.joinpath(hybrid_file), 'r')
 
     # Output NetCDF file information
-    logging.info(os.path.join(DIRECTORY,hybrid_file))
+    logging.info(DIRECTORY.joinpath(hybrid_file))
     logging.info(list(fileID.variables.keys()))
 
     # Get data from each netCDF variable and remove singleton dimensions
@@ -311,16 +311,16 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     attributes['max_degree'] = LMAX
     attributes['max_order'] = MMAX
     attributes['lineage'] = os.path.basename(hybrid_file)
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # add attributes to output harmonics
     Ylms.attributes['ROOT'] = attributes
     # output spherical harmonic data file
     args = (FILE_VERSION,REGION.lower(),VARIABLE,LMAX,order_str,suffix[DATAFORM])
     FILE = 'gsfc_fdm_{0}_{1}_{2}_CLM_L{3:d}{4}.{5}'.format(*args)
-    Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM,
+    Ylms.to_file(DIRECTORY.joinpath(FILE), format=DATAFORM,
         date=True, units=harmonic_units)
     # change the permissions mode of the output file to MODE
-    os.chmod(os.path.join(DIRECTORY,FILE),MODE)
+    os.chmod(DIRECTORY.joinpath(FILE),MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -334,8 +334,7 @@ def arguments():
     # command line parameters
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # region of firn model
     parser.add_argument('--region','-R',
@@ -357,7 +356,7 @@ def arguments():
         help='Years of model outputs to run')
     # mask file for reducing to regions
     parser.add_argument('--mask',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         nargs='+', default=[],
         help='netCDF4 masks file for reducing to regions')
     # maximum spherical harmonic degree and order

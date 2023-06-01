@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_monthly_harmonics.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (05/2023)
 Reads monthly ECCO ocean bottom pressure anomalies and converts to
     spherical harmonic coefficients
 
@@ -65,6 +65,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
         updated inputs to spatial from_ascii function
     Updated 02/2023: use love numbers class with additional attributes
@@ -102,11 +103,12 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import logging
+import pathlib
 import netCDF4
 import argparse
+import datetime
 import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
@@ -117,8 +119,10 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     LOVE_NUMBERS=0, REFERENCE=None, DATAFORM=None, MODE=0o775):
 
     # input and output subdirectory
-    input_sub = f'ECCO_{MODEL}_AveRmvd_OBP'
-    output_sub = f'ECCO_{MODEL}_AveRmvd_OBP_CLM_L{LMAX:d}'
+    input_dir = ddir.joinpath(f'ECCO_{MODEL}_AveRmvd_OBP')
+    output_dir = ddir.joinpath(f'ECCO_{MODEL}_AveRmvd_OBP_CLM_L{LMAX:d}')
+    # Creating subdirectory if it doesn't exist
+    output_dir.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
@@ -126,9 +130,6 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     order_str = 'M{MMAX:d}' if (MMAX != LMAX) else ''
     # output file format
     output_file_format = 'ECCO_{0}_AveRmvd_OBP_CLM_L{1:d}{2}_{3:03d}.{4}'
-    # Creating subdirectory if it doesn't exist
-    if (not os.access(os.path.join(ddir,output_sub), os.F_OK)):
-        os.makedirs(os.path.join(ddir,output_sub),MODE)
     # input/output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
 
@@ -141,8 +142,8 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
         # grid extent
         LAT_MAX = 78.5
         extent = [0.5,359.5,-LAT_MAX,LAT_MAX]
-        input_depth_file = os.path.join(ddir,'depth.nc')
-        input_geoid_file = os.path.join(ddir,'egm_2008.nc')
+        input_depth_file = ddir.joinpath('depth.nc')
+        input_geoid_file = ddir.joinpath('egm_2008.nc')
         # indices to read
         indices = np.arange(1,2*LAT_MAX+2).astype(np.int64)
     elif MODEL in ('Cube92',):
@@ -152,8 +153,8 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
         dlon,dlat = (0.25,0.25)
         # grid extent
         extent = [0.125,359.875,-89.875,89.875]
-        input_depth_file = os.path.join(ddir,'DEPTH.2020.1440x720.nc')
-        input_geoid_file = os.path.join(ddir,'EGM_2008.1440x720.nc')
+        input_depth_file = ddir.joinpath('DEPTH.2020.1440x720.nc')
+        input_geoid_file = ddir.joinpath('EGM_2008.1440x720.nc')
         # indices to read (all)
         indices = Ellipsis
     elif MODEL in ('V4r3','V4r4'):
@@ -163,8 +164,8 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
         dlon,dlat = (0.5,0.5)
         # grid extent
         extent = [-179.75,179.75,-89.75,89.75]
-        input_depth_file = os.path.join(ddir,'DEPTH.2020.720x360.nc')
-        input_geoid_file = os.path.join(ddir,'EGM_2008.720x360.nc')
+        input_depth_file = ddir.joinpath('DEPTH.2020.720x360.nc')
+        input_geoid_file = ddir.joinpath('EGM_2008.720x360.nc')
         # indices to read (all)
         indices = Ellipsis
 
@@ -176,7 +177,7 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     attributes['product_version'] = MODEL
     attributes['product_name'] = VARNAME
     attributes['product_type'] = 'gravity_field'
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # input grid dimensions
     glon = np.arange(extent[0],extent[1]+dlon,dlon)
@@ -226,7 +227,7 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     attributes['max_order'] = MMAX
 
     # calculate Legendre polynomials
-    PLM, dPLM = gravtk.plm_holmes(LMAX,np.cos(theta[:,0]))
+    PLM, dPLM = gravtk.plm_holmes(LMAX, np.cos(theta[:,0]))
 
     # regular expression pattern to find files and extract dates
     regex_years = r'\d+' if (YEARS is None) else '|'.join(map(str,YEARS))
@@ -234,23 +235,20 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     rx = re.compile(r'ECCO_{0}_AveRmvd_OBP_({1})_(\d+).{2}$'.format(*args))
 
     # find input ECCO OBP files
-    FILES = [fi for fi in os.listdir(os.path.join(ddir,input_sub)) if rx.match(fi)]
+    input_files = sorted([f for fh in input_dir.iterdir() if rx.match(f.name)])
 
     # for each input file
-    for f in sorted(FILES):
+    for t,input_file in enumerate(input_files):
         # extract dates from file
-        year,month = np.array(rx.findall(f).pop(), dtype=np.int64)
+        year,month = np.array(rx.findall(input_file.name).pop(), dtype=int)
         # read input data file
         if (DATAFORM == 'ascii'):
-            obp_data = gravtk.spatial().from_ascii(
-                os.path.join(ddir,input_sub,f), spacing=[dlon,dlat],
-                nlat=150, nlon=360, extent=extent)
+            obp_data = gravtk.spatial().from_ascii(input_file,
+                spacing=[dlon,dlat], nlat=150, nlon=360, extent=extent)
         elif (DATAFORM == 'netCDF4'):
-            obp_data = gravtk.spatial().from_netCDF4(
-                os.path.join(ddir,input_sub,f))
+            obp_data = gravtk.spatial().from_netCDF4(input_file)
         elif (DATAFORM == 'HDF5'):
-            obp_data = gravtk.spatial().from_HDF5(
-                os.path.join(ddir,input_sub,f))
+            obp_data = gravtk.spatial().from_HDF5(input_file)
         # replace fill value points with 0
         obp_data.replace_invalid(0.0)
         # calculate spherical harmonics from pressure/gravity ratio
@@ -261,57 +259,54 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
         obp_Ylms.month = gravtk.time.calendar_to_grace(year,month)
         # attributes for input files
         attributes['lineage'] = []
-        attributes['lineage'].append(os.path.basename(input_depth_file))
-        attributes['lineage'].append(os.path.basename(input_geoid_file))
-        attributes['lineage'].append(os.path.basename(f))
+        attributes['lineage'].append(input_depth_file.name)
+        attributes['lineage'].append(input_geoid_file.name)
+        attributes['lineage'].append(input_file.name)
         # add attributes to output harmonics
         obp_Ylms.attributes['ROOT'] = attributes
         # output spherical harmonic data file
         args = (MODEL, LMAX, order_str, obp_Ylms.month, suffix[DATAFORM])
-        FILE = output_file_format.format(*args)
-        obp_Ylms.to_file(os.path.join(ddir,output_sub,FILE),
-            format=DATAFORM)
+        output_file = output_dir.joinpath(output_file_format.format(*args))
+        obp_Ylms.to_file(output_file, format=DATAFORM)
         # change the permissions mode of the output file to MODE
-        os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
+        output_file.chmod(mode=MODE)
 
     # Output date ascii file
-    output_date_file = f'ECCO_{MODEL}_OBP_DATES.txt'
-    fid1 = open(os.path.join(ddir,output_sub,output_date_file),
-        mode='w', encoding='utf8')
+    output_date_file = output_dir.joinpath(f'ECCO_{MODEL}_OBP_DATES.txt')
+    fid1 = output_date_file.open(mode='w', encoding='utf8')
     # date file header information
     print('{0:8} {1:^6} {2:^5}'.format('Mid-date','GRACE','Month'), file=fid1)
     # index file listing all output spherical harmonic files
-    output_index_file = 'index.txt'
-    fid2 = open(os.path.join(ddir,output_sub,output_index_file),
-        mode='w', encoding='utf8')
+    output_index_file = output_dir.joinpath('index.txt')
+    fid2 = output_index_file.open(mode='w', encoding='utf8')
     # find all available output files
     args = (MODEL, LMAX, suffix[DATAFORM])
     output_regex=r'ECCO_{0}_AveRmvd_OBP_CLM_L{1:d}_([-]?\d+).{2}'.format(*args)
     # find all output ECCO OBP harmonic files (not just ones created in run)
-    output_files = [fi for fi in os.listdir(os.path.join(ddir,output_sub))
-        if re.match(output_regex,fi)]
+    output_files = [fi for fi in output_dir.iterdir() if
+        re.match(output_regex,fi.name)]
     for fi in sorted(output_files):
         # extract GRACE month
-        grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int64)
+        grace_month, = np.array(re.findall(output_regex,fi.name), dtype=int)
         YY,MM = gravtk.time.grace_to_calendar(grace_month)
         tdec, = gravtk.time.convert_calendar_decimal(YY, MM)
-        # full path to output file
-        full_output_file = os.path.join(ddir,output_sub,fi)
         # print date, GRACE month and calendar month to date file
-        fid1.write('{0:11.6f} {1:03d} {2:02.0f}\n'.format(tdec,grace_month,MM))
+        fid1.write(f'{tdec:11.6f} {grace_month:03d} {MM:02.0f}\n')
         # print output file to index
-        print(full_output_file.replace(os.path.expanduser('~'),'~'), file=fid2)
+        full_output_file = gravtk.spatial().compressuser(fi)
+        print(full_output_file, file=fid2)
     # close the date and index files
     fid1.close()
     fid2.close()
     # set the permissions level of the output date and index files to MODE
-    os.chmod(os.path.join(ddir,output_sub,output_date_file), MODE)
-    os.chmod(os.path.join(ddir,output_sub,output_index_file), MODE)
+    output_date_file.chmod(mode=MODE)
+    output_index_file.chmod(mode=MODE)
 
 # PURPOSE: read ECCO2 depth file
 # ftp://mit.ecco-group.org/ecco_for_las/grid_fields/
 def ncdf_depth(FILENAME, indices=Ellipsis):
-    with netCDF4.Dataset(FILENAME,'r') as fileID:
+    logging.debug(str(FILENAME))
+    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
         depth = np.array(fileID.variables['depth'][indices,:])
         fill_value = fileID.variables['depth']._FillValue
         depth[depth == fill_value] = 0.0
@@ -319,10 +314,11 @@ def ncdf_depth(FILENAME, indices=Ellipsis):
 
 # PURPOSE: read geoid height netCDF4 files from read_gfz_geoid_grids.py
 def ncdf_geoid(FILENAME, indices=Ellipsis):
-    with netCDF4.Dataset(FILENAME,'r') as fileID:
+    logging.debug(str(FILENAME))
+    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
         geoid_undulation = np.array(fileID.variables['geoid'][indices,:])
         gridstep = [float(s) for s in fileID.gridstep.split(',')]
-    return (geoid_undulation,np.squeeze(gridstep))
+    return (geoid_undulation, np.squeeze(gridstep))
 
 # PURPOSE: create argument parser
 def arguments():
@@ -341,11 +337,10 @@ def arguments():
         help='ECCO Model')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # years to run
-    now = gravtk.time.datetime.datetime.now()
+    now = datetime.datetime.now()
     parser.add_argument('--year','-Y',
         type=int, nargs='+', default=range(2000,now.year+1),
         help='Years of model outputs to run')

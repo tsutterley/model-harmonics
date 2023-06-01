@@ -99,7 +99,7 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
         # format: UCAR_RDA_NCEP-CFSR_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
         LOGFILE = f'UCAR_RDA_NCEP-CFSR_{today}.log'
-        fid = open(os.path.join(DIRECTORY,LOGFILE), mode='w', encoding='utf8')
+        fid = open(DIRECTORY.joinpath(LOGFILE), mode='w', encoding='utf8')
         logging.basicConfig(stream=fid, level=logging.INFO)
         logging.info(f'UCAR NCEP-CFSR Sync Log ({today})')
         logging.info('PRODUCT: NCEP-DOE-2')
@@ -154,7 +154,7 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
             # print input file to be read into memory
             logging.debug(valid_lines[i])
             # Create and submit request. There are a wide range of exceptions
-            # local = os.path.join(DIRECTORY,valid_lines[i])
+            # local = DIRECTORY.joinpath(valid_lines[i])
             response = gravtk.utilities.from_http([HOST,valid_lines[i]],
                 timeout=TIMEOUT, context=None, verbose=True, fid=fid, local=None)
             # extract information from monthly files
@@ -215,14 +215,14 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
         ncdf_model_write(output, dinput.fill_value, VARNAME=VARNAME,
             LONNAME=LONNAME, LATNAME=LATNAME, TIMENAME=TIMENAME,
             TIME_UNITS=TIME_UNITS, TIME_LONGNAME=TIME_LONGNAME,
-            FILENAME=os.path.join(DIRECTORY,FILE))
+            FILENAME=DIRECTORY.joinpath(FILE))
         # set permissions mode to MODE
-        os.chmod(os.path.join(DIRECTORY,FILE), MODE)
+        os.chmod(DIRECTORY.joinpath(FILE), MODE)
 
     # close log file and set permissions level to MODE
     if LOG:
         fid.close()
-        os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
+        os.chmod(DIRECTORY.joinpath(LOGFILE), MODE)
 
 # PURPOSE: write output model layer fields data to file
 def ncdf_model_write(dinput, fill_value, VARNAME=None, LONNAME=None,
@@ -280,7 +280,7 @@ def arguments():
     )
     # command line parameters
     parser.add_argument('file',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='+',
+        type=pathlib.Path, nargs='+',
         help='UCAR links list file')
     # UCAR/NCAR RDA credentials
     parser.add_argument('--user','-U',
@@ -290,13 +290,11 @@ def arguments():
         type=str, default=os.environ.get('UCAR_RDA_PASSWORD'),
         help='Password for UCAR/NCAR RDA Login')
     parser.add_argument('--netrc','-N',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.path.join(os.path.expanduser('~'),'.netrc'),
+        type=pathlib.Path, default=pathlib.Path.home().joinpath('.netrc'),
         help='Path to .netrc file for authentication')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # model years to download
     parser.add_argument('--year','-Y',
