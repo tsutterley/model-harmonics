@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mask_permafrost.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (05/2023)
 
 Creates a mask for GLDAS data based on the permafrost/surface classification
 from the NSIDC Circum-Arctic Map of Permafrost and Ground-Ice Conditions
@@ -46,6 +46,7 @@ REFERENCES:
         ground ice conditions. Boulder, CO: National Snow and Ice Data Center.
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: use full path to output file in verbose logging
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -62,11 +63,11 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import time
 import pyproj
 import logging
 import netCDF4
+import pathlib
 import argparse
 import warnings
 import numpy as np
@@ -104,8 +105,9 @@ def gldas_mask_permafrost(ddir, SPACING=None, SHAPEFILE=None, MODE=0o775):
         latlimit_south = -59.5
         longlimit_west = -179.5
     # input binary land mask and output netCDF4 mask
-    input_file = f'landmask_mod44w_{SPACING}.1gd4r'
-    output_file = f'permafrost_mod44w_{SPACING}.nc'
+    ddir = pathlib.Path(ddir).expanduser().absolute()
+    input_file = ddir.joinpath(f'landmask_mod44w_{SPACING}.1gd4r')
+    output_file = ddir.joinpath(f'permafrost_mod44w_{SPACING}.nc')
 
     # python dictionary with input data
     dinput = {}
@@ -113,7 +115,8 @@ def gldas_mask_permafrost(ddir, SPACING=None, SHAPEFILE=None, MODE=0o775):
     dinput['longitude'] = longlimit_west + np.arange(nx)*dx
     dinput['latitude'] = latlimit_south + np.arange(ny)*dy
     # read GLDAS mask binary file
-    binary_input = np.fromfile(ddir.joinpath(input_file),'>f4')
+    logging.info(str(input_file))
+    binary_input = np.fromfile(input_file, '>f4')
     mask_input = binary_input.reshape(ny,nx).astype(bool)
     # create meshgrid of lat and long
     gridlon,gridlat = np.meshgrid(dinput['longitude'],dinput['latitude'])
@@ -121,7 +124,9 @@ def gldas_mask_permafrost(ddir, SPACING=None, SHAPEFILE=None, MODE=0o775):
     ii,jj = np.nonzero(mask_input & (gridlat >= 26) & (gridlat <= 86))
 
     # reading shapefile
-    shape = fiona.open(SHAPEFILE)
+    SHAPEFILE = pathlib.Path(SHAPEFILE).expanduser().absolute()
+    logging.debug(str(SHAPEFILE))
+    shape = fiona.open(str(SHAPEFILE))
     # pyproj transformer for converting from latitude/longitude
     # into NSIDC EASE-Grid North
     crs1 = pyproj.CRS.from_epsg(4326)
@@ -169,13 +174,14 @@ def gldas_mask_permafrost(ddir, SPACING=None, SHAPEFILE=None, MODE=0o775):
     dinput['mask'] = np.zeros((ny,nx),dtype=np.uint8)
     dinput['mask'][ii,jj] = intersection_mask[:]
     # write to output netCDF4 (.nc)
-    ncdf_mask_write(dinput, FILENAME=ddir.joinpath(output_file))
+    ncdf_mask_write(dinput, FILENAME=output_file)
     # change the permission level to MODE
-    os.chmod(ddir.joinpath(output_file), MODE)
+    output_file.chmod(mode=MODE)
 
 # PURPOSE: write permafrost mask to netCDF4 file
 def ncdf_mask_write(output_data, FILENAME=None):
     # opening NetCDF file for writing
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
     # python dictionary with the NetCDF4 data variables

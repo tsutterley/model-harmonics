@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_gldas_sync.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (05/2023)
 
 Syncs GLDAS monthly datafiles from the Goddard Earth Sciences Data and
     Information Server Center (GES DISC)
@@ -64,6 +64,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 06/2022: use CMR queries to find model granules
@@ -105,6 +106,7 @@ import netrc
 import shutil
 import getpass
 import logging
+import pathlib
 import argparse
 import builtins
 import posixpath
@@ -124,15 +126,17 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
     CLOBBER=False):
 
     # check if directory exists and recursively create if not
-    os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
+    DIRECTORY = pathlib.Path(DIRECTORY).expanduser().absolute()
+    DIRECTORY.mkdir(mode=MODE, parents=True, exist_ok=True)
+
     # create log file with list of synchronized files (or print to terminal)
     if LOG:
         # output to log file
         # format: NASA_GESDISC_GLDAS_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = f'NASA_GESDISC_GLDAS_{MODEL}_sync_{today}.log'
-        logging.basicConfig(filename=DIRECTORY.joinpath(LOGFILE),
-            level=logging.INFO)
+        logfile =f'NASA_GESDISC_GLDAS_{MODEL}_sync_{today}.log'
+        LOGFILE = DIRECTORY.joinpath(logfile)
+        logging.basicConfig(filename=LOGFILE, level=logging.INFO)
         logging.info(f'NASA GLDAS Sync Log ({today})')
     else:
         # standard output (terminal output)
@@ -159,12 +163,12 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
             version=VERSION, start_date=start_date, end_date=end_date,
             provider='GES_DISC', verbose=True)
         # recursively create local directory for data
-        if not os.access(DIRECTORY.joinpath(PRODUCT,Y), os.F_OK):
-            os.makedirs(DIRECTORY.joinpath(PRODUCT,Y), mode=MODE)
+        local_dir = DIRECTORY.joinpath(PRODUCT, Y)
+        local_dir.mkdir(mode=MODE, parents=True, exist_ok=True)
         # sync model granules
         for id,url,mtime in zip(ids,urls,mtimes):
             # local version of the granule
-            local_file = DIRECTORY.joinpath(PRODUCT,Y,id)
+            local_file = local_dir.joinpath(id)
             # copy file from remote directory comparing modified dates
             http_pull_file(url, mtime, local_file,
                 TIMEOUT=TIMEOUT, LIST=LIST, CLOBBER=CLOBBER,
@@ -172,7 +176,7 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
 
     # close log file and set permissions level to MODE
     if LOG:
-        os.chmod(DIRECTORY.joinpath(LOGFILE), MODE)
+        LOGFILE.chmod(mode=MODE)
 
 # PURPOSE: pull file from a remote host checking if file exists locally
 # and if the remote file is newer than the local file
@@ -182,9 +186,9 @@ def http_pull_file(remote_file,remote_mtime,local_file,
     TEST = False
     OVERWRITE = ' (clobber)'
     # check if local version of file exists
-    if os.access(local_file, os.F_OK):
+    if local_file.exists():
         # check last modification time of local file
-        local_mtime = os.stat(local_file).st_mtime
+        local_mtime = local_file.stat().st_mtime
         # if remote file is newer: overwrite the local file
         if (mdlhmc.utilities.even(remote_mtime) >
             mdlhmc.utilities.even(local_mtime)):
@@ -209,11 +213,11 @@ def http_pull_file(remote_file,remote_mtime,local_file,
             CHUNK = 16 * 1024
             # copy contents to local file using chunked transfer encoding
             # transfer should work properly with ascii and binary data formats
-            with open(local_file, 'wb') as f:
+            with local_file.open(mode='wb') as f:
                 shutil.copyfileobj(response, f, CHUNK)
             # keep remote modification time of file and local access time
-            os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
-            os.chmod(local_file, MODE)
+            os.utime(local_file, (local_file.stat().st_atime, remote_mtime))
+            local_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mask_arctic.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (05/2023)
 
 Creates a mask for GLDAS data for Greenland, Svalbard, Iceland and the
     Russian High Arctic defined by a set of shapefiles
@@ -32,6 +32,7 @@ PYTHON DEPENDENCIES:
          https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: use full path to output file in verbose logging
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -51,11 +52,11 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import time
 import pyproj
 import logging
 import netCDF4
+import pathlib
 import argparse
 import warnings
 import numpy as np
@@ -80,7 +81,9 @@ warnings.filterwarnings("ignore")
 # PURPOSE: read shapefile to find points within a specified region
 def read_shapefile(input_shapefile, AREA=None, BUFFER=None):
     # reading shapefile
-    shape = fiona.open(input_shapefile)
+    input_shapefile = pathlib.Path(input_shapefile).expanduser().absolute()
+    logging.debug(str(input_shapefile))
+    shape = fiona.open(str(input_shapefile))
     # create projection object from shapefile
     crs = pyproj.CRS.from_string(shape.crs['init'])
     # list of polygons
@@ -118,8 +121,9 @@ def gldas_mask_arctic(ddir, SPACING=None, SHAPEFILES=None, AREA=None,
         latlimit_south = -59.5
         longlimit_west = -179.5
     # input binary land mask and output netCDF4 mask
-    input_file = f'landmask_mod44w_{SPACING}.1gd4r'
-    output_file = f'arcticmask_mod44w_{SPACING}.nc'
+    ddir = pathlib.Path(ddir).expanduser().absolute()
+    input_file = ddir.joinpath(f'landmask_mod44w_{SPACING}.1gd4r')
+    output_file = ddir.joinpath(f'arcticmask_mod44w_{SPACING}.nc')
 
     # python dictionary with input data
     dinput = {}
@@ -127,7 +131,8 @@ def gldas_mask_arctic(ddir, SPACING=None, SHAPEFILES=None, AREA=None,
     dinput['longitude'] = longlimit_west + np.arange(nx)*dx
     dinput['latitude'] = latlimit_south + np.arange(ny)*dy
     # read GLDAS mask binary file
-    binary_input = np.fromfile(ddir.joinpath(input_file),'>f4')
+    logging.info(str(input_file))
+    binary_input = np.fromfile(input_file, '>f4')
     mask_input = binary_input.reshape(ny,nx).astype(bool)
     # find valid points from mask input
     ii,jj = np.nonzero(mask_input)
@@ -162,13 +167,14 @@ def gldas_mask_arctic(ddir, SPACING=None, SHAPEFILES=None, AREA=None,
     dinput['mask'] = np.zeros((ny,nx),dtype=np.uint8)
     dinput['mask'][ii,jj] = intersection_mask[:]
     # write to output netCDF4 (.nc)
-    ncdf_mask_write(dinput, FILENAME=ddir.joinpath(output_file))
+    ncdf_mask_write(dinput, FILENAME=output_file)
     # change the permission level to MODE
-    os.chmod(ddir.joinpath(output_file),MODE)
+    output_file.chmod(mode=MODE)
 
 # PURPOSE: write land sea mask to netCDF4 file
 def ncdf_mask_write(dinput, FILENAME=None):
     # opening NetCDF file for writing
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
     # Defining the NetCDF dimensions
@@ -201,7 +207,7 @@ def ncdf_mask_write(dinput, FILENAME=None):
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
     # Output NetCDF structure information
-    logging.info(FILENAME)
+    logging.info(str(FILENAME))
     logging.info(list(fileID.variables.keys()))
 
     # Closing the NetCDF file

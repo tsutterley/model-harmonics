@@ -100,10 +100,10 @@ def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
 
     # input and output subdirectories
     ddir = pathlib.Path(ddir).expanduser().absolute()
-    input_dir = ddir.joinpath(f'ECCO_{MODEL}_AveRmvd_OBP','nctiles_monthly')
-    output_sub = ddir.joinpath(f'ECCO_{MODEL}_AveRmvd_OBP_CLM_L{LMAX:d}')
+    d1 = ddir.joinpath(f'ECCO_{MODEL}_AveRmvd_OBP','nctiles_monthly')
+    d2 = ddir.joinpath(f'ECCO_{MODEL}_AveRmvd_OBP_CLM_L{LMAX:d}')
     # Creating subdirectory if it doesn't exist
-    output_sub.mkdir(mode=MODE, parents=True, exist_ok=True)
+    d2.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
@@ -194,7 +194,7 @@ def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     rx = re.compile(r'ECCO_{0}_AveRmvd_OBP_({1})_(\d+).{2}$'.format(*args))
 
     # find input ECCO OBP files
-    FILES = [fi for fi in input_dir.iterdir() if rx.match(fi.name)]
+    FILES = [fi for fi in d1.iterdir() if rx.match(fi.name)]
     # for each input file
     for f in sorted(FILES):
         # extract dates from file
@@ -239,26 +239,25 @@ def ecco_llc_tile_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
         obp_Ylms.attributes['ROOT'] = attributes
         # output spherical harmonic data file
         args = (MODEL, LMAX, order_str, obp_Ylms.month, suffix[DATAFORM])
-        output_file = output_sub.joinpath(output_file_format.format(*args))
+        output_file = d2.joinpath(output_file_format.format(*args))
         obp_Ylms.to_file(output_file,
             format=DATAFORM, date=True)
         # change the permissions mode of the output file to MODE
         output_file.chmod(mode=MODE)
 
     # Output date ascii file
-    output_date_file = output_sub.joinpath(f'ECCO_{MODEL}_OBP_DATES.txt')
+    output_date_file = d2.joinpath(f'ECCO_{MODEL}_OBP_DATES.txt')
     fid1 = output_date_file.open( mode='w', encoding='utf8')
     # date file header information
     print('{0:8} {1:^6} {2:^5}'.format('Mid-date','GRACE','Month'), file=fid1)
     # index file listing all output spherical harmonic files
-    output_index_file = output_sub.joinpath('index.txt')
+    output_index_file = d2.joinpath('index.txt')
     fid2 = output_index_file.open(mode='w', encoding='utf8')
     # find all available output files
     args = (MODEL, LMAX, suffix[DATAFORM])
     output_regex=r'ECCO_{0}_AveRmvd_OBP_CLM_L{1:d}_([-]?\d+).{2}'.format(*args)
     # find all output ECCO OBP harmonic files (not just ones created in run)
-    output_files = [fi for fi in output_sub.iterdir()
-        if re.match(output_regex,fi.name)]
+    output_files = [fi for fi in d2.iterdir() if re.match(output_regex,fi.name)]
     for fi in sorted(output_files):
         # extract GRACE month
         grace_month, = np.array(re.findall(output_regex,fi.name),dtype=np.int64)

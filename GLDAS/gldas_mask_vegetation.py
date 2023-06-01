@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mask_vegetation.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (05/2023)
 
 Creates a mask for GLDAS data using the GLDAS vegetation type binary files
     https://ldas.gsfc.nasa.gov/gldas/GLDASvegetation.php
@@ -23,6 +23,7 @@ PYTHON DEPENDENCIES:
          https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: use full path to output file in verbose logging
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -36,10 +37,10 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import time
 import logging
 import netCDF4
+import pathlib
 import argparse
 import numpy as np
 import model_harmonics as mdlhmc
@@ -47,21 +48,25 @@ import model_harmonics as mdlhmc
 # Read the GLDAS vegetation index and create a mask defining each type
 def gldas_mask_vegetation(ddir, SPACING=None, MODE=0o775):
 
+    # verify input data directory
+    ddir = pathlib.Path(ddir).expanduser().absolute()
     # parameters for each grid spacing
     if (SPACING == '025'):
         dx, dy = (0.25, 0.25)
         nx, ny = (1440, 600)
         latlimit_south = -59.875
         longlimit_west = -179.875
-        input_file = f'modmodis_domveg20_{dx:4.2f}.bin'
-        output_file = f'modmodis_domveg20_{SPACING}.nc'
+        # input binary land mask and output netCDF4 mask
+        input_file = ddir.joinpath(f'modmodis_domveg20_{dx:4.2f}.bin')
+        output_file = ddir.joinpath(f'modmodis_domveg20_{SPACING}.nc')
     elif (SPACING == '10'):
         dx, dy = (1.0, 1.0)
         nx, ny = (360, 150)
         latlimit_south = -59.5
         longlimit_west = -179.5
-        input_file = f'modmodis_domveg20_{dx:3.1f}.bin'
-        output_file = f'modmodis_domveg20_{SPACING}.nc'
+        # input binary land mask and output netCDF4 mask
+        input_file = ddir.joinpath(f'modmodis_domveg20_{dx:3.1f}.bin')
+        output_file = ddir.joinpath(f'modmodis_domveg20_{SPACING}.nc')
 
     # python dictionary with input data
     dinput = {}
@@ -69,17 +74,19 @@ def gldas_mask_vegetation(ddir, SPACING=None, MODE=0o775):
     dinput['longitude'] = longlimit_west + np.arange(nx)*dx
     dinput['latitude'] = latlimit_south + np.arange(ny)*dy
     # read MODIS vegetation index binary file
-    mask_input = np.fromfile(ddir.joinpath(input_file),'>f4')
+    logging.info(str(input_file))
+    binary_input = np.fromfile(input_file, '>f4')
     dinput['index'] = np.zeros((ny,nx),dtype=np.uint16)
-    dinput['index'][:,:] = mask_input.reshape(ny,nx)
+    dinput['index'][:,:] = binary_input.reshape(ny,nx)
     # write to output netCDF4 (.nc)
-    ncdf_index_write(dinput, FILENAME=ddir.joinpath(output_file))
+    ncdf_index_write(dinput, FILENAME=output_file)
     # change the permission level to MODE
-    os.chmod(ddir.joinpath(output_file),MODE)
+    output_file.chmod(mode=MODE)
 
 # PURPOSE: write vegetation index data to netCDF4 file
 def ncdf_index_write(dinput, FILENAME=None):
     # opening NetCDF file for writing
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
     # Defining the NetCDF dimensions

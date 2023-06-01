@@ -110,7 +110,8 @@ def jpl_ecco_llc_sync(ddir, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
     if LOG:
         # format: JPL_ECCO_V5alpha_PHIBOT_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = DIRECTORY.joinpath(f'JPL_ECCO_{MODEL}_{PRODUCT}_{today}.log')
+        logfile = f'JPL_ECCO_{MODEL}_{PRODUCT}_{today}.log'
+        LOGFILE = DIRECTORY.joinpath(logfile)
         logging.basicConfig(filename=LOGFILE, level=logging.INFO)
         logging.info(f'ECCO LLC {MODEL} {PRODUCT} Sync Log ({today})')
     else:
@@ -260,7 +261,7 @@ def http_pull_file(remote_file, remote_mtime, local_file,
                     timeout=TIMEOUT)
                 # copy contents to local file using chunked transfer encoding
                 # transfer should work properly with ascii and binary formats
-                with open(local_file, 'wb') as f:
+                with local_file.open(mode='wb') as f:
                     shutil.copyfileobj(response, f, CHUNK)
             # keep remote modification time of file and local access time
             os.utime(local_file, (local_file.stat().st_atime, remote_mtime))

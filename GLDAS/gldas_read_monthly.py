@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_read_monthly.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (05/2023)
 
 Reads GLDAS monthly datafiles from http://ldas.gsfc.nasa.gov/gldas/
 Adding Soil Moisture, snow water equivalent (SWE) and total canopy storage
@@ -78,6 +78,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: updated inputs to spatial from_ascii function
         use attributes from units class for writing to netCDF4/HDF5 files
     Updated 12/2022: single implicit import of spherical harmonic tools
@@ -111,10 +112,10 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import logging
 import netCDF4
+import pathlib
 import argparse
 import warnings
 import datetime
@@ -158,10 +159,12 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
         nlon,nlat = (360,150)
         dlon,dlat = (1.0,1.0)
         extent = [-179.5,179.5,-59.5,89.5]
+    # directory for GLDAS models
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
     # subdirectory for model monthly products at spacing for version
-    subdir = f'GLDAS_{MODEL}{SPATIAL}_{TEMPORAL}{V2}'
-    # directory for GLDAS model
-    ddir = os.path.join(base_dir, subdir)
+    ddir = base_dir.joinpath( f'GLDAS_{MODEL}{SPATIAL}_{TEMPORAL}{V2}')
+    # find directories for each year within directory
+    year_dir = sorted([ddir.joinpath(f'{sd:4d}') for sd in YEARS])
     # output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
 
@@ -182,8 +185,6 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
         twc_mean = gravtk.spatial().from_HDF5(ddir.joinpath(mean_file),
             date=False)
 
-    # find directories for each year within directory
-    year_dir = [y for y in map(str,YEARS) if os.path.isdir(ddir.joinpath(y))]
     # compile regular expression pattern for finding files
     GLDAS_SUFFIX = r'nc4|grb|grb\.SUB\.nc4'
     regex_pattern = r'GLDAS_{0}{1}_{2}\.A(\d{{4}})(\d{{2}})\.(\d+)\.({3})$'
@@ -198,22 +199,23 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
     attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # for each directory of years
-    for yr in sorted(year_dir):
+    for i,yr in enumerate(year_dir):
         # find all GRIB/netCDF4 files within directory
-        f = [f for f in os.listdir(ddir.joinpath(yr)) if rx.match(f)]
+        f = [f for f in yr.iterdir() if rx.match(f.name)]
         # for each GRIB/netCDF4 file
-        for fi in sorted(f):
+        for input_file in sorted(f):
             # Getting date information from file
-            EP,YY,MM,VF,SFX = rx.findall(fi).pop()
+            EP,YY,MM,VF,SFX = rx.findall(input_file.name).pop()
             # file output file
             args = (MODEL, SPATIAL, np.int64(YY), np.int64(MM), suffix[DATAFORM])
             FILE = 'GLDAS_{0}{1}_TWC_{2:4d}_{3:02d}.{4}'.format(*args)
+            output_file = ddir.joinpath(FILE)
             TEST = False
             # Checking if output file exists
-            if os.access(ddir.joinpath(FILE), os.F_OK):
+            if output_file.exists():
                 # check last modification time of local file
-                file1_mtime = os.stat(ddir.joinpath(yr,fi)).st_mtime
-                file2_mtime = os.stat(ddir.joinpath(FILE)).st_mtime
+                file1_mtime = input_file.stat().st_mtime
+                file2_mtime = output_file.stat().st_mtime
                 # if input file is newer: overwrite the output file
                 if (file1_mtime > file2_mtime):
                     TEST = True
@@ -231,13 +233,13 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
                 # read GRIB or netCDF4 file
                 if (SFX == 'grb'):
                     SM,SWE,CW,twc.lat,twc.lon,twc.fill_value = \
-                        grib_twc_read(ddir.joinpath(yr,fi))
+                        grib_twc_read(input_file)
                 elif (SFX == 'nc4'):
                     SM,SWE,CW,twc.lat,twc.lon,twc.fill_value = \
-                        ncdf_twc_read(ddir.joinpath(yr,fi))
+                        ncdf_twc_read(input_file)
                 elif (SFX == 'grb.SUB.nc4'):
                     SM,SWE,CW,twc.lat,twc.lon,twc.fill_value = \
-                        subset_twc_read(ddir.joinpath(yr,fi))
+                        subset_twc_read(input_file)
                 # converting from kg/m^2 to cm water equivalent (cmwe)
                 ii,jj = np.nonzero((SWE != twc.fill_value) & (~twc_mean.mask))
                 twc.data[ii,jj] = 0.1*(SM[ii,jj]+SWE[ii,jj]+CW[ii,jj])
@@ -252,23 +254,24 @@ def gldas_read_monthly(base_dir, MODEL, YEARS, RANGE=None, SPATIAL=None,
                 # output to file
                 if (DATAFORM == 'ascii'):
                     # ascii (.txt)
-                    twc.to_ascii(ddir.joinpath(FILE), date=True,
+                    twc.to_ascii(output_file, date=True,
                         verbose=VERBOSE)
                 elif (DATAFORM == 'netCDF4'):
                     # netCDF4 (.nc)
-                    twc.to_netCDF4(ddir.joinpath(FILE), date=True,
+                    twc.to_netCDF4(output_file, date=True,
                         verbose=VERBOSE, **attributes)
                 elif (DATAFORM == 'HDF5'):
                     # HDF5 (.H5)
-                    twc.to_HDF5(ddir.joinpath(FILE), date=True,
+                    twc.to_HDF5(output_file, date=True,
                         verbose=VERBOSE, **attributes)
                 # change the permissions mode
-                os.chmod(ddir.joinpath(FILE), MODE)
+                output_file.chmod(mode=MODE)
 
 # PURPOSE: read a GLDAS GRIB file for snow_water_eq and soil_moisture
 def grib_twc_read(FILENAME):
     # Opening GRB file of year and month
-    fileID = pygrib.open(FILENAME)
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+    fileID = pygrib.open(str(FILENAME))
     # bad value
     fill_value = -9999.0
     # Getting variables
@@ -302,8 +305,9 @@ def grib_twc_read(FILENAME):
 
 # PURPOSE: read a GLDAS netCDF4 file for snow_water_eq and soil_moisture
 def ncdf_twc_read(FILENAME):
-    # Opening netCDF4 file of year, day and hour
-    fileID = netCDF4.Dataset(FILENAME,'r')
+    # Opening netCDF4 file of year and month
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+    fileID = netCDF4.Dataset(FILENAME, mode='r')
     # read variables from netCDF4 file
     lon = fileID.variables['lon'][:].squeeze()
     lat = fileID.variables['lat'][:].squeeze()
@@ -329,7 +333,8 @@ def ncdf_twc_read(FILENAME):
 # PURPOSE: read subset GLDAS netCDF4 file for snow_water_eq and soil_moisture
 def subset_twc_read(FILENAME):
     # Opening netCDF4 file of year and month
-    fileID = netCDF4.Dataset(FILENAME,'r')
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+    fileID = netCDF4.Dataset(FILENAME, mode='r')
     # read variables from netCDF4 file
     lon = fileID.variables['lon'][:].squeeze()
     lat = fileID.variables['lat'][:].squeeze()
