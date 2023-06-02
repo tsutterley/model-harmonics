@@ -22,6 +22,7 @@ UPDATE HISTORY:
     Written 01/2021
 """
 # extend gravity_toolkit utilities
+from __future__ import annotations
 from gravity_toolkit.utilities import *
 
 # PURPOSE: get the git hash value
