@@ -134,8 +134,8 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
         # output to log file
         # format: NASA_GESDISC_GLDAS_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        logfile =f'NASA_GESDISC_GLDAS_{MODEL}_sync_{today}.log'
-        LOGFILE = DIRECTORY.joinpath(logfile)
+        output_logfile = f'NASA_GESDISC_GLDAS_{MODEL}_sync_{today}.log'
+        LOGFILE = DIRECTORY.joinpath(output_logfile)
         logging.basicConfig(filename=LOGFILE, level=logging.INFO)
         logging.info(f'NASA GLDAS Sync Log ({today})')
     else:
@@ -201,7 +201,7 @@ def http_pull_file(remote_file,remote_mtime,local_file,
     if TEST or CLOBBER:
         # Printing files transferred
         logging.info(f'{remote_file} --> ')
-        logging.info(f'\t{local_file}{OVERWRITE}\n')
+        logging.info(f'\t{str(local_file)}{OVERWRITE}\n')
         # if executing copy command (not only printing the files)
         if not LIST:
             # Create and submit request. There are a wide range of exceptions

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-ecmwf_reanalysis_retrieve.py (11/2022)
+ecmwf_reanalysis_retrieve.py (05/2023)
 Retrieves reanalysis netCDF4 datasets from the ECMWF Web API
 https://software.ecmwf.int/wiki/display/CKB/How+to+download+data+via+the+ECMWF+WebAPI
 https://software.ecmwf.int/wiki/display/WEBAPI/Access+ECMWF+Public+Datasets#AccessECMWFPublicDatasets-key
@@ -35,6 +35,7 @@ PYTHON DEPENDENCIES:
         https://software.ecmwf.int/wiki/display/WEBAPI/Web-API+Downloads
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 07/2021: added option for retrieving the model level variables
@@ -51,12 +52,20 @@ from __future__ import print_function
 
 import os
 import time
+import pathlib
 import argparse
 from ecmwfapi import ECMWFDataServer
 
 # PURPOSE: retrieve ECMWF level data for a set of years
-def ecmwf_reanalysis_retrieve(base_dir, server, MODEL, YEAR, LEVEL=False,
-    INVARIANT=True, MODE=0o775):
+def ecmwf_reanalysis_retrieve(base_dir, server, MODEL, YEAR,
+    SURFACE=[], LEVEL=False, INVARIANT=True, MODE=0o775):
+
+    # verify input data directory
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
+    # setup output directory and recursively create if currently non-existent
+    ddir = base_dir.joinpath(MODEL)
+    ddir.mkdir(mode=MODE, parents=True, exist_ok=True)
+
     # parameters for each dataset
     if (MODEL == 'ERA-Interim'):
         model_class = "ei"
@@ -70,75 +79,44 @@ def ecmwf_reanalysis_retrieve(base_dir, server, MODEL, YEAR, LEVEL=False,
         model_grid = "0.25/0.25"
         model_levelist = "/".join([f'{l:d}' for l in range(1,137+1)])
         model_invariant_date = "2010-01-01"
-    # output filename structure
-    output_filename = "{0}-Monthly-{1}-{2:4d}.nc"
-    # setup output directory and recursively create if currently non-existent
-    ddir = os.path.join(base_dir,MODEL)
-    os.makedirs(ddir, MODE) if not os.access(ddir, os.F_OK) else None
+
+    # surface variables
+    surface_param_dict = {}
+    # mean sea level pressure field
+    surface_param_dict['MSL'] = "151.128"
+    # surface pressure field
+    surface_param_dict['SP'] = "134.128"
+    # 2-metre temperature field
+    surface_param_dict['T2m'] = "167.128"
 
     # for each year
     for y in YEAR:
         # monthly dates to retrieve
         d = "/".join([f'{y:4d}{m+1:02d}{1:02d}' for m in range(12)])
 
-        # retrieve the 2-metre temperature field
-        output_temperature_file = output_filename.format(MODEL,"T2m",y)
-        server.retrieve({
-            "class": model_class,
-            "dataset": model_dataset,
-            "date": d,
-            "expver": "1",
-            "grid": model_grid,
-            "levtype": "sfc",
-            "param": "167.128",
-            "stream": "moda",
-            "type": "an",
-            "format" : "netcdf",
-            "target": ddir.joinpath(output_temperature_file),
-        })
-        # change the permissions mode to MODE
-        os.chmod(ddir.joinpath(output_temperature_file), MODE)
-
-        # retrieve the surface pressure field
-        output_surface_file = output_filename.format(MODEL,"SP",y)
-        server.retrieve({
-            "class": model_class,
-            "dataset": model_dataset,
-            "date": d,
-            "expver": "1",
-            "grid": model_grid,
-            "levtype": "sfc",
-            "param": "134.128",
-            "stream": "moda",
-            "type": "an",
-            "format" : "netcdf",
-            "target": ddir.joinpath(output_surface_file),
-        })
-        # change the permissions mode to MODE
-        os.chmod(ddir.joinpath(output_surface_file), MODE)
-
-        # retrieve the mean sea level pressure field
-        output_pressure_file = output_filename.format(MODEL,"MSL",y)
-        server.retrieve({
-            "class": model_class,
-            "dataset": model_dataset,
-            "date": d,
-            "expver": "1",
-            "grid": model_grid,
-            "levtype": "sfc",
-            "param": "151.128",
-            "stream": "moda",
-            "type": "an",
-            "format" : "netcdf",
-            "target": ddir.joinpath(output_pressure_file),
-        })
-        # change the permissions mode to MODE
-        os.chmod(ddir.joinpath(output_pressure_file), MODE)
+        # for each surface variable to retrieve
+        for surf in SURFACE:
+            output_file = ddir.joinpath(f"{MODEL}-Monthly-{surf}-{y:4d}.nc")
+            server.retrieve({
+                "class": model_class,
+                "dataset": model_dataset,
+                "date": d,
+                "expver": "1",
+                "grid": model_grid,
+                "levtype": "sfc",
+                "param": surface_param_dict[surf],
+                "stream": "moda",
+                "type": "an",
+                "format" : "netcdf",
+                "target": str(output_file),
+            })
+            # change the permissions mode to MODE
+            output_file.chmod(mode=MODE)
 
         # if retrieving the model level data
         if LEVEL:
             # retrieve model temperature and specific humidity
-            output_level_file = output_filename.format(MODEL,"Levels",y)
+            output_file = ddir.joinpath(f"{MODEL}-Monthly-Levels-{y:4d}.nc")
             server.retrieve({
                 "class": model_class,
                 "dataset": model_dataset,
@@ -151,14 +129,14 @@ def ecmwf_reanalysis_retrieve(base_dir, server, MODEL, YEAR, LEVEL=False,
                 "stream": "moda",
                 "type": "an",
                 "format" : "netcdf",
-                "target": ddir.joinpath(output_level_file),
+                "target": str(output_file),
             })
             # change the permissions mode to MODE
-            os.chmod(ddir.joinpath(output_level_file), MODE)
+            output_file.chmod(mode=MODE)
 
     # if retrieving the model invariant parameters
     if INVARIANT:
-        output_invariant_file = f'{MODEL}-Invariant-Parameters.nc'
+        output_file = f'{MODEL}-Invariant-Parameters.nc'
         server.retrieve({
             "class": model_class,
             "dataset": model_dataset,
@@ -173,10 +151,10 @@ def ecmwf_reanalysis_retrieve(base_dir, server, MODEL, YEAR, LEVEL=False,
             "time": "12:00:00",
             "type": "an",
             "format" : "netcdf",
-            "target": ddir.joinpath(output_invariant_file),
+            "target": str(output_file),
         })
         # change the permissions mode to MODE
-        os.chmod(ddir.joinpath(output_invariant_file), MODE)
+        output_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -209,6 +187,14 @@ def arguments():
     parser.add_argument('--year','-Y',
         type=int, nargs='+', default=range(2000,now.tm_year+1),
         help='Model years to retrieve')
+    # retrieve model surface variables
+    # MSL: mean sea level pressure field
+    # SP: surface pressure field
+    # T2m: 2-metre temperature field
+    choices = ['MSL','SP','T2m']
+    parser.add_argument('--surface','-S',
+        type=str, nargs='+', choices=choices, default=['SP'],
+        help='Retrieve model surface variables')
     # retrieve the model level variables
     parser.add_argument('--level','-L',
         default=False, action='store_true',
@@ -236,8 +222,8 @@ def main():
     # run program for model
     for model in args.model:
         ecmwf_reanalysis_retrieve(args.directory, server, model,
-            args.year, LEVEL=args.level, INVARIANT=args.invariant,
-            MODE=args.mode)
+            args.year, SURFACE=args.surface, LEVEL=args.level,
+            INVARIANT=args.invariant, MODE=args.mode)
     # close connection with ECMWF server
     server = None
 

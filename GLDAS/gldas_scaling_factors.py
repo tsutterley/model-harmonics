@@ -197,6 +197,7 @@ def gldas_scaling_factors(base_dir, MODEL, START_MON, END_MON, MISSING,
     if MASKS:
         # read masks for reducing regions before converting to harmonics
         for mask_file in MASKS:
+            logging.debug(str(mask_file))
             mask_file = pathlib.Path(mask_file).expanduser().absolute()
             fileID = netCDF4.Dataset(mask_file, mode='r')
             combined_mask |= fileID.variables['mask'][:].astype(bool)
@@ -206,6 +207,7 @@ def gldas_scaling_factors(base_dir, MODEL, START_MON, END_MON, MISSING,
         # mask combining vegetation index, permafrost index and Arctic mask
         # read vegetation index file
         vegetation_file = base_dir.joinpath(f'modmodis_domveg20_{SPACING}.nc')
+        logging.debug(str(vegetation_file))
         with netCDF4.Dataset(vegetation_file, mode='r') as fileID:
             vegetation_index = fileID.variables['index'][:].copy()
         # 0: missing value
@@ -219,6 +221,7 @@ def gldas_scaling_factors(base_dir, MODEL, START_MON, END_MON, MISSING,
             combined_mask |= (vegetation_index == invalid_keys)
         # read Permafrost index file
         permafrost_file = base_dir.joinpath(f'permafrost_mod44w_{SPACING}.nc')
+        logging.debug(str(permafrost_file))
         with netCDF4.Dataset(permafrost_file, mode='r') as fileID:
             permafrost_index = fileID.variables['mask'][:]
         # 1: Continuous Permafrost
@@ -230,6 +233,7 @@ def gldas_scaling_factors(base_dir, MODEL, START_MON, END_MON, MISSING,
             combined_mask |= (permafrost_index == invalid_keys)
         # read Arctic mask file
         arctic_file = base_dir.joinpath(f'arcticmask_mod44w_{SPACING}.nc')
+        logging.debug(str(arctic_file))
         with netCDF4.Dataset(arctic_file, mode='r') as fileID:
             arctic_mask = fileID.variables['mask'][:].astype(bool)
         # arctic mask

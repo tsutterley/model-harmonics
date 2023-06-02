@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 spatial_operators.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (05/2023)
 Performs basic operations on spatial files
 
 CALLING SEQUENCE:
@@ -48,6 +48,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: updated inputs to spatial from_file function
     Updated 12/2022: single implicit import of spherical harmonic tools
         added function to attempt to get variable attributes

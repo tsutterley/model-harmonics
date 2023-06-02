@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_inverse_barometer.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (05/2023)
 Reads hourly mean sea level pressure fields from reanalysis and
     calculates the inverse-barometer response
 
@@ -38,6 +38,7 @@ REFERENCES:
         https://doi.org/10.1007/978-3-211-33545-1
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: use full path to output file in verbose logging
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -49,10 +50,10 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import logging
 import netCDF4
+import pathlib
 import argparse
 import datetime
 import numpy as np
@@ -60,14 +61,16 @@ import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
 
 # PURPOSE: read land sea mask to get indices of oceanic values
-def ncdf_landmask(FILENAME,MASKNAME,OCEAN):
-    with netCDF4.Dataset(FILENAME,'r') as fileID:
+def ncdf_landmask(FILENAME, MASKNAME, OCEAN):
+    logging.debug(str(FILENAME))
+    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
         landsea = np.squeeze(fileID.variables[MASKNAME][:].copy())
     return (landsea == OCEAN)
 
 # PURPOSE: read reanalysis mean sea level pressure
-def ncdf_mean_pressure(FILENAME,VARNAME,LONNAME,LATNAME):
-    with netCDF4.Dataset(FILENAME,'r') as fileID:
+def ncdf_mean_pressure(FILENAME, VARNAME, LONNAME, LATNAME):
+    logging.debug(str(FILENAME))
+    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
         # extract pressure and remove singleton dimensions
         mean_pressure = np.array(fileID.variables[VARNAME][:].squeeze())
         longitude = fileID.variables[LONNAME][:].squeeze()
@@ -78,8 +81,10 @@ def ncdf_mean_pressure(FILENAME,VARNAME,LONNAME,LATNAME):
 def reanalysis_inverse_barometer(base_dir, MODEL, YEAR=None, RANGE=None,
     DENSITY=None, MODE=0o775):
 
-    # directory setup for reanalysis model
-    ddir = os.path.join(base_dir,MODEL)
+    # directory setup
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
+    ddir = base_dir.joinpath(MODEL)
+
     # set model specific parameters
     if (MODEL == 'ERA-Interim'):
         # regular expression pattern for finding files
@@ -145,8 +150,9 @@ def reanalysis_inverse_barometer(base_dir, MODEL, YEAR=None, RANGE=None,
         OCEAN = 1
 
     # read mean pressure field
-    mean_file = ddir.joinpath(input_mean_file.format(RANGE[0],RANGE[1]))
-    mean_pressure,lon,lat=ncdf_mean_pressure(mean_file,VARNAME,LONNAME,LATNAME)
+    mean_file = ddir.joinpath(input_mean_file.format(*RANGE))
+    mean_pressure,lon,lat = ncdf_mean_pressure(mean_file,
+        VARNAME, LONNAME, LATNAME)
     # shape of mean pressure field
     ny,nx = np.shape(mean_pressure)
 
@@ -188,22 +194,24 @@ def reanalysis_inverse_barometer(base_dir, MODEL, YEAR=None, RANGE=None,
     # read each reanalysis pressure field for each year
     regex_years = r'\d{4}' if (YEAR is None) else '|'.join(map(str,YEAR))
     rx = re.compile(regex_pattern.format(regex_years), re.VERBOSE)
-    input_files = [fi for fi in os.listdir(ddir) if rx.match(fi)]
+    input_files = sorted([f for f in ddir.iterdir() if rx.match(f.name)])
     # for each reanalysis file
-    for fi in sorted(input_files):
+    for i,input_file in enumerate(input_files):
         # extract parameters from filename
         if MODEL in ('MERRA-2'):
             # extract date from hourly files
-            MOD,YEAR,MONTH,DAY,AUX = rx.findall(fi).pop()
+            MOD,YEAR,MONTH,DAY,AUX = rx.findall(input_file.name).pop()
             # output inverse barometer filename
             FILENAME = output_file_format.format(MOD,YEAR,MONTH,DAY,AUX)
+            output_file = ddir.joinpath(FILENAME)
         elif MODEL in ('ERA-Interim','ERA5'):
             # extract date from hourly files
-            YEAR,MONTH,DAY = rx.findall(fi).pop()
+            YEAR,MONTH,DAY = rx.findall(input_file.name).pop()
             # output inverse barometer filename
             FILENAME = output_file_format.format(YEAR,MONTH,DAY)
+            output_file = ddir.joinpath(FILENAME)
         # read netCDF4 mean sea level file
-        with netCDF4.Dataset(ddir.joinpath(fi),'r') as fileID:
+        with netCDF4.Dataset(input_file, mode='r') as fileID:
             # number of time points in file
             nt, = fileID.variables[TIMENAME].shape
             # extract time and time units
@@ -245,19 +253,19 @@ def reanalysis_inverse_barometer(base_dir, MODEL, YEAR=None, RANGE=None,
             # calculate inverse barometer response
             dinput[IBNAME] = -SLP*(DENSITY*gs)**-1
             # output to file
-            ncdf_IB_write(dinput, fill_value,
-                FILENAME=ddir.joinpath(FILENAME), IBNAME=IBNAME,
-                LONNAME=LONNAME, LATNAME=LATNAME, TIMENAME=TIMENAME,
-                TIME_UNITS=TIME_UNITS, TIME_LONGNAME=TIME_LONGNAME,
-                UNITS=UNITS, DENSITY=DENSITY)
+            ncdf_IB_write(dinput, fill_value, FILENAME=output_file,
+                IBNAME=IBNAME, LONNAME=LONNAME, LATNAME=LATNAME,
+                TIMENAME=TIMENAME, TIME_UNITS=TIME_UNITS,
+                TIME_LONGNAME=TIME_LONGNAME, UNITS=UNITS, DENSITY=DENSITY)
             # change permissions mode
-            os.chmod(ddir.joinpath(FILENAME),MODE)
+            output_file.chmod(mode=MODE)
 
 # PURPOSE: write output inverse barometer fields data to file
 def ncdf_IB_write(dinput, fill_value, FILENAME=None, IBNAME=None,
     LONNAME=None, LATNAME=None, TIMENAME=None, TIME_UNITS=None,
     TIME_LONGNAME=None, UNITS=None, DENSITY=None):
     # opening NetCDF file for writing
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
     # Defining the NetCDF dimensions
@@ -296,7 +304,7 @@ def ncdf_IB_write(dinput, fill_value, FILENAME=None, IBNAME=None,
     fileID.date_created = datetime.datetime.now().isoformat()
 
     # Output NetCDF structure information
-    logging.info(FILENAME)
+    logging.info(str(FILENAME))
     logging.info(list(fileID.variables.keys()))
 
     # Closing the NetCDF file

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 model_level_coefficients.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (05/2023)
 Creates a netCDF4 file of reanalysis A and B coefficients for model levels
 Model level coefficients are obtained using equation 3.17 of
     Simmons and Burridge (1981) and the methodology of Trenberth et al (1993)
@@ -40,6 +40,7 @@ REFERENCES:
         https://doi.org/10.5065/D6HX19NH
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2020: using argparse to set command line options
@@ -48,9 +49,9 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import time
 import netCDF4
+import pathlib
 import argparse
 import numpy as np
 import model_harmonics as mdlhmc
@@ -58,12 +59,16 @@ import model_harmonics as mdlhmc
 # PURPOSE: create netCDF4 file with the model level A and B coefficients
 def model_level_coefficients(base_dir, MODEL, MODE=0o775):
     # directory setup
-    ddir = os.path.join(base_dir,MODEL)
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
+    ddir = base_dir.joinpath(MODEL)
+    ddir.mkdir(mode=MODE, parents=True, exist_ok=True)
+
     if (MODEL == 'ERA5'):
-        # output netCDF4 file
-        output_coordinate_file = 'ERA5_coordvars.nc'
+        # input and output coordinate files
+        input_file = ddir.joinpath('ERA5_coordvars.txt')
+        output_file = input_file.with_name('ERA5_coordvars.nc')
         # read input file
-        dinput = np.loadtxt(ddir.joinpath('ERA5_coordvars.txt'))
+        dinput = np.loadtxt(input_file)
         # create output dictionary with variables
         output = {}
         # interfaces
@@ -77,7 +82,7 @@ def model_level_coefficients(base_dir, MODEL, MODE=0o775):
         output['b_half']=(output['b_interface'][1:]+output['b_interface'][0:-1])/2.0
     elif (MODEL == 'MERRA-2'):
         # output netCDF4 file
-        output_coordinate_file = 'MERRA2_101.Coords_Nx.00000000.nc'
+        output_file = ddir.joinpath('MERRA2_101.Coords_Nx.00000000.nc')
         # python dictionary with output variables
         output = {}
         # Ap [millibars] for 72 levels (73 edges)
@@ -136,7 +141,7 @@ def model_level_coefficients(base_dir, MODEL, MODE=0o775):
         output['b_half']=(output['b_interface'][1:]+output['b_interface'][0:-1])/2.0
 
     # output coefficients to netCDF4 file
-    fileID = netCDF4.Dataset(ddir.joinpath(output_coordinate_file),'w')
+    fileID = netCDF4.Dataset(output_file, mode='w')
     # Defining the NetCDF4 dimensions and creating dimension variables
     nc = {}
     for key in ['lvl','intf']:
@@ -159,7 +164,7 @@ def model_level_coefficients(base_dir, MODEL, MODE=0o775):
     # close the netCDF4 file
     fileID.close()
     # change the permissions level to MODE
-    os.chmod(ddir.joinpath(output_coordinate_file), MODE)
+    output_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():

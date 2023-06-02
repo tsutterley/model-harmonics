@@ -235,7 +235,7 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     rx = re.compile(r'ECCO_{0}_AveRmvd_OBP_({1})_(\d+).{2}$'.format(*args))
 
     # find input ECCO OBP files
-    input_files = sorted([f for fh in d1.iterdir() if rx.match(f.name)])
+    input_files = sorted([f for f in d1.iterdir() if rx.match(f.name)])
 
     # for each input file
     for t,input_file in enumerate(input_files):

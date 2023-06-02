@@ -257,7 +257,7 @@ def http_pull_file(remote_file, remote_mtime, local_file,
     if TEST or CLOBBER:
         # Printing files transferred
         logging.info(f'{remote_file} --> ')
-        logging.info(f'\t{local_file}{OVERWRITE}\n')
+        logging.info(f'\t{str(local_file)}{OVERWRITE}\n')
         # if executing copy command (not only printing the files)
         if not LIST:
             # chunked transfer encoding size

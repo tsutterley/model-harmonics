@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_merra_download.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (05/2023)
 
 This program downloads MERRA-2 products using a links list provided by the
     Goddard Earth Sciences Data and Information Server Center
@@ -48,6 +48,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -74,6 +75,7 @@ import time
 import netrc
 import getpass
 import logging
+import pathlib
 import argparse
 import builtins
 import gravity_toolkit as gravtk
@@ -82,18 +84,19 @@ import gravity_toolkit as gravtk
 def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
     LOG=False, VERBOSE=False, MODE=None):
     # full path to MERRA-2 directory
-    DIRECTORY = os.path.join(base_dir,'MERRA-2')
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
     # check if DIRECTORY exists and recursively create if not
-    if not os.access(os.path.join(DIRECTORY), os.F_OK):
-        os.makedirs(os.path.join(DIRECTORY), mode=MODE, exist_ok=True)
+    DIRECTORY = base_dir.joinpath('MERRA-2')
+    DIRECTORY.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # create log file with list of synchronized files (or print to terminal)
     loglevel = logging.INFO if VERBOSE else logging.CRITICAL
     if LOG:
         # format: NASA_GESDISC_MERRA2_download_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = f'NASA_GESDISC_MERRA2_download_{today}.log'
-        fid = open(DIRECTORY.joinpath(LOGFILE), mode='w', encoding='utf8')
+        output_logfile = f'NASA_GESDISC_MERRA2_download_{today}.log'
+        LOGFILE = DIRECTORY.joinpath(output_logfile)
+        fid = LOGFILE.open(mode='w', encoding='utf8')
         logging.basicConfig(stream=fid, level=loglevel)
         logging.info(f'NASA MERRA-2 Sync Log ({today})')
     else:
@@ -102,7 +105,8 @@ def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
         logging.basicConfig(stream=fid, level=loglevel)
 
     # read the links list file
-    with open(links_list_file,'rb') as fileID:
+    links_list_file = pathlib.Path(links_list_file).expanduser().absolute()
+    with links_list_file.open(mode='rb') as fileID:
         lines = fileID.read().decode("utf-8-sig").encode("utf-8").splitlines()
 
     # for each line in the links_list_file
@@ -137,7 +141,7 @@ def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
     # close log file and set permissions level to MODE
     if LOG:
         fid.close()
-        os.chmod(DIRECTORY.joinpath(LOGFILE), MODE)
+        LOGFILE.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():

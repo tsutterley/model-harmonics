@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 spatial.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (05/2023)
 Functions for reading, writing and processing spatial data
 Extends gravity_toolkit spatial module adding raster support
 
@@ -9,15 +9,16 @@ PYTHON DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: convert spacing and extent to raster class properties
         improve typing for variables in docstrings
         add function for calculating geocentric latitude from geodetic
     Updated 02/2023: geotiff read and write to inheritance of spatial class
     Written 10/2022
 """
-import os
 import uuid
 import logging
+import pathlib
 import warnings
 import numpy as np
 import gravity_toolkit.spatial
@@ -106,7 +107,7 @@ class raster(gravity_toolkit.spatial):
         logging.info(self.filename)
         if (kwargs['compression'] == 'gzip'):
             # read as GDAL gzip virtual geotiff dataset
-            mmap_name = f"/vsigzip/{self.filename}"
+            mmap_name = f"/vsigzip/{str(self.filename)}"
             ds = osgeo.gdal.Open(mmap_name)
         elif (kwargs['compression'] == 'bytes'):
             # read as GDAL memory-mapped (diskless) geotiff dataset
@@ -115,7 +116,8 @@ class raster(gravity_toolkit.spatial):
             ds = osgeo.gdal.Open(mmap_name)
         else:
             # read geotiff dataset
-            ds = osgeo.gdal.Open(self.filename, osgeo.gdalconst.GA_ReadOnly)
+            ds = osgeo.gdal.Open(str(self.filename),
+                osgeo.gdalconst.GA_ReadOnly)
         # get the spatial projection reference information
         srs = ds.GetSpatialRef()
         self.attributes['projection'] = srs.ExportToProj4()
@@ -195,7 +197,7 @@ class raster(gravity_toolkit.spatial):
             GDAL driver creation options
         """
         # set filename
-        self.filename = os.path.expanduser(filename)
+        self.filename = pathlib.Path(filename).expanduser().absolute()
         # set default keyword arguments
         kwargs.setdefault('driver', 'GTiff')
         kwargs.setdefault('dtype', osgeo.gdal.GDT_Float64)
@@ -207,7 +209,7 @@ class raster(gravity_toolkit.spatial):
         # output as geotiff or specified driver
         driver = osgeo.gdal.GetDriverByName(kwargs['driver'])
         # set up the dataset with creation options
-        ds = driver.Create(self.filename, nx, ny, nband,
+        ds = driver.Create(str(self.filename), nx, ny, nband,
             kwargs['dtype'], kwargs['options'])
         # top left x, w-e pixel resolution, rotation
         # top left y, rotation, n-s pixel resolution

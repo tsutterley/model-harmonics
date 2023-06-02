@@ -110,8 +110,8 @@ def jpl_ecco_llc_sync(ddir, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
     if LOG:
         # format: JPL_ECCO_V5alpha_PHIBOT_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        logfile = f'JPL_ECCO_{MODEL}_{PRODUCT}_{today}.log'
-        LOGFILE = DIRECTORY.joinpath(logfile)
+        output_logfile = f'JPL_ECCO_{MODEL}_{PRODUCT}_{today}.log'
+        LOGFILE = DIRECTORY.joinpath(output_logfile)
         logging.basicConfig(filename=LOGFILE, level=logging.INFO)
         logging.info(f'ECCO LLC {MODEL} {PRODUCT} Sync Log ({today})')
     else:
@@ -241,7 +241,7 @@ def http_pull_file(remote_file, remote_mtime, local_file,
     if TEST or CLOBBER:
         # Printing files transferred
         logging.info(f'{remote_file} --> ')
-        logging.info(f'\t{local_file}{OVERWRITE}\n')
+        logging.info(f'\t{str(local_file)}{OVERWRITE}\n')
         # if executing copy command (not only printing the files)
         if not LIST:
             # chunked transfer encoding size

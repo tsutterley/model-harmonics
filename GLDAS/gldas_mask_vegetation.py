@@ -141,7 +141,7 @@ def ncdf_index_write(dinput, FILENAME=None):
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
     # Output NetCDF structure information
-    logging.info(FILENAME)
+    logging.info(str(FILENAME))
     logging.info(list(fileID.variables.keys()))
 
     # Closing the NetCDF file

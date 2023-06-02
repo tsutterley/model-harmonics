@@ -45,10 +45,10 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import logging
 import netCDF4
+import pathlib
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
@@ -58,7 +58,9 @@ def read_era5_variables(era5_flux_file):
     # python dictionary of output variables
     dinput = {}
     # read each variable of interest in ERA5 flux file
-    with netCDF4.Dataset(era5_flux_file, 'r') as fileID:
+    era5_flux_file = pathlib.Path(era5_flux_file).expanduser().absolute()
+    logging.debug(str(era5_flux_file))
+    with netCDF4.Dataset(era5_flux_file, mode='r') as fileID:
         # extract geolocation variables
         dinput['latitude'] = fileID.variables['latitude'][:].copy()
         dinput['longitude'] = fileID.variables['longitude'][:].copy()
@@ -69,7 +71,7 @@ def read_era5_variables(era5_flux_file):
             to_secs*fileID.variables['time'][:],epoch1=epoch,
             epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0) + 2400000.5
         # read each variable of interest in ERA5 flux file
-        for key in ['tp','e']:
+        for key in ['tp', 'e']:
             # Getting the data from each NetCDF variable of interest
             # check dimensions for expver slice
             if (fileID.variables[key].ndim == 4):
@@ -112,16 +114,16 @@ def era5_smb_cumulative(DIRECTORY,
     logging.basicConfig(level=loglevels[VERBOSE])
 
     # ERA5 output cumulative subdirectory
+    DIRECTORY = pathlib.Path(DIRECTORY).expanduser().absolute()
     cumul_sub = 'ERA5-Cumul-P-E-{0:4d}-{1:4d}'.format(*RANGE)
-    # make cumulative subdirectory
-    if not os.access(DIRECTORY.joinpath(cumul_sub), os.F_OK):
-        os.mkdir(DIRECTORY.joinpath(cumul_sub), MODE)
+    output_dir = DIRECTORY.joinpath(cumul_sub)
+    output_dir.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # regular expression pattern for finding files
     rx = re.compile(r'ERA5\-Monthly\-P-E\-(\d{4})\.nc$', re.VERBOSE)
     input_files = sorted([f for f in DIRECTORY.iterdir() if rx.match(f)])
     # sign for each product to calculate total SMB
-    smb_sign = {'tp':1.0,'e':-1.0}
+    smb_sign = {'tp':1.0, 'e':-1.0}
     # output data file format and title
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
     # output bad value
@@ -142,16 +144,16 @@ def era5_smb_cumulative(DIRECTORY,
     attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # test that all years are available
-    start_year, = rx.findall(input_files[0])
-    end_year, = rx.findall(input_files[-1])
+    start_year, = rx.findall(input_files[0].name)
+    end_year, = rx.findall(input_files[-1].name)
     for Y in range(int(start_year),int(end_year)+1):
         # full path for flux file
-        f1 = f'ERA5-Monthly-P-E-{Y:4d}.nc'
-        if not os.access(DIRECTORY.joinpath(f1), os.F_OK):
-            raise FileNotFoundError(f'File {f1} not in file system')
+        f1 = DIRECTORY.joinpath(f'ERA5-Monthly-P-E-{Y:4d}.nc')
+        if not f1.exists():
+            raise FileNotFoundError(f'File {str(f1)} not in file system')
 
     # read mean data from era5_smb_mean.py
-    args=(RANGE[0], RANGE[1], suffix[DATAFORM])
+    args = (RANGE[0], RANGE[1], suffix[DATAFORM])
     mean_file = 'ERA5-Mean-P-E-{0:4d}-{1:4d}.{2}'.format(*args)
     # remove singleton dimensions
     if (DATAFORM == 'ascii'):
@@ -179,14 +181,12 @@ def era5_smb_cumulative(DIRECTORY,
     cumul.data = np.zeros((nlat,nlon))
     cumul.mask = np.copy(era5_mean.mask)
     # for each input file
-    for f1 in input_files:
+    for i,era5_flux_file in enumerate(input_files):
         # full path for flux files
-        era5_flux_file = DIRECTORY.joinpath(f1)
-        Y1, = rx.findall(f1)
+        Y1, = rx.findall(era5_flux_file.name)
         # days per month in year
         dpm = gravtk.time.calendar_days(int(Y1))
         # read netCDF4 files for variables of interest
-        logging.info(era5_flux_file)
         var = read_era5_variables(era5_flux_file)
         # output yearly cumulative mass anomalies
         output = gravtk.spatial(nlat=nlat,nlon=nlon,
@@ -235,21 +235,19 @@ def era5_smb_cumulative(DIRECTORY,
 
         # output ERA5 cumulative data file
         output.update_mask()
-        FILE = 'ERA5-Cumul-P-E-{0}.{1}'.format(Y1,suffix[DATAFORM])
+        FILE = 'ERA5-Cumul-P-E-{0}.{1}'.format(Y1, suffix[DATAFORM])
+        output_file = output_dir.joinpath(FILE)
         if (DATAFORM == 'ascii'):
             # ascii (.txt)
-            output.to_ascii(DIRECTORY.joinpath(cumul_sub,FILE),
-                verbose=VERBOSE)
+            output.to_ascii(output_file, verbose=VERBOSE)
         elif (DATAFORM == 'netCDF4'):
             # netcdf (.nc)
-            output.to_netCDF4(DIRECTORY.joinpath(cumul_sub,FILE),
-                verbose=VERBOSE, **attributes)
+            output.to_netCDF4(output_file, verbose=VERBOSE, **attributes)
         elif (DATAFORM == 'HDF5'):
             # HDF5 (.H5)
-            output.to_HDF5(DIRECTORY.joinpath(cumul_sub,FILE),
-                verbose=VERBOSE, **attributes)
+            output.to_HDF5(output_file, verbose=VERBOSE, **attributes)
         # change the permissions mode
-        os.chmod(DIRECTORY.joinpath(cumul_sub,FILE), MODE)
+        output_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():

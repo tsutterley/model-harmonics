@@ -206,7 +206,7 @@ def ncdf_tile_write(output, attributes, FILENAME=None, LONNAME=None,
     fileID.software_version = mdlhmc.version.full_version
     fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # Output NetCDF structure information
-    logging.info(FILENAME)
+    logging.info(str(FILENAME))
     logging.info(list(fileID.variables.keys()))
     # Closing the NetCDF file
     fileID.close()

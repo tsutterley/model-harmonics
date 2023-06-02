@@ -56,11 +56,11 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import time
 import pyproj
 import logging
 import netCDF4
+import pathlib
 import argparse
 import warnings
 import numpy as np
@@ -85,7 +85,9 @@ warnings.filterwarnings("ignore")
 # PURPOSE: read shapefile to find points within a specified region
 def read_shapefile(input_shapefile, AREA=None, BUFFER=None):
     # reading shapefile
-    shape = fiona.open(input_shapefile)
+    input_shapefile = pathlib.Path(input_shapefile).expanduser().absolute()
+    logging.debug(str(input_shapefile))
+    shape = fiona.open(str(input_shapefile))
     # create projection object from shapefile
     crs = pyproj.CRS.from_string(shape.crs['init'])
     # list of polygons
@@ -118,8 +120,7 @@ def merra_smb_mask(input_file, output_file, VARNAME=None,
     logging.basicConfig(level=loglevels[VERBOSE])
 
     # create output directory if non-existent
-    ddir = os.path.dirname(output_file)
-    os.makedirs(ddir) if not os.access(ddir, os.F_OK) else None
+    output_file.parent.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # read input mask file
     dinput = gravtk.spatial().from_netCDF4(input_file,
@@ -139,7 +140,6 @@ def merra_smb_mask(input_file, output_file, VARNAME=None,
     # find valid points from mask input
     ii,jj = np.nonzero(~dinput.mask)
     valid_count = np.count_nonzero(~dinput.mask)
-    intersection_mask = np.zeros((valid_count),dtype=np.uint8)
     # create meshgrid of lat and long
     gridlon,gridlat = np.meshgrid(dinput.lon, dinput.lat)
     # projection object for converting from latitude/longitude
@@ -180,11 +180,12 @@ def merra_smb_mask(input_file, output_file, VARNAME=None,
     # write to output netCDF4 (.nc)
     ncdf_mask_write(output, FILENAME=output_file)
     # change the permission level to MODE
-    os.chmod(output_file, MODE)
+    output_file.chmod(mode=MODE)
 
 # PURPOSE: write land sea mask to netCDF4 file
 def ncdf_mask_write(dinput, FILENAME=None):
     # opening NetCDF file for writing
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
     # Defining the NetCDF dimensions
@@ -194,8 +195,10 @@ def ncdf_mask_write(dinput, FILENAME=None):
 
     # defining the NetCDF variables
     nc = {}
-    nc[LATNAME]=fileID.createVariable(LATNAME,dinput[LATNAME].dtype,(LATNAME,))
-    nc[LONNAME]=fileID.createVariable(LONNAME,dinput[LONNAME].dtype,(LONNAME,))
+    nc[LATNAME] = fileID.createVariable(LATNAME,
+        dinput[LATNAME].dtype, (LATNAME,))
+    nc[LONNAME] = fileID.createVariable(LONNAME,
+        dinput[LONNAME].dtype, (LONNAME,))
     nc['mask'] = fileID.createVariable('mask', dinput['mask'].dtype,
         (LATNAME,LONNAME,), fill_value=0, zlib=True)
     # filling NetCDF variables
@@ -217,7 +220,7 @@ def ncdf_mask_write(dinput, FILENAME=None):
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
     # Output NetCDF structure information
-    logging.info(FILENAME)
+    logging.info(str(FILENAME))
     logging.info(list(fileID.variables.keys()))
 
     # Closing the NetCDF file

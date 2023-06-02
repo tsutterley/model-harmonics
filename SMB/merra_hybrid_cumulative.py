@@ -51,13 +51,13 @@ UPDATE HISTORY:
 """
 from __future__ import print_function
 
-import os
 import re
 import gzip
 import time
 import uuid
 import logging
 import netCDF4
+import pathlib
 import argparse
 import numpy as np
 import model_harmonics as mdlhmc
@@ -92,7 +92,7 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION,
     """
 
     # MERRA-2 hybrid directory
-    DIRECTORY = os.path.join(base_dir,VERSION)
+    DIRECTORY = base_dir.joinpath(VERSION)
     # set version parameters
     suffix = '.gz' if GZIP else ''
     if (VERSION == 'v0'):
@@ -129,16 +129,17 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION,
         anomaly_flag = '_a'
 
     # Open the MERRA-2 Hybrid NetCDF file for reading
+    input_file = DIRECTORY.joinpath(hybrid_file)
     if GZIP:
         # read as in-memory (diskless) netCDF4 dataset
-        with gzip.open(DIRECTORY.joinpath(hybrid_file),'r') as f:
+        with gzip.open(str(input_file), mode='r') as f:
             fileID = netCDF4.Dataset(uuid.uuid4().hex, memory=f.read())
     else:
         # read netCDF4 dataset
-        fileID = netCDF4.Dataset(DIRECTORY.joinpath(hybrid_file), 'r')
+        fileID = netCDF4.Dataset(input_file, mode='r')
 
     # Output NetCDF file information
-    logging.info(DIRECTORY.joinpath(hybrid_file))
+    logging.info(input_file)
     logging.info(list(fileID.variables.keys()))
 
     # Get data and attribute from each netCDF variable
@@ -156,13 +157,15 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION,
                 attrs[AREA][att_name]=fileID.variables[AREA].getncattr(att_name)
     elif AREA:
         # Open the MERRA-2 Hybrid firn height file for reading
+        input_firn_file = DIRECTORY.joinpath(firn_height_file)
+        logging.debug(input_firn_file)
         if GZIP:
             # read as in-memory (diskless) netCDF4 dataset
-            with gzip.open(DIRECTORY.joinpath(firn_height_file),'r') as f:
+            with gzip.open(str(input_firn_file), mode='r') as f:
                 fid1 = netCDF4.Dataset(uuid.uuid4().hex, memory=f.read())
         else:
             # read netCDF4 dataset
-            fid1 = netCDF4.Dataset(DIRECTORY.joinpath(firn_height_file), 'r')
+            fid1 = netCDF4.Dataset(input_file, mode='r')
         # copy area from firn height file
         fd[AREA] = fid1.variables[AREA][:].copy()
         # get each attribute for area variable if applicable
@@ -226,17 +229,18 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION,
     fileID.close()
 
     # Output NetCDF filename
-    logging.info(DIRECTORY.joinpath(output_file))
+    output_cumulative_file = DIRECTORY.joinpath(output_file)
+    logging.info(output_cumulative_file)
 
     # output MERRA-2 data file with cumulative data
     if GZIP:
         # open virtual file object for output
-        fileID = netCDF4.Dataset(uuid.uuid4().hex,'w',memory=True,
-            format='NETCDF4')
+        fileID = netCDF4.Dataset(uuid.uuid4().hex, 'w',
+            memory=True, format='NETCDF4')
     else:
         # opening NetCDF file for writing
-        fileID = netCDF4.Dataset(DIRECTORY.joinpath(output_file),'w',
-            format="NETCDF4")
+        fileID = netCDF4.Dataset(output_cumulative_file, 'w',
+            format='NETCDF4')
 
     # Defining the NetCDF dimensions
     fileID.createDimension('x', nx)
@@ -341,11 +345,11 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION,
     # write MERRA-2 data file to gzipped file
     if GZIP:
         # copy bytes to file
-        with gzip.open(DIRECTORY.joinpath(output_file), 'wb') as f:
+        with gzip.open(str(output_cumulative_file), 'wb') as f:
             f.write(nc_buffer)
 
     # change the permissions mode
-    os.chmod(DIRECTORY.joinpath(output_file), MODE)
+    output_cumulative_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():

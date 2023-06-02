@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 least_squares_mascon_timeseries.py
-Written by Tyler Sutterley (02/2023)
+Written by Tyler Sutterley (05/2023)
 
 Calculates a time-series of regional mass anomalies through a
     least-squares mascon procedure procedure from an index of
@@ -99,6 +99,7 @@ REFERENCES:
         https://doi.org/10.1029/2009GL039401
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -162,6 +163,7 @@ import os
 import re
 import time
 import logging
+import pathlib
 import argparse
 import traceback
 import numpy as np
@@ -204,9 +206,9 @@ def least_squares_mascons(input_file, LMAX, RAD,
     FILE_PREFIX=None,
     MODE=0o775):
 
-    # Recursively create output directory if not currently existing
-    if (not os.access(OUTPUT_DIRECTORY,os.F_OK)):
-        os.makedirs(OUTPUT_DIRECTORY, mode=MODE, exist_ok=True)
+    # recursively create output directory if not currently existing
+    OUTPUT_DIRECTORY = pathlib.Path(OUTPUT_DIRECTORY).expanduser().absolute()
+    OUTPUT_DIRECTORY.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # list object of output files for file logs (full path)
     output_files = []
@@ -335,7 +337,8 @@ def least_squares_mascons(input_file, LMAX, RAD,
             remove_Ylms.add(Ylms)
 
     # input mascon spherical harmonic datafiles
-    with open(MASCON_FILE, mode='r', encoding='utf8') as f:
+    MASCON_FILE = pathlib.Path(MASCON_FILE).expanduser().absolute()
+    with MASCON_FILE.open(mode='r', encoding='utf8') as f:
         mascon_files = [l for l in f.read().splitlines() if parser.match(l)]
     # number of mascons
     n_mas = len(mascon_files)
@@ -365,13 +368,11 @@ def least_squares_mascons(input_file, LMAX, RAD,
                     Ylms.slm[l,m] -= ratio*ocean_Ylms.slm[l,m]
         # truncate mascon spherical harmonics to d/o LMAX/MMAX and add to list
         mascon_list.append(Ylms.truncate(lmax=LMAX, mmax=MMAX))
-        # mascon base is the file without directory or suffix
-        mascon_base = os.path.basename(mascon_files[k])
-        mascon_base = os.path.splitext(mascon_base)[0]
-        # if lower case, will capitalize
-        mascon_base = mascon_base.upper()
-        # if mascon name contains degree and order info, remove
-        mascon_name.append(mascon_base.replace(f'_L{LMAX:d}', ''))
+        # stem is the mascon file without directory or suffix
+        # if lower case: will capitalize
+        # if mascon name contains degree and order info: scrub from string
+        stem = re.sub(r'_L(\d+)(M\d+)?', r'', Ylms.filename.stem.upper())
+        mascon_name.append(stem)
     # create single harmonics object from list
     mascon_Ylms = gravtk.harmonics().from_list(mascon_list, date=False)
     # clear mascon list variable
@@ -402,7 +403,6 @@ def least_squares_mascons(input_file, LMAX, RAD,
     ii = 0
     # Creating column array of clm/slm coefficients
     # Order is [C00...C6060,S11...S6060]
-    coeff = rho_e*rad_e/3.0
     # Switching between Cosine and Sine Stokes
     for cs,csharm in enumerate(['clm','slm']):
         # copy cosine and sin harmonics
@@ -471,13 +471,13 @@ def least_squares_mascons(input_file, LMAX, RAD,
         fargs = (FILE_PREFIX, mascon_name[k], LMAX, order_str,
             gw_str, ds_str, ocean_str)
         file_format = '{0}{1}_L{2:d}{3}{4}{5}{6}.txt'
-        output_file = os.path.join(OUTPUT_DIRECTORY,file_format.format(*fargs))
+        output_file = OUTPUT_DIRECTORY.joinpath(file_format.format(*fargs))
 
         # Output mascon datafiles
         # Will output each mascon mass time series
         # month, date, mascon mass, mascon area
         # open output mascon time-series file
-        fid = open(output_file, mode='w', encoding='utf8')
+        fid = output_file.open(mode='w', encoding='utf8')
         # for each date
         for f,mon in enumerate(data_Ylms.month):
             # Summing over all spherical harmonics for mascon k, and time t
@@ -495,7 +495,7 @@ def least_squares_mascons(input_file, LMAX, RAD,
         # close the output file
         fid.close()
         # change the permissions mode of the output file
-        os.chmod(output_file, MODE)
+        output_file.chmod(mode=MODE)
         # add output files to list object
         output_files.append(output_file)
 
@@ -508,7 +508,7 @@ def output_log_file(input_arguments, output_files):
     args = (time.strftime('%Y-%m-%d',time.localtime()), os.getpid())
     LOGFILE = 'calc_mascon_run_{0}_PID-{1:d}.log'.format(*args)
     # create a unique log and open the log file
-    DIRECTORY = os.path.expanduser(input_arguments.output_directory)
+    DIRECTORY = pathlib.Path(input_arguments.output_directory)
     fid = gravtk.utilities.create_unique_file(DIRECTORY.joinpath(LOGFILE))
     logging.basicConfig(stream=fid, level=logging.INFO)
     # print argument values sorted alphabetically
@@ -528,7 +528,7 @@ def output_error_log_file(input_arguments):
     args = (time.strftime('%Y-%m-%d',time.localtime()), os.getpid())
     LOGFILE = 'calc_mascon_failed_run_{0}_PID-{1:d}.log'.format(*args)
     # create a unique log and open the log file
-    DIRECTORY = os.path.expanduser(input_arguments.output_directory)
+    DIRECTORY = pathlib.Path(input_arguments.output_directory)
     fid = gravtk.utilities.create_unique_file(DIRECTORY.joinpath(LOGFILE))
     logging.basicConfig(stream=fid, level=logging.INFO)
     # print argument values sorted alphabetically

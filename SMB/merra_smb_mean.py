@@ -68,11 +68,11 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import copy
 import logging
 import netCDF4
+import pathlib
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
@@ -82,7 +82,8 @@ def read_merra_variables(merra_flux_file, merra_ice_surface_file):
     # python dictionary of output variables
     dinput = {}
     # read each variable of interest in MERRA-2 flux file
-    with netCDF4.Dataset(merra_flux_file, 'r') as fid1:
+    logging.debug(str(merra_flux_file))
+    with netCDF4.Dataset(merra_flux_file, mode='r') as fid1:
         # extract geolocation variables
         dinput['lon'] = fid1.variables['lon'][:].copy()
         dinput['lat'] = fid1.variables['lat'][:].copy()
@@ -99,6 +100,7 @@ def read_merra_variables(merra_flux_file, merra_ice_surface_file):
                 fill_value=fid1.variables[key]._FillValue)
             dinput[key].mask = (dinput[key].data == dinput[key].fill_value)
     # read each variable of interest in MERRA-2 ice surface file
+    logging.debug(str(merra_ice_surface_file))
     with netCDF4.Dataset(merra_ice_surface_file, 'r') as fid2:
         for key in ['RUNOFF','WESNSC']:
             # Getting the data from each NetCDF variable of interest
@@ -116,8 +118,8 @@ def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     logging.basicConfig(level=loglevels[VERBOSE])
 
     # MERRA-2 product subdirectories
-    P1 = 'M2TMNXINT.5.12.4'
-    P2 = 'M2TMNXGLC.5.12.4'
+    P1 = DIRECTORY.joinpath('M2TMNXINT.5.12.4')
+    P2 = DIRECTORY.joinpath('M2TMNXGLC.5.12.4')
     # regular expression operator to find datafiles (and not the xml files)
     regex_pattern = r'MERRA2_(\d+).{0}.(\d{{4}})(\d{{2}}).nc4(?!.xml)'
     # sign for each product to calculate total SMB
@@ -156,14 +158,14 @@ def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     attributes['source'] = ', '.join(merra_sources[PRODUCT])
     attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
-    # years of available data between RANGE
-    YEARS = sorted(map(str,range(int(RANGE[0]),int(RANGE[-1])+1)))
-    # check that are years for RANGE are available
-    CHECK = [Y in DIRECTORY.iterdir().joinpath(P1)) for Y in YEARS]
-    if not np.all(CHECK):
-        raise Exception('Not all years available on file system')
+    # find years of available data
+    YEARS = sorted([d for d in P1.iterdir() if re.match(r'\d{4}',d.name)])
+    # check that are years are available
+    for Y in range(int(RANGE[0]), int(RANGE[-1])+1):
+        if not P1.joinpath(str(Y)).exists():
+            raise FileNotFoundError('Not all years available on file system')
     # compile regular expression operator for flux product
-    rx = re.compile(regex_pattern.format('tavgM_2d_int_Nx'), re.VERBOSE)
+    rx = re.compile(regex_pattern.format(r'tavgM_2d_int_Nx'), re.VERBOSE)
 
     # mean balance flux
     merra_mean = gravtk.spatial(nlat=nlat,nlon=nlon,
@@ -174,28 +176,31 @@ def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     merra_mean.time = 0.0
     count = 0.0
     # for each input file
-    for Y in YEARS:
+    for Y in range(int(RANGE[0]), int(RANGE[-1])+1):
         # find input files for PRODUCT
-        f=[f for f in DIRECTORY.iterdir().joinpath(P1,Y)) if rx.match(f)]
+        d1 = P1.joinpath(str(Y))
+        d2 = P2.joinpath(str(Y))
+        input_files = [f for f in d1.iterdir() if rx.match(f.name)]
+        if not input_files:
+            raise FileNotFoundError(f'Files for year {Y:d} not found')
         # sort files by month
-        indices = np.argsort([rx.match(f1).group(3) for f1 in f])
-        f = [f[indice] for indice in indices]
+        indices = np.argsort([rx.match(f.name).group(3) for f in input_files])
+        input_files = [input_files[indice] for indice in indices]
         # days per month in year
         dpm = gravtk.time.calendar_days(int(Y))
         # for each monthly file
-        for M,f1 in enumerate(f):
+        for M,merra_flux_file in enumerate(input_files):
             # extract parameters from input flux file
-            MOD,Y1,M1 = rx.findall(f1).pop()
+            MOD,Y1,M1 = rx.findall(merra_flux_file.name).pop()
             # corresponding ice surface product file
             args = (MOD,'tavgM_2d_glc_Nx',Y1,M1)
             f2 = 'MERRA2_{0}.{1}.{2}{3}.nc4'.format(*args)
-            # full path for flux and ice surface files
-            merra_flux_file = DIRECTORY.joinpath(P1,Y,f1)
-            merra_ice_surface_file = DIRECTORY.joinpath(P2,Y,f2)
-            if not os.access(merra_ice_surface_file,os.F_OK):
-                raise FileNotFoundError(f'File {f2} not in file system')
+            merra_ice_surface_file = d2.joinpath(f2)
+            if not merra_ice_surface_file.exists():
+                msg = f'File {str(merra_ice_surface_file)} not in file system'
+                raise FileNotFoundError(msg)
             # read netCDF4 files for variables of interest
-            var = read_merra_variables(merra_flux_file,merra_ice_surface_file)
+            var = read_merra_variables(merra_flux_file, merra_ice_surface_file)
             # convert from Julian days to calendar dates
             YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(var['time'],
                 FORMAT='tuple')
@@ -266,20 +271,18 @@ def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     # output MERRA-2 mean data file
     args = (PRODUCT, RANGE[0], RANGE[1], suffix[DATAFORM])
     FILE = 'MERRA2.tavgM_2d_{0}_mean_Nx.{1:4d}-{2:4d}.{3}'.format(*args)
+    output_file = DIRECTORY.joinpath(FILE)
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
-        merra_mean.to_ascii(DIRECTORY.joinpath(FILE),
-            verbose=VERBOSE)
+        merra_mean.to_ascii(output_file, verbose=VERBOSE)
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
-        merra_mean.to_netCDF4(DIRECTORY.joinpath(FILE),
-            verbose=VERBOSE, **attributes)
+        merra_mean.to_netCDF4(output_file, verbose=VERBOSE, **attributes)
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
-        merra_mean.to_HDF5(DIRECTORY.joinpath(FILE),
-            verbose=VERBOSE, **attributes)
+        merra_mean.to_HDF5(output_file, verbose=VERBOSE, **attributes)
     # change the permissions mode
-    os.chmod(DIRECTORY.joinpath(FILE), MODE)
+    output_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():

@@ -43,11 +43,12 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import uuid
 import gzip
+import logging
 import netCDF4
+import pathlib
 import argparse
 import numpy as np
 from datetime import date
@@ -90,6 +91,8 @@ def get_dimensions(input_dir, VERSION, PRODUCT, GZIP=False):
     GZIP: bool, default False
         netCDF data files are compressed
     """
+    # verify input directory
+    input_dir = pathlib.Path(input_dir).expanduser().absolute()
     # names within netCDF4 files
     VARIABLE = input_products[PRODUCT]
     # variable of interest
@@ -102,16 +105,16 @@ def get_dimensions(input_dir, VERSION, PRODUCT, GZIP=False):
         # find input files
         pattern = r'{0}.(\d+).BN_(.*?).MM.nc(\.gz)?'.format(VARIABLE)
         rx = re.compile(pattern, re.VERBOSE | re.IGNORECASE)
-        infiles = sorted([f for f in os.listdir(input_dir) if rx.match(f)])
+        infiles = sorted([f for f in input_dir.iterdir() if rx.match(f.name)])
         nt = 12*len(infiles)
         # read netCDF file for dataset (could also set memory=None)
         if GZIP:
             # read bytes from compressed file
-            fd = gzip.open(os.path.join(input_dir,infiles[0]),'rb')
+            fd = gzip.open(str(infiles[0]), 'rb')
             # read netCDF file for dataset from bytes
             fileID = netCDF4.Dataset(uuid.uuid4().hex,mode='r',memory=fd.read())
         else:
-            fileID = netCDF4.Dataset(os.path.join(input_dir,infiles[0]), mode='r')
+            fileID = netCDF4.Dataset(infiles[0], mode='r')
         # shape of the input data matrix
         nm,ny,nx = fileID.variables[VARIABLE].shape
         fileID.close()
@@ -122,15 +125,15 @@ def get_dimensions(input_dir, VERSION, PRODUCT, GZIP=False):
         file_format = {}
         file_format['2.0'] = '{0}.1958-2016.BN_RACMO2.3p2_FGRN11_GrIS.MM.nc{1}'
         file_format['3.0'] = '{0}.1958-2016.BN_RACMO2.3p2_FGRN055_GrIS.MM.nc{1}'
-        f = file_format[VERSION].format(VARIABLE.lower(),gz)
+        f = input_dir.joinpath(file_format[VERSION].format(VARIABLE.lower(),gz))
         if GZIP:
             # read bytes from compressed file
-            fd = gzip.open(os.path.join(input_dir,f),'rb')
+            fd = gzip.open(str(f), 'rb')
             # read netCDF file for dataset from bytes
             fileID = netCDF4.Dataset(uuid.uuid4().hex,mode='r',memory=fd.read())
         else:
             # read netCDF file for dataset (could also set memory=None)
-            fileID = netCDF4.Dataset(os.path.join(input_dir,f), mode='r')
+            fileID = netCDF4.Dataset(f, mode='r')
         # shape of the input data matrix
         nt,ny,nx = fileID.variables[VARNAME].shape
         fd.close() if GZIP else fileID.close()
@@ -162,6 +165,8 @@ def yearly_file_mean(input_dir, VERSION, PRODUCT, START, END, GZIP=False):
     GZIP: bool, default False
         netCDF data files are compressed
     """
+    # verify input directory
+    input_dir = pathlib.Path(input_dir).expanduser().absolute()
     # names within netCDF4 files
     VARIABLE = input_products[PRODUCT]
     # regular expression operator for finding variables
@@ -170,12 +175,12 @@ def yearly_file_mean(input_dir, VERSION, PRODUCT, START, END, GZIP=False):
     regex_years = r'|'.join(rf'{Y:4d}' for Y in range(START,END+1))
     pattern = rf'{VARIABLE}.({regex_years}).BN_(.*?).MM.nc(\.gz)?'
     rx = re.compile(pattern, re.VERBOSE | re.IGNORECASE)
-    input_files = sorted([fi for fi in os.listdir(input_dir) if rx.match(fi)])
+    input_files = sorted([f for f in input_dir.iterdir() if rx.match(f.name)])
     # number of input files
     n_files = len(input_files)
     # input dimensions and counter variable
     # get dimensions for input VERSION
-    nt,ny,nx = get_dimensions(input_dir,VERSION,PRODUCT,GZIP=GZIP)
+    nt,ny,nx = get_dimensions(input_dir, VERSION, PRODUCT, GZIP=GZIP)
     # create counter variable
     c = 0
     # allocate for all data
@@ -195,14 +200,15 @@ def yearly_file_mean(input_dir, VERSION, PRODUCT, START, END, GZIP=False):
     # input area file with ice mask and model topography
     if (VERSION == '4.0'):
         f1 = f'Icemask_Topo_Iceclasses_lon_lat_average_1km_GrIS.nc{gz}'
+        input_mask_file = input_dir.joinpath(f1)
         if GZIP:
             # read bytes from compressed file
-            fd = gzip.open(os.path.join(input_dir,f1),'rb')
+            fd = gzip.open(str(input_mask_file), 'rb')
             # read netCDF file for topography and ice classes from bytes
             fileID = netCDF4.Dataset(uuid.uuid4().hex, mode='r', memory=fd.read())
         else:
             # read netCDF file for topography and ice classes
-            fileID = netCDF4.Dataset(os.path.join(input_dir,f1), mode='r')
+            fileID = netCDF4.Dataset(input_mask_file, mode='r')
         # Getting the data from each netCDF variable
         dinput['LON'] = np.array(fileID.variables['LON'][:,:])
         dinput['LAT'] = np.array(fileID.variables['LAT'][:,:])
@@ -222,12 +228,12 @@ def yearly_file_mean(input_dir, VERSION, PRODUCT, START, END, GZIP=False):
         # Open the NetCDF file for reading
         if GZIP:
             # read bytes from compressed file
-            fd = gzip.open(os.path.join(input_dir,input_files[t]),'rb')
+            fd = gzip.open(str(input_files[t]), 'rb')
             # read netCDF file for dataset from bytes
             fileID = netCDF4.Dataset(uuid.uuid4().hex, mode='r', memory=fd.read())
         else:
             # read netCDF file for dataset (could also set memory=None)
-            fileID = netCDF4.Dataset(os.path.join(input_dir,input_files[t]), 'r')
+            fileID = netCDF4.Dataset(input_files[t], 'r')
         # Getting the data from each netCDF variable
         if (VERSION == '1.0'):
             dinput['LON'][:,:] = fileID.variables['LON'][:,:].copy()
@@ -307,14 +313,15 @@ def compressed_file_mean(input_dir, VERSION, PRODUCT, START, END, GZIP=False):
 
     # input area file with ice mask and model topography
     f1 = f'Icemask_Topo_Iceclasses_lon_lat_average_1km_GrIS.nc{gz}'
+    input_mask_file = input_dir.joinpath(f1)
     if GZIP:
         # read bytes from compressed file
-        fd = gzip.open(os.path.join(input_dir,f1),'rb')
+        fd = gzip.open(str(input_mask_file), 'rb')
         # read netCDF file for topography and ice classes from bytes
         fileID = netCDF4.Dataset(uuid.uuid4().hex, mode='r', memory=fd.read())
     else:
         # read netCDF file for topography and ice classes
-        fileID = netCDF4.Dataset(os.path.join(input_dir,f1), mode='r')
+        fileID = netCDF4.Dataset(input_mask_file, mode='r')
     # Getting the data from each netCDF variable
     dinput['LON'] = np.array(fileID.variables['LON'][:,:])
     dinput['LAT'] = np.array(fileID.variables['LAT'][:,:])
@@ -332,14 +339,15 @@ def compressed_file_mean(input_dir, VERSION, PRODUCT, START, END, GZIP=False):
 
     # input dataset for variable
     f2 = file_format[VERSION].format(VARIABLE.lower(),gz)
+    input_file = input_dir.joinpath(f2)
     if GZIP:
         # read bytes from compressed file
-        fd = gzip.open(os.path.join(input_dir,f2),'rb')
+        fd = gzip.open(str(input_file), 'rb')
         # read netCDF file for dataset from bytes
         fileID = netCDF4.Dataset(uuid.uuid4().hex, mode='r', memory=fd.read())
     else:
         # read netCDF file for dataset (could also set memory=None)
-        fileID = netCDF4.Dataset(os.path.join(input_dir,f2), mode='r')
+        fileID = netCDF4.Dataset(input_file, mode='r')
     # shape of the input data matrix
     nt,ny,nx = fileID.variables[VARNAME].shape
 
@@ -384,7 +392,7 @@ def compressed_file_mean(input_dir, VERSION, PRODUCT, START, END, GZIP=False):
 def ncdf_racmo(dinput, FILENAME=None, UNITS=None, LONGNAME=None, VARNAME=None,
     LONNAME=None, LATNAME=None, XNAME=None, YNAME=None, TIMENAME=None,
     MASKNAME=None, TIME_UNITS='years', TIME_LONGNAME='Date_in_Decimal_Years',
-    TITLE = None, CLOBBER = False, VERBOSE=False):
+    TITLE = None, CLOBBER = False):
 
     # setting NetCDF clobber attribute
     if CLOBBER:
@@ -393,7 +401,7 @@ def ncdf_racmo(dinput, FILENAME=None, UNITS=None, LONGNAME=None, VARNAME=None,
         clobber = 'a'
 
     # opening NetCDF file for writing
-    # Create the NetCDF file
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
     fileID = netCDF4.Dataset(FILENAME, clobber, format="NETCDF4")
 
     # Dimensions of parameters
@@ -454,16 +462,15 @@ def ncdf_racmo(dinput, FILENAME=None, UNITS=None, LONGNAME=None, VARNAME=None,
     fileID.date_created = date.isoformat(date.today())
 
     # Output NetCDF structure information
-    if VERBOSE:
-        print(FILENAME)
-        print(list(fileID.variables.keys()))
+    logging.info(str(FILENAME))
+    logging.info(list(fileID.variables.keys()))
 
     # Closing the NetCDF file
     fileID.close()
 
 # PURPOSE: calculate RACMO mean data over a polar stereographic grid
 def racmo_downscaled_mean(base_dir, VERSION, PRODUCT,
-    RANGE=[1961,1990], GZIP=False, VERBOSE=False, MODE=0o775):
+    RANGE=[1961,1990], GZIP=False, MODE=0o775):
     """
     Calculates the temporal mean of downscaled RACMO
     surface mass balance products
@@ -490,54 +497,53 @@ def racmo_downscaled_mean(base_dir, VERSION, PRODUCT,
         Start and end year of mean
     GZIP: bool, default False
         netCDF data files are compressed
-    VERBOSE: bool, default False
-        Verbose output of netCDF4 variables
     MODE: oct, default 0o775
         Permission mode of directories and files created
     """
 
     # Full Directory Setup
-    DIRECTORY = f'SMB1km_v{VERSION}'
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
 
     # versions 1 and 4 are in separate files for each year
     if (VERSION == '1.0'):
         RACMO_MODEL = ['XGRN11','2.3']
         VARNAME = input_products[PRODUCT]
         SUBDIRECTORY = f'{VARNAME}_v{VERSION}'
-        input_dir = os.path.join(base_dir, DIRECTORY, SUBDIRECTORY)
+        input_dir = base_dir.joinpath(f'SMB1km_v{VERSION}', SUBDIRECTORY)
         dinput = yearly_file_mean(input_dir, VERSION, PRODUCT,
             RANGE[0], RANGE[1], GZIP=GZIP)
     elif (VERSION == '2.0'):
         RACMO_MODEL = ['XGRN11','2.3p2']
         var = input_products[PRODUCT]
         VARNAME = var if PRODUCT in ('SMB','PRECIP') else f'{var}corr'
-        input_dir = os.path.join(base_dir, DIRECTORY)
+        input_dir = base_dir.joinpath(f'SMB1km_v{VERSION}')
         dinput = compressed_file_mean(input_dir, VERSION, PRODUCT,
             RANGE[0], RANGE[1], GZIP=GZIP)
     elif (VERSION == '3.0'):
         RACMO_MODEL = ['FGRN055','2.3p2']
         var = input_products[PRODUCT]
         VARNAME = var if (PRODUCT == 'SMB') else f'{var}corr'
-        input_dir = os.path.join(base_dir, DIRECTORY)
+        input_dir = base_dir.joinpath(f'SMB1km_v{VERSION}')
         dinput = compressed_file_mean(input_dir, VERSION, PRODUCT,
             RANGE[0], RANGE[1], GZIP=GZIP)
     elif (VERSION == '4.0'):
         RACMO_MODEL = ['FGRN055','2.3p2']
         var = input_products[PRODUCT]
         VARNAME = var if (PRODUCT == 'SMB') else f'{var}corr'
-        input_dir = os.path.join(base_dir, DIRECTORY)
+        input_dir = base_dir.joinpath(f'SMB1km_v{VERSION}')
         dinput = yearly_file_mean(input_dir, VERSION, PRODUCT,
             RANGE[0], RANGE[1], GZIP=GZIP)
 
     # output mean as netCDF4 file
     arg = (RACMO_MODEL[0],RACMO_MODEL[1],VERSION,PRODUCT,RANGE[0],RANGE[1])
-    mean_file = '{0}_RACMO{1}_DS1km_v{2}_{3}_Mean_{4:4d}-{5:4d}.nc'.format(*arg)
-    ncdf_racmo(dinput, FILENAME=os.path.join(input_dir,mean_file), UNITS='mmWE',
+    FILE = '{0}_RACMO{1}_DS1km_v{2}_{3}_Mean_{4:4d}-{5:4d}.nc'.format(*arg)
+    output_file = input_dir.joinpath(FILE)
+    ncdf_racmo(dinput, FILENAME=output_file, UNITS='mmWE',
         LONGNAME=longname[PRODUCT], VARNAME=VARNAME, LONNAME='LON',
         LATNAME='LAT', XNAME='x', YNAME='y', TIMENAME='TIME', MASKNAME='MASK',
-        TITLE='Mean_downscaled_field', CLOBBER=True, VERBOSE=VERBOSE)
+        TITLE='Mean_downscaled_field', CLOBBER=True)
     # change the permission mode
-    os.chmod(os.path.join(input_dir,mean_file), MODE)
+    output_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -574,10 +580,9 @@ def arguments():
         default=False, action='store_true',
         help='netCDF4 file is locally gzip compressed')
     # verbose output of processing run
-    # print information about each input and output file
     parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
+        action='count', default=0,
+        help='Verbose output of processing run')
     # permissions mode of the local directories and files (number in octal)
     parser.add_argument('--mode','-M',
         type=lambda x: int(x,base=8), default=0o775,
@@ -591,12 +596,15 @@ def main():
     parser = arguments()
     args = parser.parse_args()
 
+    # create logger for verbosity level
+    loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
+    logging.basicConfig(level=loglevels[args.verbose])
+
     # run program for each input product
     for PRODUCT in args.product:
         # run downscaled cumulative program with parameters
         racmo_downscaled_mean(args.directory, args.version, PRODUCT,
-            RANGE=args.mean, GZIP=args.gzip, VERBOSE=args.verbose,
-            MODE=args.mode)
+            RANGE=args.mean, GZIP=args.gzip, MODE=args.mode)
 
 # run main program
 if __name__ == '__main__':

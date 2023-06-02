@@ -226,6 +226,7 @@ def gldas_monthly_harmonics(base_dir, MODEL, YEARS,
     if MASKS:
         # read masks for reducing regions before converting to harmonics
         for mask_file in MASKS:
+            logging.debug(str(mask_file))
             mask_file = pathlib.Path(mask_file).expanduser().absolute()
             fileID = netCDF4.Dataset(mask_file, mode='r')
             combined_mask |= fileID.variables['mask'][:].astype(bool)
@@ -235,6 +236,7 @@ def gldas_monthly_harmonics(base_dir, MODEL, YEARS,
         # mask combining vegetation index, permafrost index and Arctic mask
         # read vegetation index file
         vegetation_file = base_dir.joinpath(f'modmodis_domveg20_{SPACING}.nc')
+        logging.debug(str(vegetation_file))
         with netCDF4.Dataset(vegetation_file, mode='r') as fileID:
             vegetation_index = fileID.variables['index'][:].copy()
         # 0: missing value
@@ -248,6 +250,7 @@ def gldas_monthly_harmonics(base_dir, MODEL, YEARS,
             combined_mask |= (vegetation_index == invalid_keys)
         # read Permafrost index file
         permafrost_file = base_dir.joinpath(f'permafrost_mod44w_{SPACING}.nc')
+        logging.debug(str(permafrost_file))
         with netCDF4.Dataset(permafrost_file, mode='r') as fileID:
             permafrost_index = fileID.variables['mask'][:]
         # 1: Continuous Permafrost
@@ -259,6 +262,7 @@ def gldas_monthly_harmonics(base_dir, MODEL, YEARS,
             combined_mask |= (permafrost_index == invalid_keys)
         # read Arctic mask file
         arctic_file = base_dir.joinpath(f'arcticmask_mod44w_{SPACING}.nc')
+        logging.debug(str(arctic_file))
         with netCDF4.Dataset(arctic_file, mode='r') as fileID:
             arctic_mask = fileID.variables['mask'][:].astype(bool)
         # arctic mask
@@ -318,8 +322,8 @@ def gldas_monthly_harmonics(base_dir, MODEL, YEARS,
             M2 = gravtk.spatial().from_HDF5(FILES[t+1])
         # attributes for input files
         attributes['lineage'] = []
-        attributes['lineage'].append(M1.filename.name)
-        attributes['lineage'].append(M2.filename.name)
+        attributes['lineage'].append(pathlib.Path(M1.filename).name)
+        attributes['lineage'].append(pathlib.Path(M2.filename).name)
 
         # replace fill value points and certain vegetation types with 0
         M1.replace_invalid(0.0, mask=combined_mask)

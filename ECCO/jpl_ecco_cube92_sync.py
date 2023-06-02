@@ -111,8 +111,8 @@ def jpl_ecco_cube92_sync(ddir, YEAR=None, PRODUCT=None, TIMEOUT=None,
     if LOG:
         # format: JPL_ECCO2_Cube92_PHIBOT_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        logfile = f'JPL_ECCO2_Cube92_{PRODUCT}_sync_{today}.log'
-        LOGFILE = DIRECTORY.joinpath(logfile)
+        output_logfile = f'JPL_ECCO2_Cube92_{PRODUCT}_sync_{today}.log'
+        LOGFILE = DIRECTORY.joinpath(output_logfile)
         fid1 = LOGFILE.open(mode='w', encoding='utf8')
         logging.basicConfig(stream=fid1, level=logging.INFO)
         logging.info(f'ECCO2 Cube92 {PRODUCT} Sync Log ({today})')

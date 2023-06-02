@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ucar_rda_jra55_surface.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (05/2023)
 
 Downloads JRA-55 products using a links list csh file provided by the
     NCAR/UCAR Research Data Archive (RDA): https://rda.ucar.edu/
@@ -58,6 +58,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: debug-level logging for lines within download file
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -87,6 +88,7 @@ import netrc
 import getpass
 import logging
 import netCDF4
+import pathlib
 import tarfile
 import builtins
 import argparse
@@ -97,18 +99,20 @@ import model_harmonics as mdlhmc
 # PURPOSE: sync local JRA-55 files with UCAR/NCAR RDA server
 def ucar_rda_download(base_dir, links_list_file, YEARS=None,
     INTERPOLATED=False, GZIP=False, TIMEOUT=None, LOG=False, MODE=None):
-    # full path to JRA-55 directory
-    DIRECTORY = os.path.join(base_dir,'JRA-55')
-    # check if directory exists and recursively create if not
-    if not os.access(os.path.join(DIRECTORY), os.F_OK):
-        os.makedirs(os.path.join(DIRECTORY), mode=MODE, exist_ok=True)
+
+    # directory setup
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
+    DIRECTORY = base_dir.joinpath('JRA-55')
+    # check if log directory exists and recursively create if not
+    DIRECTORY.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # create log file with list of synchronized files (or print to terminal)
     if LOG:
         # format: UCAR_RDA_JRA-55_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = f'UCAR_RDA_JRA-55_{today}.log'
-        fid = open(DIRECTORY.joinpath(LOGFILE), mode='w', encoding='utf8')
+        output_logfile = f'UCAR_RDA_JRA-55_{today}.log'
+        LOGFILE = DIRECTORY.joinpath(output_logfile)
+        fid = LOGFILE.open(mode='w', encoding='utf8')
         logging.basicConfig(stream=fid, level=logging.INFO)
         logging.info(f'UCAR JRA-55 Sync Log ({today})')
     else:
@@ -117,7 +121,8 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
         logging.basicConfig(stream=fid, level=logging.INFO)
 
     # read the links list file
-    with open(links_list_file,'rb') as fileID:
+    links_list_file = pathlib.Path(links_list_file).expanduser().absolute()
+    with links_list_file.open(mode='rb') as fileID:
         lines = fileID.read().decode("utf-8-sig").encode("utf-8").splitlines()
 
     # regular expression pattern for finding netCDF4 files
@@ -253,23 +258,25 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
         TIME_UNITS = 'hours since 1800-01-01 00:00:0.0'
         TIME_LONGNAME = 'Time'
         # output to netCDF4 file
+        output_file = DIRECTORY.joinpath(FILE)
         ncdf_model_write(output, dinput.fill_value, VARNAME=VARNAME,
             LONNAME=LONNAME, LATNAME=LATNAME, TIMENAME=TIMENAME,
             TIME_UNITS=TIME_UNITS, TIME_LONGNAME=TIME_LONGNAME,
-            FILENAME=DIRECTORY.joinpath(FILE))
+            FILENAME=output_file)
         # set permissions mode to MODE
-        os.chmod(DIRECTORY.joinpath(FILE), MODE)
+        output_file.chmod(mode=MODE)
 
     # close log file and set permissions level to MODE
     if LOG:
         fid.close()
-        os.chmod(DIRECTORY.joinpath(LOGFILE), MODE)
+        LOGFILE.chmod(mode=MODE)
 
 # PURPOSE: write output model layer fields data to file
 def ncdf_model_write(dinput, fill_value, VARNAME=None, LONNAME=None,
     LATNAME=None, TIMENAME=None, TIME_UNITS=None, TIME_LONGNAME=None,
     FILENAME=None):
     # opening NetCDF file for writing
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
     # Defining the NetCDF dimensions and creating dimension variables
@@ -303,7 +310,7 @@ def ncdf_model_write(dinput, fill_value, VARNAME=None, LONNAME=None,
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
     # Output NetCDF structure information
-    logging.info(FILENAME)
+    logging.info(str(FILENAME))
     logging.info(list(fileID.variables.keys()))
 
     # Closing the NetCDF file
