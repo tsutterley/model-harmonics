@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 spatial_operators.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (05/2023)
 Performs basic operations on spatial files
 
 CALLING SEQUENCE:
@@ -48,6 +48,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: updated inputs to spatial from_file function
     Updated 12/2022: single implicit import of spherical harmonic tools
         added function to attempt to get variable attributes
@@ -64,9 +65,9 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import copy
 import logging
+import pathlib
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
@@ -115,9 +116,8 @@ def spatial_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, DDEG=None,
     if len(DATAFORM) < (n_files+1):
         DATAFORM = DATAFORM*(n_files+1)
     # verify that output directory exists
-    DIRECTORY = os.path.abspath(os.path.dirname(OUTPUT_FILE))
-    if not os.access(DIRECTORY, os.F_OK):
-        os.makedirs(DIRECTORY, mode=MODE, exist_ok=True)
+    OUTPUT_FILE = pathlib.Path(OUTPUT_FILE).expanduser().absolute()
+    OUTPUT_FILE.parent.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # Grid spacing
     dlon,dlat = (DDEG, DDEG) if (np.ndim(DDEG) == 0) else (DDEG[0], DDEG[1])
@@ -131,19 +131,20 @@ def spatial_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, DDEG=None,
 
     # read each input file
     dinput = [None]*n_files
-    for i,fi in enumerate(INPUT_FILES):
+    for i,INPUT_FILE in enumerate(INPUT_FILES):
+        INPUT_FILE = pathlib.Path(INPUT_FILE).expanduser().absolute()
         # read spatial file in data format
         if DATAFORM[i] in ('ascii', 'netCDF4', 'HDF5'):
             # ascii (.txt)
             # netCDF4 (.nc)
             # HDF5 (.H5)
-            dinput[i] = gravtk.spatial().from_file(fi,
+            dinput[i] = gravtk.spatial().from_file(INPUT_FILE,
                 format=DATAFORM[i], date=DATE, spacing=[dlon, dlat],
                 nlat=nlat, nlon=nlon)
         elif DATAFORM[i] in ('index-ascii', 'index-netCDF4', 'index-HDF5'):
             # read from index file
             _,dataform = DATAFORM[i].split('-')
-            dinput[i] = gravtk.spatial().from_index(fi,
+            dinput[i] = gravtk.spatial().from_index(INPUT_FILE,
                 format=dataform, date=DATE, spacing=[dlon, dlat],
                 nlat=nlat, nlon=nlon)
 
@@ -224,7 +225,7 @@ def spatial_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, DDEG=None,
     attributes = {}
     attributes['units'] = copy.copy(attr['units'])
     attributes['longname'] = copy.copy(attr['long_name'])
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # write spatial file in data format
     if (DATAFORM[-1] == 'ascii'):
@@ -238,7 +239,7 @@ def spatial_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, DDEG=None,
         attr = get_attributes(dinput[0])
         output.to_HDF5(OUTPUT_FILE, date=DATE, **attributes)
     # change the permissions mode of the output file
-    os.chmod(OUTPUT_FILE, MODE)
+    OUTPUT_FILE.chmod(MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -249,10 +250,10 @@ def arguments():
     # command line options
     # input and output file
     parser.add_argument('infiles',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='+',
+        type=pathlib.Path, nargs='+',
         help='Input files')
     parser.add_argument('outfile',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs=1,
+        type=pathlib.Path, nargs=1,
         help='Output file')
     # operation to run
     parser.add_argument('--operation','-O',

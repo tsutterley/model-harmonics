@@ -70,10 +70,10 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import logging
 import netCDF4
+import pathlib
 import argparse
 import datetime
 import numpy as np
@@ -86,12 +86,13 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     DATAFORM=None, MODE=0o775):
 
     # setup subdirectories
-    cumul_sub = 'ERA5-Cumul-P-E-{0:4d}-{1:4d}'.format(*RANGE)
+    ddir = pathlib.Path(ddir).expanduser().absolute()
+    d1 = ddir.joinpath('ERA5-Cumul-P-E-{0:4d}-{1:4d}'.format(*RANGE))
     # Creating output subdirectory if it doesn't exist
     prefix = f'{REGION}_' if REGION else ''
-    output_sub = f'{prefix}ERA5_CUMUL_P-E_CLM_L{LMAX:d}'
-    if (not os.access(os.path.join(ddir,output_sub), os.F_OK)):
-        os.makedirs(os.path.join(ddir,output_sub),MODE)
+    d2 = ddir.joinpath(f'{prefix}ERA5_CUMUL_P-E_CLM_L{LMAX:d}')
+    d2.mkdir(mode=MODE, parents=True, exist_ok=True)
+
     # output data file format and title
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
 
@@ -102,7 +103,7 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     attributes['product_name'] = 'P-E'
     attributes['source'] = ', '.join(['tp','e'])
     attributes['product_type'] = 'gravity_field'
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
@@ -127,8 +128,9 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
         input_mask = np.ones((nlat,nlon),dtype=bool)
     # read masks for reducing regions before converting to harmonics
     for mask_file in MASKS:
-        logging.info(mask_file)
-        fileID = netCDF4.Dataset(mask_file,'r')
+        logging.debug(str(mask_file))
+        mask_file = pathlib.Path(mask_file).expanduser().absolute()
+        fileID = netCDF4.Dataset(mask_file, mode='r')
         input_mask |= fileID.variables['mask'][:].astype(bool)
         fileID.close()
 
@@ -161,27 +163,24 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     # find input files from era5_smb_cumulative.py
     regex_years = r'\d{4}' if (YEARS is None) else '|'.join(map(str,YEARS))
     rx = re.compile(r'ERA5\-Cumul\-P-E\-({0})\.nc$'.format(regex_years))
-    FILES = [f for f in os.listdir(os.path.join(ddir,cumul_sub)) if rx.match(f)]
+    input_files = sorted([f for f in d1.iterdir() if rx.match(f.name)])
 
     # create list of yearly ERA5 files
     spatial_list = []
     # for each input file
-    for t,fi in enumerate(FILES):
+    for t,input_file in enumerate(input_files):
         # read data file for data format
         if (DATAFORM == 'ascii'):
             # ascii (.txt)
-            era5_data = gravtk.spatial().from_ascii(
-                os.path.join(ddir,cumul_sub,fi),
+            era5_data = gravtk.spatial().from_ascii(input_file,
                 spacing=[dlon,dlat], nlat=nlat, nlon=nlon,
                 extent=extent)
         elif (DATAFORM == 'netCDF4'):
             # netCDF4 (.nc)
-            era5_data = gravtk.spatial().from_netCDF4(
-                os.path.join(ddir,cumul_sub,fi), varname='SMB')
+            era5_data = gravtk.spatial().from_netCDF4(input_file, varname='SMB')
         elif (DATAFORM == 'HDF5'):
             # HDF5 (.H5)
-            era5_data = gravtk.spatial().from_HDF5(
-                os.path.join(ddir,cumul_sub,fi), varname='SMB')
+            era5_data = gravtk.spatial().from_HDF5(input_file, varname='SMB')
         # if reducing to a region of interest before converting to harmonics
         if np.any(input_mask):
             # replace fill value points and masked points with 0
@@ -202,8 +201,8 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
         M2 = era5_data.index(i+1).scale(1000.0)
         # attributes for input files
         attributes['lineage'] = []
-        attributes['lineage'].append(os.path.basename(M1.filename))
-        attributes['lineage'].append(os.path.basename(M2.filename))
+        attributes['lineage'].append(pathlib.Path(M1.filename).name)
+        attributes['lineage'].append(pathlib.Path(M2.filename).name)
         # calculate 2-month moving average
         # weighting by number of days in each month
         dpm = gravtk.time.calendar_days(np.floor(M1.time))
@@ -221,44 +220,41 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
         # output spherical harmonic data file
         args = (LMAX, order_str, era5_Ylms.month, suffix[DATAFORM])
         FILE = 'ERA5_CUMUL_P-E_CLM_L{0:d}{1}_{2:03d}.{3}'.format(*args)
-        era5_Ylms.to_file(os.path.join(ddir,output_sub,FILE), format=DATAFORM)
+        output_file = d2.joinpath(FILE)
+        era5_Ylms.to_file(output_file, format=DATAFORM)
         # change the permissions mode of the output file to MODE
-        os.chmod(os.path.join(ddir,output_sub,FILE),MODE)
+        output_file.chmod(mode=MODE)
 
     # Output date ascii file
-    output_date_file = 'ERA5_SMB_DATES.txt'
-    fid1 = open(os.path.join(ddir,output_sub,output_date_file),
-        mode='w', encoding='utf8')
+    output_date_file = d2.joinpath('ERA5_SMB_DATES.txt')
+    fid1 = output_date_file.open(mode='w', encoding='utf8')
     # date file header information
     print('{0:8} {1:^6} {2:^5}'.format('Mid-date','GRACE','Month'), file=fid1)
     # index file listing all output spherical harmonic files
-    output_index_file = 'index.txt'
-    fid2 = open(os.path.join(ddir,output_sub,output_index_file),
-        mode='w', encoding='utf8')
+    output_index_file = d2.joinpath('index.txt')
+    fid2 = output_index_file.open(mode='w', encoding='utf8')
     # find all available output files
     args = (LMAX, order_str, suffix[DATAFORM])
     output_pattern = r'ERA5_CUMUL_P-E_CLM_L{0:d}{1}_([-]?\d+).{2}'
     output_regex = re.compile(output_pattern.format(*args), re.VERBOSE)
     # find all output ECCO OBP harmonic files (not just ones created in run)
-    output_files = [fi for fi in os.listdir(os.path.join(ddir,output_sub))
-        if re.match(output_regex,fi)]
+    output_files = [f for f in d2.iterdir() if re.match(output_regex,f.name)]
     for fi in sorted(output_files):
         # extract GRACE month
-        grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int64)
+        grace_month, = np.array(re.findall(output_regex,fi.name), dtype=int)
         YY,MM = gravtk.time.grace_to_calendar(grace_month)
         tdec, = gravtk.time.convert_calendar_decimal(YY, MM)
-        # full path to output file
-        full_output_file = os.path.join(ddir,output_sub,fi)
         # print date, GRACE month and calendar month to date file
-        fid1.write('{0:11.6f} {1:03d} {2:02.0f}\n'.format(tdec,grace_month,MM))
+        fid1.write(f'{tdec:11.6f} {grace_month:03d} {MM:02.0f}\n')
         # print output file to index
-        print(full_output_file.replace(os.path.expanduser('~'),'~'), file=fid2)
+        full_output_file = gravtk.spatial().compressuser(fi)
+        print(full_output_file, file=fid2)
     # close the date and index files
     fid1.close()
     fid2.close()
     # set the permissions level of the output date and index files to MODE
-    os.chmod(os.path.join(ddir,output_sub,output_date_file), MODE)
-    os.chmod(os.path.join(ddir,output_sub,output_index_file), MODE)
+    output_date_file.chmod(mode=MODE)
+    output_index_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -272,8 +268,7 @@ def arguments():
     # command line parameters
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # start and end years to run for mean
     parser.add_argument('--mean',
@@ -291,7 +286,7 @@ def arguments():
         help='Region name for subdirectory')
     # mask file for reducing to regions
     parser.add_argument('--mask',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         nargs='+', default=[],
         help='netCDF4 masks file for reducing to regions')
     # maximum spherical harmonic degree and order

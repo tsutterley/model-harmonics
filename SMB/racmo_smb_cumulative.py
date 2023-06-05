@@ -61,13 +61,13 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import gzip
 import uuid
 import time
 import logging
 import netCDF4
+import pathlib
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
@@ -79,13 +79,13 @@ def racmo_smb_cumulative(model_file, VARIABLE,
     GZIP=False,
     MODE=0o775):
 
-    # RACMO SMB directory
-    DIRECTORY = os.path.dirname(model_file)
+    # RACMO SMB model file
+    model_file = pathlib.Path(model_file).expanduser().absolute()
     # try to extract region and version from filename
     R1 = re.compile(r'[XF]?(ANT27|GRN11|GRN055|PEN055|ASE055)',re.VERBOSE)
     R2 = re.compile(r'(RACMO\d+(\.\d+)?(p\d+)?)',re.VERBOSE)
-    REGION = R1.search(os.path.basename(model_file)).group(0)
-    VERSION = R2.search(os.path.basename(model_file)).group(0)
+    REGION = R1.search(model_file.name).group(0)
+    VERSION = R2.search(model_file.name).group(0)
     # RACMO products
     racmo_products = {}
     racmo_products['precip'] = 'Precipitation'
@@ -101,14 +101,14 @@ def racmo_smb_cumulative(model_file, VARIABLE,
     # Open the RACMO SMB NetCDF file for reading
     if GZIP:
         # read as in-memory (diskless) netCDF4 dataset
-        with gzip.open(os.path.expanduser(model_file),'r') as f:
+        with gzip.open(str(model_file), mode='r') as f:
             f_in = netCDF4.Dataset(uuid.uuid4().hex, memory=f.read())
     else:
         # Open the RACMO NetCDF file for reading
-        f_in = netCDF4.Dataset(os.path.expanduser(model_file), 'r')
+        f_in = netCDF4.Dataset(model_file, mode='r')
 
     # Output NetCDF file information
-    logging.info(os.path.expanduser(model_file))
+    logging.info(str(model_file))
     logging.info(list(f_in.variables.keys()))
 
     # Get data and attributes for each netCDF variable
@@ -177,7 +177,8 @@ def racmo_smb_cumulative(model_file, VARIABLE,
 
     # Output NetCDF filename
     FILE = f'{VERSION}_{REGION}_{VARIABLE.upper()}_cumul.nc'
-    logging.info(os.path.join(DIRECTORY,FILE))
+    output_file = model_file.with_name(FILE)
+    logging.info(str(output_file))
 
     # output MERRA-2 data file with cumulative data
     if GZIP:
@@ -186,8 +187,7 @@ def racmo_smb_cumulative(model_file, VARIABLE,
             format='NETCDF4')
     else:
         # opening NetCDF file for writing
-        f_out = netCDF4.Dataset(os.path.join(DIRECTORY,FILE),'w',
-            format="NETCDF4")
+        f_out = netCDF4.Dataset(output_file, 'w', format="NETCDF4")
 
     # python dictionary with netCDF4 variables
     nc = {}
@@ -233,7 +233,7 @@ def racmo_smb_cumulative(model_file, VARIABLE,
     # add software information
     f_out.software_reference = mdlhmc.version.project_name
     f_out.software_version = mdlhmc.version.full_version
-    f_out.reference = f'Output from {os.path.basename(sys.argv[0])}'
+    f_out.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # date created
     f_out.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
@@ -247,11 +247,11 @@ def racmo_smb_cumulative(model_file, VARIABLE,
     # write RACMO data file to gzipped file
     if GZIP:
         # copy bytes to file
-        with gzip.open(os.path.join(DIRECTORY,FILE), 'wb') as f:
+        with gzip.open(str(output_file), 'wb') as f:
             f.write(nc_buffer)
 
     # change the permissions mode
-    os.chmod(os.path.join(DIRECTORY,FILE), MODE)
+    output_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -262,7 +262,7 @@ def arguments():
     )
     # command line parameters
     parser.add_argument('infile',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='RACMO SMB file to run')
     # products from SMB model
     choices = ['precip','rainfall','refreeze','runoff','smb',

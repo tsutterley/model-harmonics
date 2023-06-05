@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_scaling_factors.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (05/2023)
 
 Reads monthly GLDAS total water storage anomalies and monthly
     spherical harmonic coefficients
@@ -78,6 +78,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
         output all data within a single ascii, netCDF or HDF5 file
         use new scaling_factors inheritance of spatial class
@@ -118,10 +119,10 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import logging
 import netCDF4
+import pathlib
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
@@ -137,7 +138,7 @@ gldas_products['VIC'] = 'GLDAS Variable Infiltration Capacity (VIC) model'
 
 # PURPOSE: read GLDAS terrestrial water storage data and spherical harmonics
 # calculate the point scaling factors following Landerer and Swenson (2012)
-def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
+def gldas_scaling_factors(base_dir, MODEL, START_MON, END_MON, MISSING,
     SPACING=None,
     VERSION=None,
     MASKS=None,
@@ -154,12 +155,13 @@ def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
     V1,V2 = (f'_V{VERSION}','') if (VERSION == '1') else ('',f'.{VERSION}')
     # use GLDAS monthly products
     TEMPORAL = 'M'
+    # directory for GLDAS models
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
     # subdirectory for model monthly products at spacing for version
-    sub1 = f'GLDAS_{MODEL}{SPACING}_{TEMPORAL}{V2}'
+    d1 = base_dir.joinpath(f'GLDAS_{MODEL}{SPACING}_{TEMPORAL}{V2}')
     # Creating output subdirectory if it doesn't exist
-    sub2 = f'GLDAS_{MODEL}{SPACING}{V1}_TWC_CLM_L{LMAX:d}'
-    if (not os.access(os.path.join(ddir,sub2), os.F_OK)):
-        os.makedirs(os.path.join(ddir,sub2),MODE)
+    d2 = base_dir.joinpath(f'GLDAS_{MODEL}{SPACING}{V1}_TWC_CLM_L{LMAX:d}')
+    d2.mkdir(mode=MODE, parents=True, exist_ok=True)
     # upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
     # output string for both LMAX == MMAX and LMAX != MMAX cases
@@ -182,8 +184,8 @@ def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
         extent = [-179.5,179.5,-59.5,89.5]
 
     # GLDAS MOD44W land mask modified for HYMAP
-    landmask_file = f'GLDASp5_landmask_{SPACING}d.nc4'
-    with netCDF4.Dataset(os.path.join(ddir,landmask_file),'r') as fileID:
+    landmask_file = base_dir.joinpath(f'GLDASp5_landmask_{SPACING}d.nc4')
+    with netCDF4.Dataset(landmask_file, mode='r') as fileID:
         GLDAS_mask = fileID.variables['GLDAS_mask'][:].squeeze()
         glon = fileID.variables['lon'][:].copy()
         glat = fileID.variables['lat'][:].copy()
@@ -195,15 +197,18 @@ def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
     if MASKS:
         # read masks for reducing regions before converting to harmonics
         for mask_file in MASKS:
-            fileID = netCDF4.Dataset(mask_file,'r')
+            logging.debug(str(mask_file))
+            mask_file = pathlib.Path(mask_file).expanduser().absolute()
+            fileID = netCDF4.Dataset(mask_file, mode='r')
             combined_mask |= fileID.variables['mask'][:].astype(bool)
             fileID.close()
     else:
         # use default masks for reducing regions before converting to harmonics
         # mask combining vegetation index, permafrost index and Arctic mask
         # read vegetation index file
-        vegetation_file = f'modmodis_domveg20_{SPACING}.nc'
-        with netCDF4.Dataset(os.path.join(ddir,vegetation_file),'r') as fileID:
+        vegetation_file = base_dir.joinpath(f'modmodis_domveg20_{SPACING}.nc')
+        logging.debug(str(vegetation_file))
+        with netCDF4.Dataset(vegetation_file, mode='r') as fileID:
             vegetation_index = fileID.variables['index'][:].copy()
         # 0: missing value
         # 13: Urban and Built-Up
@@ -215,8 +220,9 @@ def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
         for invalid_keys in (0,13,15,17,18,19,20):
             combined_mask |= (vegetation_index == invalid_keys)
         # read Permafrost index file
-        permafrost_file = f'permafrost_mod44w_{SPACING}.nc'
-        with netCDF4.Dataset(os.path.join(ddir,permafrost_file),'r') as fileID:
+        permafrost_file = base_dir.joinpath(f'permafrost_mod44w_{SPACING}.nc')
+        logging.debug(str(permafrost_file))
+        with netCDF4.Dataset(permafrost_file, mode='r') as fileID:
             permafrost_index = fileID.variables['mask'][:]
         # 1: Continuous Permafrost
         # 2: Discontinuous Permafrost
@@ -226,8 +232,9 @@ def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
         for invalid_keys in (1,5):
             combined_mask |= (permafrost_index == invalid_keys)
         # read Arctic mask file
-        arctic_file = f'arcticmask_mod44w_{SPACING}.nc'
-        with netCDF4.Dataset(os.path.join(ddir,arctic_file),'r') as fileID:
+        arctic_file = base_dir.joinpath(f'arcticmask_mod44w_{SPACING}.nc')
+        logging.debug(str(arctic_file))
+        with netCDF4.Dataset(arctic_file, mode='r') as fileID:
             arctic_mask = fileID.variables['mask'][:].astype(bool)
         # arctic mask
         combined_mask |= arctic_mask[:,:]
@@ -272,17 +279,18 @@ def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
         # GLDAS monthly data file from read_gldas_monthly.py
         args=(MODEL,SPACING,calendar_year,calendar_month,suffix[DATAFORM])
         f1 = 'GLDAS_{0}{1}_TWC_{2:4d}_{3:02d}.{4}'.format(*args)
+        input_file = d1.joinpath(f1)
         # read data files for data format
         if (DATAFORM == 'ascii'):
             # ascii (.txt)
-            gldas_data = gravtk.spatial().from_ascii(os.path.join(ddir,sub1,f1),
+            gldas_data = gravtk.spatial().from_ascii(input_file,
                 spacing=[dlon,dlat], nlat=nlat, nlon=nlon, extent=extent)
         elif (DATAFORM == 'netCDF4'):
             # netCDF4 (.nc)
-            gldas_data = gravtk.spatial().from_netCDF4(os.path.join(ddir,sub1,f1))
+            gldas_data = gravtk.spatial().from_netCDF4(input_file)
         elif (DATAFORM == 'HDF5'):
             # HDF5 (.H5)
-            gldas_data = gravtk.spatial().from_HDF5(os.path.join(ddir,sub1,f1))
+            gldas_data = gravtk.spatial().from_HDF5(input_file)
         # replace fill value points and certain vegetation types with 0
         gldas_data.replace_invalid(0.0, mask=combined_mask)
         # convert to spherical harmonics
@@ -336,7 +344,7 @@ def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
     attributes['ROOT']['reference_frame'] = LOVE.reference
     attributes['ROOT']['max_degree'] = LMAX
     attributes['ROOT']['max_order'] = MMAX
-    attributes['ROOT']['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['ROOT']['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # add attributes for latitude and longitude
     attributes['lon'] = {}
     attributes['lon']['long_name'] = 'longitude'
@@ -361,19 +369,20 @@ def gldas_scaling_factors(ddir, MODEL, START_MON, END_MON, MISSING,
     # Output scaling factor file
     f2 = file_format.format(MODEL,SPACING,'kfactor',LMAX,order_str,gw_str,
         ds_str,grace_month[0],grace_month[-1],suffix[DATAFORM])
+    output_file = d2.joinpath(f2)
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
-        gldas_kfactor.to_ascii(os.path.join(ddir,sub2,f2))
+        gldas_kfactor.to_ascii(output_file)
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
-        gldas_kfactor.to_netCDF4(os.path.join(ddir,sub2,f2), date=False,
+        gldas_kfactor.to_netCDF4(output_file, date=False,
             field_mapping=field_mapping, attributes=attributes)
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.h5)
-        gldas_kfactor.to_HDF5(os.path.join(ddir,sub2,f2), date=False,
+        gldas_kfactor.to_HDF5(output_file, date=False,
             field_mapping=field_mapping, attributes=attributes)
     # change the permissions mode of the output file
-    os.chmod(os.path.join(ddir,sub2,f2), MODE)
+    output_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -389,8 +398,7 @@ def arguments():
         help='GLDAS land surface model')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # start and end years GRACE/GRACE-FO months
     parser.add_argument('--start','-s',

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_pressure_harmonics.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (05/2023)
 Reads atmospheric surface pressure fields from reanalysis and calculates sets of
     spherical harmonics using a thin-layer 2D geometry with realistic earth
 
@@ -73,6 +73,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
@@ -108,10 +109,10 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import logging
 import netCDF4
+import pathlib
 import argparse
 import datetime
 import numpy as np
@@ -125,7 +126,8 @@ def reanalysis_pressure_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     DATAFORM=None, MODE=0o775):
 
     # directory setup
-    ddir = os.path.join(base_dir,MODEL)
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
+    ddir = base_dir.joinpath(MODEL)
 
     # set model specific parameters
     if (MODEL == 'ERA-Interim'):
@@ -267,18 +269,18 @@ def reanalysis_pressure_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     suffix = dict(ascii='txt',netCDF4='nc',HDF5='H5')
     # output subdirectory
     args = (MODEL.upper(),LMAX,order_str,ocean_str)
-    output_sub = '{0}_PRESSURE_CLM_L{1:d}{2}{3}'.format(*args)
-    if not os.access(os.path.join(ddir,output_sub),os.F_OK):
-        os.makedirs(os.path.join(ddir,output_sub))
+    output_dir = ddir.joinpath('{0}_PRESSURE_CLM_L{1:d}{2}{3}'.format(*args))
+    output_dir.mkdir(mode=MODE, parents=True, exist_ok=True)
     # attributes for output files
     attributes = {}
     attributes['project'] = MODEL
     attributes['product_type'] = 'gravity_field'
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # read mean pressure field from calculate_mean_pressure.py
-    mean_file = os.path.join(ddir,input_mean_file.format(RANGE[0],RANGE[1]))
-    mean_pressure,lon,lat=ncdf_mean_pressure(mean_file,VARNAME,LONNAME,LATNAME)
+    mean_file = ddir.joinpath(input_mean_file.format(RANGE[0],RANGE[1]))
+    mean_pressure, lon, lat = ncdf_mean_pressure(mean_file,
+        VARNAME, LONNAME, LATNAME)
     # calculate colatitude
     theta = (90.0 - lat)*np.pi/180.0
     # calculate meshgrid from latitude and longitude
@@ -287,7 +289,7 @@ def reanalysis_pressure_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     gridtheta = (90.0 - gridlat)*np.pi/180.0
 
     # read model orography from invariant parameters file
-    geopotential = ncdf_invariant(os.path.join(ddir,input_invariant_file),ZNAME)
+    geopotential = ncdf_invariant(ddir.joinpath(input_invariant_file),ZNAME)
     # convert geopotential to orography (above mean sea level)
     # https://software.ecmwf.int/wiki/x/WAfEB
     geopotential_height = geopotential/GRAVITY
@@ -309,7 +311,7 @@ def reanalysis_pressure_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     # calculate Legendre polynomials
     PLM, dPLM = gravtk.plm_holmes(LMAX, np.cos(theta))
     # read geoid heights and grid step size
-    geoid,gridstep = ncdf_geoid(os.path.join(ddir,input_geoid_file))
+    geoid,gridstep = ncdf_geoid(ddir.joinpath(input_geoid_file))
 
     # get reference parameters for ellipsoid
     ellipsoid_params = mdlhmc.constants(ellipsoid=ELLIPSOID)
@@ -346,49 +348,49 @@ def reanalysis_pressure_harmonics(base_dir, MODEL, YEARS, RANGE=None,
 
     # get indices of land-sea mask if redistributing oceanic points
     if REDISTRIBUTE:
-        ii,jj = ncdf_landmask(os.path.join(ddir,input_mask_file),MASKNAME,OCEAN)
+        ii,jj = ncdf_landmask(ddir.joinpath(input_mask_file),
+            MASKNAME, OCEAN)
         # calculate total area of oceanic points
         TOTAL_AREA = np.sum(AREA[ii,jj])
 
     # read each reanalysis pressure field and convert to spherical harmonics
     regex_years = r'\d{4}' if (YEARS is None) else '|'.join(map(str,YEARS))
     rx = re.compile(regex_pattern.format(regex_years),re.VERBOSE)
-    input_files = sorted([fi for fi in os.listdir(ddir) if rx.match(fi)])
+    input_files = sorted([f for f in ddir.iterdir() if rx.match(f.name)])
     # open output date and index files
-    output_date_file = f'{MODEL.upper()}_DATES.txt'
-    fid1 = open(os.path.join(ddir,output_sub,output_date_file),
-        mode='w', encoding='utf8')
-    output_index_file = f'{MODEL}_index.txt'
-    fid2 = open(os.path.join(ddir,output_sub,output_index_file),
-        mode='w', encoding='utf8')
+    output_date_file = output_dir.joinpath(f'{MODEL.upper()}_DATES.txt')
+    fid1 = output_date_file.open(mode='w', encoding='utf8')
+    output_index_file = output_dir.joinpath(f'{MODEL}_index.txt')
+    fid2 = output_index_file.open(mode='w', encoding='utf8')
     # date file header information
     print('{0:8} {1:10}'.format('Month','Date'), file=fid1)
     # output file format for spherical harmonic data
     output_file_format = '{0}_CLM_L{1:d}{2}_{3:03d}.{4}'
 
     # for each reanalysis file
-    for fi in input_files:
+    for i,input_file in enumerate(input_files):
         # read input data
-        with netCDF4.Dataset(os.path.join(ddir,fi),'r') as fileID:
+        logging.debug(str(input_file))
+        with netCDF4.Dataset(input_file, mode='r') as fileID:
             # check dimensions for expver slice
             if (fileID.variables[VARNAME].ndim == 4):
                 pressure = ncdf_expver(fileID, VARNAME)
             else:
                 pressure = fileID.variables[VARNAME][:].copy()
             # convert time to Modified Julian Days
-            delta_time=np.copy(fileID.variables[TIMENAME][:])
-            date_string=fileID.variables[TIMENAME].units
+            delta_time = np.copy(fileID.variables[TIMENAME][:])
+            date_string = fileID.variables[TIMENAME].units
             epoch,to_secs = gravtk.time.parse_date_string(date_string)
             MJD = gravtk.time.convert_delta_time(delta_time*to_secs,
                 epoch1=epoch, epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0)
         # attributes for input files
         attributes['lineage'] = []
-        attributes['lineage'].append(os.path.basename(input_invariant_file))
-        attributes['lineage'].append(os.path.basename(input_geoid_file))
-        attributes['lineage'].append(os.path.basename(fi))
+        attributes['lineage'].append(input_invariant_file)
+        attributes['lineage'].append(input_geoid_file)
+        attributes['lineage'].append(input_file.name)
 
         # iterate over Julian days
-        for t,JD in enumerate(MJD+2400000.5):
+        for t,JD in enumerate(MJD + 2400000.5):
             # calculate pressure anomaly for month
             P = (pressure[t,:,:] - mean_pressure[:,:])
             # if redistributing oceanic pressure values
@@ -408,39 +410,38 @@ def reanalysis_pressure_harmonics(base_dir, MODEL, YEARS, RANGE=None,
             Ylms.attributes['ROOT'] = attributes
             # output data to file
             args = (MODEL.upper(),LMAX,order_str,Ylms.month,suffix[DATAFORM])
-            FILE = output_file_format.format(*args)
-            Ylms.to_file(os.path.join(ddir,output_sub,FILE),
-                format=DATAFORM)
+            output_file = output_dir.joinpath(output_file_format.format(*args))
+            Ylms.to_file(output_file, format=DATAFORM)
             # set the permissions level of the output file to MODE
-            os.chmod(os.path.join(ddir,output_sub,FILE), MODE)
+            output_file.chmod(mode=MODE)
 
     # output file format for spherical harmonic data
     args = (MODEL.upper(),LMAX,order_str,suffix[DATAFORM])
     output_regex = re.compile(r'{0}_CLM_L{1:d}{2}_(\d+).{3}'.format(*args))
     # find all output harmonic files (not just ones created in run)
-    output_files = [fi for fi in os.listdir(os.path.join(ddir,output_sub))
-        if re.match(output_regex,fi)]
+    output_files = [f for f in output_dir.iterdir()
+        if re.match(output_regex, f.name)]
     for fi in sorted(output_files):
         # extract GRACE month
-        grace_month, = np.array(re.findall(output_regex,fi),dtype=np.int64)
+        grace_month, = np.array(re.findall(output_regex,fi.name), dtype=int)
         YY,MM = gravtk.time.grace_to_calendar(grace_month)
         tdec, = gravtk.time.convert_calendar_decimal(YY, MM)
-        # full path to output file
-        full_output_file = os.path.join(ddir,output_sub,fi)
         # print date, GRACE month and calendar month to date file
-        fid1.write('{0:11.6f} {1:03d} {2:02.0f}\n'.format(tdec,grace_month,MM))
+        fid1.write(f'{tdec:11.6f} {grace_month:03d} {MM:02.0f}\n')
         # print output file to index
-        print(full_output_file.replace(os.path.expanduser('~'),'~'), file=fid2)
+        full_output_file = gravtk.spatial().compressuser(fi)
+        print(full_output_file, file=fid2)
     # close the date and index files
     fid1.close()
     fid2.close()
     # set the permissions level of the output date and index files to MODE
-    os.chmod(os.path.join(ddir,output_sub,output_date_file), MODE)
-    os.chmod(os.path.join(ddir,output_sub,output_index_file), MODE)
+    output_date_file.chmod(mode=MODE)
+    output_index_file.chmod(mode=MODE)
 
 # PURPOSE: read reanalysis mean pressure from calculate_mean_pressure.py
-def ncdf_mean_pressure(FILENAME,VARNAME,LONNAME,LATNAME):
-    with netCDF4.Dataset(FILENAME,'r') as fileID:
+def ncdf_mean_pressure(FILENAME, VARNAME, LONNAME, LATNAME):
+    logging.debug(str(FILENAME))
+    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
         mean_pressure = np.array(fileID.variables[VARNAME][:].squeeze())
         longitude = fileID.variables[LONNAME][:].squeeze()
         latitude = fileID.variables[LATNAME][:].squeeze()
@@ -466,20 +467,23 @@ def ncdf_expver(fileID, VARNAME):
     return pressure
 
 # PURPOSE: read reanalysis invariant parameters (geopotential,lat,lon)
-def ncdf_invariant(FILENAME,ZNAME):
-    with netCDF4.Dataset(FILENAME,'r') as fileID:
+def ncdf_invariant(FILENAME, ZNAME):
+    logging.debug(str(FILENAME))
+    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
         geopotential = fileID.variables[ZNAME][:].squeeze()
     return geopotential
 
 # PURPOSE: read geoid height netCDF4 files from read_gfz_geoid_grids.py
 def ncdf_geoid(FILENAME):
-    with netCDF4.Dataset(FILENAME,'r') as fileID:
+    logging.debug(str(FILENAME))
+    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
         geoid_undulation = fileID.variables['geoid'][:].copy()
         gridstep = np.array(fileID.gridstep.split(','),dtype=np.float64)
     return (geoid_undulation,np.squeeze(gridstep))
 
 # PURPOSE: read land sea mask to get indices of oceanic values
-def ncdf_landmask(FILENAME,MASKNAME,OCEAN):
+def ncdf_landmask(FILENAME, MASKNAME, OCEAN):
+    logging.debug(str(FILENAME))
     with netCDF4.Dataset(FILENAME,'r') as fileID:
         landsea = np.squeeze(fileID.variables[MASKNAME][:].copy())
     return np.nonzero(landsea == OCEAN)
@@ -502,8 +506,7 @@ def arguments():
         help='Reanalysis Model')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # years to run
     now = datetime.datetime.now()

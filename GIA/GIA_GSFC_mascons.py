@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 GIA_GSFC_mascons.py
-Written by Tyler Sutterley (02/2023)
+Written by Tyler Sutterley (05/2023)
 Calculates GIA equivalent water height corrections for GSFC mascons at the
     central points of each mascon
 
@@ -62,6 +62,7 @@ REFERENCES:
         Bollettino di Geodesia e Scienze (1982)
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -85,6 +86,7 @@ import re
 import time
 import h5py
 import logging
+import pathlib
 import argparse
 import traceback
 import numpy as np
@@ -92,7 +94,7 @@ import gravity_toolkit as gravtk
 
 # PURPOSE: keep track of threads
 def info(args):
-    logging.info(os.path.basename(sys.argv[0]))
+    logging.info(pathlib.Path(sys.argv[0]).name)
     logging.info(args)
     logging.info(f'module name: {__name__}')
     if hasattr(os, 'getppid'):
@@ -103,15 +105,15 @@ def info(args):
 def GIA_GSFC_mascons(grace_file, GIA=None, GIA_FILE=None, LMAX=0,
     LOVE_NUMBERS=None, REFERENCE=None, MODE=None):
 
-    # set the GRACE directory
-    grace_dir = os.path.dirname(grace_file)
+    # verify path to input GRACE/GRACE-FO file
+    grace_file = pathlib.Path(grace_file).expanduser().absolute()
     # extract mascon release and version from filename
     rx = re.compile(r'(GSFC\.glb|gsfc.glb_)\.(\d{4})(\d{2})\_'
         r'(\d{4})(\d{2})\_(.*?)(\_.*?)?.h5',re.VERBOSE)
-    PROC,SY,SM,EY,EM,VERSION,AUX = rx.findall(grace_file).pop()
+    PROC,SY,SM,EY,EM,VERSION,AUX = rx.findall(grace_file.name).pop()
     # read the HDF5 file
     output_data = {}
-    logging.info(f'{grace_file} -->')
+    logging.info(f'{str(grace_file)} -->')
     with h5py.File(grace_file,'r') as fileID:
         for key in ['lat_center','lon_center','lat_span','lon_span']:
             output_data[key] = fileID['mascon'][key][:].flatten()
@@ -130,11 +132,12 @@ def GIA_GSFC_mascons(grace_file, GIA=None, GIA_FILE=None, LMAX=0,
 
     # output to file
     FILE = f'GIA_{GIA_Ylms["title"]}_L{LMAX:d}_GSFC_mascons.h5'
-    logging.info('\t{0}'.format(os.path.join(grace_dir, FILE)))
+    output_file = grace_file.with_name(FILE)
+    logging.info(f'\t{str(output_file)}')
     HDF5_GSFC_mascons(output_data, GIA_Ylms, VERSION=VERSION,
-        FILENAME=os.path.join(grace_dir, FILE), CLOBBER=True)
+        FILENAME=output_file, CLOBBER=True)
     # change the permissions mode
-    os.chmod(os.path.join(grace_dir, FILE), MODE)
+    output_file.chmod(mode=MODE)
 
 # PURPOSE: outputting the interpolated data to HDF5
 def HDF5_GSFC_mascons(output_data, GIA,
@@ -147,7 +150,8 @@ def HDF5_GSFC_mascons(output_data, GIA,
         clobber = 'w-'
 
     # open output HDF5 file
-    fileID = h5py.File(os.path.expanduser(FILENAME), clobber)
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+    fileID = h5py.File(FILENAME, clobber)
     # create sub-groups within HDF5 file
     fileID.create_group('mascon')
     fileID.create_group('correction')
@@ -228,7 +232,7 @@ def arguments():
     parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('infile',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='+',
+        type=pathlib.Path, nargs='+',
         help='GSFC GRACE mascon file to run')
     # GIA model type list
     models = {}
@@ -250,7 +254,7 @@ def arguments():
         help='GIA model type to read')
     # full path to GIA file
     parser.add_argument('--gia-file',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='GIA file to read')
     # degree of truncation
     parser.add_argument('--lmax','-l',

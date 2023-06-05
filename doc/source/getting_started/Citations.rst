@@ -26,7 +26,7 @@ If you have used ``model-harmonics`` in your work, please consider citing our li
 
     T. C. Sutterley, et al., "model-harmonics: Python tools for working with
     spherical harmonic coefficients from atmospheric, oceanic and land surface models",
-    (2020). `doi: 10.5281/zenodo.7502727 <https://doi.org/10.5281/zenodo.7502727>`_
+    (2020). `doi: 10.5281/zenodo.5156964 <https://doi.org/10.5281/zenodo.5156964>`_
 
 Contributors
 ############

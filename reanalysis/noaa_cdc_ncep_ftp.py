@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 noaa_cdc_ncep_ftp.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (05/2023)
 
 Syncs NOAA-DOE-2 surface reanalysis outputs with the NOAA CDC ftp server
     ftp://ftp.cdc.noaa.gov/Datasets/ncep.reanalysis2.dailyavgs/surface/
@@ -35,6 +35,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -51,6 +52,7 @@ import os
 import re
 import time
 import logging
+import pathlib
 import argparse
 import posixpath
 import gravity_toolkit as gravtk
@@ -60,16 +62,19 @@ def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
     TIMEOUT=None, LOG=False, MODE=None):
 
     # directory setup
-    DIRECTORY = os.path.join(base_dir,'NCEP-DOE-2')
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
+    DIRECTORY = base_dir.joinpath('NCEP-DOE-2')
     # check if log directory exists and recursively create if not
-    os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
+    DIRECTORY.mkdir(mode=MODE, parents=True, exist_ok=True)
+
     # create log file with list of synchronized files (or print to terminal)
     if LOG:
         # output to log file
         # format: NOAA_CDC_NCEP-DOE-2_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = f'NOAA_CDC_NCEP-DOE-2_sync_{today}.log'
-        fid1 = open(os.path.join(DIRECTORY,LOGFILE), mode='w', encoding='utf8')
+        output_logfile = f'NOAA_CDC_NCEP-DOE-2_sync_{today}.log'
+        LOGFILE = DIRECTORY.joinpath(output_logfile)
+        fid1 = LOGFILE.open(mode='w', encoding='utf8')
         logging.basicConfig(stream=fid1, level=logging.INFO)
         logging.info(f'NOAA CDC Sync Log ({today})')
         logging.info('PRODUCT: NCEP-DOE-2')
@@ -89,7 +94,7 @@ def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
         timeout=TIMEOUT, basename=True, pattern=R1, sort=True)
     for fi,mtime in zip(remote_files,remote_mtimes):
         # extract filename from regex object
-        local_file = os.path.join(DIRECTORY,fi)
+        local_file = DIRECTORY.joinpath(fi)
         MD5 = gravtk.utilities.get_hash(local_file)
         gravtk.utilities.from_ftp(posixpath.join(*HOST,fi),
             local=local_file, timeout=TIMEOUT, hash=MD5,
@@ -98,7 +103,7 @@ def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
     # get mask file
     if MASK:
         # extract filename from regex object
-        local_file = os.path.join(DIRECTORY,'land.nc')
+        local_file = DIRECTORY.joinpath('land.nc')
         MD5 = gravtk.utilities.get_hash(local_file)
         gravtk.utilities.from_ftp(posixpath.join(*HOST,'land.nc'),
             local=local_file, timeout=TIMEOUT, hash=MD5,
@@ -107,7 +112,7 @@ def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
     # get invariant file
     if INVARIANT:
         # extract filename from regex object
-        local_file = os.path.join(DIRECTORY,'hgt.sfc.nc')
+        local_file = DIRECTORY.joinpath('hgt.sfc.nc')
         MD5 = gravtk.utilities.get_hash(local_file)
         gravtk.utilities.from_ftp(posixpath.join(*HOST,'hgt.sfc.nc'),
             local=local_file, timeout=TIMEOUT, hash=MD5,
@@ -116,7 +121,7 @@ def noaa_cdc_ncep_ftp(base_dir, YEAR=None, MASK=False, INVARIANT=False,
     # close log file and set permissions level to MODE
     if LOG:
         fid1.close()
-        os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
+        LOGFILE.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -128,8 +133,7 @@ def arguments():
     # command line parameters
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # years to retrieve
     now = time.gmtime()

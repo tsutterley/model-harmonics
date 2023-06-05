@@ -74,13 +74,13 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import copy
 import gzip
 import uuid
 import logging
 import netCDF4
+import pathlib
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
@@ -104,13 +104,13 @@ def racmo_smb_harmonics(model_file, VARIABLE,
     # ellipsoidal flattening
     flat = ellipsoid_params.flat
 
-    # RACMO SMB directory
-    DIRECTORY = os.path.dirname(model_file)
+    # RACMO SMB model file
+    model_file = pathlib.Path(model_file).expanduser().absolute()
     # try to extract region and version from filename
     R1 = re.compile(r'[XF]?(ANT27|GRN11|GRN055|PEN055|ASE055)',re.VERBOSE)
     R2 = re.compile(r'(RACMO\d+(\.\d+)?(p\d+)?)',re.VERBOSE)
-    REGION = R1.search(os.path.basename(model_file)).group(0)
-    VERSION = R2.search(os.path.basename(model_file)).group(0)
+    REGION = R1.search(model_file.name).group(0)
+    VERSION = R2.search(model_file.name).group(0)
     # RACMO products
     racmo_products = {}
     racmo_products['precip'] = 'Precipitation'
@@ -126,14 +126,14 @@ def racmo_smb_harmonics(model_file, VARIABLE,
     # Open the RACMO SMB NetCDF file for reading
     if GZIP:
         # read as in-memory (diskless) netCDF4 dataset
-        with gzip.open(os.path.expanduser(model_file),'r') as f:
+        with gzip.open(str(model_file), mode='r') as f:
             fileID = netCDF4.Dataset(uuid.uuid4().hex, memory=f.read())
     else:
         # read netCDF4 dataset
-        fileID = netCDF4.Dataset(os.path.expanduser(model_file), 'r')
+        fileID = netCDF4.Dataset(model_file, mode='r')
 
     # Output NetCDF file information
-    logging.info(os.path.expanduser(model_file))
+    logging.info(str(model_file))
     logging.info(list(fileID.variables.keys()))
 
     # Get data from each netCDF variable and remove singleton dimensions
@@ -245,16 +245,17 @@ def racmo_smb_harmonics(model_file, VARIABLE,
     # add attributes for maximum degree and order
     attributes['max_degree'] = LMAX
     attributes['max_order'] = MMAX
-    attributes['lineage'] = os.path.basename(model_file)
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['lineage'] = model_file.name
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # add attributes to output harmonics
     Ylms.attributes['ROOT'] = attributes
     # output spherical harmonic data file
     args = (VERSION,REGION,VARIABLE.upper(),LMAX,order_str,suffix[DATAFORM])
     FILE = '{0}_{1}_{2}_CLM_L{3:d}{4}.{5}'.format(*args)
-    Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM, date=True)
+    output_file = model_file.with_name(FILE)
+    Ylms.to_file(output_file, format=DATAFORM, date=True)
     # change the permissions mode of the output file to MODE
-    os.chmod(os.path.join(DIRECTORY,FILE),MODE)
+    output_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -267,7 +268,7 @@ def arguments():
     parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('infile',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='RACMO SMB file to run')
     # products from SMB model
     choices = ['precip','rainfall','refreeze','runoff','smb',
@@ -277,7 +278,7 @@ def arguments():
         help='RACMO SMB product to calculate')
     # mask file for reducing to regions
     parser.add_argument('--mask',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         nargs='+', default=[],
         help='netCDF4 masks file for reducing to regions')
     # maximum spherical harmonic degree and order

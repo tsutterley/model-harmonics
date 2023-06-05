@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_depth_version4.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (05/2023)
 
 Interpolates GEBCO bathymetry to ECCO Version 4 interpolated model grids
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
@@ -28,6 +28,7 @@ PYTHON DEPENDENCIES:
         https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -40,19 +41,23 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
+import pathlib
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
 
 # PURPOSE: interpolate GEBCO bathymetry to ECCO V4 ocean model grids
 def ecco_depth_version4(ddir, model_file, VERSION='2014', MODE=0o775):
+    # verify input data directory
+    ddir = pathlib.Path(ddir).expanduser().absolute()
+    if not ddir.exists():
+        raise FileNotFoundError('ECCO directory not found in file system')
     # input bathymetry model parameters
     if (VERSION == '2014'):
-        FILE = os.path.join(ddir,'GEBCO_2014_2D.zip')
+        FILE = ddir.joinpath('GEBCO_2014_2D.zip')
     elif (VERSION == '2020'):
-        FILE = os.path.join(ddir,'gebco_2020_netcdf.zip')
+        FILE = ddir.joinpath('gebco_2020_netcdf.zip')
     # read zipped file and extract file into in-memory file object
     bathymetry = gravtk.spatial().from_netCDF4(FILE,
         date=False, varname='elevation', compression='zip')
@@ -60,9 +65,13 @@ def ecco_depth_version4(ddir, model_file, VERSION='2014', MODE=0o775):
     bathymetry.lon = extend_array(bathymetry.lon,1)
     bathymetry.update_mask()
 
+    # verify that the ECCO model file exists
+    model_file = pathlib.Path(model_file).expanduser()
+    if not model_file.exists():
+        raise FileNotFoundError(f'{str(model_file)} not found in file system')
     # input ECCO model parameters
-    rx = re.compile(r'PHIBOT([\.\_])(\d+)(_\d+)?.nc$',re.VERBOSE)
-    if rx.search(model_file).group(3):
+    rx = re.compile(r'PHIBOT([\.\_])(\d+)(_\d+)?.nc$', re.VERBOSE)
+    if rx.search(model_file.name).group(3):
         VARNAME,LONNAME,LATNAME,TIMENAME = ('PHIBOT','i','j','time')
     else:
         VARNAME,LONNAME,LATNAME,TIMENAME = ('PHIBOT','i3','i2','tim')
@@ -85,10 +94,10 @@ def ecco_depth_version4(ddir, model_file, VERSION='2014', MODE=0o775):
     # create output data
     interp = gravtk.spatial(fill_value=fill_value)
     # calculate dimension variables
-    interp.lon = np.arange(extent[0],extent[1]+dlon,dlon)
-    interp.lat = np.arange(extent[2],extent[3]+dlat,dlat)
-    interp.data = np.zeros((nlat,nlon))
-    interp.mask = np.ones((nlat,nlon),dtype=bool)
+    interp.lon = np.arange(extent[0], extent[1]+dlon, dlon)
+    interp.lat = np.arange(extent[2], extent[3]+dlat, dlat)
+    interp.data = np.zeros((nlat, nlon))
+    interp.mask = np.ones((nlat, nlon),dtype=bool)
     # iterate over indices to find valid points
     for i,j in zip(ii,jj):
         # find bathymetry points
@@ -113,13 +122,12 @@ def ecco_depth_version4(ddir, model_file, VERSION='2014', MODE=0o775):
         '(UNESCO) Intergovernmental Oceanographic Commission (IOC)')
     attributes['source'] = ('https://www.gebco.net/data_and_products/'
         'gridded_bathymetry_data/')
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # output netCDF4 dataset
-    bathymetry_file = f'DEPTH.{VERSION}.720x360.nc'
-    interp.to_netCDF4(os.path.join(ddir,bathymetry_file),
-        date=False, **attributes)
+    bathymetry_file = ddir.joinpath(f'DEPTH.{VERSION}.720x360.nc')
+    interp.to_netCDF4(bathymetry_file, date=False, **attributes)
     # change the permissions mode to MODE
-    os.chmod(os.path.join(ddir,bathymetry_file),MODE)
+    bathymetry_file.chmod(mode=MODE)
 
 # wrapper function to extend a matrix
 def extend_matrix(input_matrix,count):
@@ -149,12 +157,11 @@ def arguments():
     )
     # command line parameters
     parser.add_argument('file',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='ECCO Version 4 Model File')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # GEBCO bathymetry version year
     parser.add_argument('--version','-v',

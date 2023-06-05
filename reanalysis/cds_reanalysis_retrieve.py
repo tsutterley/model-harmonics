@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 u"""
-cds_reanalysis_retrieve.py (11/2022)
+cds_reanalysis_retrieve.py (05/2023)
 Retrieves ERA5 reanalysis netCDF4 datasets from the CDS Web API
 https://cds.climate.copernicus.eu/user/register
 https://cds.climate.copernicus.eu/cdsapp/#!/terms/licence-to-use-copernicus-products
@@ -35,6 +35,7 @@ PYTHON DEPENDENCIES:
         https://pypi.org/project/cdsapi/
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 10/2021: added option to retrieve specific surface variables
@@ -56,6 +57,7 @@ from __future__ import print_function
 import os
 import time
 import cdsapi
+import pathlib
 import argparse
 
 # PURPOSE: retrieve ERA5 level data for a set of years from CDS server
@@ -64,6 +66,10 @@ def cds_reanalysis_retrieve(base_dir, server, YEAR,
     LEVEL=False,
     INVARIANT=True,
     MODE=0o775):
+
+    # verify input data directory
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
+
     # parameters for ERA5 dataset
     MODEL = 'ERA5'
     model_class = "ea"
@@ -87,11 +93,10 @@ def cds_reanalysis_retrieve(base_dir, server, YEAR,
         ]
     # model levels
     model_levelist = "/".join([f'{l:d}' for l in range(1,137+1)])
-    # output filename structure
-    output_filename = "{0}-Monthly-{1}-{2:4d}.nc"
+
     # setup output directory and recursively create if currently non-existent
-    ddir = os.path.join(base_dir,MODEL)
-    os.makedirs(ddir, MODE) if not os.access(ddir, os.F_OK) else None
+    ddir = base_dir.joinpath(MODEL)
+    ddir.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # for each year
     for y in YEAR:
@@ -102,7 +107,7 @@ def cds_reanalysis_retrieve(base_dir, server, YEAR,
 
         # for each surface variable to retrieve
         for surf in SURFACE:
-            output_surface_file = output_filename.format(MODEL,surf,y)
+            output_file = ddir.joinpath(f"{MODEL}-Monthly-{surf}-{y:4d}.nc")
             server.retrieve('reanalysis-era5-single-levels-monthly-means', {
                 "year": str(y),
                 'month': months,
@@ -111,14 +116,14 @@ def cds_reanalysis_retrieve(base_dir, server, YEAR,
                 'variable': surface_variable_dict[surf],
                 "format" : "netcdf",
                 'product_type': 'monthly_averaged_reanalysis',
-            }, os.path.join(ddir,output_surface_file))
+            }, str(output_file))
             # change the permissions mode to MODE
-            os.chmod(os.path.join(ddir,output_surface_file), MODE)
+            output_file.chmod(mode=MODE)
 
         # if retrieving the model level data
         if LEVEL:
             # retrieve model temperature and specific humidity
-            output_level_file = output_filename.format(MODEL,"Levels",y)
+            output_file = ddir.joinpath(f"{MODEL}-Monthly-Levels-{y:4d}.nc")
             server.retrieve("reanalysis-era5-complete", {
                 "class": model_class,
                 "dataset": model_dataset,
@@ -131,13 +136,13 @@ def cds_reanalysis_retrieve(base_dir, server, YEAR,
                 "stream": "moda",
                 "type": "an",
                 "format" : "netcdf",
-            }, os.path.join(ddir,output_level_file))
+            }, str(output_file))
             # change the permissions mode to MODE
-            os.chmod(os.path.join(ddir,output_level_file), MODE)
+            output_file.chmod(mode=MODE)
 
     # if retrieving the model invariant parameters
     if INVARIANT:
-        output_invariant_file = f'{MODEL}-Invariant-Parameters.nc'
+        output_file = ddir.joinpath(f'{MODEL}-Invariant-Parameters.nc')
         server.retrieve('reanalysis-era5-single-levels-monthly-means', {
             "class": model_class,
             "dataset": model_dataset,
@@ -157,9 +162,9 @@ def cds_reanalysis_retrieve(base_dir, server, YEAR,
             ],
             'product_type': 'monthly_averaged_reanalysis',
             "format" : "netcdf",
-        }, os.path.join(ddir,output_invariant_file))
+        }, str(output_file))
         # change the permissions mode to MODE
-        os.chmod(os.path.join(ddir,output_invariant_file), MODE)
+        output_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -178,8 +183,7 @@ def arguments():
         help='CDS api key')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # years to retrieve
     now = time.gmtime()

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_merra_subset.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (05/2023)
 
 Subsets monthly MERRA-2 products for specific variables from the
     Goddard Earth Sciences Data and Information Server Center (GES DISC)
@@ -52,6 +52,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: added option for defining the GESDISC API hostname
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -67,6 +68,7 @@ import netrc
 import shutil
 import getpass
 import logging
+import pathlib
 import argparse
 import builtins
 import gravity_toolkit as gravtk
@@ -78,19 +80,20 @@ def gesdisc_merra_subset(base_dir, SHORTNAME, HOST=None, VERSION=None,
     CLOBBER=False, MODE=None):
     # set up data directory
     if FLATTEN:
-        DIRECTORY = os.path.expanduser(base_dir)
+        DIRECTORY = pathlib.Path(base_dir).expanduser().absolute()
     else:
-        DIRECTORY = os.path.join(base_dir, f'{SHORTNAME}.{VERSION}')
+        base_dir = pathlib.Path(base_dir).expanduser().absolute()
+        DIRECTORY = base_dir.joinpath(f'{SHORTNAME}.{VERSION}')
     # check if DIRECTORY exists and recursively create if not
-    if not os.access(os.path.join(DIRECTORY), os.F_OK):
-        os.makedirs(os.path.join(DIRECTORY), mode=MODE, exist_ok=True)
+    DIRECTORY.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # create log file with list of synchronized files (or print to terminal)
     if LOG:
         # format: NASA_GESDISC_MERRA2_subset_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = f'NASA_GESDISC_MERRA2_subset_{today}.log'
-        fid = open(os.path.join(DIRECTORY,LOGFILE), mode='w', encoding='utf8')
+        output_logfile = f'NASA_GESDISC_MERRA2_subset_{today}.log'
+        LOGFILE = DIRECTORY.joinpath(output_logfile)
+        fid = LOGFILE.open(mode='w', encoding='utf8')
         logging.basicConfig(stream=fid, level=logging.INFO)
         logging.info(f'NASA MERRA-2 Sync Log ({today})')
         logging.info(f'PRODUCT: {SHORTNAME}.{VERSION}')
@@ -120,9 +123,8 @@ def gesdisc_merra_subset(base_dir, SHORTNAME, HOST=None, VERSION=None,
             # for each granule
             for id,url,mtime in zip(ids,urls,mtimes):
                 # build filename for output
-                fileBasename,_ = os.path.splitext(id)
-                FILE = f'{fileBasename}.SUB.nc'
-                local_file = os.path.join(DIRECTORY, FILE)
+                FILE = f'{pathlib.PosixPath(id).name}.SUB.nc'
+                local_file = DIRECTORY.joinpath(FILE)
                 # get subsetting API url for granule
                 request_url = mdlhmc.utilities.build_request(
                     SHORTNAME, VERSION, url, host=HOST,
@@ -135,7 +137,7 @@ def gesdisc_merra_subset(base_dir, SHORTNAME, HOST=None, VERSION=None,
     # close log file and set permissions level to MODE
     if LOG:
         fid.close()
-        os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
+        LOGFILE.chmod(mode=MODE)
 
 # PURPOSE: pull file from a remote host checking if file exists locally
 # and if the remote file is newer than the local file
@@ -145,9 +147,9 @@ def http_pull_file(remote_file, remote_mtime, local_file,
     TEST = False
     OVERWRITE = ' (clobber)'
     # check if local version of file exists
-    if os.access(local_file, os.F_OK):
+    if local_file.exists():
         # check last modification time of local file
-        local_mtime = os.stat(local_file).st_mtime
+        local_mtime = local_file.stat().st_mtime
         # if remote file is newer: overwrite the local file
         if (mdlhmc.utilities.even(remote_mtime) >
             mdlhmc.utilities.even(local_mtime)):
@@ -160,7 +162,7 @@ def http_pull_file(remote_file, remote_mtime, local_file,
     if TEST or CLOBBER:
         # Printing files transferred
         logging.info(f'{remote_file} -->')
-        logging.info(f'\t{local_file}{OVERWRITE}\n')
+        logging.info(f'\t{str(local_file)}{OVERWRITE}\n')
         # Create and submit request. There are a wide range of exceptions
         # that can be thrown here, including HTTPError and URLError.
         request = mdlhmc.utilities.urllib2.Request(remote_file)
@@ -170,11 +172,11 @@ def http_pull_file(remote_file, remote_mtime, local_file,
         CHUNK = 16 * 1024
         # copy contents to local file using chunked transfer encoding
         # transfer should work properly with ascii and binary data formats
-        with open(local_file, 'wb') as f:
+        with local_file.open(mode='wb') as f:
             shutil.copyfileobj(response, f, CHUNK)
         # keep remote modification time of file and local access time
-        os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
-        os.chmod(local_file, MODE)
+        os.utime(local_file, (local_file.stat().st_atime, remote_mtime))
+        local_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -193,13 +195,11 @@ def arguments():
         type=str, default=os.environ.get('EARTHDATA_PASSWORD'),
         help='Password for NASA Earthdata Login')
     parser.add_argument('--netrc','-N',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.path.join(os.path.expanduser('~'),'.netrc'),
+        type=pathlib.Path, default=pathlib.Path.home().joinpath('.netrc'),
         help='Path to .netrc file for authentication')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # GESDISC subsetting host
     HOST = 'https://goldsmr4.gesdisc.eosdis.nasa.gov/'

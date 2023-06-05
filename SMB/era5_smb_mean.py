@@ -44,9 +44,9 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import logging
 import netCDF4
+import pathlib
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
@@ -56,7 +56,9 @@ def read_era5_variables(era5_flux_file):
     # python dictionary of output variables
     dinput = {}
     # read each variable of interest in ERA5 flux file
-    with netCDF4.Dataset(era5_flux_file, 'r') as fileID:
+    era5_flux_file = pathlib.Path(era5_flux_file).expanduser().absolute()
+    logging.debug(str(era5_flux_file))
+    with netCDF4.Dataset(era5_flux_file, mode='r') as fileID:
         # extract geolocation variables
         dinput['latitude'] = fileID.variables['latitude'][:].copy()
         dinput['longitude'] = fileID.variables['longitude'][:].copy()
@@ -109,6 +111,9 @@ def era5_smb_mean(DIRECTORY,
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[VERBOSE])
 
+    # directory setup
+    DIRECTORY = pathlib.Path(DIRECTORY).expanduser().absolute()
+
     # sign for each product to calculate total SMB
     smb_sign = {'tp':1.0,'e':-1.0}
     # output data file format and title
@@ -125,7 +130,7 @@ def era5_smb_mean(DIRECTORY,
     attributes['longname'] = 'Equivalent_Water_Thickness'
     attributes['title'] = 'ERA5 Precipitation minus Evaporation'
     attributes['source'] = ', '.join(['tp','e'])
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # mean balance flZux
     era5_mean = gravtk.spatial(nlat=nlat,nlon=nlon,
@@ -136,13 +141,13 @@ def era5_smb_mean(DIRECTORY,
     era5_mean.time = 0.0
     count = 0.0
     # for each input file
-    for Y in range(int(RANGE[0]),int(RANGE[-1])+1):
+    for Y in range(int(RANGE[0]), int(RANGE[-1])+1):
         # full path for flux file
-        f1 = f'ERA5-Monthly-P-E-{Y:4d}.nc'
-        era5_flux_file = os.path.join(DIRECTORY,f1)
-        logging.info(era5_flux_file)
-        if not os.access(era5_flux_file,os.F_OK):
-            raise FileNotFoundError(f'File {f1} not in file system')
+        era5_flux_file = DIRECTORY.joinpath(f'ERA5-Monthly-P-E-{Y:4d}.nc')
+        logging.debug(str(era5_flux_file))
+        if not era5_flux_file.exists():
+            msg = f'File {str(era5_flux_file)} not in file system'
+            raise FileNotFoundError(msg)
         # read netCDF4 files for variables of interest
         var = read_era5_variables(era5_flux_file)
         # days per month in year
@@ -191,20 +196,18 @@ def era5_smb_mean(DIRECTORY,
     # output ERA5 mean data file
     args = (RANGE[0], RANGE[1], suffix[DATAFORM])
     FILE = 'ERA5-Mean-P-E-{0:4d}-{1:4d}.{2}'.format(*args)
+    output_file = DIRECTORY.joinpath(FILE)
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
-        era5_mean.to_ascii(os.path.join(DIRECTORY,FILE),
-            verbose=VERBOSE)
+        era5_mean.to_ascii(output_file, verbose=VERBOSE)
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
-        era5_mean.to_netCDF4(os.path.join(DIRECTORY,FILE),
-            verbose=VERBOSE, **attributes)
+        era5_mean.to_netCDF4(output_file, verbose=VERBOSE, **attributes)
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
-        era5_mean.to_HDF5(os.path.join(DIRECTORY,FILE),
-            verbose=VERBOSE, **attributes)
+        era5_mean.to_HDF5(output_file, verbose=VERBOSE, **attributes)
     # change the permissions mode
-    os.chmod(os.path.join(DIRECTORY,FILE), MODE)
+    output_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -217,8 +220,7 @@ def arguments():
     # command line parameters
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # start and end years to run for mean
     parser.add_argument('--mean','-m',

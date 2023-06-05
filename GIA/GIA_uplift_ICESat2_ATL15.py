@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 GIA_uplift_ICESat2_ATL15.py
-Written by Tyler Sutterley (02/2023)
+Written by Tyler Sutterley (05/2023)
 Calculates GIA-induced crustal uplift over polar stereographic grids for
     correcting ICESat-2 ATL15 gridded land ice height change data
 Calculated directly from GIA spherical harmonics
@@ -67,6 +67,7 @@ REFERENCE:
         Bollettino di Geodesia e Scienze (1982)
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 02/2023: added iterate option to reduce memory load for 1km files
         add debug logging for ATL15 netCDF4 variables
         use love numbers class with additional attributes
@@ -92,6 +93,7 @@ import re
 import time
 import pyproj
 import logging
+import pathlib
 import netCDF4
 import argparse
 import traceback
@@ -100,7 +102,7 @@ import gravity_toolkit as gravtk
 
 # PURPOSE: keep track of threads
 def info(args):
-    logging.info(os.path.basename(sys.argv[0]))
+    logging.info(pathlib.Path(sys.argv[0]).name)
     logging.info(args)
     logging.info(f'module name: {__name__}')
     if hasattr(os, 'getppid'):
@@ -112,11 +114,12 @@ def read_ATL15(infile, group='delta_h'):
     # dictionary with ATL15 variables
     ATL15 = {}
     attributes = {}
-    with netCDF4.Dataset(os.path.expanduser(infile),'r') as fileID:
+    infile = pathlib.Path(infile).expanduser().absolute()
+    with netCDF4.Dataset(infile, mode='r') as fileID:
         # check if reading from root group or sub-group
         ncf = fileID.groups[group] if group else fileID
         # netCDF4 structure information
-        logging.debug(os.path.expanduser(infile))
+        logging.debug(str(infile))
         logging.debug(list(ncf.variables.keys()))
         for key,val in ncf.variables.items():
             ATL15[key] = val[:].copy()
@@ -222,12 +225,12 @@ def calculate_GIA_uplift(input_file, LMAX,
         `doi: 10.1016/j.cageo.2012.06.022 <https://doi.org/10.1016/j.cageo.2012.06.022>`_
 
     """
+    # verify path to input ATL15 file
+    input_file = pathlib.Path(input_file).expanduser().absolute()
     # parse ATL15 file
     pattern = r'(ATL\d{2})_(.*?)_(\d{2})(\d{2})_(.*?)_(\d{3})_(\d{2}).nc$'
     rx = re.compile(pattern, re.VERBOSE)
-    PRD, RGN, SCYC, ECYC, RES, RL, VERS = rx.findall(input_file).pop()
-    # directory with ATL15 data
-    DIRECTORY = os.path.dirname(input_file)
+    PRD, RGN, SCYC, ECYC, RES, RL, VERS = rx.findall(input_file.name).pop()
     # read ATL15 data for group
     ATL15, attrib = read_ATL15(input_file, group='delta_h')
     nt, ny, nx = ATL15['delta_h'].shape
@@ -319,7 +322,8 @@ def calculate_GIA_uplift(input_file, LMAX,
 
     # output file
     FILE = f'{PRD}_{RGN}_{RES}_GIA_{GIA_Ylms_rate.title}_L{LMAX:d}.nc'
-    fileID = netCDF4.Dataset(os.path.join(DIRECTORY, FILE),'w')
+    output_file = input_file.with_name(FILE)
+    fileID = netCDF4.Dataset(output_file, mode='w')
 
     # dictionary with netCDF4 variables
     nc = {}
@@ -389,12 +393,12 @@ def calculate_GIA_uplift(input_file, LMAX,
     fileID.setncattr('geospatial_lat_units', "degrees_north")
     fileID.setncattr('geospatial_lon_units', "degrees_east")
     # Output NetCDF structure information
-    logging.info(os.path.join(DIRECTORY, FILE))
+    logging.info(str(output_file))
     logging.info(list(fileID.variables.keys()))
     # Closing the netCDF4 file
     fileID.close()
     # change the permissions mode
-    os.chmod(os.path.join(DIRECTORY, FILE), MODE)
+    output_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -409,7 +413,7 @@ def arguments():
         gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('infile',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='ICESat-2 ATL15 file to run')
     # maximum spherical harmonic degree and order
     parser.add_argument('--lmax','-l',
@@ -448,7 +452,7 @@ def arguments():
         help='GIA model type to read')
     # full path to GIA file
     parser.add_argument('--gia-file',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='GIA file to read')
     # iterate over mask to solve for large matrices
     parser.add_argument('--iterate','-I',

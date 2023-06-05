@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 harmonic_operators.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (05/2023)
 Performs basic operations on spherical harmonic files
 
 CALLING SEQUENCE:
@@ -48,6 +48,7 @@ PROGRAM DEPENDENCIES:
         and filters the GRACE/GRACE-FO coefficients for striping errors
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
         updated GIA reader to be an inheritance of harmonics
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -63,8 +64,8 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import logging
+import pathlib
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
@@ -79,9 +80,7 @@ def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
     if len(DATAFORM) < (n_files+1):
         DATAFORM = DATAFORM*(n_files+1)
     # verify that output directory exists
-    DIRECTORY = os.path.abspath(os.path.dirname(OUTPUT_FILE))
-    if not os.access(DIRECTORY, os.F_OK):
-        os.makedirs(DIRECTORY, mode=MODE, exist_ok=True)
+    OUTPUT_FILE.parent.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # list of available GIA Models
     GIA = ['IJ05-R2', 'W12a', 'SM09', 'Wu10',
@@ -90,6 +89,7 @@ def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
     dinput = [None]*n_files
     for i,fi in enumerate(INPUT_FILES):
         # read spherical harmonics file in data format
+        fi = pathlib.Path(fi).expanduser().absolute()
         if DATAFORM[i] in ('ascii', 'netCDF4', 'HDF5'):
             # ascii (.txt)
             # netCDF4 (.nc)
@@ -171,13 +171,13 @@ def harmonic_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, LMAX=None,
 
     # attributes for output files
     attributes = {}
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # write spherical harmonic file in data format
     output.to_file(OUTPUT_FILE, format=DATAFORM[-1],
         date=DATE, **attributes)
     # change the permissions mode of the output file
-    os.chmod(OUTPUT_FILE, MODE)
+    OUTPUT_FILE.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -188,10 +188,10 @@ def arguments():
     # command line options
     # input and output file
     parser.add_argument('infiles',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='+',
+        type=pathlib.Path, nargs='+',
         help='Input files')
     parser.add_argument('outfile',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs=1,
+        type=pathlib.Path, nargs=1,
         help='Output file')
     # operation to run
     choices = ['add','subtract','multiply','divide','mean',

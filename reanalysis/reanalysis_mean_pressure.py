@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_mean_pressure.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (05/2023)
 Calculates the mean surface pressure fields from reanalysis
 
 INPUTS:
@@ -47,6 +47,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -68,11 +69,11 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import copy
 import logging
 import netCDF4
+import pathlib
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
@@ -86,7 +87,9 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
     logging.basicConfig(level=loglevels[VERBOSE])
 
     # directory setup
-    ddir = os.path.join(base_dir,MODEL)
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
+    ddir = base_dir.joinpath(MODEL)
+
     # set model specific parameters
     if (MODEL == 'ERA-Interim'):
         # invariant parameters file
@@ -162,13 +165,13 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
         TIMENAME = 'time'
 
     # read model orography for dimensions
-    geopotential,lon,lat=ncdf_invariant(os.path.join(ddir,input_invariant_file),
-        LONNAME,LATNAME,ZNAME)
-    nlat,nlon = np.shape(geopotential)
+    geopotential,lon,lat = ncdf_invariant(ddir.joinpath(input_invariant_file),
+        LONNAME, LATNAME, ZNAME)
+    nlat, nlon = np.shape(geopotential)
     # read each reanalysis pressure field and calculate mean
     regex_years = r'|'.join([rf'{Y:4d}' for Y in range(RANGE[0],RANGE[1]+1)])
     rx = re.compile(regex_pattern.format(regex_years))
-    input_files = [fi for fi in os.listdir(ddir) if rx.match(fi)]
+    input_files = sorted([f for f in ddir.iterdir() if rx.match(f.name)])
     # output mean pressure field
     p_mean = gravtk.spatial()
     p_mean.lon = np.copy(lon)
@@ -178,9 +181,10 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
     p_mean.mask = np.zeros((nlat,nlon),dtype=bool)
     count = 0
     # for each reanalysis file
-    for fi in input_files:
+    for i,input_file in enumerate(input_files):
         # read input data
-        with netCDF4.Dataset(os.path.join(ddir,fi),'r') as fileID:
+        logging.debug(str(input_file))
+        with netCDF4.Dataset(input_file, mode='r') as fileID:
             # check dimensions for expver slice
             if (fileID.variables[VARNAME].ndim == 4):
                 pressure = ncdf_expver(fileID, VARNAME)
@@ -195,7 +199,7 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
             MJD = gravtk.time.convert_delta_time(delta_time*to_secs,
                 epoch1=epoch, epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0)
         # iterate over Julian days
-        for t,JD in enumerate(MJD+2400000.5):
+        for t,JD in enumerate(MJD + 2400000.5):
             # add to mean pressure
             p_mean.data += pressure[t,:,:]
             p_mean.mask |= (pressure[t,:,:] == p_mean.fill_value)
@@ -222,14 +226,14 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
     attributes['units'] = 'Pa'
     attributes['longname'] = 'surface_pressure'
     attributes['title'] = f'Surface_Pressure_from_{MODEL}_Model'
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # output to file
-    FILE = output_file_format.format(RANGE[0], RANGE[1])
+    output_file = ddir.joinpath(output_file_format.format(RANGE[0], RANGE[1]))
     # netcdf (.nc)
-    p_mean.to_netCDF4(os.path.join(ddir,FILE), verbose=VERBOSE, **attributes)
+    p_mean.to_netCDF4(output_file, verbose=VERBOSE, **attributes)
     # change the permissions mode of the output file to MODE
-    os.chmod(os.path.join(ddir,FILE),MODE)
+    output_file.chmod(mode=MODE)
 
 # PURPOSE: extract pressure variable from a 4d netCDF4 dataset
 # ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
@@ -251,12 +255,13 @@ def ncdf_expver(fileID, VARNAME):
     return pressure
 
 # PURPOSE: read reanalysis invariant parameters (geopotential,lat,lon)
-def ncdf_invariant(FILENAME,LONNAME,LATNAME,ZNAME):
-    with netCDF4.Dataset(FILENAME,'r') as fileID:
+def ncdf_invariant(FILENAME, LONNAME, LATNAME, ZNAME):
+    logging.debug(str(FILENAME))
+    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
         geopotential = fileID.variables[ZNAME][:].squeeze()
         longitude = fileID.variables[LONNAME][:].copy()
         latitude = fileID.variables[LATNAME][:].copy()
-    return (geopotential,longitude,latitude)
+    return (geopotential, longitude, latitude)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -275,8 +280,7 @@ def arguments():
         help='Reanalysis Model')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # start and end years to run for mean
     parser.add_argument('--mean',

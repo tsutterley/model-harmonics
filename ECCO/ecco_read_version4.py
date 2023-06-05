@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_read_version4.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (05/2023)
 
 Calculates monthly ocean bottom pressure anomalies from ECCO Version 4 models
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
@@ -62,6 +62,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: updated inputs to spatial from_ascii function
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -81,9 +82,9 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import logging
+import pathlib
 import datetime
 import argparse
 import numpy as np
@@ -100,11 +101,12 @@ def ecco_read_version4(ddir, MODEL, YEARS, RANGE=None,
     logging.basicConfig(level=loglevels[VERBOSE])
 
     # input and output subdirectories
-    sd1 = f'ECCO-{MODEL}'
-    sd2 = f'ECCO_{MODEL}_AveRmvd_OBP'
+    ddir = pathlib.Path(ddir).expanduser().absolute()
+    d1 = ddir.joinpath(f'ECCO-{MODEL}')
+    d2 = ddir.joinpath(f'ECCO_{MODEL}_AveRmvd_OBP')
     # recursively create subdirectory if it doesn't exist
-    if (not os.access(os.path.join(ddir,sd2), os.F_OK)):
-        os.makedirs(os.path.join(ddir,sd2),MODE)
+    d2.mkdir(mode=MODE, parents=True, exist_ok=True)
+
     # output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
 
@@ -138,7 +140,7 @@ def ecco_read_version4(ddir, MODEL, YEARS, RANGE=None,
     b_axis = ellipsoid_params.b_axis
 
     # read depth data from ecco_depth_version4.py
-    input_depth_file = os.path.join(ddir,'DEPTH.2020.720x360.nc')
+    input_depth_file = ddir.joinpath('DEPTH.2020.720x360.nc')
     depth = gravtk.spatial().from_netCDF4(input_depth_file,
         varname='depth', date=False)
 
@@ -149,34 +151,33 @@ def ecco_read_version4(ddir, MODEL, YEARS, RANGE=None,
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
         obp_mean = gravtk.spatial(fill_value=fill_value).from_ascii(
-            os.path.join(ddir,sd1,mean_file), date=False,
+            d1.joinpath(mean_file), date=False,
             spacing=[dlon,dlat], nlat=nlat, nlon=nlon,
             extent=extent).squeeze()
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
         obp_mean = gravtk.spatial().from_netCDF4(
-            os.path.join(ddir,sd1,mean_file), date=False).squeeze()
+            d1.joinpath(mean_file), date=False).squeeze()
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
         obp_mean = gravtk.spatial().from_HDF5(
-            os.path.join(ddir,sd1,mean_file), date=False).squeeze()
+            d1.joinpath(mean_file), date=False).squeeze()
 
     # output average ocean bottom pressure to file
-    output_average_file = f'ECCO_{MODEL}_Global_Average_OBP.txt'
-    fid = open(os.path.join(ddir,sd1,output_average_file),
-        mode='w', encoding='utf8')
+    output_average_file = d1.joinpath(f'ECCO_{MODEL}_Global_Average_OBP.txt')
+    fid = output_average_file.open(mode='w', encoding='utf8')
 
     # compile regular expression operator for finding files for years
     regex_years = r'|'.join([rf'{y:d}' for y in YEARS])
     rx1 = re.compile(rf'PHIBOT([\.\_])({regex_years})(_\d+)?.nc$')
     # find input files
-    flist = [f for f in os.listdir(os.path.join(ddir,sd1)) if rx1.match(f)]
+    input_files = sorted([f for f in d1.iterdir() if rx1.match(f.name)])
     # read each input file
-    for fi in sorted(flist):
+    for t,input_file in enumerate(input_files):
         # Open netCDF4 datafile for reading
         PHIBOT = gravtk.spatial(fill_value=np.nan).from_netCDF4(
-            os.path.join(ddir,sd1,fi),verbose=VERBOSE,
-            latname=LATNAME,lonname=LONNAME,timename=TIMENAME,
+            input_file, verbose=VERBOSE, latname=LATNAME,
+            lonname=LONNAME, timename=TIMENAME,
             varname=VARNAME).transpose(axes=(1,2,0))
         PHIBOT.replace_invalid(fill_value)
         # time within netCDF files is days since epoch
@@ -242,14 +243,15 @@ def ecco_read_version4(ddir, MODEL, YEARS, RANGE=None,
             # Writing output ocean bottom pressure anomaly file
             args = (MODEL, YY, MM, suffix[DATAFORM])
             FILE = 'ECCO_{0}_AveRmvd_OBP_{1:4.0f}_{2:02.0f}.{3}'.format(*args)
+            output_file = d2.joinpath(FILE)
             output_data(obp_anomaly, MODEL, DATAFORM=DATAFORM,
-                VERBOSE=VERBOSE, FILENAME=os.path.join(ddir,sd2,FILE))
+                VERBOSE=VERBOSE, FILENAME=output_file)
             # change the permissions mode of the output file to MODE
-            os.chmod(os.path.join(ddir,sd2,FILE),MODE)
+            output_file.chmod(mode=MODE)
 
     # close output file and change the permissions to MODE
     fid.close()
-    os.chmod(os.path.join(ddir,sd1,output_average_file),MODE)
+    output_average_file.chmod(mode=MODE)
 
 # PURPOSE: wrapper function for outputting data to file
 def output_data(data,MODEL,FILENAME=None,DATAFORM=None,VERBOSE=False):
@@ -258,7 +260,7 @@ def output_data(data,MODEL,FILENAME=None,DATAFORM=None,VERBOSE=False):
     attributes['units'] = 'Pa'
     attributes['longname'] = 'pressure_at_sea_floor'
     attributes['title'] =  f'Ocean_Bottom_Pressure_from_ECCO_{MODEL}_Model'
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
         data.to_ascii(FILENAME,verbose=VERBOSE)
@@ -284,8 +286,7 @@ def arguments():
         help='ECCO Version 4 Model')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # years to run
     now = datetime.datetime.now()

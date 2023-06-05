@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_geopotential_heights.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (05/2023)
 Reads temperature and specific humidity data to calculate geopotential height
     and pressure difference fields at half levels from reanalysis
 
@@ -28,6 +28,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: use full path to output file in verbose logging
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -49,11 +50,11 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import time
 import logging
 import netCDF4
+import pathlib
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
@@ -65,7 +66,9 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None,
     MODE=0o775):
 
     # directory setup
-    ddir = os.path.join(base_dir,MODEL)
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
+    ddir = base_dir.joinpath(MODEL)
+
     # set model specific parameters
     if (MODEL == 'ERA-Interim'):
         # invariant parameters file
@@ -77,7 +80,7 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None,
         # regular expression pattern for finding files
         regex_pattern = r'ERA\-Interim\-Monthly\-Levels\-({0})\.nc$'
         # output file format
-        output_file_format = 'ERA-Interim-GPH-Levels-{0:4d}.nc'
+        output_file_format = 'ERA-Interim-GPH-Levels-{0}.nc'
         SURFNAME = 'z'
         ZNAME = 'z'
         VARNAME = 'sp'
@@ -104,7 +107,7 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None,
         # regular expression pattern for finding files
         regex_pattern = r'ERA5\-Monthly\-Levels\-({0})\.nc$'
         # output file format
-        output_file_format = 'ERA5-GPH-Levels-{0:4d}.nc'
+        output_file_format = 'ERA5-GPH-Levels-{0}.nc'
         SURFNAME = 'z'
         ZNAME = 'z'
         VARNAME = 'sp'
@@ -129,7 +132,7 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None,
         # regular expression pattern for finding files
         regex_pattern = r'MERRA2_(\d+).instM_3d_ana_Nv.({0})(\d{{2}}).SUB.nc$'
         # output file format
-        output_file_format='MERRA2_{0:0.0f}.GPH_levels.{1:4.0f}{2:02.0f}.SUB.nc'
+        output_file_format='MERRA2_{0}.GPH_levels.{1}{2}.SUB.nc'
         SURFNAME = 'PHIS'
         ZNAME = 'PHIS'
         VARNAME = 'PS'
@@ -148,10 +151,10 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None,
         GRAVITY = 1.0
 
     # read model orography for dimensions
-    geopotential,lon,lat=ncdf_invariant(os.path.join(ddir,input_invariant_file),
+    geopotential,lon,lat = ncdf_invariant(ddir.joinpath(input_invariant_file),
         LONNAME,LATNAME,SURFNAME)
     # read parameters for calculating pressures at levels
-    lev,A,B,AI,BI=ncdf_coordinates(os.path.join(ddir,input_coordinate_file),
+    lev,A,B,AI,BI = ncdf_coordinates(ddir.joinpath(input_coordinate_file),
         LEVELNAME,ANAME,BNAME,AINTERFACE,BINTERFACE)
     # Gas constant for dry air
     R_dry = 287.06
@@ -159,11 +162,12 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None,
     # read each reanalysis pressure field for each year
     regex_years = r'\d{4}' if (YEAR is None) else '|'.join(map(str,YEAR))
     rx = re.compile(regex_pattern.format(regex_years), re.VERBOSE)
-    input_files = [fi for fi in os.listdir(ddir) if rx.match(fi)]
+    input_files = sorted([f for f in ddir.iterdir() if rx.match(f.name)])
     # for each reanalysis file
-    for fi in sorted(input_files):
+    for i,input_file in enumerate(input_files):
         # read input temperature and specific humidity data
-        fid1 = netCDF4.Dataset(os.path.join(ddir,fi),'r')
+        logging.debug(str(input_file))
+        fid1 = netCDF4.Dataset(input_file, mode='r')
         # extract shape from temperature variable
         ntime,nlevels,nlat,nlon = fid1.variables[TNAME].shape
         # invalid value
@@ -182,19 +186,21 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None,
 
         if MODEL in ('MERRA-2'):
             # extract date from monthly files
-            MOD,YEAR,MONTH = np.array(rx.findall(fi).pop(), dtype=np.float64)
+            MOD,YEAR,MONTH = rx.findall(input_file.name).pop()
             # output monthly filename
-            FILE = os.path.join(ddir,output_file_format.format(MOD,YEAR,MONTH))
+            FILENAME = output_file_format.format(MOD,YEAR,MONTH)
+            output_file = ddir.joinpath(FILENAME)
             # read surface pressure
             surface_pressure = np.copy(fid1.variables[VARNAME][:])
         elif MODEL in ('ERA-Interim','ERA5'):
             # extract year from file name
-            YEAR, = np.array(rx.findall(fi),dtype=np.int64)
+            YEAR, = rx.findall(input_file.name)
             # output yearly filename
-            FILE = os.path.join(ddir,output_file_format.format(YEAR))
+            FILENAME = output_file_format.format(YEAR)
+            output_file = ddir.joinpath(FILENAME)
             # read input surface pressure data
             pressure_file = input_pressure_file.format(YEAR)
-            with netCDF4.Dataset(os.path.join(ddir,pressure_file),'r') as fid2:
+            with netCDF4.Dataset(ddir.joinpath(pressure_file),'r') as fid2:
                 surface_pressure = np.copy(fid2.variables[VARNAME][:])
 
         # iterate over dates
@@ -208,7 +214,7 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None,
                 t_time = fid1.variables[TNAME][t,::-1,:,:]
                 q_time = fid1.variables[QNAME][t,::-1,:,:]
             # calculate geopotential over model levels
-            geopotential_height = np.empty((nlat,nlon),dtype=np.float32)
+            geopotential_height = np.empty((nlat,nlon), dtype=np.float32)
             # start with surface geopotential converted to units (m^2/s^2)
             geopotential_height[:,:] = geopotential*GRAVITY
             # Integrate the model layers in the atmosphere
@@ -231,12 +237,12 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None,
                 dinput[DIFFNAME][t,k,:,:] = Pupper - Plower
 
         # save to file
-        ncdf_geopotential_write(dinput, fill_value, FILENAME=FILE, ZNAME=ZNAME,
-            LEVELNAME=LEVELNAME, DIFFNAME=DIFFNAME, LONNAME=LONNAME,
-            LATNAME=LATNAME, TIMENAME=TIMENAME, TIME_UNITS=TIME_UNITS,
-            TIME_LONGNAME=TIME_LONGNAME, UNITS=UNITS)
+        ncdf_geopotential_write(dinput, fill_value, FILENAME=output_file,
+            ZNAME=ZNAME, LEVELNAME=LEVELNAME, DIFFNAME=DIFFNAME,
+            LONNAME=LONNAME, LATNAME=LATNAME, TIMENAME=TIMENAME,
+            TIME_UNITS=TIME_UNITS, TIME_LONGNAME=TIME_LONGNAME, UNITS=UNITS)
         # set the permissions level of the output file to MODE
-        os.chmod(FILE, MODE)
+        output_file.chmod(mode=MODE)
         # clear dinput dictionary variable
         dinput = None
         # close the input netCDF4 file
@@ -288,7 +294,8 @@ def ncdf_expver(fileID, slice, TNAME, QNAME):
 
 # PURPOSE: read reanalysis invariant parameters (geopotential,lat,lon)
 def ncdf_invariant(FILENAME,LONNAME,LATNAME,ZNAME):
-    with netCDF4.Dataset(FILENAME,'r') as fileID:
+    logging.debug(str(FILENAME))
+    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
         geopotential = fileID.variables[ZNAME][:].squeeze()
         longitude = fileID.variables[LONNAME][:].copy()
         latitude = fileID.variables[LATNAME][:].copy()
@@ -297,7 +304,8 @@ def ncdf_invariant(FILENAME,LONNAME,LATNAME,ZNAME):
 # PURPOSE: read reanalysis coordinate parameters
 # reverse order to go from surface to top-of-atmosphere
 def ncdf_coordinates(FILENAME,LEVELNAME,ANAME,BNAME,AINTERFACE,BINTERFACE):
-    with netCDF4.Dataset(FILENAME,'r') as fileID:
+    logging.debug(str(FILENAME))
+    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
         levels = fileID.variables[LEVELNAME][:].copy()
         A = fileID.variables[ANAME][::-1].copy()
         B = fileID.variables[BNAME][::-1].copy()
@@ -310,6 +318,7 @@ def ncdf_geopotential_write(dinput, fill_value, FILENAME=None, ZNAME=None,
     DIFFNAME=None, LEVELNAME=None, LONNAME=None, LATNAME=None, TIMENAME=None,
     TIME_UNITS=None, TIME_LONGNAME=None, UNITS=None):
     # opening NetCDF file for writing
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
     # Defining the NetCDF dimensions
@@ -351,12 +360,12 @@ def ncdf_geopotential_write(dinput, fill_value, FILENAME=None, ZNAME=None,
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
+    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # date created
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
     # Output NetCDF structure information
-    logging.info(FILENAME)
+    logging.info(str(FILENAME))
     logging.info(list(fileID.variables.keys()))
 
     # Closing the NetCDF file
@@ -382,8 +391,7 @@ def arguments():
         help='Reanalysis Model')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # years to run
     now = time.gmtime()

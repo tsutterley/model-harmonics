@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gesdisc_merra_monthly.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (05/2023)
 
 Creates monthly MERRA-2 3D model level products syncing data from the
     Goddard Earth Sciences Data and Information Server Center (GES DISC)
@@ -49,6 +49,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: use full path to output file in verbose logging
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -79,6 +80,7 @@ import netrc
 import getpass
 import logging
 import netCDF4
+import pathlib
 import argparse
 import builtins
 import numpy as np
@@ -89,18 +91,19 @@ import model_harmonics as mdlhmc
 def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
     TIMEOUT=None, LOG=False, VERBOSE=False, MODE=None):
     # full path to MERRA-2 directory
-    DIRECTORY = os.path.join(base_dir,'MERRA-2')
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
     # check if DIRECTORY exists and recursively create if not
-    if not os.access(os.path.join(DIRECTORY), os.F_OK):
-        os.makedirs(os.path.join(DIRECTORY), mode=MODE, exist_ok=True)
+    DIRECTORY = base_dir.joinpath('MERRA-2')
+    DIRECTORY.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # create log file with list of synchronized files (or print to terminal)
     loglevel = logging.INFO if VERBOSE else logging.CRITICAL
     if LOG:
         # format: NASA_GESDISC_MERRA2_monthly_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = f'NASA_GESDISC_MERRA2_monthly_{today}.log'
-        fid = open(os.path.join(DIRECTORY,LOGFILE), mode='w', encoding='utf8')
+        output_logfile = f'NASA_GESDISC_MERRA2_monthly_{today}.log'
+        LOGFILE = DIRECTORY.joinpath(output_logfile)
+        fid = LOGFILE.open(mode='w', encoding='utf8')
         logging.basicConfig(stream=fid, level=loglevel)
         logging.info(f'NASA MERRA-2 Sync Log ({today})')
         PRODUCT = f'{SHORTNAME}.{VERSION}'
@@ -239,18 +242,19 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
             # output to netCDF4 file (replace hour variable with monthly)
             DATASET = re.sub(r'inst\d+_3d',r'instM_3d',DATASET)
             attributes['time']['units'] = f'minutes since {YY}-{MM}-01 00:00:00'
-            local_file = f'MERRA2_{MOD}.{DATASET}.{YY}{MM}.SUB.nc'
+            FILE = f'MERRA2_{MOD}.{DATASET}.{YY}{MM}.SUB.nc'
+            local_file = DIRECTORY.joinpath(FILE)
             ncdf_model_write(dinput, attributes, fill_value,
                 VARNAME=VARNAME, TNAME=TNAME, QNAME=QNAME,
                 LONNAME=LONNAME, LATNAME=LATNAME, LEVELNAME=LEVELNAME,
-                TIMENAME=TIMENAME, FILENAME=os.path.join(DIRECTORY,local_file))
+                TIMENAME=TIMENAME, FILENAME=local_file)
             # set permissions mode to MODE
-            os.chmod(os.path.join(DIRECTORY,local_file), MODE)
+            local_file.chmod(mode=MODE)
 
     # close log file and set permissions level to MODE
     if LOG:
         fid.close()
-        os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
+        LOGFILE.chmod(mode=MODE)
 
 # PURPOSE: get attributes for a variable
 def ncdf_attributes(fileID, var):
@@ -273,7 +277,9 @@ def ncdf_attributes(fileID, var):
 def ncdf_model_write(dinput, attributes, fill_value,
     VARNAME=None, TNAME=None, QNAME=None, LONNAME=None, LATNAME=None,
     LEVELNAME=None, TIMENAME=None, FILENAME=None):
+
     # opening NetCDF4 file for writing
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
     # Defining the NetCDF4 dimensions and creating dimension variables
@@ -309,7 +315,7 @@ def ncdf_model_write(dinput, attributes, fill_value,
     fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
 
     # Output NetCDF structure information
-    logging.info(FILENAME)
+    logging.info(str(FILENAME))
     logging.info(list(fileID.variables.keys()))
 
     # Closing the NetCDF file
@@ -332,13 +338,11 @@ def arguments():
         type=str, default=os.environ.get('EARTHDATA_PASSWORD'),
         help='Password for NASA Earthdata Login')
     parser.add_argument('--netrc','-N',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.path.join(os.path.expanduser('~'),'.netrc'),
+        type=pathlib.Path, default=pathlib.Path.home().joinpath('.netrc'),
         help='Path to .netrc file for authentication')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # MERRA-2 product shortname
     parser.add_argument('--shortname','-s',

@@ -91,6 +91,7 @@ import netrc
 import shutil
 import getpass
 import logging
+import pathlib
 import argparse
 import builtins
 import posixpath
@@ -101,15 +102,15 @@ def gesdisc_merra_sync(DIRECTORY, YEARS=None, VERSION=None, TIMEOUT=None,
     LOG=False, LIST=False, MODE=None, CLOBBER=False):
 
     # check if directory exists and recursively create if not
-    os.makedirs(DIRECTORY,MODE) if not os.path.exists(DIRECTORY) else None
+    DIRECTORY = pathlib.Path(DIRECTORY).expanduser().absolute()
+    DIRECTORY.mkdir(mode=MODE, parents=True, exist_ok=True)
     # create log file with list of synchronized files (or print to terminal)
     if LOG:
         # output to log file
         # format: NASA_GESDISC_MERRA2_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d',time.localtime())
-        LOGFILE = f'NASA_GESDISC_MERRA2_sync_{today}.log'
-        logging.basicConfig(filename=os.path.join(DIRECTORY,LOGFILE),
-            level=logging.INFO)
+        LOGFILE = DIRECTORY.joinpath(f'NASA_GESDISC_MERRA2_sync_{today}.log')
+        logging.basicConfig(filename=LOGFILE, level=logging.INFO)
         logging.info(f'NASA MERRA-2 Sync Log ({today})')
     else:
         # standard output (terminal output)
@@ -121,7 +122,7 @@ def gesdisc_merra_sync(DIRECTORY, YEARS=None, VERSION=None, TIMEOUT=None,
     # sync model granules
     for id,url,mtime in zip(ids,urls,mtimes):
         # copy file from remote directory comparing modified dates
-        http_pull_file(url, mtime, os.path.join(DIRECTORY,id),
+        http_pull_file(url, mtime, DIRECTORY.joinpath(id),
             TIMEOUT=TIMEOUT, LIST=LIST, CLOBBER=CLOBBER,
             MODE=MODE)
 
@@ -138,19 +139,19 @@ def gesdisc_merra_sync(DIRECTORY, YEARS=None, VERSION=None, TIMEOUT=None,
                 version=VERSION, start_date=start_date, end_date=end_date,
                 provider='GES_DISC', verbose=True)
             # recursively create local directory for data
-            if (not os.access(os.path.join(DIRECTORY,PRODUCT,Y), os.F_OK)):
-                os.makedirs(os.path.join(DIRECTORY,PRODUCT,Y), MODE)
+            local_dir = DIRECTORY.joinpath(PRODUCT, Y)
+            local_dir.mkdir(mode=MODE, parents=True, exist_ok=True)
             # sync model granules
             for id,url,mtime in zip(ids,urls,mtimes):
                 # copy file from remote directory comparing modified dates
-                local_file = os.path.join(DIRECTORY,PRODUCT,Y,id)
+                local_file = local_dir.joinpath(id)
                 http_pull_file(url, mtime, local_file,
                     TIMEOUT=TIMEOUT, LIST=LIST, CLOBBER=CLOBBER,
                     MODE=MODE)
 
     # close log file and set permissions level to MODE
     if LOG:
-        os.chmod(os.path.join(DIRECTORY,LOGFILE), MODE)
+        LOGFILE.chmod(mode=MODE)
 
 # PURPOSE: pull file from a remote host checking if file exists locally
 # and if the remote file is newer than the local file
@@ -160,9 +161,9 @@ def http_pull_file(remote_file, remote_mtime, local_file,
     TEST = False
     OVERWRITE = ' (clobber)'
     # check if local version of file exists
-    if os.access(local_file, os.F_OK):
+    if local_file.exists():
         # check last modification time of local file
-        local_mtime = os.stat(local_file).st_mtime
+        local_mtime = local_file.stat().st_mtime
         # if remote file is newer: overwrite the local file
         if (mdlhmc.utilities.even(remote_mtime) >
             mdlhmc.utilities.even(local_mtime)):
@@ -175,7 +176,7 @@ def http_pull_file(remote_file, remote_mtime, local_file,
     if TEST or CLOBBER:
         # Printing files transferred
         logging.info(f'{remote_file} --> ')
-        logging.info(f'\t{local_file}{OVERWRITE}\n')
+        logging.info(f'\t{str(local_file)}{OVERWRITE}\n')
         # if executing copy command (not only printing the files)
         if not LIST:
             # Create and submit request. There are a wide range of exceptions
@@ -187,11 +188,11 @@ def http_pull_file(remote_file, remote_mtime, local_file,
             CHUNK = 16 * 1024
             # copy contents to local file using chunked transfer encoding
             # transfer should work properly with ascii and binary data formats
-            with open(local_file, 'wb') as f:
+            with local_file.open(mode='wb') as f:
                 shutil.copyfileobj(response, f, CHUNK)
             # keep remote modification time of file and local access time
-            os.utime(local_file, (os.stat(local_file).st_atime, remote_mtime))
-            os.chmod(local_file, MODE)
+            os.utime(local_file, (local_file.stat().st_atime, remote_mtime))
+            local_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -210,13 +211,11 @@ def arguments():
         type=str, default=os.environ.get('EARTHDATA_PASSWORD'),
         help='Password for NASA Earthdata Login')
     parser.add_argument('--netrc','-N',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.path.join(os.path.expanduser('~'),'.netrc'),
+        type=pathlib.Path, default=pathlib.Path.home().joinpath('.netrc'),
         help='Path to .netrc file for authentication')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # MERRA-2 version
     parser.add_argument('--version','-v',

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (01/2023)
+Written by Tyler Sutterley (05/2023)
 Download and management utilities for syncing time and auxiliary files
 Adds additional modules to the gravity_toolkit utilities
 
@@ -10,6 +10,7 @@ PYTHON DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 01/2023: add default ssl context attribute with protocol
     Updated 12/2022: functions for managing and maintaining git repositories
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -21,10 +22,14 @@ UPDATE HISTORY:
     Written 01/2021
 """
 # extend gravity_toolkit utilities
+from __future__ import annotations
 from gravity_toolkit.utilities import *
 
 # PURPOSE: get the git hash value
-def get_git_revision_hash(refname='HEAD', short=False):
+def get_git_revision_hash(
+        refname: str = 'HEAD',
+        short: bool = False
+    ):
     """
     Get the ``git`` hash value for a particular reference
 
@@ -37,8 +42,8 @@ def get_git_revision_hash(refname='HEAD', short=False):
     """
     # get path to .git directory from current file path
     filename = inspect.getframeinfo(inspect.currentframe()).filename
-    basepath = os.path.dirname(os.path.dirname(os.path.abspath(filename)))
-    gitpath = os.path.join(basepath,'.git')
+    basepath = pathlib.Path(filename).absolute().parent.parent
+    gitpath = basepath.joinpath('.git')
     # build command
     cmd = ['git', f'--git-dir={gitpath}', 'rev-parse']
     cmd.append('--short') if short else None
@@ -53,8 +58,8 @@ def get_git_status():
     """
     # get path to .git directory from current file path
     filename = inspect.getframeinfo(inspect.currentframe()).filename
-    basepath = os.path.dirname(os.path.dirname(os.path.abspath(filename)))
-    gitpath = os.path.join(basepath,'.git')
+    basepath = pathlib.Path(filename).absolute().parent.parent
+    gitpath = basepath.joinpath('.git')
     # build command
     cmd = ['git', f'--git-dir={gitpath}', 'status', '--porcelain']
     with warnings.catch_warnings():
@@ -64,10 +69,18 @@ def get_git_status():
 _default_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS)
 
 # PURPOSE: list a directory on NASA GES DISC https server
-def gesdisc_list(HOST, username=None, password=None, build=False,
-    timeout=None, urs='urs.earthdata.nasa.gov',
-    parser=lxml.etree.HTMLParser(), format='%Y-%m-%d %H:%M',
-    pattern='', sort=False):
+def gesdisc_list(
+        HOST: str | list,
+        username: str | None = None,
+        password: str | None = None,
+        build: bool = False,
+        timeout: int | None = None,
+        urs: str = 'urs.earthdata.nasa.gov',
+        parser = lxml.etree.HTMLParser(),
+        format: str = '%Y-%m-%d %H:%M',
+        pattern: str = '',
+        sort: bool = False
+    ):
     """
     List a directory on NASA GES DISC servers
 
@@ -141,8 +154,11 @@ def gesdisc_list(HOST, username=None, password=None, build=False,
         return (colnames,lastmod)
 
 # PURPOSE: filter the CMR json response for desired data files
-def cmr_filter_json(search_results, endpoint="data",
-    request_type="application/x-netcdf"):
+def cmr_filter_json(
+        search_results: dict,
+        endpoint: str = "data",
+        request_type: str = "application/x-netcdf"
+    ):
     """
     Filter the CMR json response for desired data files
 
@@ -203,9 +219,17 @@ def cmr_filter_json(search_results, endpoint="data",
     return (granule_names, granule_urls, granule_mtimes)
 
 # PURPOSE: cmr queries for model data products
-def cmr(short_name, version=None, start_date=None, end_date=None,
-    provider='GES_DISC', endpoint='data', request_type='application/x-netcdf',
-    verbose=False, fid=sys.stdout):
+def cmr(
+        short_name: str,
+        version: str | int | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        provider: str | None = 'GES_DISC',
+        endpoint: str | None = 'data',
+        request_type: str | None = 'application/x-netcdf',
+        verbose: bool = False,
+        fid = sys.stdout
+    ):
     """
     Query the NASA Common Metadata Repository (CMR) for model data
 
@@ -313,9 +337,18 @@ def cmr(short_name, version=None, start_date=None, end_date=None,
     return (granule_names, granule_urls, granule_mtimes)
 
 # PURPOSE: build requests for the GES DISC subsetting API
-def build_request(short_name, dataset_version, url,
-    host=None, variables=[], format='bmM0Lw', service='L34RS_MERRA2',
-    version='1.02', bbox=[-90,-180,90,180], **kwargs):
+def build_request(
+        short_name: str,
+        dataset_version: str | int,
+        url: str | None,
+        host: str | None = None,
+        variables: list | None = [],
+        format: str | None = 'bmM0Lw',
+        service: str | None = 'L34RS_MERRA2',
+        version: str | None = '1.02',
+        bbox: list | None = [-90,-180,90,180],
+        **kwargs
+    ):
     """
     Build requests for the GES DISC subsetting API
 

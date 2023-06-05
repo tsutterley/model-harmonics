@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_geoid_llc_tiles.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (05/2023)
 
 Calculates geoid heights for ECCO ocean model LLC tiles using model
     coefficients from the GFZ International Centre for Global Earth
@@ -41,6 +41,7 @@ PROGRAM DEPENDENCIES:
     gauss_weights.py: Computes Gaussian weights as a function of degree
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 12/2021: can use variable loglevels for verbose output
@@ -52,8 +53,8 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import logging
+import pathlib
 import netCDF4
 import datetime
 import argparse
@@ -71,9 +72,11 @@ def ecco_geoid_llc_tiles(input_file, output_file, GEOID=None,
     ZNAME = 'Depth'
     MASKNAME = 'maskC'
     # read ECCO tile grid file
-    invariant = ncdf_invariant(os.path.expanduser(input_file),
-        i='i',j='j',tile='tile',lon=LONNAME,lat=LATNAME,
-        depth=ZNAME,mask=MASKNAME)
+    input_file = pathlib.Path(input_file).expanduser().absolute()
+    invariant = ncdf_invariant(input_file,
+        i='i', j='j', tile='tile',
+        lon=LONNAME, lat=LATNAME,
+        depth=ZNAME, mask=MASKNAME)
     Nt,Nj,Ni = np.shape(invariant['depth'])
     invalid_mask = np.logical_not(invariant['mask'][0,:,:,:]) | \
         (invariant['depth'] == 0.0)
@@ -81,7 +84,8 @@ def ecco_geoid_llc_tiles(input_file, output_file, GEOID=None,
     fill_value = -1e+10
 
     # read gravity model spherical harmonics
-    Ylms = geoidtk.read_ICGEM_harmonics(os.path.expanduser(GEOID), LMAX=LMAX)
+    GEOID = pathlib.Path(GEOID).expanduser().absolute()
+    Ylms = geoidtk.read_ICGEM_harmonics(GEOID, LMAX=LMAX)
     # extract parameters
     R = np.float64(Ylms['radius'])
     GM = np.float64(Ylms['earth_gravity_constant'])
@@ -111,7 +115,7 @@ def ecco_geoid_llc_tiles(input_file, output_file, GEOID=None,
 
     # Defining output attributes
     attributes = {}
-    attributes['title'] = os.path.basename(GEOID)
+    attributes['title'] = GEOID.name
     attributes['radius'] = Ylms['radius']
     attributes['earth_gravity_constant'] = Ylms['earth_gravity_constant']
     attributes['max_degree'] = str(LMAX)
@@ -139,17 +143,18 @@ def ecco_geoid_llc_tiles(input_file, output_file, GEOID=None,
         'https://doi.org/10.5194/essd-11-647-2019'
 
     # netcdf (.nc)
+    output_file = pathlib.Path(output_file).expanduser().absolute()
     ncdf_tile_write(output, attributes, FILENAME=output_file,
         LONNAME='lon', LATNAME='lat', VARNAME='geoid')
     # change the permissions mode of the output file to MODE
-    os.chmod(output_file,MODE)
+    output_file.chmod(mode=MODE)
 
 # PURPOSE: read ECCO invariant grid file
 def ncdf_invariant(invariant_file,**kwargs):
     # output dictionary with invariant parameters
     invariant = {}
     # open netCDF4 file for reading
-    with netCDF4.Dataset(os.path.expanduser(invariant_file),'r') as fileID:
+    with netCDF4.Dataset(invariant_file,'r') as fileID:
         # extract latitude, longitude, depth, area and valid mask
         for key,val in kwargs.items():
             invariant[key] = fileID.variables[val][:].copy()
@@ -161,7 +166,8 @@ def ncdf_tile_write(output, attributes, FILENAME=None, LONNAME=None,
     LATNAME=None, VARNAME=None):
 
     # opening NetCDF file for writing
-    fileID = netCDF4.Dataset(os.path.expanduser(FILENAME),'w')
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+    fileID = netCDF4.Dataset(FILENAME,'w')
 
     # python dictionary with NetCDF variables
     nc = {}
@@ -198,9 +204,9 @@ def ncdf_tile_write(output, attributes, FILENAME=None, LONNAME=None,
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
+    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # Output NetCDF structure information
-    logging.info(FILENAME)
+    logging.info(str(FILENAME))
     logging.info(list(fileID.variables.keys()))
     # Closing the NetCDF file
     fileID.close()
@@ -215,14 +221,14 @@ def arguments():
     # command line options
     # input and output file
     parser.add_argument('infile',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='?',
+        type=pathlib.Path, nargs='?',
         help='Input file')
     parser.add_argument('outfile',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)), nargs='?',
+        type=pathlib.Path, nargs='?',
         help='Output file')
     # path to static gravity harmonics file
     parser.add_argument('--geoid','-G',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='gfc file from the GFZ ICGEM')
     # maximum spherical harmonic degree and order
     parser.add_argument('--lmax','-l',

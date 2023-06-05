@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_monthly_pressure.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (05/2023)
 Reads daily atmospheric pressure fields from reanalysis and outputs monthly averages
 
 INPUTS:
@@ -31,6 +31,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: use full path to output file in verbose logging
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -47,10 +48,10 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import logging
 import netCDF4
+import pathlib
 import argparse
 import datetime
 import numpy as np
@@ -61,7 +62,9 @@ import model_harmonics as mdlhmc
 def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
 
     # directory setup
-    ddir = os.path.join(base_dir,MODEL)
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
+    ddir = base_dir.joinpath(MODEL)
+
     # set model specific parameters
     if (MODEL == 'NCEP-DOE-2'):
         # regular expression pattern for finding files
@@ -83,11 +86,11 @@ def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
         p_mean = []
         # read each reanalysis pressure field and calculate mean
         rx = re.compile(regex_pattern.format(YEAR), re.VERBOSE)
-        input_files = [fi for fi in os.listdir(ddir) if rx.match(fi)]
+        input_files = sorted([f for f in ddir.iterdir() if rx.match(f.name)])
         # for each input file
-        for fi in input_files:
+        for i,input_file in enumerate(input_files):
             # read input data
-            p = gravtk.spatial().from_netCDF4(os.path.join(ddir,fi),
+            p = gravtk.spatial().from_netCDF4(input_file,
                 varname=VARNAME, timename=TIMENAME, lonname=LONNAME,
                 latname=LATNAME).transpose(axes=(1,2,0))
             p.fill_value = p.attributes['data'][FILL_VALUE]
@@ -114,18 +117,21 @@ def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
         dinput[TIMENAME] = np.copy(p_month.time)
 
         # save to file
-        FILE = os.path.join(ddir,output_file_format.format(YEAR))
-        ncdf_pressure_write(dinput, p.fill_value, FILENAME=FILE,
-            VARNAME=VARNAME, LONNAME=LONNAME, LATNAME=LATNAME, TIMENAME=TIMENAME,
-            TIME_UNITS=TIME_UNITS, TIME_LONGNAME=TIME_LONGNAME)
+        output_file = ddir.joinpath(output_file_format.format(YEAR))
+        ncdf_pressure_write(dinput, p.fill_value, FILENAME=output_file,
+            VARNAME=VARNAME, LONNAME=LONNAME, LATNAME=LATNAME,
+            TIMENAME=TIMENAME, TIME_UNITS=TIME_UNITS,
+            TIME_LONGNAME=TIME_LONGNAME)
         # set the permissions level of the output file to MODE
-        os.chmod(FILE, MODE)
+        output_file.chmod(mode=MODE)
 
 # PURPOSE: write output pressure fields data to file
 def ncdf_pressure_write(dinput, fill_value, FILENAME=None, VARNAME=None,
     LONNAME=None, LATNAME=None, TIMENAME=None, TIME_UNITS=None,
     TIME_LONGNAME=None):
+
     # opening netCDF4 file for writing
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
     # Defining the netCDF4 dimensions
@@ -155,12 +161,12 @@ def ncdf_pressure_write(dinput, fill_value, FILENAME=None, VARNAME=None,
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
+    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # date created
     fileID.date_created = datetime.datetime.now().isoformat()
 
     # Output NetCDF structure information
-    logging.info(FILENAME)
+    logging.info(str(FILENAME))
     logging.info(list(fileID.variables.keys()))
 
     # Closing the NetCDF file
@@ -183,8 +189,7 @@ def arguments():
         help='Reanalysis Model')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # years to run
     now = datetime.datetime.now()

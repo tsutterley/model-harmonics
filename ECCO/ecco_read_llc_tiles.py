@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_read_llc_tiles.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (05/2023)
 
 Calculates monthly ocean bottom pressure anomalies from ECCO LLC tiles
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/nctiles_monthly
@@ -50,6 +50,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -61,10 +62,10 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import logging
 import netCDF4
+import pathlib
 import datetime
 import argparse
 import numpy as np
@@ -75,10 +76,11 @@ import model_harmonics as mdlhmc
 def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
 
     # input and output subdirectories
-    d1=os.path.join(ddir,f'ECCO-{MODEL}','nctiles_monthly')
-    d2=os.path.join(ddir,f'ECCO_{MODEL}_AveRmvd_OBP','nctiles_monthly')
+    ddir = pathlib.Path(ddir).expanduser().absolute()
+    d1 = ddir.joinpath(f'ECCO-{MODEL}','nctiles_monthly')
+    d2 = ddir.joinpath(f'ECCO_{MODEL}_AveRmvd_OBP','nctiles_monthly')
     # recursively create subdirectory if it doesn't exist
-    os.makedirs(d2,MODE) if (not os.access(d2, os.F_OK)) else None
+    d2.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # input variable names for each model
     if (MODEL == 'V4r4'):
@@ -101,7 +103,7 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
         Nt,Nj,Ni = (13,270,270)
 
     # read ECCO tile grid file
-    invariant = ncdf_invariant(os.path.join(d1,'ECCO-GRID.nc'),
+    invariant = ncdf_invariant(d1.joinpath('ECCO-GRID.nc'),
         lon=LONNAME, lat=LATNAME, depth=ZNAME, area=AREANAME, mask=MASKNAME)
     # bad value
     fill_value = -1e+10
@@ -111,18 +113,17 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
 
     # read mean data from ecco_mean_llc_tiles.py
     mean_file = f'ECCO_{MODEL}_OBP_MEAN_{RANGE[0]:4d}-{RANGE[1]:4d}.nc'
-    obp_mean = ncdf_mean(os.path.join(d1,mean_file),VARNAME=VARNAME)
+    obp_mean = ncdf_mean(d1.joinpath(mean_file), VARNAME=VARNAME)
 
     # output average ocean bottom pressure to file
-    output_average_file = f'ECCO_{MODEL}_Global_Average_OBP.txt'
-    fid = open(os.path.join(d1,output_average_file),
-        mode='w', encoding='utf8')
+    output_average_file = d1.joinpath(f'ECCO_{MODEL}_Global_Average_OBP.txt')
+    fid = output_average_file.open(mode='w', encoding='utf8')
 
     # compile regular expression operator for finding files for years
     regex_years = r'|'.join(rf'{y:d}' for y in YEARS)
     rx1 = re.compile(rf'PHIBOT([\.\_])({regex_years})(_(\d+))?.nc$')
     # find input files
-    input_files = [fi for fi in os.listdir(d1) if rx1.match(fi)]
+    input_files = sorted([f for f in d1.iterdir() if rx1.match(f.name)])
 
     # Defining output attributes
     attributes = {}
@@ -153,9 +154,10 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
     attributes[VARNAME]['units'] = 'Pa'
 
     # read each input file
-    for fi in sorted(input_files):
+    for t,input_file in enumerate(input_files):
         # Open netCDF4 datafile for reading
-        fileID = netCDF4.Dataset(os.path.join(d1,fi),'r')
+        logging.debug(str(input_file))
+        fileID = netCDF4.Dataset(input_file, mode='r')
         # time within netCDF files is days since epoch
         TIME = fileID.variables[TIMENAME][:].copy()
         time_string = fileID.variables[TIMENAME].units
@@ -219,24 +221,26 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
             fid.write('{0:10.4f} {1:21.14e} {2:21.14e}\n'.format(*args))
 
             # output to file
-            FILE = f'ECCO_{MODEL}_AveRmvd_OBP_{YY:4.0f}_{MM:02.0f}.nc'
+            f2 = f'ECCO_{MODEL}_AveRmvd_OBP_{YY:4.0f}_{MM:02.0f}.nc'
+            output_file = d2.joinpath(f2)
             # netcdf (.nc)
-            ncdf_tile_write(obp, attributes, FILENAME=os.path.join(d2,FILE),
+            ncdf_tile_write(obp, attributes, FILENAME=output_file,
                 LONNAME='lon', LATNAME='lat', TIMENAME=TIMENAME,
                 VARNAME=VARNAME)
             # change the permissions mode of the output file to MODE
-            os.chmod(os.path.join(d2,FILE),MODE)
+            output_file.chmod(mode=MODE)
 
     # close output file and change the permissions to MODE
     fid.close()
-    os.chmod(os.path.join(d1,output_average_file),MODE)
+    output_average_file.chmod(mode=MODE)
 
 # PURPOSE: read ECCO invariant grid file
-def ncdf_invariant(invariant_file,**kwargs):
+def ncdf_invariant(invariant_file, **kwargs):
     # output dictionary with invariant parameters
     invariant = {}
     # open netCDF4 file for reading
-    with netCDF4.Dataset(os.path.expanduser(invariant_file),'r') as fileID:
+    logging.debug(str(invariant_file))
+    with netCDF4.Dataset(invariant_file, mode='r') as fileID:
         # extract latitude, longitude, depth, area and valid mask
         for key,val in kwargs.items():
             invariant[key] = fileID.variables[val][:].copy()
@@ -246,7 +250,8 @@ def ncdf_invariant(invariant_file,**kwargs):
 # PURPOSE: read ECCO mean ocean bottom pressure file
 def ncdf_mean(mean_file, VARNAME=None):
     # open netCDF4 file for reading
-    with netCDF4.Dataset(os.path.expanduser(mean_file),'r') as fileID:
+    logging.debug(str(mean_file))
+    with netCDF4.Dataset(mean_file, mode='r') as fileID:
         obp_mean = np.copy(fileID.variables[VARNAME][:].copy())
     return obp_mean
 
@@ -255,7 +260,8 @@ def ncdf_tile_write(output, attributes, FILENAME=None, LONNAME=None,
     LATNAME=None, TIMENAME=None, VARNAME=None):
 
     # opening NetCDF file for writing
-    fileID = netCDF4.Dataset(os.path.expanduser(FILENAME),'w')
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+    fileID = netCDF4.Dataset(FILENAME, mode='w')
 
     # python dictionary with NetCDF variables
     nc = {}
@@ -289,9 +295,9 @@ def ncdf_tile_write(output, attributes, FILENAME=None, LONNAME=None,
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {os.path.basename(sys.argv[0])}'
+    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # Output NetCDF structure information
-    logging.info(FILENAME)
+    logging.info(str(FILENAME))
     logging.info(list(fileID.variables.keys()))
     # Closing the NetCDF file
     fileID.close()
@@ -310,8 +316,7 @@ def arguments():
         help='ECCO Version 4 or 5 Model')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # years to run
     now = datetime.datetime.now()

@@ -69,11 +69,11 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import copy
 import logging
 import netCDF4
+import pathlib
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
@@ -83,7 +83,8 @@ def read_merra_variables(merra_flux_file, merra_ice_surface_file):
     # python dictionary of output variables
     dinput = {}
     # read each variable of interest in MERRA-2 flux file
-    with netCDF4.Dataset(merra_flux_file, 'r') as fid1:
+    logging.debug(str(merra_flux_file))
+    with netCDF4.Dataset(merra_flux_file, mode='r') as fid1:
         # extract geolocation variables
         dinput['lon'] = fid1.variables['lon'][:].copy()
         dinput['lat'] = fid1.variables['lat'][:].copy()
@@ -100,7 +101,8 @@ def read_merra_variables(merra_flux_file, merra_ice_surface_file):
                 fill_value=fid1.variables[key]._FillValue)
             dinput[key].mask = (dinput[key].data == dinput[key].fill_value)
     # read each variable of interest in MERRA-2 ice surface file
-    with netCDF4.Dataset(merra_ice_surface_file, 'r') as fid2:
+    logging.debug(str(merra_ice_surface_file))
+    with netCDF4.Dataset(merra_ice_surface_file, mode='r') as fid2:
         for key in ['RUNOFF','WESNSC']:
             # Getting the data from each NetCDF variable of interest
             dinput[key] = np.ma.array(fid2.variables[key][:].squeeze(),
@@ -117,13 +119,12 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     logging.basicConfig(level=loglevels[VERBOSE])
 
     # MERRA-2 product subdirectories
-    P1 = 'M2TMNXINT.5.12.4'
-    P2 = 'M2TMNXGLC.5.12.4'
+    P1 = DIRECTORY.joinpath('M2TMNXINT.5.12.4')
+    P2 = DIRECTORY.joinpath('M2TMNXGLC.5.12.4')
     # MERRA-2 output cumulative subdirectory
     cumul_sub = f'{PRODUCT}.5.12.4.CUMUL.{RANGE[0]:d}.{RANGE[1]:d}'
-    # make cumulative subdirectory
-    if not os.access(os.path.join(DIRECTORY,cumul_sub), os.F_OK):
-        os.mkdir(os.path.join(DIRECTORY,cumul_sub), MODE)
+    output_dir = DIRECTORY.joinpath(cumul_sub)
+    output_dir.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # regular expression operator to find datafiles (and not the xml files)
     regex_pattern = r'MERRA2_(\d+).{0}.(\d{{4}})(\d{{2}}).nc4(?!.xml)'
@@ -164,38 +165,37 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     attributes['longname'] = units_longname
     attributes['title'] = copy.copy(merra_products[PRODUCT])
     attributes['source'] = ', '.join(merra_sources[PRODUCT])
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # read mean data from merra_smb_mean.py
-    args=(PRODUCT, RANGE[0], RANGE[1], suffix[DATAFORM])
-    mean_file='MERRA2.tavgM_2d_{0}_mean_Nx.{1:4d}-{2:4d}.{3}'.format(*args)
+    args = (PRODUCT, RANGE[0], RANGE[1], suffix[DATAFORM])
+    mean_file = 'MERRA2.tavgM_2d_{0}_mean_Nx.{1:4d}-{2:4d}.{3}'.format(*args)
     # remove singleton dimensions
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
         merra_mean = gravtk.spatial().from_ascii(
-            os.path.join(DIRECTORY,mean_file),
+            DIRECTORY.joinpath(mean_file),
             date=False, spacing=[dlon,dlat],
             nlat=nlat, nlon=nlon, extent=extent).squeeze()
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
         merra_mean = gravtk.spatial().from_netCDF4(
-            os.path.join(DIRECTORY,mean_file),
+            DIRECTORY.joinpath(mean_file),
             date=False, varname=PRODUCT).squeeze()
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
         merra_mean = gravtk.spatial().from_HDF5(
-            os.path.join(DIRECTORY,mean_file),
+            DIRECTORY.joinpath(mean_file),
             date=False, varname=PRODUCT).squeeze()
 
     # find years of available data
-    YEARS = sorted([d for d in os.listdir(os.path.join(DIRECTORY,P1))
-        if re.match(r'\d{4}',d)])
+    YEARS = sorted([d for d in P1.iterdir() if re.match(r'\d{4}',d.name)])
     # check that are years are available
-    CHECK = [str(Y) in YEARS for Y in range(int(YEARS[0]),int(YEARS[-1])+1)]
-    if not np.all(CHECK):
-        raise Exception('Not all years available on file system')
+    for Y in range(int(YEARS[9].name), int(YEARS[-1].name)+1):
+        if not P1.joinpath(str(Y)).exists():
+            raise FileNotFoundError('Not all years available on file system')
     # compile regular expression operator for flux product
-    rx = re.compile(regex_pattern.format('tavgM_2d_int_Nx'), re.VERBOSE)
+    rx = re.compile(regex_pattern.format(r'tavgM_2d_int_Nx'), re.VERBOSE)
 
     # monthly cumulative anomalies
     # cumulative mass anomalies calculated by removing mean balance flux
@@ -208,26 +208,30 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     # for each input file
     for Y in YEARS:
         # find input files for PRODUCT
-        f=[f for f in os.listdir(os.path.join(DIRECTORY,P1,Y)) if rx.match(f)]
+        d1 = P1.joinpath(str(Y))
+        d2 = P2.joinpath(str(Y))
+        input_files = [f for f in d1.iterdir() if rx.match(f.name)]
+        if not input_files:
+            raise FileNotFoundError(f'Files for year {Y:d} not found')
         # sort files by month
-        indices = np.argsort([rx.match(f1).group(3) for f1 in f])
-        f = [f[indice] for indice in indices]
+        indices = np.argsort([rx.match(f.name).group(3) for f in input_files])
+        input_files = [input_files[indice] for indice in indices]
         # days per month in year
         dpm = gravtk.time.calendar_days(int(Y))
         # for each monthly file
-        for M,f1 in enumerate(f):
+        for M,merra_flux_file in enumerate(input_files):
             # extract parameters from input flux file
-            MOD,Y1,M1 = rx.findall(f1).pop()
+            MOD,Y1,M1 = rx.findall(merra_flux_file.name).pop()
             # corresponding ice surface product file
             args = (MOD,'tavgM_2d_glc_Nx',Y1,M1)
             f2 = 'MERRA2_{0}.{1}.{2}{3}.nc4'.format(*args)
             # full path for flux and ice surface files
-            merra_flux_file = os.path.join(DIRECTORY,P1,Y,f1)
-            merra_ice_surface_file = os.path.join(DIRECTORY,P2,Y,f2)
-            if not os.access(merra_ice_surface_file,os.F_OK):
-                raise FileNotFoundError(f'File {f2} not in file system')
+            merra_ice_surface_file = d2.joinpath(f2)
+            if not merra_ice_surface_file.exists():
+                msg = f'File {str(merra_ice_surface_file)} not in file system'
+                raise FileNotFoundError(msg)
             # read netCDF4 files for variables of interest
-            var = read_merra_variables(merra_flux_file,merra_ice_surface_file)
+            var = read_merra_variables(merra_flux_file, merra_ice_surface_file)
             # convert from Julian days to calendar dates
             YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(var['time'],
                 FORMAT='tuple')
@@ -290,20 +294,18 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
             # output MERRA-2 cumulative data file
             args = (MOD,PRODUCT,Y1,M1,suffix[DATAFORM])
             FILE = 'MERRA2_{0}.tavgM_2d_{1}_cumul_Nx.{2}{3}.{4}'.format(*args)
+            output_file = output_dir.joinpath(FILE)
             if (DATAFORM == 'ascii'):
                 # ascii (.txt)
-                output.to_ascii(os.path.join(DIRECTORY,cumul_sub,FILE),
-                    verbose=VERBOSE)
+                output.to_ascii(output_file, verbose=VERBOSE)
             elif (DATAFORM == 'netCDF4'):
                 # netcdf (.nc)
-                output.to_netCDF4(os.path.join(DIRECTORY,cumul_sub,FILE),
-                    verbose=VERBOSE, **attributes)
+                output.to_netCDF4(output_file, verbose=VERBOSE, **attributes)
             elif (DATAFORM == 'HDF5'):
                 # HDF5 (.H5)
-                output.to_HDF5(os.path.join(DIRECTORY,cumul_sub,FILE),
-                    verbose=VERBOSE, **attributes)
+                output.to_HDF5(output_file, verbose=VERBOSE, **attributes)
             # change the permissions mode
-            os.chmod(os.path.join(DIRECTORY,cumul_sub,FILE), MODE)
+            output_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -320,8 +322,7 @@ def arguments():
         help='MERRA-2 derived product')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # start and end years to run for mean
     parser.add_argument('--mean','-m',

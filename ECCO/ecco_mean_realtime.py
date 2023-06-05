@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 ecco_mean_realtime.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (05/2023)
 
 Reads 12-hour ECCO ocean bottom pressure data from JPL
 Calculates multi-annual means on an equirectangular grid
@@ -49,6 +49,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -74,10 +75,10 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import argparse
 import logging
+import pathlib
 import numpy as np
 import gravity_toolkit as gravtk
 
@@ -93,9 +94,11 @@ def ecco_mean_realtime(ddir, MODEL, RANGE=None, DATAFORM=None,
     # set up regular expression for finding directories to run from RANGE
     regex_years = r'|'.join([rf'{y:d}' for y in range(RANGE[0],RANGE[1]+1)])
     rx = re.compile(rf'{MODEL}_({regex_years})', re.VERBOSE)
-    # Finding subdirectories
-    input_dir = sorted([sd for sd in os.listdir(ddir) if \
-        (os.path.isdir(os.path.join(ddir,sd)) & bool(rx.match(sd)))])
+
+    # input and output subdirectories
+    ddir = pathlib.Path(ddir).expanduser().absolute()
+    input_dir = sorted([sd for sd in ddir.iterdir() if sd.is_dir() &
+        bool(rx.match(sd.name))])
 
     # bad value
     fill_value = -1e+10
@@ -122,18 +125,16 @@ def ecco_mean_realtime(ddir, MODEL, RANGE=None, DATAFORM=None,
     count = 0.0
     # for each yearly subdirectory
     for i in input_dir:
-        subdir = sorted([sd for sd in os.listdir(os.path.join(ddir,i)) if
-            (os.path.isdir(os.path.join(ddir,i,sd)) &
-            bool(re.match(r'n10day_\d+_\d+',sd)))])
+        subdir = sorted([sd for sd in i.iterdir() if sd.is_dir() &
+            bool(re.match(r'n10day_\d+_\d+', sd.name))])
         # for each subdirectory
         for j in subdir:
             # find the input file within the subdirectory
-            fi = [fi for fi in os.listdir(os.path.join(ddir,i,j)) if
-                bool(re.match(r'OBP_(.*?).cdf',fi))]
             # skip subdirectory if file not found
             try:
-                input_file = os.path.join(ddir,i,j,fi[0])
-                os.access(input_file, os.F_OK)
+                input_file, = [fi for fi in j.iterdir() if
+                    bool(re.match(r'OBP_(.*?).cdf', fi.name))]
+                assert input_file.exists()
             except:
                 continue
 
@@ -154,6 +155,7 @@ def ecco_mean_realtime(ddir, MODEL, RANGE=None, DATAFORM=None,
             # convert from Julian days to calendar dates
             YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(JD,
                 FORMAT='tuple')
+
             # dlat is the difference in latitude spacing
             dlat0 = np.abs(obp.lat[0:nlat-1]-obp.lat[1:nlat])
             # used a midpoint integration method to make the hemispheres
@@ -251,24 +253,23 @@ def ecco_mean_realtime(ddir, MODEL, RANGE=None, DATAFORM=None,
     attributes['units'] = 'Pa'
     attributes['longname'] = 'Bottom_Pressure'
     attributes['title'] = f'Ocean_Bottom_Pressure_from_ECCO-JPL_{MODEL}_Model'
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # output to file
     args = (MODEL, RANGE[0], RANGE[1], suffix[DATAFORM])
     FILE = 'ECCO_{0}_OBP_MEAN_{1:4d}-{2:4d}.{3}'.format(*args)
+    output_file = ddir.joinpath(FILE)
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
-        obp_mean.to_ascii(os.path.join(ddir,FILE), verbose=VERBOSE)
+        obp_mean.to_ascii(output_file, verbose=VERBOSE)
     elif (DATAFORM == 'netCDF4'):
         # netcdf (.nc)
-        obp_mean.to_netCDF4(os.path.join(ddir,FILE),
-            verbose=VERBOSE, **attributes)
+        obp_mean.to_netCDF4(output_file, verbose=VERBOSE, **attributes)
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
-        obp_mean.to_HDF5(os.path.join(ddir,FILE),
-            verbose=VERBOSE, **attributes)
+        obp_mean.to_HDF5(output_file, verbose=VERBOSE, **attributes)
     # change the permissions mode of the output file to MODE
-    os.chmod(os.path.join(ddir,FILE),MODE)
+    output_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -285,8 +286,7 @@ def arguments():
         help='ECCO Near Real-Time Model')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # start and end years to run for mean
     parser.add_argument('--mean','-m',

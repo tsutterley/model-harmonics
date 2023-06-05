@@ -68,12 +68,12 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import copy
 import pyproj
 import logging
 import netCDF4
+import pathlib
 import argparse
 import warnings
 import numpy as np
@@ -102,14 +102,13 @@ def gemb_smb_harmonics(model_file,
     DATAFORM=None,
     MODE=0o775):
 
-    # GEMB directory
-    DIRECTORY = os.path.dirname(model_file)
     # regular expression pattern for extracting parameters
     pattern = r'GEMB_(Greenland|Antarctica)_(.*?)_(v.*?).nc$'
-    region, _, version = re.findall(pattern, model_file).pop()
+    model_file = pathlib.Path(model_file).expanduser().absolute()
+    region, _, version = re.findall(pattern, model_file.name).pop()
 
     # Open the GEMB NetCDF file for reading
-    fileID = netCDF4.Dataset(os.path.expanduser(model_file), 'r')
+    fileID = netCDF4.Dataset(model_file, mode='r')
 
     # Output NetCDF file information
     logging.info(model_file)
@@ -270,16 +269,17 @@ def gemb_smb_harmonics(model_file,
     # add attributes for maximum degree and order
     attributes['max_degree'] = LMAX
     attributes['max_order'] = MMAX
-    attributes['lineage'] = os.path.basename(model_file)
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['lineage'] = model_file.name
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # add attributes to output harmonics
     Ylms.attributes['ROOT'] = attributes
     # output spherical harmonic data file
     args = (version,region,product_name,LMAX,order_str,suffix[DATAFORM])
     FILE = 'GEMB_{0}_{1}_{2}_CLM_L{3:d}{4}.{5}'.format(*args)
-    Ylms.to_file(os.path.join(DIRECTORY,FILE), format=DATAFORM, date=True)
+    output_file = model_file.with_name(FILE)
+    Ylms.to_file(output_file, format=DATAFORM, date=True)
     # change the permissions mode of the output file to MODE
-    os.chmod(os.path.join(DIRECTORY,FILE),MODE)
+    output_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -291,7 +291,7 @@ def arguments():
     parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('infile',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='GEMB SMB file to run')
     # GEMB product to convert to spherical harmonics
     parser.add_argument('--product','-P',
@@ -299,12 +299,12 @@ def arguments():
         help='GEMB product to calculate')
     # mask file for reducing to regions
     parser.add_argument('--mask',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         nargs='+', default=[],
         help='netCDF4 masks file for reducing to regions')
     # area file for reducing to regions
     parser.add_argument('--area',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='netCDF4 area file for calculating mass')
     # maximum spherical harmonic degree and order
     parser.add_argument('--lmax','-l',

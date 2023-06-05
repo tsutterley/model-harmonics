@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mean_monthly.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (05/2023)
 
 Reads GLDAS monthly datafiles from http://ldas.gsfc.nasa.gov/gldas/
 Adding Soil Moisture, snow water equivalent (SWE) and total canopy storage
@@ -75,6 +75,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: attributes from units class for writing to netCDF4/HDF5
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -106,10 +107,10 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import logging
 import netCDF4
+import pathlib
 import argparse
 import warnings
 import numpy as np
@@ -147,12 +148,12 @@ def gldas_mean_monthly(base_dir, MODEL, RANGE=None, SPATIAL=None, VERSION=None,
         nlon,nlat = (1440,600)
     elif (SPATIAL == '10'):
         nlon,nlat = (360,150)
+    # directory for GLDAS models
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
     # subdirectory for model monthly products at spacing for version
-    subdir = f'GLDAS_{MODEL}{SPATIAL}_{TEMPORAL}{V2}'
-    # directory for GLDAS model
-    ddir = os.path.join(base_dir, subdir)
-    # years to run for mean
-    year_dir = [f'{sd:4d}' for sd in range(RANGE[0],RANGE[1]+1)]
+    ddir = base_dir.joinpath( f'GLDAS_{MODEL}{SPATIAL}_{TEMPORAL}{V2}')
+    # year directories to run for mean
+    year_dir = [ddir.joinpath(f'{sd:4d}') for sd in range(RANGE[0],RANGE[1]+1)]
     # output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
 
@@ -173,21 +174,21 @@ def gldas_mean_monthly(base_dir, MODEL, RANGE=None, SPATIAL=None, VERSION=None,
     # for each year within years_range
     for i,yr in enumerate(year_dir):
         # find all GRIB/netCDF4 files within directory
-        f = [f for f in os.listdir(os.path.join(ddir,yr)) if rx.match(f)]
+        f = [f for f in yr.iterdir() if rx.match(f.name)]
         # for each GRIB/netCDF4 file
-        for fi in sorted(f):
+        for input_file in sorted(f):
             # Getting date information from file
-            YY,MM,VF,SFX = rx.findall(fi).pop()
+            YY,MM,VF,SFX = rx.findall(input_file.name).pop()
             # read GRIB or netCDF4 file
             if (SFX == 'grb'):
                 SM,SWE,CW,twc.lat,twc.lon,twc.fill_value = \
-                    grib_twc_read(os.path.join(ddir,yr,fi))
+                    grib_twc_read(input_file)
             elif (SFX == 'nc4'):
                 SM,SWE,CW,twc.lat,twc.lon,twc.fill_value = \
-                    ncdf_twc_read(os.path.join(ddir,yr,fi))
+                    ncdf_twc_read(input_file)
             elif (SFX == 'grb.SUB.nc4'):
                 SM,SWE,CW,twc.lat,twc.lon,twc.fill_value = \
-                    subset_twc_read(os.path.join(ddir,yr,fi))
+                    subset_twc_read(input_file)
             # converting from kg/m^2 to cm water equivalent (cmwe)
             ii,jj = np.nonzero(SWE != twc.fill_value)
             twc.data[ii,jj,c] = 0.1*(SM[ii,jj] + SWE[ii,jj] + CW[ii,jj])
@@ -204,32 +205,34 @@ def gldas_mean_monthly(base_dir, MODEL, RANGE=None, SPATIAL=None, VERSION=None,
     # output to file
     args = (MODEL,SPATIAL,RANGE[0],RANGE[1],suffix[DATAFORM])
     FILE = 'GLDAS_{0}{1}_TWC_MEAN_{2:4d}-{3:4d}.{4}'.format(*args)
+    output_file = ddir.joinpath(FILE)
     # attributes for output files
     attributes = {}
     units_name, units_longname = gravtk.units.get_attributes('cmwe')
     attributes['units'] = units_name
     attributes['longname'] = units_longname
     attributes['title'] = gldas_products[MODEL]
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
     if (DATAFORM == 'ascii'):
         # ascii (.txt)
-        twc_mean.to_ascii(os.path.join(ddir,FILE),date=False,
+        twc_mean.to_ascii(output_file, date=False,
             verbose=VERBOSE)
     elif (DATAFORM == 'netCDF4'):
         # netCDF4 (.nc)
-        twc_mean.to_netCDF4(os.path.join(ddir,FILE),verbose=VERBOSE,
+        twc_mean.to_netCDF4(output_file, verbose=VERBOSE,
             date=False, **attributes)
     elif (DATAFORM == 'HDF5'):
         # HDF5 (.H5)
-        twc_mean.to_HDF5(os.path.join(ddir,FILE),verbose=VERBOSE,
+        twc_mean.to_HDF5(output_file, verbose=VERBOSE,
             date=False, **attributes)
     # change the permissions mode
-    os.chmod(os.path.join(ddir,FILE), MODE)
+    output_file.chmod(mode=MODE)
 
 # PURPOSE: read a GLDAS GRIB file for snow_water_eq and soil_moisture
 def grib_twc_read(FILENAME):
     # Opening GRB file of year and month
-    fileID = pygrib.open(FILENAME)
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+    fileID = pygrib.open(str(FILENAME))
     # bad value
     fill_value = -9999.0
     # Getting variables
@@ -264,7 +267,8 @@ def grib_twc_read(FILENAME):
 # PURPOSE: read a GLDAS netCDF4 file for snow_water_eq and soil_moisture
 def ncdf_twc_read(FILENAME):
     # Opening netCDF4 file of year and month
-    fileID = netCDF4.Dataset(FILENAME,'r')
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+    fileID = netCDF4.Dataset(FILENAME, mode='r')
     # read variables from netCDF4 file
     lon = fileID.variables['lon'][:].squeeze()
     lat = fileID.variables['lat'][:].squeeze()
@@ -290,7 +294,8 @@ def ncdf_twc_read(FILENAME):
 # PURPOSE: read subset GLDAS netCDF4 file for snow_water_eq and soil_moisture
 def subset_twc_read(FILENAME):
     # Opening netCDF4 file of year and month
-    fileID = netCDF4.Dataset(FILENAME,'r')
+    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
+    fileID = netCDF4.Dataset(FILENAME, mode='r')
     # read variables from netCDF4 file
     lon = fileID.variables['lon'][:].squeeze()
     lat = fileID.variables['lat'][:].squeeze()
@@ -320,8 +325,7 @@ def arguments():
         help='GLDAS land surface model')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # start and end years to run for mean
     parser.add_argument('--mean','-m',

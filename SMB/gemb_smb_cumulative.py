@@ -28,11 +28,11 @@ UPDATE HISTORY:
 """
 from __future__ import print_function
 
-import os
 import re
 import time
 import logging
 import netCDF4
+import pathlib
 import argparse
 import numpy as np
 import model_harmonics as mdlhmc
@@ -59,19 +59,20 @@ def gemb_smb_cumulative(model_file,
         Permission mode of directories and files created
     """
 
-    # GEMB directory
-    DIRECTORY = os.path.dirname(model_file)
     # regular expression pattern for extracting parameters
     pattern = (r'GEMB_(Greenland|Antarctica)(_and_Periphery)?_'
         r'SMB_\d{4}_\d{4}_mesh_\d+km_(v.*?).nc$')
-    region, periphery, version = re.findall(pattern, model_file).pop()
-    output_file = f'GEMB_{region}{periphery}_SMB_cumul_{version}.nc'
+    model_file = pathlib.Path(model_file).expanduser().absolute()
+    region, periphery, version = re.findall(pattern, model_file.name).pop()
+    # output cumulative file
+    cumulative_file = f'GEMB_{region}{periphery}_SMB_cumul_{version}.nc'
+    output_file = model_file.with_name(cumulative_file)
 
     # Open the GEMB NetCDF file for reading
-    fileID = netCDF4.Dataset(os.path.expanduser(model_file), 'r')
+    fileID = netCDF4.Dataset(model_file, mode='r')
 
     # Output NetCDF file information
-    logging.info(os.path.expanduser(model_file))
+    logging.info(str(model_file))
     logging.info(list(fileID.variables.keys()))
 
     # Get data and attribute from each netCDF variable
@@ -137,11 +138,10 @@ def gemb_smb_cumulative(model_file,
     fd['accum_SMB'].data[fd['accum_SMB'].mask] = fd['accum_SMB'].fill_value
 
     # Output NetCDF filename
-    logging.info(os.path.join(DIRECTORY,output_file))
+    logging.info(str(output_file))
 
     # output GEMB data file with cumulative data
-    fileID = netCDF4.Dataset(os.path.join(DIRECTORY,output_file),'w',
-        format="NETCDF4")
+    fileID = netCDF4.Dataset(output_file, 'w', format="NETCDF4")
 
     # Defining the NetCDF dimensions
     fileID.createDimension('x', nx)
@@ -226,7 +226,7 @@ def gemb_smb_cumulative(model_file,
     fileID.close()
 
     # change the permissions mode
-    os.chmod(os.path.join(DIRECTORY,output_file), MODE)
+    output_file.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -237,7 +237,7 @@ def arguments():
     )
     # command line parameters
     parser.add_argument('infile',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
+        type=pathlib.Path,
         help='GEMB file to run')
     # start and end years to run for mean
     parser.add_argument('--mean','-m',

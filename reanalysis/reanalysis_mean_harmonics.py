@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 reanalysis_mean_harmonics.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (05/2023)
 Reads atmospheric geopotential heights fields from reanalysis and calculates
     a multi-annual mean set of spherical harmonics using a 3D geometry
 
@@ -69,6 +69,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
@@ -99,10 +100,10 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import os
 import re
 import logging
 import netCDF4
+import pathlib
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
@@ -118,7 +119,8 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
     logging.basicConfig(level=loglevels[VERBOSE])
 
     # directory setup
-    ddir = os.path.join(base_dir,MODEL)
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
+    ddir = base_dir.joinpath(MODEL)
 
     # set model specific parameters
     if (MODEL == 'ERA-Interim'):
@@ -192,21 +194,20 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
     suffix = dict(ascii='txt',netCDF4='nc',HDF5='H5')
     # output subdirectory
     args = (MODEL.upper(),LMAX,order_str,ocean_str)
-    output_sub = '{0}_ATMOSPHERE_CLM_L{1:d}{2}{3}'.format(*args)
-    if not os.access(os.path.join(ddir,output_sub),os.F_OK):
-        os.makedirs(os.path.join(ddir,output_sub))
+    output_dir = ddir.joinpath('{0}_ATMOSPHERE_CLM_L{1:d}{2}{3}'.format(*args))
+    output_dir.mkdir(mode=MODE, parents=True, exist_ok=True)
     # attributes for output files
     attributes = {}
     attributes['project'] = MODEL
     attributes['product_type'] = 'gravity_field'
     # attributes for input files
     attributes['lineage'] = []
-    attributes['lineage'].append(os.path.basename(input_invariant_file))
-    attributes['lineage'].append(os.path.basename(input_geoid_file))
-    attributes['reference'] = f'Output from {os.path.basename(sys.argv[0])}'
+    attributes['lineage'].append(input_invariant_file)
+    attributes['lineage'].append(input_geoid_file)
+    attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # read model latitude and longitude from invariant parameters file
-    with netCDF4.Dataset(os.path.join(ddir,input_invariant_file),'r') as fileID:
+    with netCDF4.Dataset(ddir.joinpath(input_invariant_file),'r') as fileID:
         lon = fileID.variables[LONNAME][:].copy()
         lat = fileID.variables[LATNAME][:].copy()
     # calculate colatitude
@@ -230,7 +231,7 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
     # calculate Legendre polynomials
     PLM, dPLM = gravtk.plm_holmes(LMAX, np.cos(theta))
     # read geoid heights and grid step size
-    geoid,gridstep = ncdf_geoid(os.path.join(ddir,input_geoid_file))
+    geoid,gridstep = ncdf_geoid(ddir.joinpath(input_geoid_file))
 
     # get reference parameters for ellipsoid
     ellipsoid_params = mdlhmc.constants(ellipsoid=ELLIPSOID)
@@ -253,7 +254,8 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
 
     # get indices of land-sea mask if redistributing oceanic points
     if REDISTRIBUTE:
-        ii,jj = ncdf_landmask(os.path.join(ddir,input_mask_file),MASKNAME,OCEAN)
+        ii,jj = ncdf_landmask(ddir.joinpath(input_mask_file),
+            MASKNAME, OCEAN)
         # calculate total area of oceanic points
         TOTAL_AREA = np.sum(AREA[ii,jj])
 
@@ -261,18 +263,19 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
     # then calculate mean of the spherical harmonic fields
     regex_years = r'|'.join([rf'{Y:4d}' for Y in range(RANGE[0],RANGE[1]+1)])
     rx = re.compile(regex_pattern.format(regex_years),re.VERBOSE)
-    input_files = sorted([fi for fi in os.listdir(ddir) if rx.match(fi)])
+    input_files = sorted([f for f in ddir.iterdir() if rx.match(f.name)])
 
     # list of monthly spherical harmonics
     harmonics_list = []
     # for each reanalysis file
-    for fi in input_files:
+    for i,input_file in enumerate(input_files):
         # read model level geopotential height data
-        fileID = netCDF4.Dataset(os.path.join(ddir,fi),'r')
+        logging.debug(str(input_file))
+        fileID = netCDF4.Dataset(input_file, mode='r')
         # append file to lineage
-        attributes['lineage'].append(os.path.basename(fi))
+        attributes['lineage'].append(input_file.name)
         # extract shape from geopotential variable
-        ntime,nlevels,nlat,nlon = fileID.variables[ZNAME].shape
+        ntime, nlevels, nlat, nlon = fileID.variables[ZNAME].shape
         # convert time to Modified Julian Days
         delta_time = np.copy(fileID.variables[TIMENAME][:])
         date_string = fileID.variables[TIMENAME].units
@@ -312,22 +315,24 @@ def reanalysis_mean_harmonics(base_dir, MODEL, RANGE=None, REDISTRIBUTE=False,
 
     # output mean spherical harmonics file
     args = (MODEL.upper(), LMAX, order_str, RANGE[0], RANGE[1], suffix[DATAFORM])
-    output_mean_file = '{0}_MEAN_CLM_L{1:d}{2}_{3:4d}-{4:4d}.{5}'.format(*args)
-    mean_Ylms.to_file(os.path.join(ddir,output_sub,output_mean_file),
-        format=DATAFORM, verbose=VERBOSE)
+    FILE = '{0}_MEAN_CLM_L{1:d}{2}_{3:4d}-{4:4d}.{5}'.format(*args)
+    output_mean_file = output_dir.joinpath(FILE)
+    mean_Ylms.to_file(output_mean_file, format=DATAFORM, verbose=VERBOSE)
     # set the permissions level of the output file to MODE
-    os.chmod(os.path.join(ddir,output_sub,output_mean_file), MODE)
+    output_mean_file.chmod(mode=MODE)
 
 # PURPOSE: read geoid height netCDF4 files from read_gfz_geoid_grids.py
 def ncdf_geoid(FILENAME):
-    with netCDF4.Dataset(FILENAME,'r') as fileID:
+    logging.debug(str(FILENAME))
+    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
         geoid_undulation = fileID.variables['geoid'][:].copy()
         gridstep = np.array(fileID.gridstep.split(','),dtype=np.float64)
     return (geoid_undulation,np.squeeze(gridstep))
 
 # PURPOSE: read land sea mask to get indices of oceanic values
-def ncdf_landmask(FILENAME,MASKNAME,OCEAN):
-    with netCDF4.Dataset(FILENAME,'r') as fileID:
+def ncdf_landmask(FILENAME, MASKNAME, OCEAN):
+    logging.debug(str(FILENAME))
+    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
         landsea = np.squeeze(fileID.variables[MASKNAME][:].copy()).astype('f2')
     return np.nonzero(landsea == OCEAN)
 
@@ -349,8 +354,7 @@ def arguments():
         help='Reanalysis Model')
     # working data directory
     parser.add_argument('--directory','-D',
-        type=lambda p: os.path.abspath(os.path.expanduser(p)),
-        default=os.getcwd(),
+        type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
     # mean pressure field to calculate
     parser.add_argument('--mean',
