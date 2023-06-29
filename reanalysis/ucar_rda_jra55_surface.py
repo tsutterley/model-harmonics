@@ -402,7 +402,7 @@ def main():
         ).encode("utf-8")
     request = gravtk.utilities.urllib2.Request(
         'https://rda.ucar.edu/cgi-bin/login',data=data)
-    response = gravtk.utilities.urllib2.urlopen(request,timeout=20)
+    response = gravtk.utilities.urllib2.urlopen(request, timeout=20)
     # All calls to urllib2.urlopen will now use handler
 
     # check that connection to UCAR RDA was successful

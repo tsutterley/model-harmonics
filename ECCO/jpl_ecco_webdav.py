@@ -91,7 +91,7 @@ def jpl_ecco_webdav(USER, PASSWORD, parser=lxml.etree.HTMLParser()):
     gravtk.utilities.urllib2.urlopen(request)
     # read and parse request for webdav password
     request = gravtk.utilities.urllib2.Request(url=HOST)
-    response = gravtk.utilities.urllib2.urlopen(request,timeout=20)
+    response = gravtk.utilities.urllib2.urlopen(request, timeout=20)
     tree = lxml.etree.parse(response, parser)
     WEBDAV, = tree.xpath('//input[@id="password"]/@value')
     # return webdav password

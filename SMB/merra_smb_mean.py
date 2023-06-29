@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_mean.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (06/2023)
 Reads monthly MERRA-2 datafiles to calculate multi-annual means
     of derived surface mass balance products
 
@@ -47,6 +47,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 06/2023: use year extracted from file name
     Updated 03/2023: attributes from units class for writing to netCDF4/HDF5
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -158,8 +159,6 @@ def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     attributes['source'] = ', '.join(merra_sources[PRODUCT])
     attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
-    # find years of available data
-    YEARS = sorted([d for d in P1.iterdir() if re.match(r'\d{4}',d.name)])
     # check that are years are available
     for Y in range(int(RANGE[0]), int(RANGE[-1])+1):
         if not P1.joinpath(str(Y)).exists():
@@ -186,12 +185,12 @@ def merra_smb_mean(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
         # sort files by month
         indices = np.argsort([rx.match(f.name).group(3) for f in input_files])
         input_files = [input_files[indice] for indice in indices]
-        # days per month in year
-        dpm = gravtk.time.calendar_days(int(Y))
         # for each monthly file
         for M,merra_flux_file in enumerate(input_files):
             # extract parameters from input flux file
             MOD,Y1,M1 = rx.findall(merra_flux_file.name).pop()
+            # days per month in year
+            dpm = gravtk.time.calendar_days(int(Y1))
             # corresponding ice surface product file
             args = (MOD,'tavgM_2d_glc_Nx',Y1,M1)
             f2 = 'MERRA2_{0}.{1}.{2}{3}.nc4'.format(*args)
