@@ -140,7 +140,6 @@ def racmo_smb_harmonics(model_file, VARIABLE,
     fd = {}
     # extract data variable
     fd[VARIABLE] = np.squeeze(fileID.variables[VARIABLE][:].copy())
-    fv = np.float(fileID.variables[VARIABLE]._FillValue)
     # read latitude, longitude and rotated pole coordinates
     fd['lon'] = fileID.variables['lon'][:,:].copy()
     gridlat = fileID.variables['lat'][:,:].copy()
