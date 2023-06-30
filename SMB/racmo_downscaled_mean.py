@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 racmo_downscaled_mean.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (06/2023)
 Calculates the temporal mean of downscaled RACMO
 surface mass balance products
 
@@ -13,6 +13,7 @@ COMMAND LINE OPTIONS:
         2.0: RACMO2.3p2/XGRN11
         3.0: RACMO2.3p2/FGRN055
         4.0: RACMO2.3p2/FGRN055
+        5.0: RACMO2.3p2/FGRN055
     --product: RACMO product to calculate
         SMB: Surface Mass Balance
         PRECIP: Precipitation
@@ -28,6 +29,8 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 06/2023: added version 5.0 (RACMO2.3p2 for 1958-2023 from FGRN055)
+    Updated 10/2022: added version 5.0 (RACMO2.3p2 for 1958-2023 from FGRN055)
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 10/2022: added version 4.0 (RACMO2.3p2 for 1958-2022 from FGRN055)
@@ -101,7 +104,7 @@ def get_dimensions(input_dir, VERSION, PRODUCT, GZIP=False):
     else:
         VARNAME = f'{VARIABLE}corr'
     # if reading yearly files or compressed files
-    if VERSION in ('1.0','4.0'):
+    if VERSION in ('1.0','4.0','5.0'):
         # find input files
         pattern = r'{0}.(\d+).BN_(.*?).MM.nc(\.gz)?'.format(VARIABLE)
         rx = re.compile(pattern, re.VERBOSE | re.IGNORECASE)
@@ -198,7 +201,7 @@ def yearly_file_mean(input_dir, VERSION, PRODUCT, START, END, GZIP=False):
     # if reading bytes from compressed file or netcdf file directly
     gz = '.gz' if GZIP else ''
     # input area file with ice mask and model topography
-    if (VERSION == '4.0'):
+    if VERSION in ('4.0','5.0'):
         f1 = f'Icemask_Topo_Iceclasses_lon_lat_average_1km_GrIS.nc{gz}'
         input_mask_file = input_dir.joinpath(f1)
         if GZIP:
@@ -530,7 +533,16 @@ def racmo_downscaled_mean(base_dir, VERSION, PRODUCT,
         RACMO_MODEL = ['FGRN055','2.3p2']
         var = input_products[PRODUCT]
         VARNAME = var if (PRODUCT == 'SMB') else f'{var}corr'
-        input_dir = base_dir.joinpath(f'SMB1km_v{VERSION}')
+        SUBDIRECTORY = PRODUCT.lower()
+        input_dir = base_dir.joinpath(f'SMB1km_v{VERSION}', SUBDIRECTORY)
+        dinput = yearly_file_mean(input_dir, VERSION, PRODUCT,
+            RANGE[0], RANGE[1], GZIP=GZIP)
+    elif (VERSION == '5.0'):
+        RACMO_MODEL = ['FGRN055','2.3p2']
+        var = input_products[PRODUCT]
+        VARNAME = var if (PRODUCT == 'SMB') else f'{var}corr'
+        SUBDIRECTORY = PRODUCT.lower()
+        input_dir = base_dir.joinpath(f'SMB1km_v{VERSION}', SUBDIRECTORY)
         dinput = yearly_file_mean(input_dir, VERSION, PRODUCT,
             RANGE[0], RANGE[1], GZIP=GZIP)
 
@@ -562,8 +574,10 @@ def arguments():
     # 2.0: RACMO2.3p2/XGRN11
     # 3.0: RACMO2.3p2/FGRN055
     # 4.0: RACMO2.3p2/FGRN055
+    # 5.0: RACMO2.3p2/FGRN055
+    choices = ['1.0','2.0','3.0','4.0','5.0']
     parser.add_argument('--version','-v',
-        type=str, default='4.0', choices=['1.0','2.0','3.0','4.0'],
+        type=str, default='5.0', choices=choices,
         help='Downscaled RACMO Version')
     # Products to calculate cumulative
     parser.add_argument('--product','-p',

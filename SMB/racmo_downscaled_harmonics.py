@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 racmo_downscaled_harmonics.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (06/2023)
 Read RACMO surface mass balance products and converts to spherical harmonics
 Shifts dates of SMB point masses to mid-month values to correspond with GRACE
 
@@ -52,6 +52,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 06/2023: added version 5.0 (RACMO2.3p2 for 1958-2023 from FGRN055)
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
         use spatial function for calculating geocentric latitude
     Updated 02/2023: use love numbers class with additional attributes
@@ -117,10 +118,7 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
     elif (VERSION == '2.0'):
         var = input_products[VARIABLE]
         VARNAME = var if VARIABLE in ('SMB','PRECIP') else f'{var}corr'
-    elif (VERSION == '3.0'):
-        var = input_products[VARIABLE]
-        VARNAME = var if (VARIABLE == 'SMB') else f'{var}corr'
-    elif (VERSION == '4.0'):
+    elif VERSION in ('3.0', '4.0', '5.0'):
         var = input_products[VARIABLE]
         VARNAME = var if (VARIABLE == 'SMB') else f'{var}corr'
 
