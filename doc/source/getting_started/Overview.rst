@@ -40,27 +40,67 @@ Ocean bottom pressure anomalies are converted to spherical harmonics following [
     :align: center
 
     digraph {
-        E [label="ECCO Ocean Bottom Pressure" shape=box style="filled" color="#7570b3"]
-        N [label="Geoid Height" shape=box style="filled" color="#7570b3"]
-        B [label="Ocean Bathymetry" shape=box style="filled" color="#7570b3"]
+        E [label="ECCO Ocean Bottom Pressure"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#7570b3"]
+        N [label="Geoid Height"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#7570b3"]
+        B [label="Ocean Bathymetry"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#7570b3"]
         M [URL="https://github.com/tsutterley/model-harmonics/blob/main/ECCO/ecco_mean_realtime.py"
-            label="Calculate Temporal Mean" shape=box style="filled" color="gray"]
+            label="Calculate Temporal Mean"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="gray"]
         R [URL="https://github.com/tsutterley/model-harmonics/blob/main/ECCO/ecco_read_realtime.py"
-            label="Calculate Monthly Anomalies" shape=box style="filled" color="gray"]
+            label="Calculate Monthly Anomalies"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="gray"]
         H [URL="https://github.com/tsutterley/model-harmonics/blob/main/ECCO/ecco_monthly_harmonics.py"
-            label="Calculate Spherical Harmonics" shape=box style="filled" color="gray"]
+            label="Calculate Spherical Harmonics"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="gray"]
         S [URL="https://github.com/tsutterley/gravity-toolkit/blob/main/scripts/combine_harmonics.py"
-            label="Spatial Maps" shape=box style="filled" color="#1b9e77"]
+            label="Spatial Maps"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#1b9e77"]
         T [URL="https://github.com/tsutterley/model-harmonics/blob/main/scripts/least_squares_mascon_timeseries.py"
-            label="Time Series" shape=box style="filled" color="#1b9e77"]
-        E -> M
-        M -> R
-        E -> R
-        R -> H
-        N -> H
-        B -> H
-        H -> S
-        H -> T
+            label="Time Series"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#1b9e77"]
+        E -> M [arrowsize=0.8]
+        M -> R [arrowsize=0.8]
+        E -> R [arrowsize=0.8]
+        R -> H [arrowsize=0.8]
+        N -> H [arrowsize=0.8]
+        B -> H [arrowsize=0.8]
+        H -> S [arrowsize=0.8]
+        H -> T [arrowsize=0.8]
     }
 
 GLDAS
@@ -92,25 +132,60 @@ Terrestrial water storage anomalies are converted to spherical harmonics followi
     :align: center
 
     digraph {
-        E [label="GLDAS Land Surface\nModel Outputs" shape=box style="filled" color="#7570b3"]
-        L [label="Vegetation and\nLand Surface Masks" shape=box style="filled" color="#7570b3"]
+        E [label="GLDAS Land Surface\nModel Outputs"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#7570b3"]
+        L [label="Vegetation and\nLand Surface Masks"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#7570b3"]
         M [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_mean_monthly.py"
-            label="Calculate Temporal Mean" shape=box style="filled" color="gray"]
+            label="Calculate Temporal Mean"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="gray"]
         R [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_read_monthly.py"
-            label="Calculate Monthly Anomalies" shape=box style="filled" color="gray"]
+            label="Calculate Monthly Anomalies"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="gray"]
         H [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_monthly_harmonics.py"
-            label="Calculate Spherical Harmonics" shape=box style="filled" color="gray"]
+            label="Calculate Spherical Harmonics"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="gray"]
         S [URL="https://github.com/tsutterley/gravity-toolkit/blob/main/scripts/combine_harmonics.py"
-            label="Spatial Maps" shape=box style="filled" color="#1b9e77"]
+            label="Spatial Maps"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#1b9e77"]
         T [URL="https://github.com/tsutterley/model-harmonics/blob/main/scripts/least_squares_mascon_timeseries.py"
-            label="Time Series" shape=box style="filled" color="#1b9e77"]
-        E -> M
-        E -> R
-        M -> R
-        R -> H
-        L -> H
-        H -> S
-        H -> T
+            label="Time Series"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#1b9e77"]
+        E -> M [arrowsize=0.8]
+        E -> R [arrowsize=0.8]
+        M -> R [arrowsize=0.8]
+        R -> H [arrowsize=0.8]
+        L -> H [arrowsize=0.8]
+        H -> S [arrowsize=0.8]
+        H -> T [arrowsize=0.8]
     }
 
 
@@ -159,24 +234,59 @@ Anomalies for each reanalysis are calculated relative to a multi-annual mean (su
     :align: center
 
     digraph {
-        E [label="Reanalysis Surface Pressure" shape=box style="filled" color="#7570b3"]
-        N [label="Geoid Height" shape=box style="filled" color="#7570b3"]
-        O [label="Model Orography" shape=box style="filled" color="#7570b3"]
+        E [label="Reanalysis Surface Pressure"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#7570b3"]
+        N [label="Geoid Height"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#7570b3"]
+        O [label="Model Orography"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#7570b3"]
         M [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/reanalysis_mean_pressure.py"
-            label="Calculate Temporal Mean" shape=box style="filled" color="gray"]
+            label="Calculate Temporal Mean"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="gray"]
         H [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/reanalysis_pressure_harmonics.py"
-            label="Calculate Spherical Harmonics" shape=box style="filled" color="gray"]
+            label="Calculate Spherical Harmonics"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="gray"]
         S [URL="https://github.com/tsutterley/gravity-toolkit/blob/main/scripts/combine_harmonics.py"
-            label="Spatial Maps" shape=box style="filled" color="#1b9e77"]
+            label="Spatial Maps"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#1b9e77"]
         T [URL="https://github.com/tsutterley/model-harmonics/blob/main/scripts/least_squares_mascon_timeseries.py"
-            label="Time Series" shape=box style="filled" color="#1b9e77"]
-        E -> M
-        M -> H
-        E -> H
-        N -> H
-        O -> H
-        H -> S
-        H -> T
+            label="Time Series"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#1b9e77"]
+        E -> M [arrowsize=0.8]
+        M -> H [arrowsize=0.8]
+        E -> H [arrowsize=0.8]
+        N -> H [arrowsize=0.8]
+        O -> H [arrowsize=0.8]
+        H -> S [arrowsize=0.8]
+        H -> T [arrowsize=0.8]
     }
 
 .. graphviz::
@@ -184,30 +294,75 @@ Anomalies for each reanalysis are calculated relative to a multi-annual mean (su
     :align: center
 
     digraph {
-        E [label="Reanalysis Temperature\nand Specific Humidity" shape=box style="filled" color="#7570b3"]
+        E [label="Reanalysis Temperature\nand Specific Humidity"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#7570b3"]
         L [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/model_level_coefficients.py"
-            label="Model Level\nCoefficients" shape=box style="filled" color="#7570b3"]
-        N [label="Geoid Height" shape=box style="filled" color="#7570b3"]
-        O [label="Model Orography" shape=box style="filled" color="#7570b3"]
+            label="Model Level\nCoefficients"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#7570b3"]
+        N [label="Geoid Height"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#7570b3"]
+        O [label="Model Orography"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#7570b3"]
         G [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/reanalysis_geopotential_heights.py"
-            label="Calculate Geopotential Heights\nand Pressure Differences" shape=box style="filled" color="gray"]
+            label="Calculate Geopotential Heights\nand Pressure Differences"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="gray"]
         M [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/reanalysis_mean_harmonics.py"
-            label="Calculate Temporal Mean\nSpherical Harmonics" shape=box style="filled" color="gray"]
+            label="Calculate Temporal Mean\nSpherical Harmonics"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="gray"]
         H [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/reanalysis_atmospheric_harmonics.py"
-            label="Calculate Spherical Harmonics" shape=box style="filled" color="gray"]
+            label="Calculate Spherical Harmonics"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="gray"]
         S [URL="https://github.com/tsutterley/gravity-toolkit/blob/main/scripts/combine_harmonics.py"
-            label="Spatial Maps" shape=box style="filled" color="#1b9e77"]
+            label="Spatial Maps"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#1b9e77"]
         T [URL="https://github.com/tsutterley/model-harmonics/blob/main/scripts/least_squares_mascon_timeseries.py"
-            label="Time Series" shape=box style="filled" color="#1b9e77"]
-        E -> G
-        L -> G
-        O -> G
-        G -> M
-        M -> H
-        G -> H
-        N -> H
-        H -> S
-        H -> T
+            label="Time Series"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#1b9e77"]
+        E -> G [arrowsize=0.8]
+        L -> G [arrowsize=0.8]
+        O -> G [arrowsize=0.8]
+        G -> M [arrowsize=0.8]
+        M -> H [arrowsize=0.8]
+        G -> H [arrowsize=0.8]
+        N -> H [arrowsize=0.8]
+        H -> S [arrowsize=0.8]
+        H -> T [arrowsize=0.8]
     }
 
 SMB
@@ -238,25 +393,60 @@ Surface mass balance anomalies are converted to spherical harmonics following [W
     :align: center
 
     digraph {
-        E [label="MERRA-2 Reanalysis\nModel Outputs" shape=box style="filled" color="#7570b3"]
-        L [label="Region Masks" shape=box style="filled" color="#7570b3"]
+        E [label="MERRA-2 Reanalysis\nModel Outputs"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#7570b3"]
+        L [label="Region Masks"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#7570b3"]
         M [URL="https://github.com/tsutterley/model-harmonics/blob/main/SMB/merra_smb_mean.py"
-            label="Calculate Temporal Mean" shape=box style="filled" color="gray"]
+            label="Calculate Temporal Mean"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="gray"]
         R [URL="https://github.com/tsutterley/model-harmonics/blob/main/SMB/merra_smb_cumulative.py"
-            label="Calculate Cumulative Anomalies" shape=box style="filled" color="gray"]
+            label="Calculate Cumulative Anomalies"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="gray"]
         H [URL="https://github.com/tsutterley/model-harmonics/blob/main/SMB/merra_smb_harmonics.py"
-            label="Calculate Spherical Harmonics" shape=box style="filled" color="gray"]
+            label="Calculate Spherical Harmonics"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="gray"]
         S [URL="https://github.com/tsutterley/gravity-toolkit/blob/main/scripts/combine_harmonics.py"
-            label="Spatial Maps" shape=box style="filled" color="#1b9e77"]
+            label="Spatial Maps"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#1b9e77"]
         T [URL="https://github.com/tsutterley/model-harmonics/blob/main/scripts/least_squares_mascon_timeseries.py"
-            label="Time Series" shape=box style="filled" color="#1b9e77"]
-        E -> M
-        E -> R
-        M -> R
-        R -> H
-        L -> H
-        H -> S
-        H -> T
+            label="Time Series"
+            fontname="Lato"
+            fontsize=11
+            shape=box
+            style="filled"
+            color="#1b9e77"]
+        E -> M [arrowsize=0.8]
+        E -> R [arrowsize=0.8]
+        M -> R [arrowsize=0.8]
+        R -> H [arrowsize=0.8]
+        L -> H [arrowsize=0.8]
+        H -> S [arrowsize=0.8]
+        H -> T [arrowsize=0.8]
     }
 
 .. |ndash|    unicode:: U+2013 .. EN DASH
