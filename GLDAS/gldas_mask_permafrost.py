@@ -167,7 +167,7 @@ def gldas_mask_permafrost(ddir, SPACING=None, SHAPEFILE=None, MODE=0o775):
                 # if there is an intersection
                 if int_test:
                     # extract intersected points
-                    int_map = list(map(poly_obj.intersects,xy_point))
+                    int_map = list(map(poly_obj.intersects, xy_point.geoms))
                     int_indices, = np.nonzero(int_map)
                     intersection_mask[int_indices] = (5-j)
     # fill larger data mask

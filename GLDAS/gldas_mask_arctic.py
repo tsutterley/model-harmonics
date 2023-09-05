@@ -160,7 +160,7 @@ def gldas_mask_arctic(ddir, SPACING=None, SHAPEFILES=None, AREA=None,
         # if there is an intersection
         if int_test:
             # extract intersected points
-            int_map = list(map(poly_obj.intersects,xy_point))
+            int_map = list(map(poly_obj.intersects, xy_point.geoms))
             int_indices, = np.nonzero(int_map)
             intersection_mask[int_indices] = i+1
     # create larger data mask
