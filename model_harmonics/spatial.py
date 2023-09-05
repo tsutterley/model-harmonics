@@ -9,6 +9,7 @@ PYTHON DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 08/2023: add function for flipping raster object
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: convert spacing and extent to raster class properties
         improve typing for variables in docstrings
@@ -16,6 +17,7 @@ UPDATE HISTORY:
     Updated 02/2023: geotiff read and write to inheritance of spatial class
     Written 10/2022
 """
+import copy
 import uuid
 import logging
 import pathlib
@@ -27,12 +29,12 @@ from model_harmonics.constants import constants
 # attempt imports
 try:
     import osgeo.gdal, osgeo.osr, osgeo.gdalconst
-except (ImportError, ModuleNotFoundError) as exc:
+except (AttributeError, ImportError, ModuleNotFoundError) as exc:
     warnings.filterwarnings("module")
     warnings.warn("GDAL not available", ImportWarning)
 try:
     import pyproj
-except (ImportError, ModuleNotFoundError) as exc:
+except (AttributeError, ImportError, ModuleNotFoundError) as exc:
     warnings.filterwarnings("module")
     warnings.warn("pyproj not available", ImportWarning)
 # ignore warnings
@@ -128,7 +130,6 @@ class raster(gravity_toolkit.spatial):
         bsize = ds.RasterCount
         # get geotiff info
         info_geotiff = ds.GetGeoTransform()
-        self.spacing = (info_geotiff[1], info_geotiff[5])
         # calculate image extents
         xmin = info_geotiff[0]
         ymax = info_geotiff[3]
@@ -290,6 +291,28 @@ class raster(gravity_toolkit.spatial):
         ymax = np.max(self.y)
         return [xmin, xmax, ymin, ymax]
 
+    def copy(self):
+        """
+        Copy a ``raster`` object to a new ``raster`` object
+        """
+        temp = raster(fill_value=self.fill_value)
+        # copy attributes or update attributes dictionary
+        if isinstance(self.attributes, list):
+            setattr(temp,'attributes',self.attributes)
+        elif isinstance(self.attributes, dict):
+            temp.attributes.update(self.attributes)
+        # assign variables to self
+        var = ['x','y','data','mask','error','time','month','filename']
+        for key in var:
+            try:
+                val = getattr(self, key)
+                setattr(temp, key, copy.copy(val))
+            except AttributeError:
+                pass
+        # update mask
+        temp.replace_masked()
+        return temp
+
     def expand_dims(self):
         """
         Add a singleton dimension to a spatial object if non-existent
@@ -305,6 +328,47 @@ class raster(gravity_toolkit.spatial):
         # get spacing and dimensions
         self.update_mask()
         return self
+
+    def flip(self, axis=0):
+        """
+        Reverse the order of data and dimensions along an axis
+
+        Parameters
+        ----------
+        axis: int, default 0
+            axis to reorder
+        """
+        # output spatial object
+        temp = self.copy()
+        # copy dimensions and reverse order
+        if (axis == 0):
+            temp.y = temp.y[::-1].copy()
+        elif (axis == 1):
+            temp.x = temp.x[::-1].copy()
+        # attempt to reverse possible data variables
+        for key in ['data','mask','error']:
+            try:
+                setattr(temp, key, np.flip(getattr(self, key), axis=axis))
+            except Exception as exc:
+                pass
+        # update mask
+        temp.update_mask()
+        return temp
+
+    def __str__(self):
+        """String representation of the ``raster`` object
+        """
+        properties = ['model_harmonics.raster']
+        extent = ', '.join(map(str, self.extent))
+        properties.append(f"    extent: {extent}")
+        spacing = ', '.join(map(str, self.spacing))
+        properties.append(f"    spacing: {spacing}")
+        shape = ', '.join(map(str, self.shape))
+        properties.append(f"    shape: {shape}")
+        if self.month:
+            properties.append(f"    start_month: {min(self.month)}")
+            properties.append(f"    end_month: {max(self.month)}")
+        return '\n'.join(properties)
 
 # get WGS84 parameters in CGS (centimeters, grams, seconds)
 _wgs84 = constants(ellipsoid='WGS84', units='CGS')
