@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 GIA_uplift_ICESat2_ATL15.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (09/2023)
 Calculates GIA-induced crustal uplift over polar stereographic grids for
     correcting ICESat-2 ATL15 gridded land ice height change data
 Calculated directly from GIA spherical harmonics
@@ -12,16 +12,6 @@ INPUTS:
 COMMAND LINE OPTIONS:
     -h, --help: list the command line options
     -l X, --lmax X: maximum spherical harmonic degree
-    -n X, --love X: Treatment of the Love Love numbers
-        0: Han and Wahr (1995) values from PREM
-        1: Gegout (2005) values from PREM
-        2: Wang et al. (2012) values from PREM
-        3: Wang et al. (2012) values from PREM with hard sediment
-        4: Wang et al. (2012) values from PREM with soft sediment
-    --reference X: Reference frame for load love numbers
-        CF: Center of Surface Figure (default)
-        CM: Center of Mass of Earth System
-        CE: Center of Mass of Solid Earth
     -G X, --gia X: GIA model type to read
         IJ05-R2: Ivins R2 GIA Models
         W12a: Whitehouse GIA Models
@@ -67,6 +57,7 @@ REFERENCE:
         Bollettino di Geodesia e Scienze (1982)
 
 UPDATE HISTORY:
+    Updated 09/2023: simplify input arguments
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 02/2023: added iterate option to reduce memory load for 1km files
         add debug logging for ATL15 netCDF4 variables
@@ -134,8 +125,6 @@ def read_ATL15(infile, group='delta_h'):
 def calculate_GIA_uplift(input_file, LMAX,
     GIA=None,
     GIA_FILE=None,
-    LOVE_NUMBERS=0,
-    REFERENCE=None,
     ITERATIONS=1,
     MODE=0o775):
     """
@@ -164,20 +153,6 @@ def calculate_GIA_uplift(input_file, LMAX,
             - ``'HDF5'``: reformatted GIA in HDF5 format
     GIA_FILE: str or NoneType, default None
         full path to input GIA file
-    LOVE_NUMBERS: int, default 0
-        Treatment of the load Love numbers
-
-            - ``0``: [Han1995]_ values from PREM
-            - ``1``: [Gegout2010]_ values from PREM
-            - ``2``: [Wang2012]_ values from PREM
-    REFERENCE: str or NoneType, default None
-        Reference frame for load Love numbers [Blewett2003]_
-
-            - ``'CF'``: Center of Surface Figure
-            - ``'CL'``: Center of Surface Lateral Figure
-            - ``'CH'``: Center of Surface Height Figure
-            - ``'CM'``: Center of Mass of Earth System
-            - ``'CE'``: Center of Mass of Solid Earth
     ITERATE: bool, default False
         Iterate over mask to solve for large matrices
     MODE: oct, default 0o775
@@ -246,8 +221,10 @@ def calculate_GIA_uplift(input_file, LMAX,
     crs_to_dict = crs1.to_dict()
 
     # read arrays of kl, hl, and ll Love Numbers
+    # these Love numbers are not used in the GIA uplift calculation
+    # but are a required input for the clenshaw summation
     LOVE = gravtk.load_love_numbers(LMAX,
-        LOVE_NUMBERS=LOVE_NUMBERS, REFERENCE=REFERENCE,
+        LOVE_NUMBERS=0, REFERENCE='CF',
         FORMAT='class')
 
     # input GIA spherical harmonic datafiles
@@ -419,20 +396,6 @@ def arguments():
     parser.add_argument('--lmax','-l',
         type=int, default=60,
         help='Maximum spherical harmonic degree')
-    # different treatments of the load Love numbers
-    # 0: Han and Wahr (1995) values from PREM
-    # 1: Gegout (2005) values from PREM
-    # 2: Wang et al. (2012) values from PREM
-    # 3: Wang et al. (2012) values from PREM with hard sediment
-    # 4: Wang et al. (2012) values from PREM with soft sediment
-    parser.add_argument('--love','-n',
-        type=int, default=0, choices=[0,1,2,3,4],
-        help='Treatment of the Load Love numbers')
-    # option for setting reference frame for gravitational load love number
-    # reference frame options (CF, CM, CE)
-    parser.add_argument('--reference',
-        type=str.upper, default='CF', choices=['CF','CM','CE'],
-        help='Reference frame for load Love numbers')
     # GIA model type list
     models = {}
     models['IJ05-R2'] = 'Ivins R2 GIA Models'
@@ -494,8 +457,6 @@ def main():
         calculate_GIA_uplift(args.infile, args.lmax,
             GIA=args.gia,
             GIA_FILE=args.gia_file,
-            LOVE_NUMBERS=args.love,
-            REFERENCE=args.reference,
             ITERATIONS=args.iterate,
             MODE=args.mode)
     except Exception as exc:

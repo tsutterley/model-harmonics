@@ -1,20 +1,20 @@
 ===================
-GIA_GSFC_mascons.py
+GIA_spatial_maps.py
 ===================
 
-- Calculates GIA equivalent water height corrections for GSFC mascons at the central points of each mascon
+- Calculates spatial maps of Glacial Isostatic Adjustment (GIA)
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/GIA/GIA_GSFC_mascons.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/GIA/GIA_spatial_maps.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: GIA_GSFC_mascons.py
+    :filename: GIA_spatial_maps.py
     :func: arguments
-    :prog: GIA_GSFC_mascons.py
+    :prog: GIA_spatial_maps.py
     :nodescription:
     :nodefault:
 
@@ -31,3 +31,21 @@ Calling Sequence
         * ``'ascii'``: reformatted GIA in ascii format
         * ``'netCDF4'``: reformatted GIA in netCDF4 format
         * ``'HDF5'``: reformatted GIA in HDF5 format
+
+    --units -U : @after
+        * ``1``: cm of water thickness
+        * ``2``: mm of geoid height
+        * ``4``: |mu|\ Gal gravitational perturbation
+        * ``5``: mbar equivalent surface pressure
+        * ``6``: cm viscoelastic crustal uplift
+
+    --interval : @replace
+        Output grid interval
+
+        * ``1``: (0:360, 90:-90)
+        * ``2``: (degree spacing/2)
+        * ``3``: non-global grid (set with defined bounds)
+
+.. |mu|      unicode:: U+03BC .. GREEK SMALL LETTER MU
+
+.. |times|      unicode:: U+00D7 .. MULTIPLICATION SIGN
