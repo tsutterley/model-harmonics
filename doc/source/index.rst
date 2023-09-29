@@ -65,6 +65,7 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     :caption: GIA
 
     api_reference/GIA_GSFC_mascons.rst
+    api_reference/GIA_spatial_maps.rst
     api_reference/GIA_uplift_ICESat2_ATL15.rst
 
 .. toctree::

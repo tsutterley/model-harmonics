@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 GIA_GSFC_mascons.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (09/2023)
 Calculates GIA equivalent water height corrections for GSFC mascons at the
     central points of each mascon
 
@@ -62,6 +62,7 @@ REFERENCES:
         Bollettino di Geodesia e Scienze (1982)
 
 UPDATE HISTORY:
+    Updated 09/2023: calculate custom degree dependent unit factors
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
@@ -102,8 +103,12 @@ def info(args):
     logging.info(f'process id: {os.getpid():d}')
 
 # PURPOSE: calculate GIA corrections at locations of GSFC mascons
-def GIA_GSFC_mascons(grace_file, GIA=None, GIA_FILE=None, LMAX=0,
-    LOVE_NUMBERS=None, REFERENCE=None, MODE=None):
+def GIA_GSFC_mascons(grace_file,
+    GIA=None,
+    GIA_FILE=None,
+    LMAX=0,
+    MODE=None
+    ):
 
     # verify path to input GRACE/GRACE-FO file
     grace_file = pathlib.Path(grace_file).expanduser().absolute()
@@ -118,16 +123,19 @@ def GIA_GSFC_mascons(grace_file, GIA=None, GIA_FILE=None, LMAX=0,
         for key in ['lat_center','lon_center','lat_span','lon_span']:
             output_data[key] = fileID['mascon'][key][:].flatten()
 
-    # read load love numbers
-    LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
-        REFERENCE=REFERENCE, FORMAT='class')
+    # read arrays of kl, hl, and ll Love Numbers
+    # these Love numbers are not used in the spatial calculation
+    LOVE = gravtk.load_love_numbers(LMAX,
+        LOVE_NUMBERS=0, REFERENCE='CF', FORMAT='class')
+    # do not include the elastic component in the unit coefficients
+    factors = gravtk.units(lmax=LMAX).harmonic(*LOVE, include_elastic=False)
 
     # input GIA spherical harmonic datafiles
     GIA_Ylms = gravtk.read_GIA_model(GIA_FILE, GIA=GIA, LMAX=LMAX)
     # Converting GIA rates to cm w.e. for mascon coordinates
     gia_output = gravtk.clenshaw_summation(GIA_Ylms['clm'], GIA_Ylms['slm'],
         output_data['lon_center'], output_data['lat_center'],
-        RAD=0, UNITS=1, LMAX=LMAX, LOVE=LOVE)
+        RAD=0, LMAX=LMAX, UNITS=factors.cmwe)
     output_data['gia'] = gia_output.astype(np.float64)
 
     # output to file
