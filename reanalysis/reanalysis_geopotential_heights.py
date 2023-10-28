@@ -348,7 +348,7 @@ def ncdf_geopotential_write(dinput, fill_value, FILENAME=None, ZNAME=None,
     # Defining attributes for time
     nc[TIMENAME].units = TIME_UNITS
     nc[TIMENAME].long_name = TIME_LONGNAME
-    # Definining attributes for model levels
+    # Defining attributes for model levels
     nc[LEVELNAME].long_name = 'Model_Level_Number'
     # Defining attributes for geopotential height
     nc[ZNAME].long_name = 'Geopotential_Heights_on_Model_Levels'

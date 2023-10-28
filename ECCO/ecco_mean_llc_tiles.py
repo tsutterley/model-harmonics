@@ -237,7 +237,7 @@ def ncdf_invariant(invariant_file,**kwargs):
     # return the invariant parameters
     return invariant
 
-# PURPOSE: write tiled data to a netCDF4 flie
+# PURPOSE: write tiled data to a netCDF4 file
 def ncdf_tile_write(output, attributes, FILENAME=None, LONNAME=None,
     LATNAME=None, TIMENAME=None, VARNAME=None):
 
