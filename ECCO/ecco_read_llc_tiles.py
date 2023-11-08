@@ -255,7 +255,7 @@ def ncdf_mean(mean_file, VARNAME=None):
         obp_mean = np.copy(fileID.variables[VARNAME][:].copy())
     return obp_mean
 
-# PURPOSE: write tiled data to a netCDF4 flie
+# PURPOSE: write tiled data to a netCDF4 file
 def ncdf_tile_write(output, attributes, FILENAME=None, LONNAME=None,
     LATNAME=None, TIMENAME=None, VARNAME=None):
 

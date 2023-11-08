@@ -220,7 +220,7 @@ def GIA_spatial_maps(LMAX,
     FILE = f'{FILE_PREFIX}{units}_L{LMAX:d}{order_str}{gw_str}.{suffix}'
     OUTPUT_FILE = OUTPUT_DIRECTORY.joinpath(FILE)
     grid.to_file(OUTPUT_FILE, format=DATAFORM, date=False,
-        units=units_name, longname=units_longname)
+        units=f'{units_name} yr^1', longname=units_longname)
     # set the permissions mode of the output files
     OUTPUT_FILE.chmod(mode=MODE)
     # add file to list

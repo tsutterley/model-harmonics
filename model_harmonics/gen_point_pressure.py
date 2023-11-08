@@ -79,7 +79,7 @@ def gen_point_pressure(P, G, R, lon, lat, AREA=None, LMAX=60, MMAX=None,
         latitude of points
     AREA: np.ndarray or NoneType, default None
         Area of each pressure cell (m\ :sup:`2`)
-    LMAX: int, defualt 60
+    LMAX: int, default 60
         Upper bound of Spherical Harmonic Degrees
     MMAX: int or NoneType, default None
         Upper bound of Spherical Harmonic Orders
