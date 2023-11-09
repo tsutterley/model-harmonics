@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 u"""
 GIA_uplift_ICESat2_ATL15.py
-Written by Tyler Sutterley (09/2023)
+Written by Tyler Sutterley (11/2023)
 Calculates GIA-induced crustal uplift over polar stereographic grids for
     correcting ICESat-2 ATL15 gridded land ice height change data
 Calculated directly from GIA spherical harmonics
 
 INPUTS:
-    ATL15 file to read
+    ATL15 file(s) to read
 
 COMMAND LINE OPTIONS:
     -h, --help: list the command line options
@@ -26,6 +26,7 @@ COMMAND LINE OPTIONS:
         HDF5: reformatted GIA in HDF5 format
     --gia-file X: GIA file to read
     -I, --iterate: Iterations over mask to solve for large matrices
+    -O X, --output-file X: output filename
     -V, --verbose: verbose output of processing run
     -M X, --mode X: Permissions mode of the files created
 
@@ -57,6 +58,7 @@ REFERENCE:
         Bollettino di Geodesia e Scienze (1982)
 
 UPDATE HISTORY:
+    Updated 11/2023: can mosaic Release-3 ATL15 granules into a single grid
     Updated 09/2023: simplify input arguments
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 02/2023: added iterate option to reduce memory load for 1km files
@@ -90,6 +92,7 @@ import argparse
 import traceback
 import numpy as np
 import gravity_toolkit as gravtk
+import model_harmonics as mdlhmc
 
 # PURPOSE: keep track of threads
 def info(args):
@@ -101,7 +104,7 @@ def info(args):
     logging.info(f'process id: {os.getpid():d}')
 
 # PURPOSE: read a variable group from ICESat-2 ATL15
-def read_ATL15(infile, group='delta_h'):
+def read_ATL15(infile, group='delta_h', fields=None):
     # dictionary with ATL15 variables
     ATL15 = {}
     attributes = {}
@@ -110,10 +113,11 @@ def read_ATL15(infile, group='delta_h'):
         # check if reading from root group or sub-group
         ncf = fileID.groups[group] if group else fileID
         # netCDF4 structure information
-        logging.debug(str(infile))
+        logging.debug(fileID.filepath())
         logging.debug(list(ncf.variables.keys()))
-        for key,val in ncf.variables.items():
-            ATL15[key] = val[:].copy()
+        for key in fields or ncf.variables.keys():
+            val = ncf.variables[key]
+            ATL15[key] = val[:]
             attributes[key] = {}
             for att_name in val.ncattrs():
                 attributes[key][att_name] = val.getncattr(att_name)
@@ -122,9 +126,10 @@ def read_ATL15(infile, group='delta_h'):
 
 # PURPOSE: calculate spatial fields of GIA crustal uplift to correct
 # ICESat-2 ATL15 Gridded Land Ice Height Change data
-def calculate_GIA_uplift(input_file, LMAX,
+def calculate_GIA_uplift(filename, LMAX,
     GIA=None,
     GIA_FILE=None,
+    OUTPUT_FILE=None,
     ITERATIONS=1,
     MODE=0o775):
     """
@@ -133,7 +138,7 @@ def calculate_GIA_uplift(input_file, LMAX,
 
     Parameters
     ----------
-    input_file: str
+    filename: str
         full path to ATL15 gridded land ice height change file
     LMAX: int
         Maximum degree and order of spherical harmonics
@@ -153,6 +158,8 @@ def calculate_GIA_uplift(input_file, LMAX,
             - ``'HDF5'``: reformatted GIA in HDF5 format
     GIA_FILE: str or NoneType, default None
         full path to input GIA file
+    OUTPUT_FILE: str or NoneType, default None
+        output filename for GIA uplift
     ITERATE: bool, default False
         Iterate over mask to solve for large matrices
     MODE: oct, default 0o775
@@ -200,15 +207,54 @@ def calculate_GIA_uplift(input_file, LMAX,
         `doi: 10.1016/j.cageo.2012.06.022 <https://doi.org/10.1016/j.cageo.2012.06.022>`_
 
     """
-    # verify path to input ATL15 file
-    input_file = pathlib.Path(input_file).expanduser().absolute()
     # parse ATL15 file
     pattern = r'(ATL\d{2})_(.*?)_(\d{2})(\d{2})_(.*?)_(\d{3})_(\d{2}).nc$'
     rx = re.compile(pattern, re.VERBOSE)
-    PRD, RGN, SCYC, ECYC, RES, RL, VERS = rx.findall(input_file.name).pop()
-    # read ATL15 data for group
-    ATL15, attrib = read_ATL15(input_file, group='delta_h')
-    nt, ny, nx = ATL15['delta_h'].shape
+
+    # create mosaic of ATL15 data
+    mosaic = mdlhmc.spatial.mosaic()
+    # iterate over each ATL15 file
+    for f in filename:
+        # verify path to input ATL15 file
+        f = pathlib.Path(f).expanduser().absolute()
+        PRD, RGN, SCYC, ECYC, RES, RL, VERS = rx.findall(f.name).pop()
+        DIRECTORY = pathlib.Path(f.parent).expanduser().absolute()
+        # get ATL15 dimension variables from group
+        d, attrib = read_ATL15(f, group='delta_h', fields=['x','y','time'])
+        # update the mosaic grid spacing
+        mosaic.update_spacing(d['x'], d['y'])
+        mosaic.update_bounds(d['x'], d['y'])
+
+    # dimensions of output mosaic
+    ny, nx = mosaic.shape
+    nt = len(d['time'])
+    # create output mosaic
+    ATL15 = {}
+    ATL15['x'] = np.copy(mosaic.x)
+    ATL15['y'] = np.copy(mosaic.y)
+    ATL15['time'] = np.copy(d['time'])
+    valid_mask = np.zeros((nt,ny,nx), dtype=bool)
+    for key in ['delta_h','delta_h_sigma','ice_area']:
+        ATL15[key] = np.ma.zeros((nt,ny,nx))
+    # iterate over each ATL15 file
+    for f in filename:
+        # get ATL15 variables from group
+        d, attrib = read_ATL15(f, group='delta_h')
+        # get the image coordinates of the input file
+        iy, ix = mosaic.image_coordinates(d['x'], d['y'])
+        valid_mask[:, iy, ix] |= True
+        for key in ['delta_h','delta_h_sigma','ice_area']:
+            ATL15[key].fill_value = attrib[key]['_FillValue']
+            ATL15[key][:, iy, ix] = d[key][...]
+
+    # update masks for variables
+    for key in ['delta_h','delta_h_sigma','ice_area']:
+        val = ATL15[key]
+        val.mask = (val.data == val.fill_value) | \
+            np.isnan(val.data) | np.logical_not(valid_mask)
+        val.data[val.mask] = val.fill_value
+
+    # get attributes
     grid_mapping_name = attrib['delta_h']['grid_mapping']
     crs_wkt = attrib[grid_mapping_name]['crs_wkt']
     fill_value = attrib['delta_h']['_FillValue']
@@ -298,9 +344,13 @@ def calculate_GIA_uplift(input_file, LMAX,
     attributes['dhdt_gia']['_FillValue'] = fill_value
 
     # output file
-    FILE = f'{PRD}_{RGN}_{RES}_GIA_{GIA_Ylms_rate.title}_L{LMAX:d}.nc'
-    output_file = input_file.with_name(FILE)
-    fileID = netCDF4.Dataset(output_file, mode='w')
+    if OUTPUT_FILE is None:
+        FILE = f'{PRD}_{RGN}_{RES}_GIA_{GIA_Ylms_rate.title}_L{LMAX:d}.nc'
+        OUTPUT_FILE = DIRECTORY.joinpath(FILE)
+    else:
+        OUTPUT_FILE = pathlib.Path(OUTPUT_FILE).expanduser().absolute()
+    # open output netCDF4 file
+    fileID = netCDF4.Dataset(OUTPUT_FILE, mode='w')
 
     # dictionary with netCDF4 variables
     nc = {}
@@ -370,12 +420,12 @@ def calculate_GIA_uplift(input_file, LMAX,
     fileID.setncattr('geospatial_lat_units', "degrees_north")
     fileID.setncattr('geospatial_lon_units', "degrees_east")
     # Output NetCDF structure information
-    logging.info(str(output_file))
+    logging.info(str(OUTPUT_FILE))
     logging.info(list(fileID.variables.keys()))
     # Closing the netCDF4 file
     fileID.close()
     # change the permissions mode
-    output_file.chmod(mode=MODE)
+    OUTPUT_FILE.chmod(mode=MODE)
 
 # PURPOSE: create argument parser
 def arguments():
@@ -390,7 +440,7 @@ def arguments():
         gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     parser.add_argument('infile',
-        type=pathlib.Path,
+        type=pathlib.Path, nargs='+',
         help='ICESat-2 ATL15 file to run')
     # maximum spherical harmonic degree and order
     parser.add_argument('--lmax','-l',
@@ -417,6 +467,10 @@ def arguments():
     parser.add_argument('--gia-file',
         type=pathlib.Path,
         help='GIA file to read')
+    # output filename
+    parser.add_argument('--output-file','-O',
+        type=pathlib.Path,
+        help='Output filename')
     # iterate over mask to solve for large matrices
     parser.add_argument('--iterate','-I',
         type=uint, default=1,
@@ -457,6 +511,7 @@ def main():
         calculate_GIA_uplift(args.infile, args.lmax,
             GIA=args.gia,
             GIA_FILE=args.gia_file,
+            OUTPUT_FILE=args.output_file,
             ITERATIONS=args.iterate,
             MODE=args.mode)
     except Exception as exc:
