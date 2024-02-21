@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 u"""
-constants.py
+datum.py
 Written by Tyler Sutterley (03/2023)
 
 Gravitational and ellipsoidal parameters
 
 CALLING SEQUENCE
-    wgs84 = constants('WGS84', units='MKS')
+    wgs84 = datum('WGS84', units='MKS')
 
 INPUT:
     ellipsoid - reference ellipsoid name
@@ -51,7 +51,7 @@ _ellipsoids = ['CLK66', 'GRS67', 'GRS80', 'WGS72', 'WGS84', 'ATS77',
     'EGM96', 'IERS']
 _units = ['MKS', 'CGS']
 
-class constants(object):
+class datum(object):
     """
     Class for gravitational and ellipsoidal parameters
 
@@ -262,7 +262,7 @@ class constants(object):
     # p. 67, Eqn.(2-113)
     @property
     def q0(self) -> float:
-        """q\ :sub:`0`\ Parameter
+        r"""q\ :sub:`0`\ Parameter
         """
         return 3*(1.0 + 1.0/(self.ecc2**2)) * \
             (1.0 -1.0/self.ecc2*np.arctan(self.ecc2)) - 1.0
@@ -278,7 +278,7 @@ class constants(object):
     # p. 60, Eqn.(2-80)
     @property
     def C20(self) -> float:
-        """Normalized C\ :sub:`20`\ harmonic
+        r"""Normalized C\ :sub:`20`\ harmonic
         """
         return -self.J2/np.sqrt(5.0)
 

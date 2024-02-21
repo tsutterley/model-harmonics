@@ -77,7 +77,7 @@ from gravity_toolkit.associated_legendre import plm_holmes
 # PURPOSE: calculates spherical harmonic fields from pressure fields
 def gen_pressure_stokes(P, G, R, lon, lat, LMAX=60, MMAX=None,
     PLM=None, LOVE=None):
-    """
+    r"""
     Converts pressure fields from the spatial domain to spherical
     harmonic coefficients
 

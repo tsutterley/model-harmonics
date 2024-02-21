@@ -87,7 +87,7 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     associated_legendre.py: computes fully-normalized associated Legendre polynomials
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
-    constants.py: calculate reference parameters for common ellipsoids
+    datum.py: calculate reference parameters for common ellipsoids
     gen_stokes.py: converts a spatial field into a series of spherical harmonics
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
     destripe_harmonics.py: calculates the decorrelation (destriping) filter
@@ -269,7 +269,7 @@ def gldas_monthly_harmonics(base_dir, MODEL, YEARS,
         combined_mask |= arctic_mask[:,:]
 
     # Earth Parameters
-    ellipsoid_params = mdlhmc.constants(ellipsoid='WGS84')
+    ellipsoid_params = mdlhmc.datum(ellipsoid='WGS84')
     # semimajor axis of ellipsoid [m]
     a_axis = ellipsoid_params.a_axis
     # ellipsoidal flattening

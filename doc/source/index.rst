@@ -21,7 +21,7 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     :hidden:
     :caption: API Reference
 
-    api_reference/constants.rst
+    api_reference/datum.rst
     api_reference/gen_atmosphere_stokes.rst
     api_reference/gen_point_pressure.rst
     api_reference/gen_pressure_stokes.rst

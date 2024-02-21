@@ -14,7 +14,7 @@ def test_ellipsoid(ellipsoid, units):
     # get dictionary output from geoid-toolkit
     ellipsoid_params = geoidtk.ref_ellipsoid(ellipsoid, UNITS=units)
     # get class output from model-haromnics
-    refell = mdlhmc.constants(ellipsoid=ellipsoid, units=units)
+    refell = mdlhmc.datum(ellipsoid=ellipsoid, units=units)
     # assert values
     assert ellipsoid_params['a'] == refell.a_axis
     assert ellipsoid_params['b'] == refell.b_axis

@@ -25,7 +25,7 @@ import pathlib
 import warnings
 import numpy as np
 import gravity_toolkit.spatial
-from model_harmonics.constants import constants
+from model_harmonics.datum import datum
 
 # attempt imports
 try:
@@ -446,7 +446,7 @@ class mosaic:
         return self.extent[2] + self.spacing[1]*np.arange(self.dimensions[0])
 
 # get WGS84 parameters in CGS (centimeters, grams, seconds)
-_wgs84 = constants(ellipsoid='WGS84', units='CGS')
+_wgs84 = datum(ellipsoid='WGS84', units='CGS')
 
 # PURPOSE: calculate the geocentric latitudes
 def geocentric_latitude(lon, lat, a_axis=_wgs84.a_axis, flat=_wgs84.flat):

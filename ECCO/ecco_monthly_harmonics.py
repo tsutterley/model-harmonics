@@ -53,7 +53,7 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     associated_legendre.py: computes fully-normalized associated Legendre polynomials
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
-    constants.py: calculate reference parameters for common ellipsoids
+    datum.py: calculate reference parameters for common ellipsoids
     ref_ellipsoid.py: calculate reference parameters for common ellipsoids
     norm_gravity.py: calculates the normal gravity for locations on an ellipsoid
     gen_pressure_stokes.py: converts a pressure field into spherical harmonics
@@ -191,7 +191,7 @@ def ecco_monthly_harmonics(ddir, MODEL, YEARS, LMAX=0, MMAX=None,
     bathymetry = geoid_undulation - depth
 
     # Earth Parameters
-    ellipsoid_params = mdlhmc.constants(ellipsoid='WGS84')
+    ellipsoid_params = mdlhmc.datum(ellipsoid='WGS84')
     # semimajor axis of ellipsoid [m]
     a_axis = ellipsoid_params.a_axis
     # first numerical eccentricity
