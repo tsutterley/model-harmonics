@@ -66,7 +66,7 @@ PYTHON DEPENDENCIES:
     pygrib: Python interface for reading and writing GRIB data
         https://pypi.python.org/pypi/pygrib
     netCDF4: Python interface to the netCDF C library
-         https://unidata.github.io/netcdf4-python/netCDF4/index.html
+        https://unidata.github.io/netcdf4-python/netCDF4/index.html
     h5py: Python interface for Hierarchal Data Format 5 (HDF5)
         https://h5py.org
 

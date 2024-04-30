@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gemb_smb_harmonics.py
-Written by Tyler Sutterley (04/2023)
+Written by Tyler Sutterley (04/2024)
 Read GEMB SMB variables and convert to spherical harmonics
 Shifts dates of SMB point masses to mid-month values to correspond with GRACE
 
@@ -39,7 +39,7 @@ PYTHON DEPENDENCIES:
     scipy: Scientific Tools for Python
         https://docs.scipy.org/doc/
     netCDF4: Python interface to the netCDF C library
-         https://unidata.github.io/netcdf4-python/netCDF4/index.html
+        https://unidata.github.io/netcdf4-python/netCDF4/index.html
     pyproj: Python interface to PROJ library
         https://pypi.org/project/pyproj/
 
@@ -55,6 +55,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 04/2024: changed polar stereographic area function to scale_factors
     Updated 04/2023: added option to convert firn air content variables
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
         use spatial function for calculating geocentric latitude
@@ -193,8 +194,8 @@ def gemb_smb_harmonics(model_file,
     indy,indx = np.nonzero(fd['mask'])
     lon,lat = (gridlon[indy,indx],latitude_geocentric[indy,indx])
     # scaled areas
-    ps_scale = mdlhmc.spatial.scale_areas(gridlat[indy,indx], flat=flat,
-        ref=reference_latitude)
+    ps_scale = mdlhmc.spatial.scale_factors(gridlat[indy,indx], flat=flat,
+        reference_latitude=reference_latitude)
 
     # unit parameters for each input variable type
     if (VARIABLE == 'accum_SMB'):

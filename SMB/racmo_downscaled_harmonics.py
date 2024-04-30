@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 racmo_downscaled_harmonics.py
-Written by Tyler Sutterley (06/2023)
+Written by Tyler Sutterley (04/2024)
 Read RACMO surface mass balance products and converts to spherical harmonics
 Shifts dates of SMB point masses to mid-month values to correspond with GRACE
 
@@ -37,7 +37,7 @@ PYTHON DEPENDENCIES:
     dateutil: powerful extensions to datetime
         https://dateutil.readthedocs.io/en/stable/
     netCDF4: Python interface to the netCDF C library
-         https://unidata.github.io/netcdf4-python/netCDF4/index.html
+        https://unidata.github.io/netcdf4-python/netCDF4/index.html
     h5py: Python interface for Hierarchal Data Format 5 (HDF5)
         https://h5py.org
 
@@ -52,6 +52,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 04/2024: changed polar stereographic area function to scale_factors
     Updated 06/2023: added version 5.0 (RACMO2.3p2 for 1958-2023 from FGRN055)
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
         use spatial function for calculating geocentric latitude
@@ -178,8 +179,8 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
     dy = np.abs(fileID['y'][1] - fileID['y'][0])
     fd['area'] = dx*dy*np.ones((ny,nx))
     # calculate scaled areas
-    ps_scale = mdlhmc.spatial.scale_areas(gridlat[indy,indx],
-        flat=flat, ref=70.0)
+    ps_scale = mdlhmc.spatial.scale_factors(gridlat[indy,indx],
+        flat=flat, reference_latitude=70.0)
     scaled_area = ps_scale*fd['area'][indy,indx]
     # read load love numbers
     LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,

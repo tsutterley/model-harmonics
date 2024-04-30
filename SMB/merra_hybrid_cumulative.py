@@ -30,7 +30,7 @@ PYTHON DEPENDENCIES:
         https://numpy.org
         https://numpy.org/doc/stable/user/numpy-for-matlab-users.html
     netCDF4: Python interface to the netCDF C library
-         https://unidata.github.io/netcdf4-python/netCDF4/index.html
+        https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
     Updated 02/2023: new doi for Medley (2022) Cryosphere paper

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 spatial.py
-Written by Tyler Sutterley (11/2023)
+Written by Tyler Sutterley (04/2024)
 Functions for reading, writing and processing spatial data
 Extends gravity_toolkit spatial module adding raster support
 
@@ -9,6 +9,7 @@ PYTHON DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 04/2024: changed polar stereographic area function to scale_factors
     Updated 11/2023: add class for creating spatial mosaics
     Updated 08/2023: add function for flipping raster object
     Updated 05/2023: use pathlib to define and operate on paths
@@ -449,7 +450,12 @@ class mosaic:
 _wgs84 = datum(ellipsoid='WGS84', units='CGS')
 
 # PURPOSE: calculate the geocentric latitudes
-def geocentric_latitude(lon, lat, a_axis=_wgs84.a_axis, flat=_wgs84.flat):
+def geocentric_latitude(
+        lon: np.ndarray,
+        lat: np.ndarray,
+        a_axis: float = _wgs84.a_axis,
+        flat: float = _wgs84.flat,
+    ):
     """
     Converts from geodetic latitude to geocentric latitude for an ellipsoid
 
@@ -471,9 +477,8 @@ def geocentric_latitude(lon, lat, a_axis=_wgs84.a_axis, flat=_wgs84.flat):
 
     References
     ----------
-    .. [1] Snyder, J P (1982) Map Projections used by the U.S. Geological Survey
-        Forward formulas for the ellipsoid.  Geological Survey Bulletin
-        1532, U.S. Government Printing Office.
+    .. [1] J. P. Snyder, *Map Projections used by the U.S. Geological Survey*,
+        Geological Survey Bulletin 1532, U.S. Government Printing Office, (1982).
     """
     # first numerical eccentricity
     ecc1 = np.sqrt((2.0*flat - flat**2)*a_axis**2)/a_axis
@@ -488,36 +493,46 @@ def geocentric_latitude(lon, lat, a_axis=_wgs84.a_axis, flat=_wgs84.flat):
     # calculate geocentric latitude and convert to degrees
     return 180.0*np.arctan(Z / np.sqrt(X**2.0 + Y**2.0))/np.pi
 
-def scale_areas(lat, flat=_wgs84.flat, ref=70.0):
+def scale_factors(
+        lat: np.ndarray,
+        flat: float = _wgs84.flat,
+        reference_latitude: float = 70.0,
+        metric: str = 'area'
+    ):
     """
-    Calculates area scaling factors for a polar stereographic projection
-    including special case of at the exact pole
+    Calculates scaling factors to account for polar stereographic
+    distortion including special case of at the exact pole [1]_ [2]_
 
     Parameters
     ----------
-    lat: np.ndarray,
+    lat: np.ndarray
         latitude (degrees north)
     flat: float, default 1.0/298.257223563
         ellipsoidal flattening
-    ref: float, default 70.0
+    reference_latitude: float, default 70.0
         reference latitude (true scale latitude)
+    metric: str, default 'area'
+        metric to calculate scaling factors
+
+            - ``'distance'``: scale factors for distance
+            - ``'area'``: scale factors for area
 
     Returns
     -------
     scale: np.ndarray
-        area scaling factors at input latitudes
+        scaling factors at input latitudes
 
     References
     ----------
-    .. [1] Snyder, J P (1982) Map Projections used by the U.S. Geological Survey
-        Forward formulas for the ellipsoid.  Geological Survey Bulletin
-        1532, U.S. Government Printing Office.
+    .. [1] J. P. Snyder, *Map Projections used by the U.S. Geological Survey*,
+        Geological Survey Bulletin 1532, U.S. Government Printing Office, (1982).
     .. [2] JPL Technical Memorandum 3349-85-101
     """
+    assert metric.lower() in ['distance', 'area'], 'Unknown metric'
     # convert latitude from degrees to positive radians
     theta = np.abs(lat)*np.pi/180.0
     # convert reference latitude from degrees to positive radians
-    theta_ref = np.abs(ref)*np.pi/180.0
+    theta_ref = np.abs(reference_latitude)*np.pi/180.0
     # square of the eccentricity of the ellipsoid
     # ecc2 = (1-b**2/a**2) = 2.0*flat - flat^2
     ecc2 = 2.0*flat - flat**2
@@ -534,6 +549,10 @@ def scale_areas(lat, flat=_wgs84.flat, ref=70.0):
     # distance scaling
     k = (mref/m)*(t/tref)
     kp = 0.5*mref*np.sqrt(((1.0+ecc)**(1.0+ecc))*((1.0-ecc)**(1.0-ecc)))/tref
-    # area scaling
-    scale = np.where(np.isclose(theta,np.pi/2.0),1.0/(kp**2),1.0/(k**2))
+    if (metric.lower() == 'distance'):
+        # distance scaling
+        scale = np.where(np.isclose(theta, np.pi/2.0), 1.0/kp, 1.0/k)
+    elif (metric.lower() == 'area'):
+        # area scaling
+        scale = np.where(np.isclose(theta, np.pi/2.0), 1.0/(kp**2), 1.0/(k**2))
     return scale

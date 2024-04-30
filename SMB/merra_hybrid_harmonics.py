@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_hybrid_harmonics.py
-Written by Tyler Sutterley (04/2023)
+Written by Tyler Sutterley (04/2024)
 Read MERRA-2 hybrid variables and converts to spherical harmonics
 MERRA-2 Hybrid firn model outputs provided by Brooke Medley at GSFC
 
@@ -49,7 +49,7 @@ PYTHON DEPENDENCIES:
     scipy: Scientific Tools for Python
         https://docs.scipy.org/doc/
     netCDF4: Python interface to the netCDF C library
-         https://unidata.github.io/netcdf4-python/netCDF4/index.html
+        https://unidata.github.io/netcdf4-python/netCDF4/index.html
     pyproj: Python interface to PROJ library
         https://pypi.org/project/pyproj/
 
@@ -65,6 +65,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 04/2024: changed polar stereographic area function to scale_factors
     Updated 04/2023: added option to convert firn air content variables
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
         use spatial function for calculating geocentric latitude
@@ -248,8 +249,8 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     indx,indy = np.nonzero(fd['mask'])
     lon,lat = (gridlon[indx,indy],latitude_geocentric[indx,indy])
     # scaled areas
-    ps_scale = mdlhmc.spatial.scale_areas(gridlat[indx,indy], flat=flat,
-        ref=reference_latitude)
+    ps_scale = mdlhmc.spatial.scale_factors(gridlat[indx,indy], flat=flat,
+        reference_latitude=reference_latitude)
     # unit parameters for each input variable type
     if VARIABLE in ('FAC','height','h_a'):
         # areas in terms of solid angle (steradians)
