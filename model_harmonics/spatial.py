@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 spatial.py
-Written by Tyler Sutterley (04/2024)
+Written by Tyler Sutterley (06/2024)
 Functions for reading, writing and processing spatial data
 Extends gravity_toolkit spatial module adding raster support
 
@@ -9,6 +9,7 @@ PYTHON DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 06/2024: added function for calculating latitude and longitude
     Updated 04/2024: changed polar stereographic area function to scale_factors
     Updated 11/2023: add class for creating spatial mosaics
     Updated 08/2023: add function for flipping raster object
@@ -556,3 +557,43 @@ def scale_factors(
         # area scaling
         scale = np.where(np.isclose(theta, np.pi/2.0), 1.0/(kp**2), 1.0/(k**2))
     return scale
+
+def get_latlon(x, y, srs_proj4=None, srs_wkt=None, srs_epsg=None):
+    """
+    Get the latitude and longitude of grid cells
+
+    Parameters
+    ----------
+    srs_proj4: str or NoneType, default None
+        PROJ4 projection string
+    srs_wkt: str or NoneType, default None
+        Well-Known Text (WKT) projection string
+    srs_epsg: int or NoneType, default None
+        EPSG projection code
+
+    Returns
+    -------
+    longitude: np.ndarray
+        longitude coordinates of grid cells
+    latitude: np.ndarray
+        latitude coordinates of grid cells
+    """
+    # set the spatial projection reference information
+    if srs_proj4 is not None:
+        source = pyproj.CRS.from_proj4(srs_proj4)
+    elif srs_wkt is not None:
+        source = pyproj.CRS.from_wkt(srs_wkt)
+    elif srs_epsg is not None:
+        source = pyproj.CRS.from_epsg(srs_epsg)
+    else:
+        raise ValueError('No projection information provided')
+    # target spatial reference (WGS84 latitude and longitude)
+    target = pyproj.CRS.from_epsg(4326)
+    # create transformation
+    transformer = pyproj.Transformer.from_crs(source, target,
+        always_xy=True)
+    # create meshgrid of points in original projection
+    gridx, gridy = np.meshgrid(x, y)
+    # convert coordinates to latitude and longitude
+    longitude, latitude = transformer.transform(gridx, gridy)
+    return (longitude, latitude)

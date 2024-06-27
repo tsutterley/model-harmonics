@@ -1,18 +1,23 @@
 #!/usr/bin/env python
 u"""
 racmo_downscaled_cumulative.py
-Written by Tyler Sutterley (06/2023)
+Written by Tyler Sutterley (06/2024)
 Calculates cumulative anomalies of RACMO surface mass balance products
 
 COMMAND LINE OPTIONS:
     --help: list the command line options
     --directory=X: set the base data directory
+    -R X, --region X: Region to calculate (gris, ais)
     --version=X: Downscaled RACMO Version
-        1.0: RACMO2.3/XGRN11
-        2.0: RACMO2.3p2/XGRN11
-        3.0: RACMO2.3p2/FGRN055
-        4.0: RACMO2.3p2/FGRN055
-        5.0: RACMO2.3p2/FGRN055
+        gris:
+            1.0: RACMO2.3/XGRN11/DS1km
+            2.0: RACMO2.3p2/XGRN11/DS1km
+            3.0: RACMO2.3p2/FGRN055/DS1km
+            4.0: RACMO2.3p2/FGRN055/DS1km
+            5.0: RACMO2.3p2/FGRN055/DS1km
+            6.0: RACMO2.3p2/FGRN055/DS1km
+        ais:
+            6.0: RACMO2.3/XANT27/DS2km
     --product: RACMO product to calculate
         SMB: Surface Mass Balance
         PRECIP: Precipitation
@@ -28,6 +33,9 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 06/2024: added version 6.0 for Greenland and Antarctica
+        RACMO2.3p2/FGRN055/DS1km for 1958-2023
+        RACMO2.3p2/XANT27/DS2km for 1979-2023
     Updated 06/2023: added version 5.0 (RACMO2.3p2 for 1958-2023 from FGRN055)
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -47,6 +55,7 @@ import sys
 import re
 import uuid
 import gzip
+import pyproj
 import logging
 import netCDF4
 import pathlib
@@ -102,7 +111,7 @@ def get_dimensions(input_dir, VERSION, PRODUCT, GZIP=False):
     else:
         VARNAME = f'{VARIABLE}corr'
     # if reading yearly files or compressed files
-    if VERSION in ('1.0','4.0','5.0'):
+    if VERSION in ('1.0','4.0','5.0','6.0'):
         # find input files
         pattern = rf'{VARIABLE}.(\d+).BN_(.*?).MM.nc(\.gz)?'
         rx = re.compile(pattern, re.VERBOSE | re.IGNORECASE)
@@ -142,7 +151,14 @@ def get_dimensions(input_dir, VERSION, PRODUCT, GZIP=False):
     return (nt,ny,nx)
 
 # PURPOSE: read individual yearly netcdf files and calculate anomalies
-def yearly_file_cumulative(input_dir, VERSION, PRODUCT, MEAN, GZIP=False):
+def yearly_file_cumulative(
+        input_dir,
+        REGION,
+        VERSION,
+        PRODUCT,
+        MEAN,
+        GZIP=False
+    ):
     """Read individual yearly netcdf files and calculate
     cumulative anomalies
 
@@ -150,6 +166,8 @@ def yearly_file_cumulative(input_dir, VERSION, PRODUCT, MEAN, GZIP=False):
     ----------
     input_dir: str
         Working data directory
+    REGION: str
+        RACMO model region
     VERSION: str
         Downscaled RACMO Version
     PRODUCT: str
@@ -239,6 +257,30 @@ def yearly_file_cumulative(input_dir, VERSION, PRODUCT, MEAN, GZIP=False):
             dinput['x'][:] = fileID.variables['x'][:].copy()
             dinput['y'][:] = fileID.variables['y'][:].copy()
             dinput['MASK'][:,:] = fileID.variables['icemask'][:,:].astype(np.int8)
+        elif (VERSION == '6.0') and (REGION == 'gris'):
+            dinput['x'][:] = fileID.variables['lon'][:].copy()
+            dinput['y'][:] = fileID.variables['lat'][:].copy()
+            dx = np.diff(dinput['x'])[0]
+            dy = np.diff(dinput['y'])[0]
+            # calculate latitude and longitude of grid cells
+            dinput['LON'][:,:], dinput['LAT'][:,:] = mdlhmc.spatial.get_latlon(
+                dinput['x'] - dx/2.0, dinput['y'] - dy/2.0,
+                srs_epsg=3413)
+            # find variable of interest
+            ncvar, = [v for v in fileID.variables.keys() if regex.match(v)]
+            dinput['MASK'] = np.any(fileID.variables[ncvar], axis=0)
+        elif (VERSION == '6.0') and (REGION == 'ais'):
+            dinput['x'][:] = fileID.variables['x'][:].copy()
+            dinput['y'][:] = fileID.variables['y'][:].copy()
+            dx = np.diff(dinput['x'])[0]
+            dy = np.diff(dinput['y'])[0]
+            # calculate latitude and longitude of grid cells
+            dinput['LON'][:,:], dinput['LAT'][:,:] = mdlhmc.spatial.get_latlon(
+                dinput['x'] - dx/2.0, dinput['y'] - dy/2.0,
+                srs_epsg=3031)
+            # find variable of interest
+            ncvar, = [v for v in fileID.variables.keys() if regex.match(v)]
+            dinput['MASK'] = np.any(fileID.variables[ncvar], axis=0)
         # calculate dates from delta times
         delta_time = fileID.variables['time'][:].copy()
         date_string = fileID.variables['time'].units
@@ -268,13 +310,22 @@ def yearly_file_cumulative(input_dir, VERSION, PRODUCT, MEAN, GZIP=False):
     return dinput
 
 # PURPOSE: read compressed netCDF4 files and calculate cumulative anomalies
-def compressed_file_cumulative(input_dir, VERSION, PRODUCT, MEAN, GZIP=False):
+def compressed_file_cumulative(
+        input_dir,
+        REGION,
+        VERSION,
+        PRODUCT,
+        MEAN,
+        GZIP=False
+    ):
     """Read compressed netCDF4 files and calculate cumulative anomalies
 
     Parameters
     ----------
     input_dir: str
         Working data directory
+    REGION: str
+        RACMO model region
     VERSION: str
         Downscaled RACMO Version
     PRODUCT: str
@@ -379,9 +430,11 @@ def compressed_file_cumulative(input_dir, VERSION, PRODUCT, MEAN, GZIP=False):
     return dinput
 
 # PURPOSE: write RACMO downscaled data to netCDF4
-def ncdf_racmo(dinput, FILENAME=None, UNITS=None, LONGNAME=None, VARNAME=None,
-    LONNAME=None, LATNAME=None, XNAME=None, YNAME=None, TIMENAME=None,
-    MASKNAME=None, TIME_UNITS='years', TIME_LONGNAME='Date_in_Decimal_Years',
+def ncdf_racmo(dinput, FILENAME=None, REGION=None,
+    UNITS=None, LONGNAME=None, VARNAME=None,
+    LONNAME=None, LATNAME=None, XNAME=None, YNAME=None,
+    TIMENAME=None, MASKNAME=None,
+    TIME_UNITS='years', TIME_LONGNAME='Date_in_Decimal_Years',
     TITLE = None, CLOBBER = False):
 
     # setting NetCDF clobber attribute
@@ -403,6 +456,36 @@ def ncdf_racmo(dinput, FILENAME=None, UNITS=None, LONGNAME=None, VARNAME=None,
 
     # python dictionary with netCDF4 variables
     nc = {}
+
+    # create variable and attributes for projection
+    if REGION in ('gris',):
+        crs = fileID.createVariable('Polar_Stereographic',np.byte,())
+        crs.standard_name = 'Polar_Stereographic'
+        crs.grid_mapping_name = 'polar_stereographic'
+        crs.straight_vertical_longitude_from_pole = -45.0
+        crs.latitude_of_projection_origin = 90.0
+        crs.standard_parallel = 70.0
+        crs.scale_factor_at_projection_origin = 1.
+        crs.false_easting = 0.0
+        crs.false_northing = 0.0
+        crs.semi_major_axis = 6378.137
+        crs.semi_minor_axis = 6356.752
+        crs.inverse_flattening = 298.257223563
+        crs.spatial_epsg = '3413'
+    elif REGION in ('ais',):
+        crs = fileID.createVariable('Polar_Stereographic',np.byte,())
+        crs.standard_name = 'Polar_Stereographic'
+        crs.grid_mapping_name = 'polar_stereographic'
+        crs.straight_vertical_longitude_from_pole = 0.0
+        crs.latitude_of_projection_origin = -90.0
+        crs.standard_parallel = -71.0
+        crs.scale_factor_at_projection_origin = 1.
+        crs.false_easting = 0.0
+        crs.false_northing = 0.0
+        crs.semi_major_axis = 6378.137
+        crs.semi_minor_axis = 6356.752
+        crs.inverse_flattening = 298.257223563
+        crs.spatial_epsg = '3031'
 
     # defining the NetCDF variables
     nc[XNAME] = fileID.createVariable(XNAME, dinput[XNAME].dtype, (XNAME,))
@@ -434,12 +517,16 @@ def ncdf_racmo(dinput, FILENAME=None, UNITS=None, LONGNAME=None, VARNAME=None,
     # Defining attributes for x and y coordinates
     nc[XNAME].long_name = 'easting'
     nc[XNAME].units = 'meters'
+    nc[XNAME].grid_mapping = 'Polar_Stereographic'
     nc[YNAME].long_name = 'northing'
     nc[YNAME].units = 'meters'
+    nc[YNAME].grid_mapping = 'Polar_Stereographic'
     # Defining attributes for dataset
     nc[VARNAME].long_name = LONGNAME
     nc[VARNAME].units = UNITS
+    nc[VARNAME].grid_mapping = 'Polar_Stereographic'
     nc[MASKNAME].long_name = 'mask'
+    nc[MASKNAME].grid_mapping = 'Polar_Stereographic'
     # Defining attributes for date
     nc[TIMENAME].long_name = TIME_LONGNAME
     nc[TIMENAME].units = TIME_UNITS
@@ -460,7 +547,7 @@ def ncdf_racmo(dinput, FILENAME=None, UNITS=None, LONGNAME=None, VARNAME=None,
     fileID.close()
 
 # PURPOSE: calculate RACMO cumulative anomalies with respect to a mean field
-def racmo_downscaled_cumulative(base_dir, VERSION, PRODUCT,
+def racmo_downscaled_cumulative(base_dir, REGION, VERSION, PRODUCT,
     RANGE=[1961,1990], GZIP=False, MODE=0o775):
     """
     Calculate RACMO cumulative anomalies with respect to a mean field
@@ -469,12 +556,23 @@ def racmo_downscaled_cumulative(base_dir, VERSION, PRODUCT,
     ----------
     base_dir: str
         Working data directory
+    REGION: str
+        RACMO model region
+
+            - ``gris``: Greenland Ice Sheet
+            - ``ais``: Antarctic Ice Sheet
     VERSION: str
         Downscaled RACMO Version
 
-            - ``1.0``: RACMO2.3/XGRN11
-            - ``2.0``: RACMO2.3p2/XGRN11
-            - ``3.0``: RACMO2.3p2/FGRN055
+            - ``'gris'``:
+                - ``1.0``: RACMO2.3/XGRN11/DS1km
+                - ``2.0``: RACMO2.3p2/XGRN11/DS1km
+                - ``3.0``: RACMO2.3p2/FGRN055/DS1km
+                - ``4.0``: RACMO2.3p2/FGRN055/DS1km
+                - ``5.0``: RACMO2.3p2/FGRN055/DS1km
+                - ``6.0``: RACMO2.3p2/FGRN055/DS1km
+            - ``'ais'``:
+                - ``6.0``: RACMO2.3/XANT27/DS2km
     PRODUCT: str
         RACMO product to calculate
 
@@ -495,58 +593,86 @@ def racmo_downscaled_cumulative(base_dir, VERSION, PRODUCT,
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
 
     # versions 1 and 4 are in separate files for each year
-    if (VERSION == '1.0'):
-        RACMO_MODEL = ['XGRN11','2.3']
+    if (VERSION == '1.0') and (REGION == 'gris'):
+        RACMO_MODEL = ['XGRN11','2.3','DS1km']
         VARNAME = input_products[PRODUCT]
         SUBDIRECTORY = f'{VARNAME}_v{VERSION}'
         input_dir = base_dir.joinpath(f'SMB1km_v{VERSION}', SUBDIRECTORY)
-    elif (VERSION == '2.0'):
-        RACMO_MODEL = ['XGRN11','2.3p2']
+        file_type = 'yearly'
+    elif (VERSION == '2.0') and (REGION == 'gris'):
+        RACMO_MODEL = ['XGRN11','2.3p2','DS1km']
         var = input_products[PRODUCT]
         VARNAME = var if PRODUCT in ('SMB','PRECIP') else f'{var}corr'
         input_dir = base_dir.joinpath(f'SMB1km_v{VERSION}')
-    elif (VERSION == '3.0'):
-        RACMO_MODEL = ['FGRN055','2.3p2']
+        file_type = 'compressed'
+    elif (VERSION == '3.0') and (REGION == 'gris'):
+        RACMO_MODEL = ['FGRN055','2.3p2','DS1km']
         var = input_products[PRODUCT]
         VARNAME = var if (PRODUCT == 'SMB') else f'{var}corr'
         input_dir = base_dir.joinpath(f'SMB1km_v{VERSION}')
-    elif (VERSION == '4.0'):
-        RACMO_MODEL = ['FGRN055','2.3p2']
+        file_type = 'compressed'
+    elif (VERSION == '4.0') and (REGION == 'gris'):
+        RACMO_MODEL = ['FGRN055','2.3p2','DS1km']
         var = input_products[PRODUCT]
         VARNAME = var if (PRODUCT == 'SMB') else f'{var}corr'
         SUBDIRECTORY = PRODUCT.lower()
         input_dir = base_dir.joinpath(f'SMB1km_v{VERSION}', SUBDIRECTORY)
-    elif (VERSION == '5.0'):
-        RACMO_MODEL = ['FGRN055','2.3p2']
+        file_type = 'yearly'
+    elif (VERSION == '5.0') and (REGION == 'gris'):
+        RACMO_MODEL = ['FGRN055','2.3p2','DS1km']
         var = input_products[PRODUCT]
         VARNAME = var if (PRODUCT == 'SMB') else f'{var}corr'
         SUBDIRECTORY = PRODUCT.lower()
         input_dir = base_dir.joinpath(f'SMB1km_v{VERSION}', SUBDIRECTORY)
+        file_type = 'yearly'
+    elif (VERSION == '6.0') and (REGION == 'gris'):
+        RACMO_MODEL = ['FGRN055','2.3p2','DS1km']
+        var = input_products[PRODUCT]
+        VARNAME = var if (PRODUCT == 'SMB') else f'{var}corr'
+        input_dir = base_dir.joinpath('GrIS-1km')
+        file_type = 'yearly'
+    elif (VERSION == '6.0') and (REGION == 'ais'):
+        RACMO_MODEL = ['XANT27','2.3p2','DS2km']
+        var = input_products[PRODUCT]
+        VARNAME = var if (PRODUCT == 'SMB') else f'{var}corr'
+        input_dir = base_dir.joinpath('AIS-2km')
+        file_type = 'yearly'
 
     # read mean from netCDF4 file
-    arg = (RACMO_MODEL[0],RACMO_MODEL[1],VERSION,PRODUCT,RANGE[0],RANGE[1])
-    mean_file = '{0}_RACMO{1}_DS1km_v{2}_{3}_Mean_{4:4d}-{5:4d}.nc'.format(*arg)
+    arg = (*RACMO_MODEL, VERSION, PRODUCT, *RANGE)
+    mean_file = '{0}_RACMO{1}_{2}_v{3}_{4}_Mean_{5:4d}-{6:4d}.nc'.format(*arg)
     with netCDF4.Dataset(input_dir.joinpath(mean_file), mode='r') as fileID:
         MEAN = fileID[VARNAME][:,:].copy()
 
-    # calculate cumulative
-    if VERSION in ('1.0','4.0','5.0'):
-        dinput = yearly_file_cumulative(input_dir, VERSION, PRODUCT, MEAN,
-            GZIP=GZIP)
-    elif VERSION in ('2.0','3.0'):
-        dinput = compressed_file_cumulative(input_dir, VERSION, PRODUCT,
-            MEAN, GZIP=GZIP)
+    # read data and calculate cumulative
+    if (file_type == 'yearly'):
+        dinput = yearly_file_cumulative(
+            input_dir,
+            REGION,
+            VERSION,
+            PRODUCT,
+            MEAN,
+            GZIP=GZIP
+        )
+    elif (file_type == 'compressed'):
+        dinput = compressed_file_cumulative(
+            input_dir,
+            REGION,
+            VERSION,
+            PRODUCT,
+            MEAN,
+            GZIP=GZIP
+        )
 
     # output cumulative as netCDF4 file
-    args = (RACMO_MODEL[0],RACMO_MODEL[1],VERSION,PRODUCT)
-    FILE = '{0}_RACMO{1}_DS1km_v{2}_{3}_cumul.nc'.format(*args)
+    args = (*RACMO_MODEL, VERSION, PRODUCT)
+    FILE = '{0}_RACMO{1}_{2}_v{3}_{4}_cumul.nc'.format(*args)
     output_file = input_dir.joinpath(FILE)
     TITLE = 'Downscaled_cumulative_anomalies_relative_to_{0:4d}-{1:4d}_Mean'
-    ncdf_racmo(dinput, FILENAME=output_file,
+    ncdf_racmo(dinput, FILENAME=output_file, REGION=REGION,
         UNITS='mmWE', LONGNAME=longname[PRODUCT], VARNAME=VARNAME,
         LONNAME='LON', LATNAME='LAT', XNAME='x', YNAME='y', TIMENAME='TIME',
-        MASKNAME='MASK', TITLE=TITLE.format(RANGE[0],RANGE[1]),
-        CLOBBER=True)
+        MASKNAME='MASK', TITLE=TITLE.format(*RANGE), CLOBBER=True)
     # change the permissions mode
     output_file.chmod(mode=MODE)
 
@@ -563,15 +689,21 @@ def arguments():
     parser.add_argument('--directory','-D',
         type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
+    # region of RACMO model
+    parser.add_argument('--region','-R',
+        type=str, default='gris', choices=['gris','ais'],
+        help='Region of RACMO model to calculate')
     # Downscaled version
-    # 1.0: RACMO2.3/XGRN11
-    # 2.0: RACMO2.3p2/XGRN11
-    # 3.0: RACMO2.3p2/FGRN055
-    # 4.0: RACMO2.3p2/FGRN055
-    # 5.0: RACMO2.3p2/FGRN055
-    choices = ['1.0','2.0','3.0','4.0','5.0']
+    # 1.0: RACMO2.3/XGRN11/DS1km
+    # 2.0: RACMO2.3p2/XGRN11/DS1km
+    # 3.0: RACMO2.3p2/FGRN055/DS1km
+    # 4.0: RACMO2.3p2/FGRN055/DS1km
+    # 5.0: RACMO2.3p2/FGRN055/DS1km
+    # 6.0: RACMO2.3p2/FGRN055/DS1km
+    # 6.0: RACMO2.3p2/XANT27/DS2km
+    choices = ['1.0','2.0','3.0','4.0','5.0','6.0']
     parser.add_argument('--version','-v',
-        type=str, default='5.0', choices=choices,
+        type=str, default='6.0', choices=choices,
         help='Downscaled RACMO Version')
     # Products to calculate cumulative
     parser.add_argument('--product','-p',
@@ -611,8 +743,15 @@ def main():
     # run program for each input product
     for PRODUCT in args.product:
         # run downscaled cumulative program with parameters
-        racmo_downscaled_cumulative(args.directory, args.version, PRODUCT,
-            RANGE=args.mean, GZIP=args.gzip, MODE=args.mode)
+        racmo_downscaled_cumulative(
+            args.directory,
+            args.region,
+            args.version,
+            PRODUCT, 
+            RANGE=args.mean,
+            GZIP=args.gzip,
+            MODE=args.mode
+        )
 
 # run main program
 if __name__ == '__main__':

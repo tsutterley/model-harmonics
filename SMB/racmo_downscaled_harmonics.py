@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 racmo_downscaled_harmonics.py
-Written by Tyler Sutterley (04/2024)
+Written by Tyler Sutterley (06/2024)
 Read RACMO surface mass balance products and converts to spherical harmonics
 Shifts dates of SMB point masses to mid-month values to correspond with GRACE
 
@@ -52,6 +52,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 06/2024: updates for using downscaled Antarctic RACMO products
     Updated 04/2024: changed polar stereographic area function to scale_factors
     Updated 06/2023: added version 5.0 (RACMO2.3p2 for 1958-2023 from FGRN055)
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
@@ -106,12 +107,13 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
     # verify input model file
     model_file = pathlib.Path(model_file).expanduser().absolute()
     # try to extract region and version from filename
-    R1 = re.compile(r'[XF]?(GRN11|GRN055)', re.VERBOSE)
+    R1 = re.compile(r'[XF]?(GRN11|GRN055|ANT27)', re.VERBOSE)
     R2 = re.compile(r'(RACMO\d+(\.\d+)?(p\d+)?)', re.VERBOSE)
-    R3 = re.compile(r'DS1km_v(\d(\.\d+)?)', re.VERBOSE)
+    R3 = re.compile(r'(DS\d+km)_v(\d(\.\d+)?)', re.VERBOSE)
     MODEL_REGION = R1.search(model_file.name).group(0)
     MODEL_VERSION = R2.search(model_file.name).group(0)
-    VERSION = R3.search(model_file.name).group(1)
+    RESOLUTION = R3.search(model_file.name).group(1)
+    VERSION = R3.search(model_file.name).group(2)
 
     # versions 1 and 4 are in separate files for each year
     if (VERSION == '1.0'):
@@ -119,7 +121,7 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
     elif (VERSION == '2.0'):
         var = input_products[VARIABLE]
         VARNAME = var if VARIABLE in ('SMB','PRECIP') else f'{var}corr'
-    elif VERSION in ('3.0', '4.0', '5.0'):
+    elif VERSION in ('3.0', '4.0', '5.0','6.0'):
         var = input_products[VARIABLE]
         VARNAME = var if (VARIABLE == 'SMB') else f'{var}corr'
 
@@ -138,6 +140,11 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
 
     # Get data from each netCDF variable and remove singleton dimensions
     fd = {}
+    # get crs information (use northern hemisphere as default)
+    try:
+        standard_parallel = fileID.variables['crs'].standard_parallel
+    except (KeyError, AttributeError) as exc:
+        standard_parallel = 70.0
     # read latitude, longitude and time
     fd['lon'] = fileID.variables['LON'][:,:].copy()
     gridlat = fileID.variables['LAT'][:,:].copy()
@@ -180,7 +187,7 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
     fd['area'] = dx*dy*np.ones((ny,nx))
     # calculate scaled areas
     ps_scale = mdlhmc.spatial.scale_factors(gridlat[indy,indx],
-        flat=flat, reference_latitude=70.0)
+        flat=flat, reference_latitude=standard_parallel)
     scaled_area = ps_scale*fd['area'][indy,indx]
     # read load love numbers
     LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
@@ -241,9 +248,9 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
     # add attributes to output harmonics
     Ylms.attributes['ROOT'] = attributes
     # output spherical harmonic data file
-    args = (MODEL_VERSION, MODEL_REGION, VERSION, VARIABLE.upper(),
-        LMAX, order_str, suffix[DATAFORM])
-    FILE = '{0}_{1}_DS1km_v{2}_{3}_CLM_L{4:d}{5}.{6}'.format(*args)
+    args = (MODEL_VERSION, MODEL_REGION, RESOLUTION, VERSION,
+        VARIABLE.upper(), LMAX, order_str, suffix[DATAFORM])
+    FILE = '{0}_{1}_{2}_v{3}_{4}_CLM_L{5:d}{7}.{7}'.format(*args)
     output_file = model_file.with_name(FILE)
     Ylms.to_file(output_file, format=DATAFORM, date=True)
     # change the permissions mode of the output file to MODE
