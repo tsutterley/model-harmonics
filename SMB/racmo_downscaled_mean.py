@@ -255,6 +255,8 @@ def yearly_file_mean(
         else:
             # read netCDF file for dataset (could also set memory=None)
             fileID = netCDF4.Dataset(input_files[t], 'r')
+        # check if ERA5 3-hourly data
+        ERA5_3h = re.search(r'ERA5_3h', input_files[t].name)
         # Getting the data from each netCDF variable
         if (VERSION == '1.0'):
             dinput['LON'][:,:] = fileID.variables['LON'][:,:].copy()
@@ -262,27 +264,22 @@ def yearly_file_mean(
             dinput['x'][:] = fileID.variables['x'][:].copy()
             dinput['y'][:] = fileID.variables['y'][:].copy()
             dinput['MASK'][:,:] = fileID.variables['icemask'][:,:].astype(np.int8)
-        elif (VERSION == '6.0') and (REGION == 'gris'):
-            dinput['x'][:] = fileID.variables['lon'][:].copy()
-            dinput['y'][:] = fileID.variables['lat'][:].copy()
+        elif (VERSION == '6.0'):
+            # extract coordinates
+            if ERA5_3h:
+                dinput['x'][:] = fileID.variables['lon'][:].copy()
+                dinput['y'][:] = fileID.variables['lat'][:].copy()
+            else:
+                dinput['x'][:] = fileID.variables['x'][:].copy()
+                dinput['y'][:] = fileID.variables['y'][:].copy()
+            EPSG = 3413 if REGION == 'gris' else 3031
+            # convert from edges to centers
             dx = np.diff(dinput['x'])[0]
             dy = np.diff(dinput['y'])[0]
             # calculate latitude and longitude of grid cells
             dinput['LON'][:,:], dinput['LAT'][:,:] = mdlhmc.spatial.get_latlon(
                 dinput['x'] - dx/2.0, dinput['y'] - dy/2.0,
-                srs_epsg=3413)
-            # find variable of interest
-            ncvar, = [v for v in fileID.variables.keys() if regex.match(v)]
-            dinput['MASK'] = np.any(fileID.variables[ncvar], axis=0)
-        elif (VERSION == '6.0') and (REGION == 'ais'):
-            dinput['x'][:] = fileID.variables['x'][:].copy()
-            dinput['y'][:] = fileID.variables['y'][:].copy()
-            dx = np.diff(dinput['x'])[0]
-            dy = np.diff(dinput['y'])[0]
-            # calculate latitude and longitude of grid cells
-            dinput['LON'][:,:], dinput['LAT'][:,:] = mdlhmc.spatial.get_latlon(
-                dinput['x'] - dx/2.0, dinput['y'] - dy/2.0,
-                srs_epsg=3031)
+                srs_epsg=EPSG)
             # find variable of interest
             ncvar, = [v for v in fileID.variables.keys() if regex.match(v)]
             dinput['MASK'] = np.any(fileID.variables[ncvar], axis=0)
