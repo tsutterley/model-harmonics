@@ -262,11 +262,11 @@ def yearly_file_cumulative(
         elif (VERSION == '6.0'):
             # extract coordinates
             if ERA5_3h:
-                dinput['x'][:] = fileID.variables['lon'][:].copy()
-                dinput['y'][:] = fileID.variables['lat'][:].copy()
-            else:
                 dinput['x'][:] = fileID.variables['x'][:].copy()
                 dinput['y'][:] = fileID.variables['y'][:].copy()
+            else:
+                dinput['x'][:] = fileID.variables['lon'][:].copy()
+                dinput['y'][:] = fileID.variables['lat'][:].copy()
             EPSG = 3413 if REGION == 'gris' else 3031
             # convert from edges to centers
             dx = np.diff(dinput['x'])[0]
@@ -277,7 +277,8 @@ def yearly_file_cumulative(
                 srs_epsg=EPSG)
             # find variable of interest
             ncvar, = [v for v in fileID.variables.keys() if regex.match(v)]
-            dinput['MASK'] = np.any(fileID.variables[ncvar], axis=0)
+            valid = np.any(fileID.variables[ncvar], axis=0)
+            dinput['MASK'] = valid.astype(np.int8)
         # calculate dates from delta times
         delta_time = fileID.variables['time'][:].copy()
         date_string = fileID.variables['time'].units
