@@ -105,11 +105,8 @@ def get_dimensions(input_dir, VERSION, PRODUCT, GZIP=False):
     input_dir = pathlib.Path(input_dir).expanduser().absolute()
     # names within netCDF4 files
     VARIABLE = input_products[PRODUCT]
-    # variable of interest
-    if PRODUCT in ('SMB','PRECIP') and (VERSION == '2.0'):
-        VARNAME = VARIABLE
-    else:
-        VARNAME = f'{VARIABLE}corr'
+    # regular expression operator for finding variables
+    regex = re.compile(VARIABLE, re.VERBOSE | re.IGNORECASE)
     # if reading yearly files or compressed files
     if VERSION in ('1.0','4.0','5.0','6.0'):
         # find input files
@@ -126,7 +123,8 @@ def get_dimensions(input_dir, VERSION, PRODUCT, GZIP=False):
         else:
             fileID = netCDF4.Dataset(infiles[0], mode='r')
         # shape of the input data matrix
-        nm,ny,nx = fileID.variables[VARIABLE].shape
+        ncvar, = [v for v in fileID.variables.keys() if regex.match(v)]
+        nm,ny,nx = fileID.variables[ncvar].shape
         fileID.close()
     elif VERSION in ('2.0','3.0'):
         # if reading bytes from compressed file or netcdf file directly
@@ -145,7 +143,8 @@ def get_dimensions(input_dir, VERSION, PRODUCT, GZIP=False):
             # read netCDF file for dataset (could also set memory=None)
             fileID = netCDF4.Dataset(f, mode='r')
         # shape of the input data matrix
-        nt,ny,nx = fileID.variables[VARNAME].shape
+        ncvar, = [v for v in fileID.variables.keys() if regex.match(v)]
+        nt,ny,nx = fileID.variables[ncvar].shape
         fd.close() if GZIP else fileID.close()
     # return the data dimensions
     return (nt,ny,nx)
