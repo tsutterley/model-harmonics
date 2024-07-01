@@ -5,9 +5,6 @@ Written by Tyler Sutterley (06/2024)
 Read RACMO surface mass balance products and converts to spherical harmonics
 Shifts dates of SMB point masses to mid-month values to correspond with GRACE
 
-CALLING SEQUENCE:
-    python racmo_downscaled_harmonics.py --product SMB --verbose <path_to_racmo_file>
-
 COMMAND LINE OPTIONS:
     -P X, --product X: RACMO SMB product to calculate
     --mask X: netCDF4 mask files for reducing to regions
@@ -53,6 +50,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 06/2024: updates for using downscaled Antarctic RACMO products
+        fix reading of optional masks for reducing to regions
     Updated 04/2024: changed polar stereographic area function to scale_factors
     Updated 06/2023: added version 5.0 (RACMO2.3p2 for 1958-2023 from FGRN055)
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
@@ -159,10 +157,11 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
         fd['mask'] = np.zeros((ny,nx),dtype=bool)
     # read masks for reducing regions before converting to harmonics
     for mask_file in MASKS:
-        logging.info(mask_file)
-        fileID = netCDF4.Dataset(mask_file,'r')
-        fd['mask'] |= fileID.variables['mask'][:].astype(bool)
-        fileID.close()
+        # verify input mask file
+        mask_file = pathlib.Path(mask_file).expanduser().absolute()
+        logging.info(str(mask_file))
+        with netCDF4.Dataset(mask_file,'r') as fid:
+            fd['mask'] |= fid.variables['mask'][:].astype(bool)
     # indices of valid RACMO data
     fd['mask'] &= np.isfinite(fileID.variables[VARNAME][0,:,:])
     # valid mask values
