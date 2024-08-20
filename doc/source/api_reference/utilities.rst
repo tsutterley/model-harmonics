@@ -20,6 +20,12 @@ General Methods
 
 .. autofunction:: model_harmonics.utilities.get_git_status
 
+.. autofunction:: model_harmonics.utilities._create_default_ssl_context
+
+.. autofunction:: model_harmonics.utilities._create_ssl_context_no_verify
+
+.. autofunction:: model_harmonics.utilities._set_ssl_context_options
+
 .. autofunction:: model_harmonics.utilities.gesdisc_list
 
 .. autofunction:: model_harmonics.utilities.cmr_filter_json

@@ -50,7 +50,7 @@ PROGRAM DEPENDENCIES:
     associated_legendre.py: computes fully-normalized associated Legendre polynomials
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
     gen_atmosphere_stokes.py: converts atmospheric fields to spherical harmonics
-    constants.py: calculate reference parameters for common ellipsoids
+    datum.py: calculate reference parameters for common ellipsoids
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
     destripe_harmonics.py: calculates the decorrelation (destriping) filter
         and filters the GRACE/GRACE-FO coefficients for striping errors
@@ -234,7 +234,7 @@ def reanalysis_atmospheric_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     nlat,nlon = np.shape(geoid)
 
     # get reference parameters for ellipsoid
-    ellipsoid_params = mdlhmc.constants(ellipsoid=ELLIPSOID)
+    ellipsoid_params = mdlhmc.datum(ellipsoid=ELLIPSOID)
     # semimajor and semiminor axes of the ellipsoid [m]
     a_axis = ellipsoid_params.a_axis
     b_axis = ellipsoid_params.b_axis

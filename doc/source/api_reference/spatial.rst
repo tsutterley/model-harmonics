@@ -22,4 +22,6 @@ General Methods
 
 .. autofunction:: model_harmonics.spatial.geocentric_latitude
 
-.. autofunction:: model_harmonics.spatial.scale_areas
+.. autofunction:: model_harmonics.spatial.scale_factors
+
+.. autofunction:: model_harmonics.spatial.get_latlon

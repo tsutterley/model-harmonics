@@ -38,7 +38,7 @@ PYTHON DEPENDENCIES:
     pyproj: Python interface to PROJ library
         https://pypi.org/project/pyproj/
     netCDF4: Python interface to the netCDF C library
-         https://unidata.github.io/netcdf4-python/netCDF4/index.html
+        https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 REFERENCES:
     Brown, J., O.J. Ferrians, Jr., J.A. Heginbottom, and E.S. Melnikov.

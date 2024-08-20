@@ -22,7 +22,7 @@ PYTHON DEPENDENCIES:
     dateutil: powerful extensions to datetime
         https://dateutil.readthedocs.io/en/stable/
     netCDF4: Python interface to the netCDF C library
-         https://unidata.github.io/netcdf4-python/netCDF4/index.html
+        https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations

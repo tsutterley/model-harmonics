@@ -1,17 +1,17 @@
-=========
-constants
-=========
+=====
+datum
+=====
 
 Gravitational and ellipsoidal parameters
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/constants.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/datum.py
 
 General Attributes and Methods
 ==============================
 
-.. autoclass:: model_harmonics.constants
+.. autoclass:: model_harmonics.datum
    :members:
 
 References

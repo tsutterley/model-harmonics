@@ -52,7 +52,7 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     associated_legendre.py: computes fully-normalized associated Legendre polynomials
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
-    constants.py: calculate reference parameters for common ellipsoids
+    datum.py: calculate reference parameters for common ellipsoids
     norm_gravity.py: calculates the normal gravity for locations on an ellipsoid
     gen_pressure_stokes.py: converts a pressure field into spherical harmonics
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
@@ -314,7 +314,7 @@ def reanalysis_pressure_harmonics(base_dir, MODEL, YEARS, RANGE=None,
     geoid,gridstep = ncdf_geoid(ddir.joinpath(input_geoid_file))
 
     # get reference parameters for ellipsoid
-    ellipsoid_params = mdlhmc.constants(ellipsoid=ELLIPSOID)
+    ellipsoid_params = mdlhmc.datum(ellipsoid=ELLIPSOID)
     # semimajor and semiminor axes of the ellipsoid [m]
     a_axis = ellipsoid_params.a_axis
     b_axis = ellipsoid_params.b_axis

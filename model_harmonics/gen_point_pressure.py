@@ -61,7 +61,7 @@ from gravity_toolkit.legendre import legendre
 
 def gen_point_pressure(P, G, R, lon, lat, AREA=None, LMAX=60, MMAX=None,
     LOVE=None):
-    """
+    r"""
     Calculates gravitational spherical harmonic coefficients for pressure
         values at individual points assuming a disc geometry
 

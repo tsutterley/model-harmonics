@@ -58,13 +58,13 @@ PYTHON DEPENDENCIES:
     dateutil: powerful extensions to datetime
         https://dateutil.readthedocs.io/en/stable/
     netCDF4: Python interface to the netCDF C library
-         https://unidata.github.io/netcdf4-python/netCDF4/index.html
+        https://unidata.github.io/netcdf4-python/netCDF4/index.html
     h5py: Python interface for Hierarchal Data Format 5 (HDF5)
         https://h5py.org
 
 PROGRAM DEPENDENCIES:
     read_love_numbers.py: reads Load Love Numbers from Han and Wahr (1995)
-    constants.py: calculate reference parameters for common ellipsoids
+    datum.py: calculate reference parameters for common ellipsoids
     associated_legendre.py: Computes fully normalized associated
         Legendre polynomials
     gauss_weights.py: Computes the Gaussian weights as a function of degree
@@ -240,7 +240,7 @@ def gldas_scaling_factors(base_dir, MODEL, START_MON, END_MON, MISSING,
         combined_mask |= arctic_mask[:,:]
 
     # Earth Parameters
-    ellipsoid_params = mdlhmc.constants(ellipsoid='WGS84')
+    ellipsoid_params = mdlhmc.datum(ellipsoid='WGS84')
     # semimajor axis of ellipsoid [m]
     a_axis = ellipsoid_params.a_axis
     # ellipsoidal flattening

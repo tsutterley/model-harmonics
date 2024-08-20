@@ -40,7 +40,7 @@ PROGRAM DEPENDENCIES:
     associated_legendre.py: Computes fully normalized associated
         Legendre polynomials
     units.py: class for converting spherical harmonic data to specific units
-    constants.py: calculate reference parameters for common ellipsoids
+    datum.py: calculate reference parameters for common ellipsoids
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
     destripe_harmonics.py: calculates the decorrelation (destriping) filter
         and filters the GRACE/GRACE-FO coefficients for striping errors
@@ -77,7 +77,7 @@ import numpy as np
 import gravity_toolkit.units
 import gravity_toolkit.harmonics
 from gravity_toolkit.associated_legendre import plm_holmes
-from model_harmonics.constants import constants
+from model_harmonics.datum import datum
 
 # PURPOSE: calculates spherical harmonic fields from 3D atmospheric
 # geopotential height and pressure difference fields
@@ -163,7 +163,7 @@ def gen_atmosphere_stokes(GPH, pressure, lon, lat, LMAX=60, MMAX=None,
     gridtheta = (90.0 - gridlat)*np.pi/180.0
 
     # Earth Parameters
-    ellipsoid_params = constants(ellipsoid=ELLIPSOID)
+    ellipsoid_params = datum(ellipsoid=ELLIPSOID)
     # semimajor axis of ellipsoid [m]
     a_axis = ellipsoid_params.a_axis
     # ellipsoidal flattening

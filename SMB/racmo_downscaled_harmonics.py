@@ -1,12 +1,9 @@
 #!/usr/bin/env python
 u"""
 racmo_downscaled_harmonics.py
-Written by Tyler Sutterley (06/2023)
+Written by Tyler Sutterley (06/2024)
 Read RACMO surface mass balance products and converts to spherical harmonics
 Shifts dates of SMB point masses to mid-month values to correspond with GRACE
-
-CALLING SEQUENCE:
-    python racmo_downscaled_harmonics.py --product SMB --verbose <path_to_racmo_file>
 
 COMMAND LINE OPTIONS:
     -P X, --product X: RACMO SMB product to calculate
@@ -37,14 +34,14 @@ PYTHON DEPENDENCIES:
     dateutil: powerful extensions to datetime
         https://dateutil.readthedocs.io/en/stable/
     netCDF4: Python interface to the netCDF C library
-         https://unidata.github.io/netcdf4-python/netCDF4/index.html
+        https://unidata.github.io/netcdf4-python/netCDF4/index.html
     h5py: Python interface for Hierarchal Data Format 5 (HDF5)
         https://h5py.org
 
 PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
     utilities.py: download and management utilities for files
-    constants.py: calculate reference parameters for common ellipsoids
+    datum.py: calculate reference parameters for common ellipsoids
     gen_point_load.py: calculates spherical harmonics from point masses
     harmonics.py: spherical harmonic data class for processing GRACE/GRACE-FO
     destripe_harmonics.py: calculates the decorrelation (destriping) filter
@@ -52,6 +49,9 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 06/2024: updates for using downscaled Antarctic RACMO products
+        fix reading of optional masks for reducing to regions
+    Updated 04/2024: changed polar stereographic area function to scale_factors
     Updated 06/2023: added version 5.0 (RACMO2.3p2 for 1958-2023 from FGRN055)
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
         use spatial function for calculating geocentric latitude
@@ -105,12 +105,13 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
     # verify input model file
     model_file = pathlib.Path(model_file).expanduser().absolute()
     # try to extract region and version from filename
-    R1 = re.compile(r'[XF]?(GRN11|GRN055)', re.VERBOSE)
+    R1 = re.compile(r'[XF]?(GRN11|GRN055|ANT27)', re.VERBOSE)
     R2 = re.compile(r'(RACMO\d+(\.\d+)?(p\d+)?)', re.VERBOSE)
-    R3 = re.compile(r'DS1km_v(\d(\.\d+)?)', re.VERBOSE)
+    R3 = re.compile(r'(DS\d+km)_v(\d(\.\d+)?)', re.VERBOSE)
     MODEL_REGION = R1.search(model_file.name).group(0)
     MODEL_VERSION = R2.search(model_file.name).group(0)
-    VERSION = R3.search(model_file.name).group(1)
+    RESOLUTION = R3.search(model_file.name).group(1)
+    VERSION = R3.search(model_file.name).group(2)
 
     # versions 1 and 4 are in separate files for each year
     if (VERSION == '1.0'):
@@ -118,7 +119,7 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
     elif (VERSION == '2.0'):
         var = input_products[VARIABLE]
         VARNAME = var if VARIABLE in ('SMB','PRECIP') else f'{var}corr'
-    elif VERSION in ('3.0', '4.0', '5.0'):
+    elif VERSION in ('3.0', '4.0', '5.0','6.0'):
         var = input_products[VARIABLE]
         VARNAME = var if (VARIABLE == 'SMB') else f'{var}corr'
 
@@ -137,6 +138,11 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
 
     # Get data from each netCDF variable and remove singleton dimensions
     fd = {}
+    # get crs information (use northern hemisphere as default)
+    try:
+        standard_parallel = fileID.variables['crs'].standard_parallel
+    except (KeyError, AttributeError) as exc:
+        standard_parallel = 70.0
     # read latitude, longitude and time
     fd['lon'] = fileID.variables['LON'][:,:].copy()
     gridlat = fileID.variables['LAT'][:,:].copy()
@@ -151,17 +157,18 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
         fd['mask'] = np.zeros((ny,nx),dtype=bool)
     # read masks for reducing regions before converting to harmonics
     for mask_file in MASKS:
-        logging.info(mask_file)
-        fileID = netCDF4.Dataset(mask_file,'r')
-        fd['mask'] |= fileID.variables['mask'][:].astype(bool)
-        fileID.close()
+        # verify input mask file
+        mask_file = pathlib.Path(mask_file).expanduser().absolute()
+        logging.info(str(mask_file))
+        with netCDF4.Dataset(mask_file,'r') as fid:
+            fd['mask'] |= fid.variables['mask'][:].astype(bool)
     # indices of valid RACMO data
     fd['mask'] &= np.isfinite(fileID.variables[VARNAME][0,:,:])
     # valid mask values
     fd['mask'] &= fileID.variables['MASK'][:,:].astype(bool)
 
     # get reference parameters for ellipsoid
-    ellipsoid_params = mdlhmc.constants(ellipsoid='WGS84')
+    ellipsoid_params = mdlhmc.datum(ellipsoid='WGS84')
     # semimajor axis of ellipsoid [cm]
     a_axis = ellipsoid_params.a_axis
     # ellipsoidal flattening
@@ -178,8 +185,8 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
     dy = np.abs(fileID['y'][1] - fileID['y'][0])
     fd['area'] = dx*dy*np.ones((ny,nx))
     # calculate scaled areas
-    ps_scale = mdlhmc.spatial.scale_areas(gridlat[indy,indx],
-        flat=flat, ref=70.0)
+    ps_scale = mdlhmc.spatial.scale_factors(gridlat[indy,indx],
+        flat=flat, reference_latitude=standard_parallel)
     scaled_area = ps_scale*fd['area'][indy,indx]
     # read load love numbers
     LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
@@ -240,9 +247,9 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
     # add attributes to output harmonics
     Ylms.attributes['ROOT'] = attributes
     # output spherical harmonic data file
-    args = (MODEL_VERSION, MODEL_REGION, VERSION, VARIABLE.upper(),
-        LMAX, order_str, suffix[DATAFORM])
-    FILE = '{0}_{1}_DS1km_v{2}_{3}_CLM_L{4:d}{5}.{6}'.format(*args)
+    args = (MODEL_VERSION, MODEL_REGION, RESOLUTION, VERSION,
+        VARIABLE.upper(), LMAX, order_str, suffix[DATAFORM])
+    FILE = '{0}_{1}_{2}_v{3}_{4}_CLM_L{5:d}{7}.{7}'.format(*args)
     output_file = model_file.with_name(FILE)
     Ylms.to_file(output_file, format=DATAFORM, date=True)
     # change the permissions mode of the output file to MODE

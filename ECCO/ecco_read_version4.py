@@ -53,7 +53,7 @@ PYTHON DEPENDENCIES:
 PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
     spatial.py: spatial data class for reading, writing and processing data
-    constants.py: calculate reference parameters for common ellipsoids
+    datum.py: calculate reference parameters for common ellipsoids
 
 REFERENCES:
     R. J. Greatbatch, "A note on the representation of steric sea level in
@@ -134,7 +134,7 @@ def ecco_read_version4(ddir, MODEL, YEARS, RANGE=None,
     gamma = 9.81
     rhonil = 1029
     # get reference parameters for WGS84 ellipsoid
-    ellipsoid_params = mdlhmc.constants(ellipsoid='WGS84')
+    ellipsoid_params = mdlhmc.datum(ellipsoid='WGS84')
     # semimajor and semiminor axes of the ellipsoid [m]
     a_axis = ellipsoid_params.a_axis
     b_axis = ellipsoid_params.b_axis
