@@ -4,7 +4,7 @@ channels:
 dependencies:
   - boto3
   - cdsapi
-  - docutils<0.18
+  - docutils
   - ecmwf-api-client
   - fontconfig
   - freetype
