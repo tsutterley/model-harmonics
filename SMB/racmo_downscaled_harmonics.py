@@ -249,7 +249,7 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
     # output spherical harmonic data file
     args = (MODEL_VERSION, MODEL_REGION, RESOLUTION, VERSION,
         VARIABLE.upper(), LMAX, order_str, suffix[DATAFORM])
-    FILE = '{0}_{1}_{2}_v{3}_{4}_CLM_L{5:d}{7}.{7}'.format(*args)
+    FILE = '{0}_{1}_{2}_v{3}_{4}_CLM_L{5:d}{6}.{7}'.format(*args)
     output_file = model_file.with_name(FILE)
     Ylms.to_file(output_file, format=DATAFORM, date=True)
     # change the permissions mode of the output file to MODE
