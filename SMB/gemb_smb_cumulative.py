@@ -99,6 +99,7 @@ def gemb_smb_cumulative(model_file,
             if hasattr(fileID.variables[v],att_name):
                 attrs[v][att_name] = fileID.variables[v].getncattr(att_name)
     # edit cumulative SMB attributes
+    attrs['centered_SMB']['standard_name'] = 'average surface mass balance height'
     attrs['accum_SMB']['standard_name'] = 'accumulated surface mass balance height'
     # input shape of GEMB SMB data
     nt,ny,nx = np.shape(accum_SMB)
