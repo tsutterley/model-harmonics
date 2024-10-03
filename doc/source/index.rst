@@ -36,6 +36,7 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     api_reference/harmonic_operators.rst
     api_reference/least_squares_mascons.rst
     api_reference/least_squares_mascon_timeseries.rst
+    api_reference/regress_maps.rst
     api_reference/spatial_operators.rst
 
 .. toctree::
