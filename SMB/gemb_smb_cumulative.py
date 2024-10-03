@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gemb_smb_cumulative.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (10/2024)
 Calculates cumulative anomalies of GEMB surface mass balance products
 
 CALLING SEQUENCE:
@@ -21,6 +21,7 @@ PYTHON DEPENDENCIES:
         https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 10/2024: output centered SMB in addition to cumulative
     Updated 03/2023: regular expression pattern can find if periphery
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -40,9 +41,10 @@ import model_harmonics as mdlhmc
 # PURPOSE: calculate cumulative anomalies in GEMB
 # surface mass balance variables
 def gemb_smb_cumulative(model_file,
-    RANGE=None,
-    FILL_VALUE=np.nan,
-    MODE=0o775):
+        RANGE=None,
+        FILL_VALUE=np.nan,
+        MODE=0o775
+    ):
     """
     Calculates cumulative anomalies of GEMB
     surface mass balance products
@@ -125,6 +127,8 @@ def gemb_smb_cumulative(model_file,
 
     # cumulative mass anomalies calculated by removing mean balance flux
     MEAN = np.mean(SMB[tt,:,:], axis=0)
+    fd['centered_SMB'] = np.ma.array(MEAN, fill_value=FILL_VALUE)
+    fd['centered_SMB'].mask = np.isnan(MEAN)
     # allocate for output variable
     fd['accum_SMB'] = np.ma.zeros((nt,ny,nx), fill_value=FILL_VALUE)
     fd['accum_SMB'].mask = (SMB.mask | np.isnan(SMB.data))
@@ -154,8 +158,14 @@ def gemb_smb_cumulative(model_file,
     nc['x'] = fileID.createVariable('x', fd['x'].dtype, ('x',))
     nc['y'] = fileID.createVariable('y', fd['y'].dtype, ('y',))
     nc['time'] = fileID.createVariable('time', fd['time'].dtype, ('time',))
-    nc['accum_SMB'] = fileID.createVariable('accum_SMB', fd['accum_SMB'].dtype,
-        ('time','y','x',), fill_value=fd['accum_SMB'].fill_value, zlib=True)
+    nc['centered_SMB'] = fileID.createVariable('centered_SMB',
+        fd['centered_SMB'].dtype, ('y','x',),
+        fill_value=fd['centered_SMB'].fill_value,
+        zlib=True)
+    nc['accum_SMB'] = fileID.createVariable('accum_SMB',
+        fd['accum_SMB'].dtype, ('time','y','x',),
+        fill_value=fd['accum_SMB'].fill_value,
+        zlib=True)
 
     # filling NetCDF variables
     for key,val in fd.items():
@@ -200,11 +210,13 @@ def gemb_smb_cumulative(model_file,
     nc['y'].standard_name = 'projection_y_coordinate'
     nc['y'].grid_mapping = 'Polar_Stereographic'
     nc['y'].units = 'meters'
-    # set variable attributes
-    for att_name,att_val in attrs['accum_SMB'].items():
-        nc['accum_SMB'].setncattr(att_name,att_val)
-    # set grid mapping attribute
-    nc['accum_SMB'].setncattr('grid_mapping','Polar_Stereographic')
+    # for each gridded variable
+    for v in ['accum_SMB','centered_SMB']:
+        # set variable attributes
+        for att_name,att_val in attrs[v].items():
+            nc[v].setncattr(att_name,att_val)
+        # set grid mapping attribute
+        nc[v].setncattr('grid_mapping','Polar_Stereographic')
     # Defining attributes for date
     nc['time'].long_name = 'time'
     nc['time'].units = 'decimal years'
