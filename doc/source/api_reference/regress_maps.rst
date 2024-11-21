@@ -1,6 +1,6 @@
-====================
+===============
 regress_maps.py
-====================
+===============
 
 - Reads in spatial files and fits a regression model at each grid point
 
