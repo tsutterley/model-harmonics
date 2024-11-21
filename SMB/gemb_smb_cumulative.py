@@ -22,6 +22,7 @@ PYTHON DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 10/2024: output centered SMB in addition to cumulative
+        updated regular expression for new filenames
     Updated 03/2023: regular expression pattern can find if periphery
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -63,11 +64,11 @@ def gemb_smb_cumulative(model_file,
 
     # regular expression pattern for extracting parameters
     pattern = (r'GEMB_(Greenland|Antarctica)(_and_Periphery)?_'
-        r'SMB_\d{4}_\d{4}_mesh_\d+km_(v.*?).nc$')
+        r'SMB_\d{4}_\d{4}_(.*?)mesh_\d+km_(v.*?).nc$')
     model_file = pathlib.Path(model_file).expanduser().absolute()
-    region, periphery, version = re.findall(pattern, model_file.name).pop()
+    region, aux1, aux2, version = re.findall(pattern, model_file.name).pop()
     # output cumulative file
-    cumulative_file = f'GEMB_{region}{periphery}_SMB_cumul_{version}.nc'
+    cumulative_file = f'GEMB_{region}{aux1}_SMB_cumul_{version}.nc'
     output_file = model_file.with_name(cumulative_file)
 
     # Open the GEMB NetCDF file for reading
