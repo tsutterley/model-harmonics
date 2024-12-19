@@ -79,7 +79,7 @@ def gen_pressure_stokes(P, G, R, lon, lat, LMAX=60, MMAX=None,
     PLM=None, LOVE=None):
     r"""
     Converts pressure fields from the spatial domain to spherical
-    harmonic coefficients
+    harmonic coefficients :cite:p:`Boy:2005el` :cite:p:`Swenson:2002kf`
 
     Parameters
     ----------
@@ -112,17 +112,6 @@ def gen_pressure_stokes(P, G, R, lon, lat, LMAX=60, MMAX=None,
         spherical harmonic degree to LMAX
     m: np.ndarray
         spherical harmonic order to MMAX
-
-    References
-    ----------
-    .. [Boy2005] J.-P. Boy and B. F. Chao, "Precise evaluation of
-        atmospheric loading effects on Earth's time‐variable gravity field",
-        *Journal of Geophysical Research: Solid Earth*, 110(B08412), (2005).
-        `doi: 10.1029/2002JB002333 <https://doi.org/10.1029/2002JB002333>`_
-    .. [Swenson2002] S. Swenson and J. Wahr, "Estimated effects of the vertical
-        structure of atmospheric mass on the time‐variable geoid",
-        *Journal of Geophysical Research*, 107(B9), 2194, (2002).
-        `doi: 10.1029/2000JB000024 <https://doi.org/10.1029/2000JB000024>`_
     """
 
     # converting LMAX to integer

@@ -135,3 +135,10 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     api_reference/SMB/racmo_downscaled_mean.rst
     api_reference/SMB/racmo_smb_cumulative.rst
     api_reference/SMB/racmo_smb_harmonics.rst
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+    :caption: Bibliography
+
+    getting_started/Bibliography.rst

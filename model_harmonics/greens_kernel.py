@@ -40,7 +40,8 @@ import gravity_toolkit as gravtk
 def greens_kernel(LMAX, SPACING=[], WIDTH=[], CUTOFF=0.0, LOVE=None):
     """
     Calculate the Green's function for a given set of Love Numbers
-    following [Farrell1972]_ and [Farrell1973]_
+    following :cite:p:`Farrell:1972cm`, :cite:p:`Farrell:1973ui`
+    and :cite:p:`Longman:1962ev`
 
     Parameters
     ----------
@@ -63,16 +64,6 @@ def greens_kernel(LMAX, SPACING=[], WIDTH=[], CUTOFF=0.0, LOVE=None):
         Y-coordinates of the kernel
     G: numpy.ndarray
         Green's function kernel
-
-    References
-    ----------
-    .. [Farrell1972] W. E. Farrell, "Deformation of the Earth by Surface Loads",
-        *Reviews of Geophysics*, 10(3), 761-797, 1972.
-        `doi: 10.1029/RG010i003p00761 <https://doi.org/10.1029/RG010i003p00761>`_
-    .. [Farrell1973] W. E. Farrell, "Earth Tides, Ocean Tides and Tidal Loading",
-        *Philosophical Transactions for the Royal Society of London*,
-        274(1239), 253-259, 1973. `doi: 10.1098/rsta.1973.0050
-        <https://doi.org/10.1098/rsta.1973.0050>`_
     """
     # get Earth parameters
     # radius of the Earth in meters

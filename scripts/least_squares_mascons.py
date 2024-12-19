@@ -196,7 +196,8 @@ def least_squares_mascons(input_file, LMAX, RAD,
 
     # recursively create output directory if not currently existing
     OUTPUT_DIRECTORY = pathlib.Path(OUTPUT_DIRECTORY).expanduser().absolute()
-    OUTPUT_DIRECTORY.mkdir(mode=MODE, parents=True, exist_ok=True)
+    if not OUTPUT_DIRECTORY.exists():
+        OUTPUT_DIRECTORY.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # list object of output files for file logs (full path)
     output_files = []

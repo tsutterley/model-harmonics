@@ -2,7 +2,7 @@
 gldas_mean_monthly.py
 =====================
 
-- Reads GLDAS monthly datafiles to calculate the multi-annual mean total water storage from soil moisture, snow water equivalent and total canopy storage [Rodell2004]_ [Syed2008]_
+- Reads GLDAS monthly datafiles to calculate the multi-annual mean total water storage from soil moisture, snow water equivalent and total canopy storage :cite:p:`Rodell:2004ke` :cite:p:`Syed:2008ia`
 
 `Source code`__
 
@@ -28,10 +28,3 @@ Calling Sequence
     --spacing -S : @after
         * ``'10'``: 1.0 degrees latitude/longitude
         * ``'025'``: 0.25 degrees latitude/longitude
-
-References
-##########
-
-.. [Rodell2004] M. Rodell et al., "The Global Land Data Assimilation System", *Bulletin of the American Meteorological Society*, 85(3), 381--394, (2004). `doi: 10.1175/BAMS-85-3-381 <https://doi.org/10.1175/BAMS-85-3-381>`_
-
-.. [Syed2008] T. H. Syed et al., "Analysis of terrestrial water storage changes from GRACE and GLDAS", *Water Resources Research*, 44(2), (2008). `doi: 10.1029/2006WR005779 <https://doi.org/10.1029/2006WR005779>`_

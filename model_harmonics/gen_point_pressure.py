@@ -63,7 +63,10 @@ def gen_point_pressure(P, G, R, lon, lat, AREA=None, LMAX=60, MMAX=None,
     LOVE=None):
     r"""
     Calculates gravitational spherical harmonic coefficients for pressure
-        values at individual points assuming a disc geometry
+    values at individual points assuming a disc geometry
+    :cite:p:`Boy:2005el` :cite:p:`Longman:1962ev` :cite:p:`Farrell:1972cm`
+    :cite:p:`Pollack:1973gi` :cite:p:`Swenson:2002kf`
+
 
     Parameters
     ----------
@@ -96,31 +99,6 @@ def gen_point_pressure(P, G, R, lon, lat, AREA=None, LMAX=60, MMAX=None,
         spherical harmonic degree to LMAX
     m: np.ndarray
         spherical harmonic order to MMAX
-
-    References
-    ----------
-    .. [Boy2005] J.-P. Boy and B. F. Chao, "Precise evaluation of
-        atmospheric loading effects on Earth's time-variable gravity field",
-        *Journal of Geophysical Research: Solid Earth*, 110(B08412), (2005).
-        `doi: 10.1029/2002JB002333 <https://doi.org/10.1029/2002JB002333>`_
-    .. [Farrell1972] W. E. Farrell, "Deformation of the Earth by surface loads",
-        *Reviews of Geophysics and Space Physics*, 10(3), (1972).
-        `doi: 10.1029/RG010i003p00761 <https://doi.org/10.1029/RG010i003p00761>`_
-    .. [Jacob2012] T. Jacob et al., "Estimating geoid height change in North America:
-        past, present and future", *Journal of Geodesy*, 86, 337-358, (2012).
-        `doi: 10.1007/s00190-011-0522-7 <https://doi.org/10.1007/s00190-011-0522-7>`_
-    .. [Longman1962] I. M. Longman, "A Green's function for determining
-        the deformation of the Earth under surface mass loads: 1. Theory",
-        *Journal of Geophysical Research*, 67(2), (1962).
-        `doi: 10.1029/JZ067i002p00845 <https://doi.org/10.1029/JZ067i002p00845>`_
-    .. [Pollack1973] H. N. Pollack, "Spherical harmonic representation of the
-        gravitational potential of a point mass, a spherical cap, and a
-        spherical rectangle", *Journal of Geophysical Research*, 78(11), (1973).
-        `doi: 10.1029/JB078i011p01760 <https://doi.org/10.1029/JB078i011p01760>`_
-    .. [Swenson2002] S. Swenson and J. Wahr, "Estimated effects of the vertical
-        structure of atmospheric mass on the time-variable geoid",
-        *Journal of Geophysical Research*, 107(B9), 2194, (2002).
-        `doi: 10.1029/2000JB000024 <https://doi.org/10.1029/2000JB000024>`_
     """
 
     # upper bound of spherical harmonic orders (default == LMAX)

@@ -2,7 +2,7 @@
 gen_point_pressure
 ==================
 
-- Calculates gravitational spherical harmonic coefficients for pressure values at individual points assuming a disc geometry [Boy2005]_ [Swenson2002]_
+- Calculates gravitational spherical harmonic coefficients for pressure values at individual points assuming a disc geometry :cite:p:`Boy:2005el` :cite:p:`Swenson:2002kf`
 
 Calling Sequence
 ################

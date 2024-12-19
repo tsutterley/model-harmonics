@@ -3,7 +3,7 @@ ecco_mean_version4.py
 =====================
 
 - Reads monthly ECCO ocean bottom pressure data from `Version 4 models <https://ecco-group.org/products-ECCO-V4r4.htm>`_ and calculates multi-annual means
-- Global area average of each ocean bottom pressure map is removed [Greatbatch1994]_
+- Global area average of each ocean bottom pressure map is removed :cite:p:`Greatbatch:1994dx`
 
 `Source code`__
 
@@ -22,8 +22,3 @@ Calling Sequence
     model : @after
         * ``'V4r3'``: Version 4, Revision 3
         * ``'V4r4'``: Version 4, Revision 4
-
-References
-##########
-
-.. [Greatbatch1994] R. J. Greatbatch, "A note on the representation of steric sea level in models that conserve volume rather than mass", *Journal of Geophysical Research*, 99(C6), 12767--12771, (1994). `doi: 10.1029/94JC00847 <https://doi.org/10.1029/94JC00847>`_

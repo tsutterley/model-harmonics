@@ -134,7 +134,8 @@ def calculate_GIA_uplift(filename, LMAX,
     MODE=0o775):
     """
     Calculate spatial fields of GIA crustal uplift to correct
-    ICESat-2 ATL15 Gridded Land Ice Height Change data
+    ICESat-2 ATL15 Gridded Land Ice Height Change data following
+    :cite:p:`Wahr:2000ek`
 
     Parameters
     ----------
@@ -145,17 +146,18 @@ def calculate_GIA_uplift(filename, LMAX,
     GIA: str or NoneType, default None
         GIA model type to read and output
 
-            - ``'IJ05-R2'``: Ivins R2 GIA Models [Ivins2013]_
-            - ``'W12a'``: Whitehouse GIA Models [Whitehouse2012]_
-            - ``'SM09'``: Simpson/Milne GIA Models [Simpson2009]_
-            - ``'ICE6G'``: ICE-6G GIA Models [Peltier2015]_
-            - ``'Wu10'``: Wu (2010) GIA Correction [Wu2010]_
-            - ``'AW13-ICE6G'``: Geruo A ICE-6G GIA Models [A2013]_
-            - ``'Caron'``: Caron JPL GIA Assimilation [Caron2018]_
-            - ``'ICE6G-D'``: ICE-6G Version-D GIA Models [Peltier2018]_
-            - ``'ascii'``: reformatted GIA in ascii format
-            - ``'netCDF4'``: reformatted GIA in netCDF4 format
-            - ``'HDF5'``: reformatted GIA in HDF5 format
+        * ``'IJ05-R2'``: Ivins R2 GIA Models :cite:p:`Ivins:2013cq`
+        * ``'W12a'``: Whitehouse GIA Models :cite:p:`Whitehouse:2012jj`
+        * ``'SM09'``: Simpson/Milne GIA Models :cite:p:`Simpson:2009hg`
+        * ``'ICE6G'``: ICE-6G GIA Models :cite:p:`Peltier:2015bo`
+        * ``'Wu10'``: Wu (2010) GIA Correction :cite:p:`Wu:2010dq`
+        * ``'AW13-ICE6G'``: Geruo A ICE-6G GIA Models :cite:p:`A:2013kh`
+        * ``'AW13-IJ05'``: Geruo A IJ05-R2 GIA Models :cite:p:`A:2013kh`
+        * ``'Caron'``: Caron JPL GIA Assimilation :cite:p:`Caron:2018ba`
+        * ``'ICE6G-D'``: ICE-6G Version-D GIA Models :cite:p:`Peltier:2018dp`
+        * ``'ascii'``: reformatted GIA in ascii format
+        * ``'netCDF4'``: reformatted GIA in netCDF4 format
+        * ``'HDF5'``: reformatted GIA in HDF5 format
     GIA_FILE: str or NoneType, default None
         full path to input GIA file
     OUTPUT_FILE: str or NoneType, default None
@@ -164,48 +166,6 @@ def calculate_GIA_uplift(filename, LMAX,
         Iterate over mask to solve for large matrices
     MODE: oct, default 0o775
         Permissions mode of output files
-
-    References
-    ----------
-    .. [Blewett2003] G. Blewitt, "Self-consistency in reference frames, geocenter
-        definition, and surface loading of the solid Earth",
-        *Journal of Geophysical Research: Solid Earth*, 108(B2), 2103, (2003).
-        `doi: 10.1029/2002JB002082 <https://doi.org/10.1029/2002JB002082>`_
-
-    .. [Dziewonski1981] A. M. Dziewonski and D. L. Anderson,
-        "Preliminary reference Earth model",
-        *Physics of the Earth and Planetary Interiors*, 25(4), 297--356, (1981).
-        `doi: 10.1016/0031-9201(81)90046-7 <https://doi.org/10.1016/0031-9201(81)90046-7>`_
-
-    .. [Gegout2010] P. Gegout, J. Boehm, and D. Wijaya,
-        "Practical numerical computation of love numbers and applications",
-        Workshop of the COST Action ES0701, (2010).
-        `doi: 10.13140/RG.2.1.1866.7045 <https://doi.org/10.13140/RG.2.1.1866.7045>`_
-
-    .. [Han1995] D. Han and J. Wahr, "The viscoelastic relaxation of a
-        realistically stratified earth, and a further analysis of postglacial
-        rebound", *Geophysical Journal International*, 120(2), 287--311, (1995).
-        `doi: 10.1111/j.1365-246X.1995.tb01819.x <https://doi.org/10.1111/j.1365-246X.1995.tb01819.x>`_
-
-    .. [Wahr1998] J. Wahr, M. Molenaar, and F. Bryan,
-        "Time variability of the Earth's gravity field: Hydrological and
-        oceanic effects and their possible detection using GRACE",
-        *Journal of Geophysical Research*, 103(B12), 30205--30229, (1998).
-        `doi: 10.1029/98JB02844 <https://doi.org/10.1029/98JB02844>`_
-
-    .. [Wahr2000] J. Wahr, D. Wingham, and C. Bentley,
-        "A method of combining ICESat and GRACE satellite data
-        to constrain Antarctic mass balance",
-        *Journal of Geophysical Research: Solid Earth*,
-        105(B7), 16279--16294, (2000).
-        `doi: 10.1029/2000JB900113 <https://doi.org/10.1029/2000JB900113>`_
-
-    .. [Wang2012] H. Wang et al., "Load Love numbers and Green's
-        functions for elastic Earth models PREM, iasp91, ak135, and
-        modified models with refined crustal structure from Crust 2.0",
-        *Computers & Geosciences*, 49, 190--199, (2012).
-        `doi: 10.1016/j.cageo.2012.06.022 <https://doi.org/10.1016/j.cageo.2012.06.022>`_
-
     """
     # parse ATL15 file
     pattern = r'(ATL\d{2})_(.*?)_(\d{2})(\d{2})_(.*?)_(\d{3})_(\d{2}).nc$'
