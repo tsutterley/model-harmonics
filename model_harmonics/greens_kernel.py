@@ -15,7 +15,6 @@ INPUTS:
 OPTIONS:
     SPACING: Grid spacing in x and y directions (meters)
     WIDTH: Grid width in x and y directions (meters)
-    CUTOFF: Distance from central point to use a disc load (meters)
     LOVE: List of Love Numbers kl, hl, and ll
 
 OUTPUTS:
@@ -24,20 +23,25 @@ OUTPUTS:
     G: Green's function kernel (m/kg)
 
 PYTHON DEPENDENCIES:
-    numpy: Scientific Computing Tools For Python (https://numpy.org)
+    numpy: Scientific Computing Tools For Python
+        https://numpy.org
+    scipy: Scientific Tools for Python
+        https://docs.scipy.org/doc/
 
 PROGRAM DEPENDENCIES:
     units.py: class for converting units
     legendre_polynomials.py: computes fully normalized Legendre polynomials
 
 UPDATE HISTORY:
+    Updated 11/2024: use bessel function for points within cutoff distance
     Written 11/2024
 """
 
 import numpy as np
+import scipy.special
 import gravity_toolkit as gravtk
 
-def greens_kernel(LMAX, SPACING=[], WIDTH=[], CUTOFF=0.0, LOVE=None):
+def greens_kernel(LMAX, SPACING=[], WIDTH=[], LOVE=None):
     """
     Calculate the Green's function for a given set of Love Numbers
     following :cite:p:`Farrell:1972cm`, :cite:p:`Farrell:1973ui`
@@ -51,8 +55,6 @@ def greens_kernel(LMAX, SPACING=[], WIDTH=[], CUTOFF=0.0, LOVE=None):
         Grid spacing in x and y directions
     WIDTH: list, default []
         Grid width in x and y directions
-    CUTOFF: float, default 0.0
-        Distance from central point to use a disc load
     LOVE: list or None, default None
         List of Love Numbers kl, hl, and ll
 
@@ -76,10 +78,13 @@ def greens_kernel(LMAX, SPACING=[], WIDTH=[], CUTOFF=0.0, LOVE=None):
     assert np.isclose(scale, 6.371e6/5.972e24)
     # extract arrays of kl, hl, and ll Love Numbers
     hl, kl, ll = LOVE
+    # spherical harmonic degrees
+    l = np.arange(LMAX+1)
     # scale used to originally normalize the Legendre polynomials
-    norm = np.sqrt(2.0*np.arange(LMAX+1) + 1)
+    norm = np.sqrt(2.0*l + 1)
     # grid spacing
     dx,dy = np.broadcast_to(np.atleast_1d(SPACING),(2,))
+    cutoff = np.sqrt(dx*dy)
     # grid width
     W = np.broadcast_to(np.atleast_1d(WIDTH),(2,))
     # centered coordinates
@@ -96,27 +101,20 @@ def greens_kernel(LMAX, SPACING=[], WIDTH=[], CUTOFF=0.0, LOVE=None):
     # calculate Green's function for each point
     for i,x in enumerate(X):
         for j,y in enumerate(Y):
-            # use disc load if within cutoff following Farrell (1973)
-            if (D[j,i] < CUTOFF):
-                # for interior points: use a disc load
-                # to potentially avoid singularity
-                Pl = np.zeros((LMAX+1))
-                # divide pixel area by area of a half sphere
-                alpha = (1.0 - (dx*dy)/(2.0*np.pi*rad_e**2))
-                # l=0 is a special case
-                Pl[0] = (1.0 - alpha)/2.0
-                # Legendre polynomials up to LMAX+1
-                Ptemp,_ = gravtk.legendre_polynomials(LMAX+1, alpha)
-                for l in range(1, LMAX+1):
-                    # unnormalizing Legendre polynomials
-                    # sqrt(2*l - 1) == sqrt(2*(l-1) + 1)
-                    # sqrt(2*l + 3) == sqrt(2*(l+1) + 1)
-                    pll = Ptemp[l-1]/np.sqrt(2.0*l - 1.0)
-                    plu = Ptemp[l+1]/np.sqrt(2.0*l + 3.0)
-                    Pl[l] = (pll - plu)/2.0
+            # check if distance is within cutoff
+            if (D[j,i] < cutoff):
+                # adjustment to potentially avoid singularity
+                # equivalent radius of a disc load
+                radius = np.sqrt(dx*dy/np.pi)
+                # calculate distance at one half grid spacing
+                alpha = 0.5*radius/rad_e
+                # Bessel function up to LMAX
+                # multiply by 2.0 to account for the adjustment
+                Pl = 2.0*scipy.special.jv(0, (l + 0.5)*alpha)
             else:
-                # Legendre polynomials up to LMAX
+                # angular distance from central point
                 alpha = np.cos(D[j,i]/rad_e)
+                # Legendre polynomials up to LMAX
                 Ptemp,_ = gravtk.legendre_polynomials(LMAX, alpha)
                 # unnormalizing Legendre polynomials
                 Pl = np.squeeze(Ptemp)/norm
