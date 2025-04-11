@@ -237,7 +237,7 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     args = (LMAX, order_str, suffix[DATAFORM])
     output_pattern = r'ERA5_CUMUL_P-E_CLM_L{0:d}{1}_([-]?\d+).{2}'
     output_regex = re.compile(output_pattern.format(*args), re.VERBOSE)
-    # find all output ECCO OBP harmonic files (not just ones created in run)
+    # find all output harmonic files (not just ones created in run)
     output_files = [f for f in d2.iterdir() if re.match(output_regex,f.name)]
     for fi in sorted(output_files):
         # extract GRACE month

@@ -43,27 +43,6 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
 .. toctree::
     :maxdepth: 1
     :hidden:
-    :caption: ECCO
-
-    api_reference/ECCO/jpl_ecco_webdav.rst
-    api_reference/ECCO/jpl_ecco_sync.rst
-    api_reference/ECCO/jpl_ecco_cube92_sync.rst
-    api_reference/ECCO/jpl_ecco_llc_sync.rst
-    api_reference/ECCO/jpl_ecco_v4_sync.rst
-    api_reference/ECCO/ecco_mean_realtime.rst
-    api_reference/ECCO/ecco_mean_llc_tiles.rst
-    api_reference/ECCO/ecco_mean_version4.rst
-    api_reference/ECCO/ecco_read_realtime.rst
-    api_reference/ECCO/ecco_read_llc_tiles.rst
-    api_reference/ECCO/ecco_read_version4.rst
-    api_reference/ECCO/ecco_depth_version4.rst
-    api_reference/ECCO/ecco_geoid_llc_tiles.rst
-    api_reference/ECCO/ecco_llc_tile_harmonics.rst
-    api_reference/ECCO/ecco_monthly_harmonics.rst
-
-.. toctree::
-    :maxdepth: 1
-    :hidden:
     :caption: GIA
 
     api_reference/GIA/GIA_GSFC_mascons.rst
@@ -73,16 +52,23 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
 .. toctree::
     :maxdepth: 1
     :hidden:
-    :caption: GLDAS
+    :caption: OBP
 
-    api_reference/GLDAS/gesdisc_gldas_sync.rst
-    api_reference/GLDAS/gldas_mean_monthly.rst
-    api_reference/GLDAS/gldas_read_monthly.rst
-    api_reference/GLDAS/gldas_mask_arctic.rst
-    api_reference/GLDAS/gldas_mask_permafrost.rst
-    api_reference/GLDAS/gldas_mask_vegetation.rst
-    api_reference/GLDAS/gldas_monthly_harmonics.rst
-    api_reference/GLDAS/gldas_scaling_factors.rst
+    api_reference/OBP/jpl_ecco_webdav.rst
+    api_reference/OBP/jpl_ecco_sync.rst
+    api_reference/OBP/jpl_ecco_cube92_sync.rst
+    api_reference/OBP/jpl_ecco_llc_sync.rst
+    api_reference/OBP/jpl_ecco_v4_sync.rst
+    api_reference/OBP/ecco_mean_realtime.rst
+    api_reference/OBP/ecco_mean_llc_tiles.rst
+    api_reference/OBP/ecco_mean_version4.rst
+    api_reference/OBP/ecco_read_realtime.rst
+    api_reference/OBP/ecco_read_llc_tiles.rst
+    api_reference/OBP/ecco_read_version4.rst
+    api_reference/OBP/ecco_depth_version4.rst
+    api_reference/OBP/ecco_geoid_llc_tiles.rst
+    api_reference/OBP/ecco_llc_tile_harmonics.rst
+    api_reference/OBP/ecco_monthly_harmonics.rst
 
 .. toctree::
     :maxdepth: 1
@@ -135,6 +121,20 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     api_reference/SMB/racmo_downscaled_mean.rst
     api_reference/SMB/racmo_smb_cumulative.rst
     api_reference/SMB/racmo_smb_harmonics.rst
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+    :caption: TWS
+
+    api_reference/TWS/gesdisc_gldas_sync.rst
+    api_reference/TWS/gldas_mean_monthly.rst
+    api_reference/TWS/gldas_read_monthly.rst
+    api_reference/TWS/gldas_mask_arctic.rst
+    api_reference/TWS/gldas_mask_permafrost.rst
+    api_reference/TWS/gldas_mask_vegetation.rst
+    api_reference/TWS/gldas_monthly_harmonics.rst
+    api_reference/TWS/gldas_scaling_factors.rst
 
 .. toctree::
     :maxdepth: 1

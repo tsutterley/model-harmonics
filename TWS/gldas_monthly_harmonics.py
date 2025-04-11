@@ -1,26 +1,58 @@
 #!/usr/bin/env python
 u"""
-merra_smb_harmonics.py
-Written by Tyler Sutterley (03/2023)
-Reads monthly MERRA-2 surface mass balance anomalies and
-    converts to spherical harmonic coefficients
+gldas_monthly_harmonics.py
+Written by Tyler Sutterley (05/2023)
 
-https://disc.gsfc.nasa.gov/information/documents?title=
-Records%20of%20MERRA-2%20Data%20Reprocessing%20and%20Service%20Changes
+Reads monthly GLDAS total water storage anomalies and converts to
+    spherical harmonic coefficients
+
+Processes as described on the GRACE Tellus Website:
+    Data from the Noah 2.7.1 land hydrology model in the Global Land
+    Data Assimilation System (GLDAS). The GLDAS system is described
+    in the article by Rodell et al (2004). The input data for our
+    processing was downloaded from the Goddard Space Flight Center DISC.
+The mapped data available at this site is integrated total water content,
+    obtained from the GLDAS output by summing the layers:
+        Snow Fall water equivalent [kg/m^2]
+        Total canopy water storage [kg/m^2]
+        Soil Moisture [kg/m^2] (CLM: 10 layers, NOAH: 4 layers)
+            CLM:
+                0.000 - 0.018 m
+                0.018 - 0.045 m
+                0.045 - 0.091 m
+                0.091 - 0.166 m
+                0.166 - 0.289 m
+                0.289 - 0.493 m
+                0.493 - 0.829 m
+                0.829 - 1.383 m
+                1.383 - 2.296 m
+                2.296 - 3.433 m
+            NOAH:
+                0.0 - 0.1 m
+                0.1 - 0.4 m
+                0.4 - 1.0 m
+                1.0 - 2.0 m
+
+    Time-averaged grid from a set yearly range subtracted from individual grids.
+
+CALLING SEQUENCE:
+    python gldas_monthly_harmonics.py --lmax 60 --format netCDF4 NOAH
 
 INPUTS:
-    SMB: Surface Mass Balance
-    ACCUM: Snowfall accumulation
-    PRECIP: Total Precipitation
-    RAINFALL: Total Rainfall
-    SUBLIM: Evaporation and Sublimation
-    RUNOFF: Meltwater Runoff
+    GLDAS land surface model
+        CLM: Common Land Model (CLM)
+        CLSM: Catchment Land Surface Model (CLSM)
+        MOS: Mosaic model
+        NOAH: Noah model
+        VIC: Variable Infiltration Capacity (VIC) model
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
-    -m X, --mean X: Year range for mean
     -Y X, --year X: Years to run
-    -R X, --region X: region name for subdirectory
+    -v X, --version X: GLDAS model version
+    -S X, --spacing X: spatial resolution of models to run
+        10: 1.0 degrees latitude/longitude
+        025: 0.25 degrees latitude/longitude
     --mask X: netCDF4 mask files for reducing to regions
     -l X, --lmax X: maximum spherical harmonic degree
     -m X, --mmax X: maximum spherical harmonic order
@@ -65,43 +97,54 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
         updated inputs to spatial from_ascii function
         use spatial function for calculating geocentric latitude
     Updated 02/2023: use love numbers class with additional attributes
     Updated 12/2022: single implicit import of spherical harmonic tools
+        use constants class in place of geoid-toolkit ref_ellipsoid
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 08/2022: convert to mid-month averages to correspond with GRACE
+        can use a custom set of masks to reduce terrestrial water storage
+        can use variable loglevels for verbose output
     Updated 05/2022: use argparse descriptions within sphinx documentation
     Updated 04/2022: use wrapper function for reading load Love numbers
-    Updated 12/2021: can use variable loglevels for verbose output
     Updated 10/2021: using python logging for handling verbose output
-        added checks for previous versions of reprocessed files
         use output harmonic file wrapper routine to write to file
-        add more derived products
     Updated 09/2021: use GRACE/GRACE-FO month to calendar month converters
-    Updated 08/2021: set all points to valid if not using masks
     Updated 07/2021: can use input files to define command line arguments
     Updated 05/2021: define int/float precision to prevent deprecation warning
     Updated 03/2021: automatically update years to run based on current time
-    Updated 02/2021: can use multiple mask files to create a combined solution
+    Updated 02/2021: include GLDAS MOD44W land mask modified for HYMAP
         replaced numpy bool to prevent deprecation warning
-    Updated 01/2021: added more love number options
+    Updated 01/2021: harmonics object output from gen_stokes.py
+    Updated 12/2020: added more love number options
         set spatial variables for both 025 and 10 cases
         using utilities from time module. added maximum harmonic order option
-        harmonics object output from gen_stokes.py
     Updated 10/2020: use argparse to set command line parameters
+    Updated 08/2020: flake8 compatible regular expression strings
+        use utilities to define path to load love numbers file
+    Updated 06/2020: using spatial data class for input and output operations
+    Updated 04/2020: updates to reading load love numbers
+        using harmonics class for outputting data to file
     Updated 10/2019: changing Y/N flags to True/False
+    Updated 07/2019: output index and date files in separate loop for all files
+    Updated 09/2018: use permafrost index from permafrost_gldas_mask.py
+    Updated 06/2018: using python3 compatible octal and input
+    Updated 05/2018: include Svalbard and Iceland in combined land mask
+        output combined land mask to netCDF4 file for validation
+    Updated 01/2018: using getopt to set parameters
     Updated 08/2017: convert from geodetic coordinates to geocentric
-    Updated 01/2017: can output different data products (SMB, PRECIP, RUNOFF)
-    Updated 11/2016: changes to shapefile read for Antarctica
-    Written 11/2016
+    Updated 06/2016: updated to use __future__ print function
+    Updated 05/2016: complete rewrite of program
+    Updated 02/2014: quick code updates
+    Written 04/2013
 """
 from __future__ import print_function
 
 import sys
 import re
-import copy
 import logging
 import netCDF4
 import pathlib
@@ -111,47 +154,44 @@ import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
 
-# PURPOSE: read Merra-2 cumulative data and convert to spherical harmonics
-def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
-    MASKS=None, LMAX=0, MMAX=None, LOVE_NUMBERS=0, REFERENCE=None,
-    DATAFORM=None, MODE=0o775):
+# GLDAS models
+gldas_products = {}
+gldas_products['CLM'] = 'GLDAS Common Land Model (CLM)'
+gldas_products['CLSM'] = 'GLDAS Catchment Land Surface Model (CLSM)'
+gldas_products['MOS'] = 'GLDAS Mosaic model'
+gldas_products['NOAH'] = 'GLDAS Noah model'
+gldas_products['VIC'] = 'GLDAS Variable Infiltration Capacity (VIC) model'
 
-    # setup subdirectories
-    VERSION = '5.12.4'
-    cumul_sub = f'{PRODUCT}.{VERSION}.CUMUL.{RANGE[0]:d}.{RANGE[1]:d}'
-    input_dir = ddir.joinpath(cumul_sub)
+# PURPOSE: convert GLDAS terrestrial water storage data to spherical harmonics
+def gldas_monthly_harmonics(base_dir, MODEL, YEARS,
+    SPACING=None,
+    VERSION=None,
+    MASKS=None,
+    LMAX=0,
+    MMAX=None,
+    LOVE_NUMBERS=0,
+    REFERENCE=None,
+    DATAFORM=None,
+    MODE=0o775):
+
+    # Version flags
+    V1,V2 = (f'_V{VERSION}','') if (VERSION == '1') else ('',f'.{VERSION}')
+    # use GLDAS monthly products
+    TEMPORAL = 'M'
+    # directory for GLDAS models
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
+    # subdirectory for model monthly products at spacing for version
+    d1 = base_dir.joinpath(f'GLDAS_{MODEL}{SPACING}_{TEMPORAL}{V2}')
     # Creating output subdirectory if it doesn't exist
-    prefix = f'{REGION}_' if REGION else ''
-    output_sub = f'{prefix}{PRODUCT}_{VERSION}_CUMUL_CLM_L{LMAX:d}'
-    output_dir = ddir.joinpath(output_sub)
-    output_dir.mkdir(mode=MODE, parents=True, exist_ok=True)
-    # titles for each output data product
-    merra_products = {}
-    merra_products['SMB'] = 'MERRA-2 Surface Mass Balance'
-    merra_products['ACCUM'] = 'MERRA-2 Snowfall accumulation'
-    merra_products['PRECIP'] = 'MERRA-2 Precipitation'
-    merra_products['RAINFALL'] = 'MERRA-2 Rainfall'
-    merra_products['SUBLIM'] = 'MERRA-2 Evaporation and Sublimation'
-    merra_products['RUNOFF'] = 'MERRA-2 Meltwater Runoff'
-    # source of each output data product
-    merra_sources = {}
-    merra_sources['SMB'] = ['PRECCU','PRECLS','PRECSN','EVAP','RUNOFF','WESNSC']
-    merra_sources['ACCUM'] = ['PRECSN','EVAP']
-    merra_sources['PRECIP'] = ['PRECCU','PRECLS','PRECSN']
-    merra_sources['RAINFALL'] = ['PRECCU','PRECLS']
-    merra_sources['SUBLIM'] = ['EVAP','WESNSC']
-    merra_sources['RUNOFF'] = ['RUNOFF']
-    # output data file format
-    suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
+    d2 = base_dir.joinpath(f'GLDAS_{MODEL}{SPACING}{V1}_TWC_CLM_L{LMAX:d}')
+    d2.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # attributes for output files
     attributes = {}
     attributes['institution'] = 'NASA Goddard Space Flight Center (GSFC)'
-    attributes['project'] = 'MERRA2'
-    attributes['title'] = copy.copy(merra_products[PRODUCT])
-    attributes['source'] = ', '.join(merra_sources[PRODUCT])
-    attributes['product_name'] = PRODUCT
-    attributes['product_version'] = VERSION
+    attributes['project'] = 'Global Land Data Assimilation System (GLDAS)'
+    attributes['product_version'] = f'{MODEL} v{VERSION}'
+    attributes['product_name'] = 'TWC'
     attributes['product_type'] = 'gravity_field'
     attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
@@ -159,34 +199,78 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     MMAX = np.copy(LMAX) if not MMAX else MMAX
     # output string for both LMAX == MMAX and LMAX != MMAX cases
     order_str = 'M{MMAX:d}' if (MMAX != LMAX) else ''
+    # output data file format
+    suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
 
-    # output dimensions and extents
-    nlat,nlon = (361,576)
-    extent = [-180.0,179.375,-90.0,90.0]
-    # grid spacing
-    dlon,dlat = (0.625,0.5)
-    # latitude and longitude
-    glon = np.arange(extent[0],extent[1]+dlon,dlon)
-    glat = np.arange(extent[2],extent[3]+dlat,dlat)
+    # parameters for each grid spacing
+    if (SPACING == '025'):
+        nlon, nlat = (1440, 600)
+        dlon,dlat = (0.25, 0.25)
+        extent = [-179.875, 179.875, -59.875, 89.875]
+    elif (SPACING == '10'):
+        nlon,nlat = (360, 150)
+        dlon,dlat = (1.0, 1.0)
+        extent = [-179.5, 179.5, -59.5, 89.5]
+
+    # GLDAS MOD44W land mask modified for HYMAP
+    landmask_file = base_dir.joinpath(f'GLDASp5_landmask_{SPACING}d.nc4')
+    with netCDF4.Dataset(landmask_file, mode='r') as fileID:
+        GLDAS_mask = fileID.variables['GLDAS_mask'][:].squeeze()
+        glon = fileID.variables['lon'][:].copy()
+        glat = fileID.variables['lat'][:].copy()
     # create mesh grid of latitude and longitude
     gridlon,gridlat = np.meshgrid(glon,glat)
+    # create combined mask
+    combined_mask = np.logical_not(GLDAS_mask)
 
-    # create mask object for reducing data
-    if bool(MASKS):
-        input_mask = np.zeros((nlat,nlon),dtype=bool)
+    if MASKS:
+        # read masks for reducing regions before converting to harmonics
+        for mask_file in MASKS:
+            logging.debug(str(mask_file))
+            mask_file = pathlib.Path(mask_file).expanduser().absolute()
+            fileID = netCDF4.Dataset(mask_file, mode='r')
+            combined_mask |= fileID.variables['mask'][:].astype(bool)
+            fileID.close()
     else:
-        input_mask = np.ones((nlat,nlon),dtype=bool)
-    # read masks for reducing regions before converting to harmonics
-    for mask_file in MASKS:
-        logging.info(mask_file)
-        mask_file = pathlib.Path(mask_file).expanduser().absolute()
-        fileID = netCDF4.Dataset(mask_file, mode='r')
-        input_mask |= fileID.variables['mask'][:].astype(bool)
-        fileID.close()
+        # use default masks for reducing regions before converting to harmonics
+        # mask combining vegetation index, permafrost index and Arctic mask
+        # read vegetation index file
+        vegetation_file = base_dir.joinpath(f'modmodis_domveg20_{SPACING}.nc')
+        logging.debug(str(vegetation_file))
+        with netCDF4.Dataset(vegetation_file, mode='r') as fileID:
+            vegetation_index = fileID.variables['index'][:].copy()
+        # 0: missing value
+        # 13: Urban and Built-Up
+        # 15: Snow and Ice
+        # 17: Ocean
+        # 18: Wooded Tundra
+        # 19: Mixed Tundra
+        # 20: Bare Ground Tundra
+        for invalid_keys in (0,13,15,17,18,19,20):
+            combined_mask |= (vegetation_index == invalid_keys)
+        # read Permafrost index file
+        permafrost_file = base_dir.joinpath(f'permafrost_mod44w_{SPACING}.nc')
+        logging.debug(str(permafrost_file))
+        with netCDF4.Dataset(permafrost_file, mode='r') as fileID:
+            permafrost_index = fileID.variables['mask'][:]
+        # 1: Continuous Permafrost
+        # 2: Discontinuous Permafrost
+        # 3: Isolated Permafrost
+        # 4: Sporadic Permafrost
+        # 5: Glaciated Area
+        for invalid_keys in (1,5):
+            combined_mask |= (permafrost_index == invalid_keys)
+        # read Arctic mask file
+        arctic_file = base_dir.joinpath(f'arcticmask_mod44w_{SPACING}.nc')
+        logging.debug(str(arctic_file))
+        with netCDF4.Dataset(arctic_file, mode='r') as fileID:
+            arctic_mask = fileID.variables['mask'][:].astype(bool)
+        # arctic mask
+        combined_mask |= arctic_mask[:,:]
 
-    # get reference parameters for ellipsoid
+    # Earth Parameters
     ellipsoid_params = mdlhmc.datum(ellipsoid='WGS84')
-    # semimajor axis of ellipsoid [cm]
+    # semimajor axis of ellipsoid [m]
     a_axis = ellipsoid_params.a_axis
     # ellipsoidal flattening
     flat = ellipsoid_params.flat
@@ -210,103 +294,80 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     # calculate Legendre polynomials
     PLM, dPLM = gravtk.plm_holmes(LMAX, np.cos(theta))
 
-    # find input files from merra_smb_cumulative.py
-    regex_years = r'\d{4}' if (YEARS is None) else '|'.join(map(str,YEARS))
-    args = (PRODUCT, regex_years, suffix[DATAFORM])
-    regex_pattern = r'MERRA2_(\d+).tavgM_2d_{0}_cumul_Nx.(({1})(\d{{2}})).{2}$'
-    rx = re.compile(regex_pattern.format(*args), re.VERBOSE)
-    # will be out of order for 2020 due to September reprocessing
-    FILES = sorted([f.name for f in input_dir.iterdir() if rx.match(f.name)])
-    # sort files by month
-    indices = np.argsort([rx.match(f1).group(2) for f1 in FILES])
-    FILES = [FILES[indice] for indice in indices]
-    # remove files that needed to be reprocessed
-    INVALID = []
-    INVALID.append('MERRA2_400.tavgM_2d_{0}_cumul_Nx.202009.{2}'.format(*args))
-    INVALID.append('MERRA2_400.tavgM_2d_{0}_cumul_Nx.202106.{2}'.format(*args))
-    INVALID.append('MERRA2_400.tavgM_2d_{0}_cumul_Nx.202107.{2}'.format(*args))
-    INVALID.append('MERRA2_400.tavgM_2d_{0}_cumul_Nx.202109.{2}'.format(*args))
-    if (set(INVALID) & set(FILES)):
-        logging.warning("Reprocessed file found in list")
-        FILES = sorted(set(FILES) - set(INVALID))
+    # find input terrestrial water storage files
+    regex_years = r'\d+' if (YEARS is None) else r'|'.join(map(str,YEARS))
+    args = (MODEL, SPACING, regex_years, suffix[DATAFORM])
+    rx = re.compile(r'GLDAS_{0}{1}_TWC_({2})_(\d+)\.{3}$'.format(*args))
+    FILES = sorted([f for f in d1.iterdir() if rx.match(f.name)])
 
     # for each input file
-    for t,fi in enumerate(FILES[:-1]):
-        # extract parameters from input flux file
-        MOD,_,YY,MM = rx.findall(fi).pop()
-        f1 = input_dir.joinpath(fi)
-        f2 = input_dir.joinpath(FILES[t+1])
+    for t,FILE in enumerate(FILES[:-1]):
+        # extract year and month from file
+        YY,MM = np.array(rx.findall(FILE.name).pop(), dtype=np.float64)
+
         # read data file for data format
         if (DATAFORM == 'ascii'):
             # ascii (.txt)
-            M1 = gravtk.spatial().from_ascii(f1, spacing=[dlon,dlat],
-                nlat=nlat, nlon=nlon, extent=extent)
-            M2 = gravtk.spatial().from_ascii(f2, spacing=[dlon,dlat],
-                nlat=nlat, nlon=nlon, extent=extent)
+            M1 = gravtk.spatial().from_ascii(FILE,
+                spacing=[dlon,dlat], nlat=nlat, nlon=nlon, extent=extent)
+            M2 = gravtk.spatial().from_ascii(FILES[t+1],
+                spacing=[dlon,dlat], nlat=nlat, nlon=nlon, extent=extent)
         elif (DATAFORM == 'netCDF4'):
             # netCDF4 (.nc)
-            M1 = gravtk.spatial().from_netCDF4(f1, varname=PRODUCT)
-            M2 = gravtk.spatial().from_netCDF4(f2, varname=PRODUCT)
+            M1 = gravtk.spatial().from_netCDF4(FILE)
+            M2 = gravtk.spatial().from_netCDF4(FILES[t+1])
         elif (DATAFORM == 'HDF5'):
             # HDF5 (.H5)
-            M1 = gravtk.spatial().from_HDF5(f1, varname=PRODUCT)
-            M2 = gravtk.spatial().from_HDF5(f2, varname=PRODUCT)
+            M1 = gravtk.spatial().from_HDF5(FILE)
+            M2 = gravtk.spatial().from_HDF5(FILES[t+1])
         # attributes for input files
         attributes['lineage'] = []
-        attributes['lineage'].append(f1.name)
-        attributes['lineage'].append(f2.name)
+        attributes['lineage'].append(pathlib.Path(M1.filename).name)
+        attributes['lineage'].append(pathlib.Path(M2.filename).name)
 
-        # if reducing to a region of interest before converting to harmonics
-        if np.any(input_mask):
-            # replace fill value points and masked points with 0
-            M1.replace_invalid(0.0, mask=np.logical_not(input_mask))
-            M2.replace_invalid(0.0, mask=np.logical_not(input_mask))
-        else:
-            # replace fill value points points with 0
-            M1.replace_invalid(0.0)
-            M2.replace_invalid(0.0)
-
+        # replace fill value points and certain vegetation types with 0
+        M1.replace_invalid(0.0, mask=combined_mask)
+        M2.replace_invalid(0.0, mask=combined_mask)
         # calculate 2-month moving average
         # weighting by number of days in each month
         dpm = gravtk.time.calendar_days(int(YY))
         W = np.float64(dpm[(t+1) % 12] + dpm[t % 12])
         MASS = (dpm[t % 12]*M1.data + dpm[(t+1) % 12]*M2.data)/W
-        # convert to spherical harmonics from mm w.e.
-        merra_Ylms = gravtk.gen_stokes(MASS, glon, latitude_geocentric[:,0],
-            LMAX=LMAX, MMAX=MMAX, UNITS=3, PLM=PLM, LOVE=LOVE)
-        # copy date information
-        merra_Ylms.time = np.mean([M1.time, M2.time])
+
+        # convert to spherical harmonics
+        gldas_Ylms = gravtk.gen_stokes(MASS, glon, latitude_geocentric[:,0],
+            LMAX=LMAX, MMAX=MMAX, PLM=PLM, LOVE=LOVE)
+        # calculate date information
+        gldas_Ylms.time, = gravtk.time.convert_calendar_decimal(YY,MM)
         # calculate GRACE/GRACE-FO month
-        merra_Ylms.month = gravtk.time.calendar_to_grace(
-            np.float64(YY), np.float64(MM))
+        gldas_Ylms.month = gravtk.time.calendar_to_grace(YY,MM)
         # add attributes to output harmonics
-        merra_Ylms.attributes['ROOT'] = attributes
+        gldas_Ylms.attributes['ROOT'] = attributes
+
         # output spherical harmonic data file
-        args = (MOD,PRODUCT,LMAX,order_str,merra_Ylms.month,suffix[DATAFORM])
-        FILE='MERRA2_{0}_tavgM_2d_{1}_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
-        output_file = output_dir.joinpath(FILE)
-        merra_Ylms.to_file(output_file, format=DATAFORM)
+        args=(MODEL,SPACING,LMAX,order_str,gldas_Ylms.month,suffix[DATAFORM])
+        FILE = 'GLDAS_{0}{1}_TWC_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
+        output_file = d2.joinpath(FILE)
+        gldas_Ylms.to_file(output_file, format=DATAFORM)
         # change the permissions mode of the output file to MODE
         output_file.chmod(mode=MODE)
 
     # Output date ascii file
-    output_date_file = output_dir.joinpath(f'MERRA2_{PRODUCT}_DATES.txt')
+    output_date_file = d2.joinpath(f'GLDAS_{MODEL}{SPACING}_TWC_DATES.txt')
     fid1 = output_date_file.open(mode='w', encoding='utf8')
     # date file header information
     print('{0:8} {1:^6} {2:^5}'.format('Mid-date','GRACE','Month'), file=fid1)
     # index file listing all output spherical harmonic files
-    output_index_file = output_dir.joinpath('index.txt')
+    output_index_file = d2.joinpath('index.txt')
     fid2 = output_index_file.open(mode='w', encoding='utf8')
     # find all available output files
-    args = (PRODUCT, LMAX, order_str, suffix[DATAFORM])
-    output_pattern = r'MERRA2_(\d+)_tavgM_2d_{0}_CLM_L{1:d}{2}_([-]?\d+).{3}'
-    output_regex = re.compile(output_pattern.format(*args), re.VERBOSE)
+    args = (MODEL, SPACING, LMAX, order_str, suffix[DATAFORM])
+    output_regex=r'GLDAS_{0}{1}_TWC_CLM_L{2:d}{3}_([-]?\d+).{4}'.format(*args)
     # find all output harmonic files (not just ones created in run)
-    output_files = [f for f in output_dir.iterdir()
-        if re.match(output_regex,f.name)]
+    output_files = [fi for fi in d2.iterdir() if re.match(output_regex,fi.name)]
     for fi in sorted(output_files):
         # extract GRACE month
-        MOD,grace_month = np.array(re.findall(output_regex,fi.name).pop(), dtype=int)
+        grace_month, = np.array(re.findall(output_regex,fi.name), dtype=int)
         YY,MM = gravtk.time.grace_to_calendar(grace_month)
         tdec, = gravtk.time.convert_calendar_decimal(YY, MM)
         # print date, GRACE month and calendar month to date file
@@ -324,35 +385,35 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
-        description="""Reads monthly MERRA-2 surface mass balance
-            anomalies and converts to spherical harmonic coefficients
+        description="""Reads monthly GLDAS total water storage anomalies
+            and converts to spherical harmonic coefficients
             """,
         fromfile_prefix_chars="@"
     )
     parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
-    choices = ['SMB','ACCUM','PRECIP','RAINFALL','SUBLIM','RUNOFF']
-    parser.add_argument('product',
-        type=str, nargs='+', choices=choices,
-        help='MERRA-2 derived product')
+    parser.add_argument('model',
+        type=str, nargs='+', choices=gldas_products.keys(),
+        help='GLDAS land surface model')
     # working data directory
     parser.add_argument('--directory','-D',
         type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
-    # start and end years to run for mean
-    parser.add_argument('--mean',
-        metavar=('START','END'), type=int, nargs=2,
-        default=[1980,1995],
-        help='Start and end year range for mean')
     # years to run
     now = datetime.datetime.now()
     parser.add_argument('--year','-Y',
         type=int, nargs='+', default=range(2000,now.year+1),
         help='Years of model outputs to run')
-    # region name for subdirectory
-    parser.add_argument('--region','-R',
-        type=str, default=None,
-        help='Region name for subdirectory')
+    # GLDAS model version
+    parser.add_argument('--version','-v',
+        type=str, default='2.1',
+        help='GLDAS model version')
+    # model spatial resolution
+    # 10: 1.0 degrees latitude/longitude
+    # 025: 0.25 degrees latitude/longitude
+    parser.add_argument('--spacing','-S',
+        type=str, default='10', choices=['10','025'],
+        help='Spatial resolution of models to run')
     # mask file for reducing to regions
     parser.add_argument('--mask',
         type=pathlib.Path,
@@ -400,16 +461,16 @@ def main():
     parser = arguments()
     args,_ = parser.parse_known_args()
 
-    # create logger for verbosity level
+    # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[args.verbose])
 
-    # run program for each input product
-    for PRODUCT in args.product:
+    # for each GLDAS model
+    for MODEL in args.model:
         # run program
-        merra_smb_harmonics(args.directory, PRODUCT, args.year,
-            RANGE=args.mean,
-            REGION=args.region,
+        gldas_monthly_harmonics(args.directory, MODEL, args.year,
+            VERSION=args.version,
+            SPACING=args.spacing,
             MASKS=args.mask,
             LMAX=args.lmax,
             MMAX=args.mmax,

@@ -9,8 +9,8 @@ This software was developed with the goal of supporting science applications for
 time-variable gravity.
 The ``model-harmonics`` projects consists of extension routines for the set of ``gravity-toolkit`` tools.
 
-ECCO
-====
+OBP
+===
 
 Uses outputs from the NASA-JPL `Estimating the Circulation and Climate of the Ocean (ECCO) <https://ecco-group.org/>`_ model.
 For ECCO near real-time Kalman-filtered (kf080i) and Rauch-Tung-Striebel (RTS) smoother (dr080i) models, reads 12-hour ocean bottom pressure data (OBP) and calculates monthly averages.
@@ -58,21 +58,21 @@ Ocean bottom pressure anomalies are converted to spherical harmonics following :
             shape=box
             style="filled"
             color="#7570b3"]
-        M [URL="https://github.com/tsutterley/model-harmonics/blob/main/ECCO/ecco_mean_realtime.py"
+        M [URL="https://github.com/tsutterley/model-harmonics/blob/main/OBP/ecco_mean_realtime.py"
             label="Calculate Temporal Mean"
             fontname="Lato"
             fontsize=11
             shape=box
             style="filled"
             color="gray"]
-        R [URL="https://github.com/tsutterley/model-harmonics/blob/main/ECCO/ecco_read_realtime.py"
+        R [URL="https://github.com/tsutterley/model-harmonics/blob/main/OBP/ecco_read_realtime.py"
             label="Calculate Monthly Anomalies"
             fontname="Lato"
             fontsize=11
             shape=box
             style="filled"
             color="gray"]
-        H [URL="https://github.com/tsutterley/model-harmonics/blob/main/ECCO/ecco_monthly_harmonics.py"
+        H [URL="https://github.com/tsutterley/model-harmonics/blob/main/OBP/ecco_monthly_harmonics.py"
             label="Calculate Spherical Harmonics"
             fontname="Lato"
             fontsize=11
@@ -103,8 +103,8 @@ Ocean bottom pressure anomalies are converted to spherical harmonics following :
         H -> T [arrowsize=0.8]
     }
 
-GLDAS
-=====
+TWS
+===
 
 Uses `GLDAS model outputs <https://ldas.gsfc.nasa.gov/gldas>`_ from the NASA Goddard Space Flight Center (GSFC) Hydrological Sciences Laboratory (HSL)
 `Global Land Data Assimilation System Version 2 (GLDAS-2) <https://disc.gsfc.nasa.gov/information/data-release?title=New%20and%20Reprocessed%20GLDAS%20Version%202%20Data%20Products%20Released>`_
@@ -115,9 +115,9 @@ Additionally, the GLDAS project produces two months of "early production stream"
 Here, monthly terrestrial water storage (TWS) estimates are calculated by combining the GLDAS soil moisture (`SM`), snow water equivalent (`SWE`) and total canopy storage outputs.
 Monthly anomalies in terrestrial water storage are calculated by removing a multi-annual mean (typically 2003 |ndash| 2007).
 Before converting to spherical harmonics, the GLDAS terrestrial water storage estimates are masked to remove
-`urbanized <https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_mask_vegetation.py>`_,
-`glaciated <https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_mask_arctic.py>`_ and
-`permafrost <https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_mask_permafrost.py>`_ regions.
+`urbanized <https://github.com/tsutterley/model-harmonics/blob/main/TWS/gldas_mask_vegetation.py>`_,
+`glaciated <https://github.com/tsutterley/model-harmonics/blob/main/TWS/gldas_mask_arctic.py>`_ and
+`permafrost <https://github.com/tsutterley/model-harmonics/blob/main/TWS/gldas_mask_permafrost.py>`_ regions.
 Terrestrial water storage anomalies are converted to spherical harmonics following :cite:p:`Wahr:1998hy` (Equation :eq:`3`).
 
 .. math::
@@ -144,21 +144,21 @@ Terrestrial water storage anomalies are converted to spherical harmonics followi
             shape=box
             style="filled"
             color="#7570b3"]
-        M [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_mean_monthly.py"
+        M [URL="https://github.com/tsutterley/model-harmonics/blob/main/TWS/gldas_mean_monthly.py"
             label="Calculate Temporal Mean"
             fontname="Lato"
             fontsize=11
             shape=box
             style="filled"
             color="gray"]
-        R [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_read_monthly.py"
+        R [URL="https://github.com/tsutterley/model-harmonics/blob/main/TWS/gldas_read_monthly.py"
             label="Calculate Monthly Anomalies"
             fontname="Lato"
             fontsize=11
             shape=box
             style="filled"
             color="gray"]
-        H [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_monthly_harmonics.py"
+        H [URL="https://github.com/tsutterley/model-harmonics/blob/main/TWS/gldas_monthly_harmonics.py"
             label="Calculate Spherical Harmonics"
             fontname="Lato"
             fontsize=11
@@ -252,14 +252,14 @@ Anomalies for each reanalysis are calculated relative to a multi-annual mean (su
             shape=box
             style="filled"
             color="#7570b3"]
-        M [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/reanalysis_mean_pressure.py"
+        M [URL="https://github.com/tsutterley/model-harmonics/blob/main/TWS/reanalysis_mean_pressure.py"
             label="Calculate Temporal Mean"
             fontname="Lato"
             fontsize=11
             shape=box
             style="filled"
             color="gray"]
-        H [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/reanalysis_pressure_harmonics.py"
+        H [URL="https://github.com/tsutterley/model-harmonics/blob/main/TWS/reanalysis_pressure_harmonics.py"
             label="Calculate Spherical Harmonics"
             fontname="Lato"
             fontsize=11
@@ -300,7 +300,7 @@ Anomalies for each reanalysis are calculated relative to a multi-annual mean (su
             shape=box
             style="filled"
             color="#7570b3"]
-        L [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/model_level_coefficients.py"
+        L [URL="https://github.com/tsutterley/model-harmonics/blob/main/TWS/model_level_coefficients.py"
             label="Model Level\nCoefficients"
             fontname="Lato"
             fontsize=11
@@ -319,21 +319,21 @@ Anomalies for each reanalysis are calculated relative to a multi-annual mean (su
             shape=box
             style="filled"
             color="#7570b3"]
-        G [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/reanalysis_geopotential_heights.py"
+        G [URL="https://github.com/tsutterley/model-harmonics/blob/main/TWS/reanalysis_geopotential_heights.py"
             label="Calculate Geopotential Heights\nand Pressure Differences"
             fontname="Lato"
             fontsize=11
             shape=box
             style="filled"
             color="gray"]
-        M [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/reanalysis_mean_harmonics.py"
+        M [URL="https://github.com/tsutterley/model-harmonics/blob/main/TWS/reanalysis_mean_harmonics.py"
             label="Calculate Temporal Mean\nSpherical Harmonics"
             fontname="Lato"
             fontsize=11
             shape=box
             style="filled"
             color="gray"]
-        H [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/reanalysis_atmospheric_harmonics.py"
+        H [URL="https://github.com/tsutterley/model-harmonics/blob/main/TWS/reanalysis_atmospheric_harmonics.py"
             label="Calculate Spherical Harmonics"
             fontname="Lato"
             fontsize=11

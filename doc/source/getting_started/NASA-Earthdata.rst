@@ -55,9 +55,9 @@ Steps to Sync from GES DISC and PO.DAAC
 1. `Register with NASA Earthdata Login system <https://urs.earthdata.nasa.gov/users/new>`_
 2. `After registering, login to the system <https://urs.earthdata.nasa.gov/home>`_
 3. Add ``NASA GESDISC DATA ARCHIVE`` and ``ECCO Drive`` `applications to Earthdata <https://wiki.earthdata.nasa.gov/display/EL/How+To+Pre-authorize+an+application>`_
-4. Sync `GLDAS land surface model outputs <https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gesdisc_gldas_sync.py>`_.
-5. Retrieve `WebDAV password <https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_webdav.py>`_ to access ECCO servers
-6. Sync `near real-time <https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_sync.py>`_ or `version 4 <https://github.com/tsutterley/model-harmonics/blob/main/ECCO/jpl_ecco_v4_sync.py>`_ data
+4. Sync `GLDAS land surface model outputs <https://github.com/tsutterley/model-harmonics/blob/main/TWS/gesdisc_gldas_sync.py>`_.
+5. Retrieve `WebDAV password <https://github.com/tsutterley/model-harmonics/blob/main/OBP/jpl_ecco_webdav.py>`_ to access ECCO servers
+6. Sync `near real-time <https://github.com/tsutterley/model-harmonics/blob/main/OBP/jpl_ecco_sync.py>`_ or `version 4 <https://github.com/tsutterley/model-harmonics/blob/main/OBP/jpl_ecco_v4_sync.py>`_ data
 
 Can also create a ``.netrc`` file for permanently storing NASA Earthdata and JPL WebDAV credentials:
 
