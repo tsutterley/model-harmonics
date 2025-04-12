@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 u"""
-gldas_mask_permafrost.py
+era5_land_mask_permafrost.py
 Written by Tyler Sutterley (04/2025)
 
-Creates a mask for GLDAS data based on the permafrost/surface classification
+Creates a mask for ERA5-Land based on the permafrost/surface classification
 from the NSIDC Circum-Arctic Map of Permafrost and Ground-Ice Conditions
     1: Continuous Permafrost
     2: Discontinuous Permafrost
@@ -15,14 +15,8 @@ Projection: Modification of Lambert Azimuthal projection, EASE-Grid
     http://nsidc.org/data/docs/fgdc/ggd318_map_circumarctic/index.html
     http://nsidc.org/data/ggd318.html
 
-GLDAS land mask:
-    https://ldas.gsfc.nasa.gov/gldas/vegetation-class-mask
-
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
-    -S X, --spacing X: spatial resolution of models to run
-        10: 1.0 degrees latitude/longitude
-        025: 0.25 degrees latitude/longitude
     -F X, --shapefile X: Shapefile to run
     -V, --verbose: Output information for each output file
     -M X, --mode X: Permission mode of directories and files
@@ -46,20 +40,7 @@ REFERENCES:
         ground ice conditions. Boulder, CO: National Snow and Ice Data Center.
 
 UPDATE HISTORY:
-    Updated 04/2025: use from_user_input to define the input shapefile crs
-    Updated 05/2023: use pathlib to define and operate on paths
-    Updated 03/2023: use full path to output file in verbose logging
-    Updated 12/2022: single implicit import of spherical harmonic tools
-    Updated 11/2022: use f-strings for formatting verbose or ascii output
-    Updated 07/2022: place some imports behind try/except statements
-    Updated 05/2022: use argparse descriptions within sphinx documentation
-    Updated 12/2021: can use variable loglevels for verbose output
-    Updated 10/2021: using python logging for handling verbose output
-    Updated 02/2021: replaced numpy bool to prevent deprecation warning
-    Updated 01/2021: fiona for shapefile read. pyproj for coordinate conversion
-    Updated 02/2019: shapely updates for python3 compatibility
-    Updated 08/2018: use getopt to set parameters. output a spatial grid
-    Written 07/2013
+    Written 04/2025
 """
 from __future__ import print_function
 
@@ -92,35 +73,31 @@ warnings.filterwarnings("ignore")
 
 # Read the NSIDC Circum-Arctic Map of Permafrost and Ground-Ice Conditions
 # and create a mask for continuous/discontinuous permafrost
-def gldas_mask_permafrost(ddir, SPACING=None, SHAPEFILE=None, MODE=0o775):
+def era5_land_mask_permafrost(base_dir, SHAPEFILE=None, MODE=0o775):
 
-    # parameters for each grid spacing
-    if (SPACING == '025'):
-        nx,ny = (1440,600)
-        dx,dy = (0.25,0.25)
-        latlimit_south = -59.875
-        longlimit_west = -179.875
-    elif (SPACING == '10'):
-        nx,ny = (360,150)
-        dx,dy = (1.0,1.0)
-        latlimit_south = -59.5
-        longlimit_west = -179.5
-    # input binary land mask and output netCDF4 mask
-    ddir = pathlib.Path(ddir).expanduser().absolute()
-    input_file = ddir.joinpath(f'landmask_mod44w_{SPACING}.1gd4r')
-    output_file = ddir.joinpath(f'permafrost_mod44w_{SPACING}.nc')
+    # directory models
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
+    # ERA5-land products
+    MODEL = 'ERA5-Land'
+    ddir = base_dir.joinpath(MODEL)
+
+    # input land mask and output permafrost mask
+    input_file = ddir.joinpath(f'lsm.nc')
+    output_file = ddir.joinpath(f'cpfrost.nc')
 
     # python dictionary with input data
     dinput = {}
-    # latitude and longitude
-    dinput['longitude'] = longlimit_west + np.arange(nx)*dx
-    dinput['latitude'] = latlimit_south + np.arange(ny)*dy
-    # read GLDAS mask binary file
-    logging.info(str(input_file))
-    binary_input = np.fromfile(input_file, '>f4')
-    mask_input = binary_input.reshape(ny,nx).astype(bool)
+    with netCDF4.Dataset(input_file, 'r') as fileID:
+        # find valid points from land mask
+        mask_input = (fileID.variables['lsm'][0,:,:] > 0.0)
+        ntime, nlat, nlon = fileID.variables['lsm'].shape
+        # read the latitude and longitude
+        dinput['latitude'] = fileID.variables['latitude'][:]
+        dinput['longitude'] = fileID.variables['longitude'][:]
+        dinput['time'] = fileID.variables['time'][:]
+
     # create meshgrid of lat and long
-    gridlon,gridlat = np.meshgrid(dinput['longitude'],dinput['latitude'])
+    gridlon,gridlat = np.meshgrid(dinput['longitude'], dinput['latitude'])
     # latitude range for valid points
     latmin, latmax = (26.0, 86.0)
     # find valid northern hemisphere points from mask input
@@ -173,9 +150,12 @@ def gldas_mask_permafrost(ddir, SPACING=None, SHAPEFILE=None, MODE=0o775):
                     int_map = list(map(poly_obj.intersects, xy_point.geoms))
                     int_indices, = np.nonzero(int_map)
                     intersection_mask[int_indices] = (5-j)
-    # fill larger data mask
-    dinput['mask'] = np.zeros((ny,nx),dtype=np.uint8)
-    dinput['mask'][ii,jj] = intersection_mask[:]
+    # fill output data mask
+    dinput['pf'] = np.zeros((ntime, nlat, nlon), dtype=np.uint8)
+    dinput['pf'][0,ii,jj] = intersection_mask[:]
+    # find valid southern hemisphere points and replace Antarctica
+    ii,jj = np.nonzero(mask_input & (gridlat <= -60))
+    dinput['pf'][0,ii,jj] = 5
     # write to output netCDF4 (.nc)
     ncdf_mask_write(dinput, FILENAME=output_file)
     # change the permission level to MODE
@@ -190,31 +170,33 @@ def ncdf_mask_write(output_data, FILENAME=None):
     # python dictionary with the NetCDF4 data variables
     nc = {}
     # Defining the NetCDF4 dimensions
-    LATNAME,LONNAME = ('latitude','longitude')
-    for key in [LONNAME,LATNAME]:
+    TIMENAME,LATNAME,LONNAME = ('time','latitude','longitude')
+    for key in [TIMENAME,LONNAME,LATNAME]:
         fileID.createDimension(key, len(output_data[key]))
         nc[key] = fileID.createVariable(key,output_data[key].dtype,(key,))
     # create the NetCDF4 data variables
-    nc['mask'] = fileID.createVariable('mask', output_data['mask'].dtype,
-        (LATNAME,LONNAME,), fill_value=0, zlib=True)
+    nc['pf'] = fileID.createVariable('pf', output_data['pf'].dtype,
+        (TIMENAME,LATNAME,LONNAME,), fill_value=0, zlib=True)
     # filling NetCDF variables
     for key,val in output_data.items():
         nc[key][:] = np.copy(val)
 
     # Defining attributes
+    nc[TIMENAME].long_name = 'time'
+    nc[TIMENAME].units = 'hours since 1900-01-01 00:00:00.0'
     nc[LONNAME].long_name = 'longitude'
     nc[LONNAME].units = 'degrees_east'
     nc[LATNAME].long_name = 'latitude'
     nc[LATNAME].units = 'degrees_north'
-    nc['mask'].long_name = 'permafrost_mask'
-    nc['mask'].reference = 'https://nsidc.org/data/ggd318'
+    nc['pf'].long_name = 'permafrost_mask'
+    nc['pf'].reference = 'https://nsidc.org/data/ggd318'
     description = []
     description.append('1: Continuous Permafrost')
     description.append('2: Discontinuous Permafrost')
     description.append('3: Isolated Permafrost')
     description.append('4: Sporadic Permafrost')
     description.append('5: Glaciated Area')
-    nc['mask'].description = ', '.join(description)
+    nc['pf'].description = ', '.join(description)
 
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
@@ -233,22 +215,16 @@ def ncdf_mask_write(output_data, FILENAME=None):
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
-        description="""Creates a mask for GLDAS data based on the
+        description="""Creates a mask for ERA5-Land data based on the
             permafrost/surface classification from the NSIDC
             Circum-Arctic Map of Permafrost and Ground-Ice Conditions
             """
     )
     # command line parameters
-    # working data directory for location of GLDAS data
+    # working data directory
     parser.add_argument('--directory','-D',
         type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
-    # model spatial resolution
-    # 10: 1.0 degrees latitude/longitude
-    # 025: 0.25 degrees latitude/longitude
-    parser.add_argument('--spacing','-S',
-        type=str, default='10', choices=['10','025'],
-        help='Spatial resolution of models to run')
     # input shapefile to run
     parser.add_argument('--shapefile','-F',
         type=pathlib.Path,
@@ -276,8 +252,9 @@ def main():
     logging.basicConfig(level=loglevels[args.verbose])
 
     # run program
-    gldas_mask_permafrost(args.directory, SPACING=args.spacing,
-        SHAPEFILE=args.shapefile, MODE=args.mode)
+    era5_land_mask_permafrost(args.directory, 
+        SHAPEFILE=args.shapefile,
+        MODE=args.mode)
 
 # run main program
 if __name__ == '__main__':

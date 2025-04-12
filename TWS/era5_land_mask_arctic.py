@@ -1,17 +1,13 @@
 #!/usr/bin/env python
 u"""
-gldas_mask_arctic.py
+era5_land_mask_arctic.py
 Written by Tyler Sutterley (05/2023)
 
-Creates a mask for GLDAS data for Greenland, Svalbard, Iceland and the
-    Russian High Arctic defined by a set of shapefiles
-    https://ldas.gsfc.nasa.gov/gldas/vegetation-class-mask
+Creates a mask for ERA5-Land data for Greenland, Svalbard, Iceland and
+    the Russian High Arctic defined by a set of shapefiles
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
-    -S X, --spacing X: spatial resolution of models to run
-        10: 1.0 degrees latitude/longitude
-        025: 0.25 degrees latitude/longitude
     -F X, --shapefile X: Shapefiles to run
     -A X, --area X: Minimum area threshold for polygons
     -B X, --buffer X: Distance to buffer polygons
@@ -32,22 +28,7 @@ PYTHON DEPENDENCIES:
         https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
-    Updated 05/2023: use pathlib to define and operate on paths
-    Updated 03/2023: use full path to output file in verbose logging
-    Updated 12/2022: single implicit import of spherical harmonic tools
-    Updated 11/2022: use f-strings for formatting verbose or ascii output
-    Updated 07/2022: place some imports behind try/except statements
-    Updated 05/2022: use argparse descriptions within sphinx documentation
-    Updated 12/2021: can use variable loglevels for verbose output
-    Updated 10/2021: using python logging for handling verbose output
-    Updated 02/2021: convert to projection of each shapefile
-        replaced numpy bool to prevent deprecation warning
-    Updated 01/2021: use fiona to read from shapefiles
-        use pyproj for coordinate conversion
-    Updated 02/2019: shapely updates for python3 compatibility
-    Updated 06/2018: using python3 compatible octal and input
-    Updated 05/2018: include outputs of Svalbard and Iceland.
-    Written 03/2018
+    Written 04/2025
 """
 from __future__ import print_function
 
@@ -106,43 +87,47 @@ def read_shapefile(input_shapefile, AREA=None, BUFFER=None):
     return (shapely.geometry.MultiPolygon(poly_list), crs)
 
 # PURPOSE: create a mask for Greenland, Svalbard and Iceland
-def gldas_mask_arctic(ddir, SPACING=None, SHAPEFILES=None, AREA=None,
-    BUFFER=None, MODE=0o775):
+def era5_land_mask_arctic(base_dir,
+        SHAPEFILES=None,
+        AREA=None,
+        BUFFER=None,
+        MODE=0o775
+    ):
 
-    # parameters for each grid spacing
-    if (SPACING == '025'):
-        nx,ny = (1440,600)
-        dx,dy = (0.25,0.25)
-        latlimit_south = -59.875
-        longlimit_west = -179.875
-    elif (SPACING == '10'):
-        nx,ny = (360,150)
-        dx,dy = (1.0,1.0)
-        latlimit_south = -59.5
-        longlimit_west = -179.5
-    # input binary land mask and output netCDF4 mask
-    ddir = pathlib.Path(ddir).expanduser().absolute()
-    input_file = ddir.joinpath(f'landmask_mod44w_{SPACING}.1gd4r')
-    output_file = ddir.joinpath(f'arcticmask_mod44w_{SPACING}.nc')
+    # directory models
+    base_dir = pathlib.Path(base_dir).expanduser().absolute()
+    # ERA5-land products
+    MODEL = 'ERA5-Land'
+    ddir = base_dir.joinpath(MODEL)
+
+    # input land mask and output permafrost mask
+    input_file = ddir.joinpath(f'lsm.nc')
+    output_file = ddir.joinpath(f'carctic.nc')
 
     # python dictionary with input data
     dinput = {}
-    # latitude and longitude
-    dinput['longitude'] = longlimit_west + np.arange(nx)*dx
-    dinput['latitude'] = latlimit_south + np.arange(ny)*dy
-    # read GLDAS mask binary file
-    logging.info(str(input_file))
-    binary_input = np.fromfile(input_file, '>f4')
-    mask_input = binary_input.reshape(ny,nx).astype(bool)
-    # find valid points from mask input
-    ii,jj = np.nonzero(mask_input)
-    valid_count = np.count_nonzero(mask_input)
-    intersection_mask = np.zeros((valid_count),dtype=np.uint8)
+    with netCDF4.Dataset(input_file, 'r') as fileID:
+        # find valid points from land mask
+        mask_input = (fileID.variables['lsm'][0,:,:] > 0.0)
+        ntime, nlat, nlon = fileID.variables['lsm'].shape
+        # read the latitude and longitude
+        dinput['latitude'] = fileID.variables['latitude'][:]
+        dinput['longitude'] = fileID.variables['longitude'][:]
+        dinput['time'] = fileID.variables['time'][:]
+
     # create meshgrid of lat and long
-    gridlon,gridlat = np.meshgrid(dinput['longitude'],dinput['latitude'])
+    gridlon,gridlat = np.meshgrid(dinput['longitude'], dinput['latitude'])
+    gridlon[gridlon > 180.0] -= 360.0
+    # latitude range for valid points
+    latmin, latmax = (26.0, 86.0)
+    # find valid northern hemisphere points from mask input
+    ii,jj = np.nonzero(mask_input & (gridlat >= latmin) & (gridlat <= latmax))
     # projection object for converting from latitude/longitude
     crs1 = pyproj.CRS.from_epsg(4326)
 
+    # sparse intersection array
+    count = np.count_nonzero(mask_input & (gridlat >= latmin) & (gridlat <= latmax))
+    intersection_mask = np.zeros((count),dtype=np.uint8)
     # iterate over shapefiles
     for i,SHAPEFILE in enumerate(SHAPEFILES):
         # read shapefile to find points within region
@@ -163,35 +148,36 @@ def gldas_mask_arctic(ddir, SPACING=None, SHAPEFILES=None, AREA=None,
             int_indices, = np.nonzero(int_map)
             intersection_mask[int_indices] = i+1
     # create larger data mask
-    dinput['mask'] = np.zeros((ny,nx),dtype=np.uint8)
-    dinput['mask'][ii,jj] = intersection_mask[:]
+    dinput['mask'] = np.zeros((ntime, nlat, nlon), dtype=np.uint8)
+    dinput['mask'][0,ii,jj] = intersection_mask[:]
     # write to output netCDF4 (.nc)
     ncdf_mask_write(dinput, FILENAME=output_file)
     # change the permission level to MODE
     output_file.chmod(mode=MODE)
 
 # PURPOSE: write land sea mask to netCDF4 file
-def ncdf_mask_write(dinput, FILENAME=None):
+def ncdf_mask_write(output_data, FILENAME=None):
     # opening NetCDF file for writing
     FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
     fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
 
-    # Defining the NetCDF dimensions
-    LATNAME,LONNAME = ('latitude','longitude')
-    for key in [LONNAME,LATNAME]:
-        fileID.createDimension(key, len(dinput[key]))
-
-    # defining the NetCDF variables
+    # python dictionary with the NetCDF4 data variables
     nc = {}
-    nc[LATNAME]=fileID.createVariable(LATNAME,dinput[LATNAME].dtype,(LATNAME,))
-    nc[LONNAME]=fileID.createVariable(LONNAME,dinput[LONNAME].dtype,(LONNAME,))
-    nc['mask'] = fileID.createVariable('mask', dinput['mask'].dtype,
-        (LATNAME,LONNAME,), fill_value=0, zlib=True)
+    # Defining the NetCDF4 dimensions
+    TIMENAME,LATNAME,LONNAME = ('time','latitude','longitude')
+    for key in [TIMENAME,LONNAME,LATNAME]:
+        fileID.createDimension(key, len(output_data[key]))
+        nc[key] = fileID.createVariable(key,output_data[key].dtype,(key,))
+    # create the NetCDF4 data variables
+    nc['mask'] = fileID.createVariable('mask', output_data['mask'].dtype,
+        (TIMENAME,LATNAME,LONNAME,), fill_value=0, zlib=True)
     # filling NetCDF variables
-    for key,val in dinput.items():
+    for key,val in output_data.items():
         nc[key][:] = np.copy(val)
 
-    # Defining attributes for longitude and latitude
+    # Defining attributes
+    nc[TIMENAME].long_name = 'time'
+    nc[TIMENAME].units = 'hours since 1900-01-01 00:00:00.0'
     nc[LONNAME].long_name = 'longitude'
     nc[LONNAME].units = 'degrees_east'
     nc[LATNAME].long_name = 'latitude'
@@ -215,22 +201,16 @@ def ncdf_mask_write(dinput, FILENAME=None):
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
-        description="""Creates a mask for GLDAS data for
+        description="""Creates a mask for ERA5-Land data for
             Greenland, Svalbard, Iceland and the Russian
             High Arctic defined by a set of shapefiles
             """
     )
     # command line parameters
-    # working data directory for location of GLDAS data
+    # working data directory
     parser.add_argument('--directory','-D',
         type=pathlib.Path, default=pathlib.Path.cwd(),
         help='Working data directory')
-    # model spatial resolution
-    # 10: 1.0 degrees latitude/longitude
-    # 025: 0.25 degrees latitude/longitude
-    parser.add_argument('--spacing','-S',
-        type=str, default='10', choices=['10','025'],
-        help='Spatial resolution of models to run')
     # input shapefiles to run
     parser.add_argument('--shapefile','-F',
         type=pathlib.Path,
@@ -266,8 +246,9 @@ def main():
     logging.basicConfig(level=loglevels[args.verbose])
 
     # run program
-    gldas_mask_arctic(args.directory, SPACING=args.spacing,
-        SHAPEFILES=args.shapefile, AREA=args.area, BUFFER=args.buffer,
+    era5_land_mask_arctic(args.directory,
+        SHAPEFILES=args.shapefile, AREA=args.area,
+        BUFFER=args.buffer,
         MODE=args.mode)
 
 # run main program

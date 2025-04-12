@@ -1,58 +1,27 @@
 #!/usr/bin/env python
 u"""
-gldas_monthly_harmonics.py
-Written by Tyler Sutterley (04/2025)
+era5_land_monthly_harmonics.py
+Written by Tyler Sutterley (05/2023)
 
-Reads monthly GLDAS total water storage anomalies and converts to
+Reads monthly ERA5-Land total water storage anomalies and converts to
     spherical harmonic coefficients
 
-Processes as described on the GRACE Tellus Website:
-    Data from the Noah 2.7.1 land hydrology model in the Global Land
-    Data Assimilation System (GLDAS). The GLDAS system is described
-    in the article by Rodell et al (2004). The input data for our
-    processing was downloaded from the Goddard Space Flight Center DISC.
-The mapped data available at this site is integrated total water content,
-    obtained from the GLDAS output by summing the layers:
-        Snow Fall water equivalent [kg/m^2]
-        Total canopy water storage [kg/m^2]
-        Soil Moisture [kg/m^2] (CLM: 10 layers, NOAH: 4 layers)
-            CLM:
-                0.000 - 0.018 m
-                0.018 - 0.045 m
-                0.045 - 0.091 m
-                0.091 - 0.166 m
-                0.166 - 0.289 m
-                0.289 - 0.493 m
-                0.493 - 0.829 m
-                0.829 - 1.383 m
-                1.383 - 2.296 m
-                2.296 - 3.433 m
-            NOAH:
-                0.0 - 0.1 m
-                0.1 - 0.4 m
-                0.4 - 1.0 m
-                1.0 - 2.0 m
+snow_depth_water_equivalent (sd)
+snow_cover (snowc): 0 -- 100 percent
+skin_reservoir_content (src)
+volumetric_soil_water_layer_1 (swvl1): 0 -- 7 cm
+volumetric_soil_water_layer_2 (swvl2): 7 -- 28 cm
+volumetric_soil_water_layer_3 (swvl3): 28 -- 100 cm
+volumetric_soil_water_layer_4 (swvl4): 100 -- 289 cm
 
-    Time-averaged grid from a set yearly range subtracted from individual grids.
+Time-averaged grid from a set yearly range subtracted from individual grids.
 
 CALLING SEQUENCE:
-    python gldas_monthly_harmonics.py --lmax 60 --format netCDF4 NOAH
-
-INPUTS:
-    GLDAS land surface model
-        CLM: Common Land Model (CLM)
-        CLSM: Catchment Land Surface Model (CLSM)
-        MOS: Mosaic model
-        NOAH: Noah model
-        VIC: Variable Infiltration Capacity (VIC) model
+    python era5_land_monthly_harmonics.py --lmax 60 --format netCDF4
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
     -Y X, --year X: Years to run
-    -v X, --version X: GLDAS model version
-    -S X, --spacing X: spatial resolution of models to run
-        10: 1.0 degrees latitude/longitude
-        025: 0.25 degrees latitude/longitude
     --mask X: netCDF4 mask files for reducing to regions
     -l X, --lmax X: maximum spherical harmonic degree
     -m X, --mmax X: maximum spherical harmonic order
@@ -97,50 +66,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
-    Updated 04/2025: don't use auto mask with netCDF4 files (set_auto_mask)
-    Updated 05/2023: use pathlib to define and operate on paths
-    Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
-        updated inputs to spatial from_ascii function
-        use spatial function for calculating geocentric latitude
-    Updated 02/2023: use love numbers class with additional attributes
-    Updated 12/2022: single implicit import of spherical harmonic tools
-        use constants class in place of geoid-toolkit ref_ellipsoid
-    Updated 11/2022: use f-strings for formatting verbose or ascii output
-    Updated 08/2022: convert to mid-month averages to correspond with GRACE
-        can use a custom set of masks to reduce terrestrial water storage
-        can use variable loglevels for verbose output
-    Updated 05/2022: use argparse descriptions within sphinx documentation
-    Updated 04/2022: use wrapper function for reading load Love numbers
-    Updated 10/2021: using python logging for handling verbose output
-        use output harmonic file wrapper routine to write to file
-    Updated 09/2021: use GRACE/GRACE-FO month to calendar month converters
-    Updated 07/2021: can use input files to define command line arguments
-    Updated 05/2021: define int/float precision to prevent deprecation warning
-    Updated 03/2021: automatically update years to run based on current time
-    Updated 02/2021: include GLDAS MOD44W land mask modified for HYMAP
-        replaced numpy bool to prevent deprecation warning
-    Updated 01/2021: harmonics object output from gen_stokes.py
-    Updated 12/2020: added more love number options
-        set spatial variables for both 025 and 10 cases
-        using utilities from time module. added maximum harmonic order option
-    Updated 10/2020: use argparse to set command line parameters
-    Updated 08/2020: flake8 compatible regular expression strings
-        use utilities to define path to load love numbers file
-    Updated 06/2020: using spatial data class for input and output operations
-    Updated 04/2020: updates to reading load love numbers
-        using harmonics class for outputting data to file
-    Updated 10/2019: changing Y/N flags to True/False
-    Updated 07/2019: output index and date files in separate loop for all files
-    Updated 09/2018: use permafrost index from permafrost_gldas_mask.py
-    Updated 06/2018: using python3 compatible octal and input
-    Updated 05/2018: include Svalbard and Iceland in combined land mask
-        output combined land mask to netCDF4 file for validation
-    Updated 01/2018: using getopt to set parameters
-    Updated 08/2017: convert from geodetic coordinates to geocentric
-    Updated 06/2016: updated to use __future__ print function
-    Updated 05/2016: complete rewrite of program
-    Updated 02/2014: quick code updates
-    Written 04/2013
+    Written 04/2025
 """
 from __future__ import print_function
 
@@ -155,44 +81,34 @@ import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
 
-# GLDAS models
-gldas_products = {}
-gldas_products['CLM'] = 'GLDAS Common Land Model (CLM)'
-gldas_products['CLSM'] = 'GLDAS Catchment Land Surface Model (CLSM)'
-gldas_products['MOS'] = 'GLDAS Mosaic model'
-gldas_products['NOAH'] = 'GLDAS Noah model'
-gldas_products['VIC'] = 'GLDAS Variable Infiltration Capacity (VIC) model'
+# PURPOSE: convert ERA5-Land terrestrial water storage data to spherical harmonics
+def era5_land_monthly_harmonics(base_dir, YEARS,
+        MASKS=None,
+        LMAX=0,
+        MMAX=None,
+        LOVE_NUMBERS=0,
+        REFERENCE=None,
+        DATAFORM=None,
+        MODE=0o775
+    ):
 
-# PURPOSE: convert GLDAS terrestrial water storage data to spherical harmonics
-def gldas_monthly_harmonics(base_dir, MODEL, YEARS,
-    SPACING=None,
-    VERSION=None,
-    MASKS=None,
-    LMAX=0,
-    MMAX=None,
-    LOVE_NUMBERS=0,
-    REFERENCE=None,
-    DATAFORM=None,
-    MODE=0o775):
-
-    # Version flags
-    V1,V2 = (f'_V{VERSION}','') if (VERSION == '1') else ('',f'.{VERSION}')
-    # use GLDAS monthly products
-    TEMPORAL = 'M'
-    # directory for GLDAS models
+    # directory models
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
-    # subdirectory for model monthly products at spacing for version
-    d1 = base_dir.joinpath(f'GLDAS_{MODEL}{SPACING}_{TEMPORAL}{V2}')
+    # ERA5-land products
+    MODEL = 'ERA5-Land'
+    ddir = base_dir.joinpath(MODEL)
     # Creating output subdirectory if it doesn't exist
-    d2 = base_dir.joinpath(f'GLDAS_{MODEL}{SPACING}{V1}_TWC_CLM_L{LMAX:d}')
-    d2.mkdir(mode=MODE, parents=True, exist_ok=True)
+    output_dir = ddir.joinpath(f'{MODEL}_TWS_CLM_L{LMAX:d}')
+    output_dir.mkdir(mode=MODE, parents=True, exist_ok=True)
+    # output data file format
+    suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
+    # output dimensions
+    nlat,nlon = (1801,3600)
 
     # attributes for output files
     attributes = {}
-    attributes['institution'] = 'NASA Goddard Space Flight Center (GSFC)'
-    attributes['project'] = 'Global Land Data Assimilation System (GLDAS)'
-    attributes['product_version'] = f'{MODEL} v{VERSION}'
-    attributes['product_name'] = 'TWC'
+    attributes['product_version'] = MODEL
+    attributes['product_name'] = 'TWS'
     attributes['product_type'] = 'gravity_field'
     attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
@@ -200,29 +116,17 @@ def gldas_monthly_harmonics(base_dir, MODEL, YEARS,
     MMAX = np.copy(LMAX) if not MMAX else MMAX
     # output string for both LMAX == MMAX and LMAX != MMAX cases
     order_str = 'M{MMAX:d}' if (MMAX != LMAX) else ''
-    # output data file format
-    suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
 
-    # parameters for each grid spacing
-    if (SPACING == '025'):
-        nlon, nlat = (1440, 600)
-        dlon,dlat = (0.25, 0.25)
-        extent = [-179.875, 179.875, -59.875, 89.875]
-    elif (SPACING == '10'):
-        nlon,nlat = (360, 150)
-        dlon,dlat = (1.0, 1.0)
-        extent = [-179.5, 179.5, -59.5, 89.5]
-
-    # GLDAS MOD44W land mask modified for HYMAP
-    landmask_file = base_dir.joinpath(f'GLDASp5_landmask_{SPACING}d.nc4')
+    # ERA5-Land land/sea mask
+    landmask_file = ddir.joinpath(f'lsm.nc')
     with netCDF4.Dataset(landmask_file, mode='r') as fileID:
-        GLDAS_mask = fileID.variables['GLDAS_mask'][:].squeeze()
-        glon = fileID.variables['lon'][:].copy()
-        glat = fileID.variables['lat'][:].copy()
+        era5_land_mask = fileID.variables['lsm'][:].squeeze()
+        glon = fileID.variables['longitude'][:].copy()
+        glat = fileID.variables['latitude'][:].copy()
     # create mesh grid of latitude and longitude
     gridlon,gridlat = np.meshgrid(glon,glat)
-    # create combined mask
-    combined_mask = np.logical_not(GLDAS_mask)
+    # create combined mask for invalid points
+    combined_mask = (era5_land_mask <= 0.1)
 
     if MASKS:
         # read masks for reducing regions before converting to harmonics
@@ -233,27 +137,12 @@ def gldas_monthly_harmonics(base_dir, MODEL, YEARS,
                 combined_mask |= fileID.variables['mask'][:].astype(bool)
     else:
         # use default masks for reducing regions before converting to harmonics
-        # mask combining vegetation index, permafrost index and Arctic mask
-        # read vegetation index file
-        vegetation_file = base_dir.joinpath(f'modmodis_domveg20_{SPACING}.nc')
-        logging.debug(str(vegetation_file))
-        with netCDF4.Dataset(vegetation_file, mode='r') as fileID:
-            vegetation_index = fileID.variables['index'][:].copy()
-        # 0: missing value
-        # 13: Urban and Built-Up
-        # 15: Snow and Ice
-        # 17: Ocean
-        # 18: Wooded Tundra
-        # 19: Mixed Tundra
-        # 20: Bare Ground Tundra
-        for invalid_keys in (0,13,15,17,18,19,20):
-            combined_mask |= (vegetation_index == invalid_keys)
         # read Permafrost index file
-        permafrost_file = base_dir.joinpath(f'permafrost_mod44w_{SPACING}.nc')
+        permafrost_file = ddir.joinpath(f'cpfrost.nc')
         logging.debug(str(permafrost_file))
         with netCDF4.Dataset(permafrost_file, mode='r') as fileID:
             fileID.set_auto_mask(False)
-            permafrost_index = fileID.variables['mask'][:]
+            permafrost_index = fileID.variables['pf'][0,:,:].copy()
         # 1: Continuous Permafrost
         # 2: Discontinuous Permafrost
         # 3: Isolated Permafrost
@@ -262,13 +151,20 @@ def gldas_monthly_harmonics(base_dir, MODEL, YEARS,
         for invalid_keys in (1,5):
             combined_mask |= (permafrost_index == invalid_keys)
         # read Arctic mask file
-        arctic_file = base_dir.joinpath(f'arcticmask_mod44w_{SPACING}.nc')
+        arctic_file = ddir.joinpath('carctic.nc')
         logging.debug(str(arctic_file))
         with netCDF4.Dataset(arctic_file, mode='r') as fileID:
             fileID.set_auto_mask(False)
-            arctic_mask = fileID.variables['mask'][:].astype(bool)
-        # arctic mask
-        combined_mask |= arctic_mask[:,:]
+            arctic_mask = fileID.variables['mask'][0,:,:].copy()
+        # Arctic mask
+        combined_mask |= (arctic_mask > 0)
+        # read Glacier mask file
+        glacier_file = ddir.joinpath(f'cicecap.nc')
+        logging.debug(str(glacier_file))
+        with netCDF4.Dataset(glacier_file, mode='r') as fileID:
+            glacier_mask = fileID.variables['si10'][0,:,:].copy()
+        # glacier mask
+        combined_mask |= (glacier_mask > 0.0)
 
     # Earth Parameters
     ellipsoid_params = mdlhmc.datum(ellipsoid='WGS84')
@@ -298,9 +194,9 @@ def gldas_monthly_harmonics(base_dir, MODEL, YEARS,
 
     # find input terrestrial water storage files
     regex_years = r'\d+' if (YEARS is None) else r'|'.join(map(str,YEARS))
-    args = (MODEL, SPACING, regex_years, suffix[DATAFORM])
-    rx = re.compile(r'GLDAS_{0}{1}_TWC_({2})_(\d+)\.{3}$'.format(*args))
-    FILES = sorted([f for f in d1.iterdir() if rx.match(f.name)])
+    args = (MODEL, regex_years, suffix[DATAFORM])
+    rx = re.compile(r'{0}-TWS-({1})-(\d+)\.{2}$'.format(*args))
+    FILES = sorted([f for f in ddir.iterdir() if rx.match(f.name)])
 
     # for each input file
     for t,FILE in enumerate(FILES[:-1]):
@@ -310,10 +206,8 @@ def gldas_monthly_harmonics(base_dir, MODEL, YEARS,
         # read data file for data format
         if (DATAFORM == 'ascii'):
             # ascii (.txt)
-            M1 = gravtk.spatial().from_ascii(FILE,
-                spacing=[dlon,dlat], nlat=nlat, nlon=nlon, extent=extent)
-            M2 = gravtk.spatial().from_ascii(FILES[t+1],
-                spacing=[dlon,dlat], nlat=nlat, nlon=nlon, extent=extent)
+            M1 = gravtk.spatial().from_ascii(FILE, nlat=nlat, nlon=nlon)
+            M2 = gravtk.spatial().from_ascii(FILES[t+1], nlat=nlat, nlon=nlon)
         elif (DATAFORM == 'netCDF4'):
             # netCDF4 (.nc)
             M1 = gravtk.spatial().from_netCDF4(FILE)
@@ -330,46 +224,46 @@ def gldas_monthly_harmonics(base_dir, MODEL, YEARS,
         # replace fill value points and certain vegetation types with 0
         M1.replace_invalid(0.0, mask=combined_mask)
         M2.replace_invalid(0.0, mask=combined_mask)
-        # calculate 2-month moving average
+        # calculate 2-month moving average in cm w.e.
         # weighting by number of days in each month
         dpm = gravtk.time.calendar_days(int(YY))
         W = np.float64(dpm[(t+1) % 12] + dpm[t % 12])
-        MASS = (dpm[t % 12]*M1.data + dpm[(t+1) % 12]*M2.data)/W
+        MASS = 100.0*(dpm[t % 12]*M1.data + dpm[(t+1) % 12]*M2.data)/W
 
         # convert to spherical harmonics
-        gldas_Ylms = gravtk.gen_stokes(MASS, glon, latitude_geocentric[:,0],
+        era5_land_Ylms = gravtk.gen_stokes(MASS, glon, latitude_geocentric[:,0],
             LMAX=LMAX, MMAX=MMAX, PLM=PLM, LOVE=LOVE)
         # calculate date information
-        gldas_Ylms.time, = gravtk.time.convert_calendar_decimal(YY,MM)
+        era5_land_Ylms.time, = gravtk.time.convert_calendar_decimal(YY,MM)
         # calculate GRACE/GRACE-FO month
-        gldas_Ylms.month = gravtk.time.calendar_to_grace(YY,MM)
+        era5_land_Ylms.month = gravtk.time.calendar_to_grace(YY,MM)
         # add attributes to output harmonics
-        gldas_Ylms.attributes['ROOT'] = attributes
+        era5_land_Ylms.attributes['ROOT'] = attributes
 
         # output spherical harmonic data file
-        args=(MODEL,SPACING,LMAX,order_str,gldas_Ylms.month,suffix[DATAFORM])
-        FILE = 'GLDAS_{0}{1}_TWC_CLM_L{2:d}{3}_{4:03d}.{5}'.format(*args)
-        output_file = d2.joinpath(FILE)
-        gldas_Ylms.to_file(output_file, format=DATAFORM)
+        args=(MODEL, LMAX, order_str, era5_land_Ylms.month, suffix[DATAFORM])
+        FILE = '{0}_TWS_CLM_L{1:d}{2}_{3:03d}.{4}'.format(*args)
+        output_file = output_dir.joinpath(FILE)
+        era5_land_Ylms.to_file(output_file, format=DATAFORM)
         # change the permissions mode of the output file to MODE
         output_file.chmod(mode=MODE)
 
     # Output date ascii file
-    output_date_file = d2.joinpath(f'GLDAS_{MODEL}{SPACING}_TWC_DATES.txt')
+    output_date_file = output_dir.joinpath(f'{MODEL}_TWS_DATES.txt')
     fid1 = output_date_file.open(mode='w', encoding='utf8')
     # date file header information
     print('{0:8} {1:^6} {2:^5}'.format('Mid-date','GRACE','Month'), file=fid1)
     # index file listing all output spherical harmonic files
-    output_index_file = d2.joinpath('index.txt')
+    output_index_file = output_dir.joinpath('index.txt')
     fid2 = output_index_file.open(mode='w', encoding='utf8')
     # find all available output files
-    args = (MODEL, SPACING, LMAX, order_str, suffix[DATAFORM])
-    output_regex=r'GLDAS_{0}{1}_TWC_CLM_L{2:d}{3}_([-]?\d+).{4}'.format(*args)
+    args = (MODEL, LMAX, order_str, suffix[DATAFORM])
+    rx = re.compile(r'{0}_TWS_CLM_L{1:d}{2}_([-]?\d+).{3}'.format(*args))
     # find all output harmonic files (not just ones created in run)
-    output_files = [fi for fi in d2.iterdir() if re.match(output_regex,fi.name)]
+    output_files = [fi for fi in output_dir.iterdir() if rx.match(fi.name)]
     for fi in sorted(output_files):
         # extract GRACE month
-        grace_month, = np.array(re.findall(output_regex,fi.name), dtype=int)
+        grace_month, = np.array(rx.findall(fi.name), dtype=int)
         YY,MM = gravtk.time.grace_to_calendar(grace_month)
         tdec, = gravtk.time.convert_calendar_decimal(YY, MM)
         # print date, GRACE month and calendar month to date file
@@ -387,16 +281,12 @@ def gldas_monthly_harmonics(base_dir, MODEL, YEARS,
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
-        description="""Reads monthly GLDAS total water storage anomalies
+        description="""Reads monthly ERA5-Land total water storage anomalies
             and converts to spherical harmonic coefficients
             """,
         fromfile_prefix_chars="@"
     )
     parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
-    # command line parameters
-    parser.add_argument('model',
-        type=str, nargs='+', choices=gldas_products.keys(),
-        help='GLDAS land surface model')
     # working data directory
     parser.add_argument('--directory','-D',
         type=pathlib.Path, default=pathlib.Path.cwd(),
@@ -406,16 +296,6 @@ def arguments():
     parser.add_argument('--year','-Y',
         type=int, nargs='+', default=range(2000,now.year+1),
         help='Years of model outputs to run')
-    # GLDAS model version
-    parser.add_argument('--version','-v',
-        type=str, default='2.1',
-        help='GLDAS model version')
-    # model spatial resolution
-    # 10: 1.0 degrees latitude/longitude
-    # 025: 0.25 degrees latitude/longitude
-    parser.add_argument('--spacing','-S',
-        type=str, default='10', choices=['10','025'],
-        help='Spatial resolution of models to run')
     # mask file for reducing to regions
     parser.add_argument('--mask',
         type=pathlib.Path,
@@ -467,19 +347,15 @@ def main():
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[args.verbose])
 
-    # for each GLDAS model
-    for MODEL in args.model:
-        # run program
-        gldas_monthly_harmonics(args.directory, MODEL, args.year,
-            VERSION=args.version,
-            SPACING=args.spacing,
-            MASKS=args.mask,
-            LMAX=args.lmax,
-            MMAX=args.mmax,
-            LOVE_NUMBERS=args.love,
-            REFERENCE=args.reference,
-            DATAFORM=args.format,
-            MODE=args.mode)
+    # run program
+    era5_land_monthly_harmonics(args.directory, args.year,
+        MASKS=args.mask,
+        LMAX=args.lmax,
+        MMAX=args.mmax,
+        LOVE_NUMBERS=args.love,
+        REFERENCE=args.reference,
+        DATAFORM=args.format,
+        MODE=args.mode)
 
 # run main program
 if __name__ == '__main__':

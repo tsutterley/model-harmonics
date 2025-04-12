@@ -143,6 +143,8 @@ def era5_land_read_monthly(base_dir, YEARS,
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')[DATAFORM]
     # output dimensions
     nlat,nlon = (1801,3600)
+    # output bad value
+    fill_value = -9999.0
 
     # Reading Mean ERA5-land field
     model_file = f"{MODEL}-TWS-Mean-{RANGE[0]:4d}-{RANGE[1]:4d}.{suffix}"
@@ -167,7 +169,7 @@ def era5_land_read_monthly(base_dir, YEARS,
         input_file = ddir.joinpath(model_file)
         dinput, attrs = read_era5_variables(input_file)
         # iterate over months
-        for m in range(12):
+        for m,JD in enumerate(dinput['time']):
             # file output file
             model_file = f"{MODEL}-TWS-{y:4d}-{m+1:02d}.{suffix}"
             output_file = ddir.joinpath(model_file)
@@ -190,7 +192,7 @@ def era5_land_read_monthly(base_dir, YEARS,
                 continue
         
             # allocate for TWS and date
-            tws = gravtk.spatial()
+            tws = gravtk.spatial(fill_value=fill_value)
             # copy the geolocation variables
             tws.lon = dinput['longitude'].copy()
             tws.lat = dinput['latitude'].copy()
@@ -209,7 +211,9 @@ def era5_land_read_monthly(base_dir, YEARS,
             # calculate anomalies
             tws.data -= twc_mean.data[:,:]
             # set the mask for invalid points
-            tws.mask = (CW == attrs['src']['_FillValue']) | twc_mean.mask[:,:]
+            tws.mask = np.isnan(CW) | (CW == attrs['src']['_FillValue'])
+            tws.mask |= twc_mean.mask[:,:]
+            tws.replace_masked()
             # convert from Julian days to calendar dates
             YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(
                 dinput['time'][m], FORMAT='tuple')

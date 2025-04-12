@@ -141,11 +141,13 @@ def era5_land_mean_monthly(base_dir,
     years = np.arange(RANGE[0], RANGE[1]+1)
     # output dimensions
     nlat,nlon = (1801,3600)
+    # output bad value
+    fill_value = -9999.0
 
     # allocate for TWS and date
-    tws = gravtk.spatial()
+    tws = gravtk.spatial(fill_value=fill_value)
     tws.data = np.zeros((nlat,nlon))
-    tws.mask = np.ones((nlat,nlon),dtype=bool)
+    tws.mask = np.zeros((nlat,nlon),dtype=bool)
     tws.time = 0.0
     # create counter for dates
     c = 0
@@ -172,7 +174,8 @@ def era5_land_mean_monthly(base_dir,
             # calculate terrestrial water storage (TWS)
             tws.data[:,:] += SML1 + SML2 + SML3 + SML4 + SWE + CW
             # set the mask for invalid points
-            tws.mask[:,:] |= (CW == attrs['src']['_FillValue'])
+            tws.mask[:,:] |= np.isnan(CW) | (CW == attrs['src']['_FillValue'])
+            tws.replace_masked()
             # convert from Julian days to calendar dates
             YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(
                 dinput['time'][m], FORMAT='tuple')
