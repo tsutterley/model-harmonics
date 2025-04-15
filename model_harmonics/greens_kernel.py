@@ -44,8 +44,7 @@ import gravity_toolkit as gravtk
 def greens_kernel(LMAX, SPACING=[], WIDTH=[], LOVE=None):
     """
     Calculate the Green's function for a given set of Love Numbers
-    following :cite:p:`Farrell:1972cm`, :cite:p:`Farrell:1973ui`
-    and :cite:p:`Longman:1962ev`
+    following :cite:t:`Farrell:1972cm,Farrell:1973ui,Longman:1962ev`
 
     Parameters
     ----------

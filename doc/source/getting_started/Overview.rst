@@ -21,7 +21,7 @@ interpolated Version 4 models are downloaded using the ``jpl_ecco_v4_sync.py`` p
 monthly Version 4 and 5 models in LLC tile format are downloaded using the ``jpl_ecco_llc_sync.py`` program.
 Because Boussinesq-type models conserve volume rather than mass, the global area average of each monthly map is removed :cite:p:`Greatbatch:1994dx`.
 Monthly anomalies in ocean bottom pressure are calculated by removing a multi-annual mean (typically 2003 |ndash| 2007).
-Ocean bottom pressure anomalies are converted to spherical harmonics following :cite:p:`Boy:2005el` (Equations :eq:`1` and :eq:`2`).
+Ocean bottom pressure anomalies are converted to spherical harmonics following :cite:t:`Boy:2005el` (Equations :eq:`1` and :eq:`2`).
 
 .. math::
     :label: 1
@@ -118,7 +118,7 @@ Before converting to spherical harmonics, the GLDAS terrestrial water storage es
 `urbanized <https://github.com/tsutterley/model-harmonics/blob/main/TWS/gldas_mask_vegetation.py>`_,
 `glaciated <https://github.com/tsutterley/model-harmonics/blob/main/TWS/gldas_mask_arctic.py>`_ and
 `permafrost <https://github.com/tsutterley/model-harmonics/blob/main/TWS/gldas_mask_permafrost.py>`_ regions.
-Terrestrial water storage anomalies are converted to spherical harmonics following :cite:p:`Wahr:1998hy` (Equation :eq:`3`).
+Terrestrial water storage anomalies are converted to spherical harmonics following :cite:t:`Wahr:1998hy` (Equation :eq:`3`).
 
 .. math::
     :label: 3
@@ -206,7 +206,7 @@ NCEP-CFSR outputs are downloaded using the ``ucar_rda_cfsr_surface.py`` program.
 `JRA-55 <http://jra.kishou.go.jp/JRA-55/index_en.html>`_ is computed by the Japan Meteorological Agency (JMA) and is available starting from 1958.
 JRA-55 outputs are downloaded using the ``ucar_rda_jra55_surface.py`` program.
 
-Spherical harmonics from reanalysis outputs are computed here using three different schemes of complexity following :cite:p:`Boy:2005el` and :cite:p:`Swenson:2002kf`:
+Spherical harmonics from reanalysis outputs are computed here using three different schemes of complexity following :cite:t:`Boy:2005el,Swenson:2002kf`:
 1) a thin-layer 2D spherical geometry,
 2) a thin-layer 2D geometry with realistic geometry incorporating model orography and estimates of geoid height (Equations :eq:`4` and :eq:`5`), and
 3) a 3D atmospheric geometry integrating over the model layers (Equations :eq:`4` and :eq:`6`).
@@ -379,7 +379,7 @@ For ERA5,  monthly surface mass balance (SMB) estimates are calculated by combin
 ERA5 surface mass balance estimates are not including runoff as those variables are presently `inaccurate over glaciated surfaces <https://confluence.ecmwf.int/pages/viewpage.action?pageId=208488132>`_.
 Monthly cumulative anomalies in surface mass balance are calculated by removing a multi-annual mean (typically 1980 |ndash| 1995).
 Before converting to spherical harmonics, the surface mass balance estimates are masked to isolate regions of interest.
-Surface mass balance anomalies are converted to spherical harmonics following :cite:p:`Wahr:1998hy` (Equation :eq:`7`).
+Surface mass balance anomalies are converted to spherical harmonics following :cite:t:`Wahr:1998hy` (Equation :eq:`7`).
 
 .. math::
     :label: 7

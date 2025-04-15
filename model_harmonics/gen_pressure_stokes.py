@@ -79,7 +79,7 @@ def gen_pressure_stokes(P, G, R, lon, lat, LMAX=60, MMAX=None,
     PLM=None, LOVE=None):
     r"""
     Converts pressure fields from the spatial domain to spherical
-    harmonic coefficients :cite:p:`Boy:2005el` :cite:p:`Swenson:2002kf`
+    harmonic coefficients :cite:p:`Boy:2005el,Swenson:2002kf`
 
     Parameters
     ----------

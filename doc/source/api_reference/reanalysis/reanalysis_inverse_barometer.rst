@@ -2,7 +2,7 @@
 reanalysis_inverse_barometer.py
 ===============================
 
-- Reads hourly mean sea level pressure fields from reanalysis and calculates the inverse-barometer response :cite:p:`Wunsch:1997kg` :cite:p:`HofmannWellenhof:2006hy`
+- Reads hourly mean sea level pressure fields from reanalysis and calculates the inverse-barometer response :cite:p:`Wunsch:1997kg,HofmannWellenhof:2006hy`
 
 `Source code`__
 

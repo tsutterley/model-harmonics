@@ -2,7 +2,7 @@
 seismic_monthly_harmonics.py
 ============================
 
-- Reads monthly gravity changes due to earthquakes and converts to spherical harmonic coefficients :cite:p:`Jeon:2023fq` :cite:p:`Wahr:1998hy`
+- Reads monthly gravity changes due to earthquakes and converts to spherical harmonic coefficients :cite:p:`Jeon:2023fq,Wahr:1998hy`
 
 `Source code`__
 

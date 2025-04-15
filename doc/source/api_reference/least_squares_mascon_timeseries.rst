@@ -3,8 +3,8 @@ least_squares_mascon_timeseries.py
 ==================================
 
 - Reads in an index of spherical harmonic coefficient files
-- Filters and smooths data with specified processing algorithms :cite:p:`Jekeli:1981vj` :cite:p:`Swenson:2006hu`
-- Calculates a time-series of regional mass anomalies through a least-squares mascon procedure :cite:p:`Tiwari:2009bx` :cite:p:`Jacob:2012gv`
+- Filters and smooths data with specified processing algorithms :cite:p:`Jekeli:1981vj,Swenson:2006hu`
+- Calculates a time-series of regional mass anomalies through a least-squares mascon procedure :cite:p:`Tiwari:2009bx,Jacob:2012gv`
 
 `Source code`__
 

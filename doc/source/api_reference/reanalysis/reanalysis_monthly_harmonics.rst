@@ -2,7 +2,7 @@
 reanalysis_monthly_harmonics.py
 ===============================
 
-- Reads atmospheric surface pressure fields from reanalysis and calculates sets of spherical harmonics using a thin-layer 2D spherical geometry :cite:p:`Boy:2005el` :cite:p:`Swenson:2002kf`
+- Reads atmospheric surface pressure fields from reanalysis and calculates sets of spherical harmonics using a thin-layer 2D spherical geometry :cite:p:`Boy:2005el,Swenson:2002kf`
 
 `Source code`__
 

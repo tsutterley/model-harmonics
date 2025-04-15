@@ -2,7 +2,7 @@
 reanalysis_mean_harmonics.py
 ============================
 
-- Reads atmospheric geopotential heights fields from reanalysis and calculates a multi-annual mean set of spherical harmonics using a 3D geometry :cite:p:`Boy:2005el` :cite:p:`Swenson:2002kf`
+- Reads atmospheric geopotential heights fields from reanalysis and calculates a multi-annual mean set of spherical harmonics using a 3D geometry :cite:p:`Boy:2005el,Swenson:2002kf`
 
 `Source code`__
 

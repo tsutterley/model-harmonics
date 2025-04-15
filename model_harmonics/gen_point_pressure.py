@@ -64,8 +64,7 @@ def gen_point_pressure(P, G, R, lon, lat, AREA=None, LMAX=60, MMAX=None,
     r"""
     Calculates gravitational spherical harmonic coefficients for pressure
     values at individual points assuming a disc geometry
-    :cite:p:`Boy:2005el` :cite:p:`Longman:1962ev` :cite:p:`Farrell:1972cm`
-    :cite:p:`Pollack:1973gi` :cite:p:`Swenson:2002kf`
+    :cite:p:`Boy:2005el,Longman:1962ev,Farrell:1972cm,Pollack:1973gi,Swenson:2002kf`
 
 
     Parameters

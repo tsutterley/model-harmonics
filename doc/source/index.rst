@@ -127,6 +127,12 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
     :hidden:
     :caption: TWS
 
+    api_reference/TWS/cds_land_retrieve.rst
+    api_reference/TWS/era5_land_mean_monthly.rst
+    api_reference/TWS/era5_land_read_monthly.rst
+    api_reference/TWS/era5_land_mask_arctic.rst
+    api_reference/TWS/era5_land_mask_permafrost.rst
+    api_reference/TWS/era5_land_monthly_harmonics.rst
     api_reference/TWS/gesdisc_gldas_sync.rst
     api_reference/TWS/gldas_mean_monthly.rst
     api_reference/TWS/gldas_read_monthly.rst
