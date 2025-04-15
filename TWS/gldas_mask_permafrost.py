@@ -47,6 +47,8 @@ REFERENCES:
 
 UPDATE HISTORY:
     Updated 04/2025: use from_user_input to define the input shapefile crs
+        take the union of the shapely polygons for a permafrost type
+        added option to buffer the shapely polygons
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: use full path to output file in verbose logging
     Updated 12/2022: single implicit import of spherical harmonic tools
@@ -92,7 +94,12 @@ warnings.filterwarnings("ignore")
 
 # Read the NSIDC Circum-Arctic Map of Permafrost and Ground-Ice Conditions
 # and create a mask for continuous/discontinuous permafrost
-def gldas_mask_permafrost(ddir, SPACING=None, SHAPEFILE=None, MODE=0o775):
+def gldas_mask_permafrost(ddir,
+        SPACING=None,
+        SHAPEFILE=None,
+        BUFFER=None,
+        MODE=0o775
+    ):
 
     # parameters for each grid spacing
     if (SPACING == '025'):
@@ -150,31 +157,37 @@ def gldas_mask_permafrost(ddir, SPACING=None, SHAPEFILE=None, MODE=0o775):
         # find entities
         key = attribute_keys[j]
         entities = [v for v in shape.values() if (v['properties'][key] == val)]
+        # list of polygon objects for permafrost type
+        poly_list = []
         # for each entity of interest
         for ent in entities:
             # extract coordinates for entity
-            poly_list = []
+            coord_list = []
             for coords in ent['geometry']['coordinates']:
                 # convert points to latitude/longitude
                 x,y = np.transpose(coords)
-                poly_list.append(np.c_[x,y])
-            # try intersecting polygon with input points
+                coord_list.append(np.c_[x,y])
+            # try creating a polygon object for entity
             try:
                 # create shapely polygon
-                poly_obj = shapely.geometry.Polygon(poly_list[0],poly_list[1:])
+                poly_obj = shapely.geometry.Polygon(coord_list[0],coord_list[1:])
             except:
                 continue
             else:
-                # testing for intersection of points and polygon
-                int_test = poly_obj.intersects(xy_point)
-                # if there is an intersection
-                if int_test:
-                    # extract intersected points
-                    int_map = list(map(poly_obj.intersects, xy_point.geoms))
-                    int_indices, = np.nonzero(int_map)
-                    intersection_mask[int_indices] = (5-j)
+                # buffer polygon and add to list
+                poly_list.append(poly_obj.buffer(BUFFER))
+        # create shapely multipolygon object using a union
+        mpoly_obj = shapely.unary_union(poly_list)
+        # testing for intersection of points and multipolygon
+        int_test = mpoly_obj.intersects(xy_point)
+        # if there is an intersection
+        if int_test:
+            # extract intersected points
+            int_map = list(map(mpoly_obj.intersects, xy_point.geoms))
+            int_indices, = np.nonzero(int_map)
+            intersection_mask[int_indices] = (5-j)
     # fill larger data mask
-    dinput['mask'] = np.zeros((ny,nx),dtype=np.uint8)
+    dinput['mask'] = np.zeros((ny,nx), dtype=np.uint8)
     dinput['mask'][ii,jj] = intersection_mask[:]
     # write to output netCDF4 (.nc)
     ncdf_mask_write(dinput, FILENAME=output_file)
@@ -253,6 +266,10 @@ def arguments():
     parser.add_argument('--shapefile','-F',
         type=pathlib.Path,
         help='Shapefile to run')
+    # distance to buffer polygons within shapefiles
+    parser.add_argument('--buffer','-B',
+        type=float, default=0.0,
+        help='Distance to buffer polygons')
     # verbosity settings
     # verbose will output information about each output file
     parser.add_argument('--verbose','-V',
@@ -276,8 +293,11 @@ def main():
     logging.basicConfig(level=loglevels[args.verbose])
 
     # run program
-    gldas_mask_permafrost(args.directory, SPACING=args.spacing,
-        SHAPEFILE=args.shapefile, MODE=args.mode)
+    gldas_mask_permafrost(args.directory,
+        SPACING=args.spacing,
+        SHAPEFILE=args.shapefile,
+        BUFFER=args.buffer,
+        MODE=args.mode)
 
 # run main program
 if __name__ == '__main__':

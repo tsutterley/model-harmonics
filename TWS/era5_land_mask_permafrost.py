@@ -73,7 +73,11 @@ warnings.filterwarnings("ignore")
 
 # Read the NSIDC Circum-Arctic Map of Permafrost and Ground-Ice Conditions
 # and create a mask for continuous/discontinuous permafrost
-def era5_land_mask_permafrost(base_dir, SHAPEFILE=None, MODE=0o775):
+def era5_land_mask_permafrost(base_dir,
+        SHAPEFILE=None,
+        BUFFER=None,
+        MODE=0o775
+    ):
 
     # directory models
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
@@ -127,29 +131,35 @@ def era5_land_mask_permafrost(base_dir, SHAPEFILE=None, MODE=0o775):
         # find entities
         key = attribute_keys[j]
         entities = [v for v in shape.values() if (v['properties'][key] == val)]
+        # list of polygon objects for permafrost type
+        poly_list = []
         # for each entity of interest
         for ent in entities:
             # extract coordinates for entity
-            poly_list = []
+            coord_list = []
             for coords in ent['geometry']['coordinates']:
                 # convert points to latitude/longitude
                 x,y = np.transpose(coords)
-                poly_list.append(np.c_[x,y])
-            # try intersecting polygon with input points
+                coord_list.append(np.c_[x,y])
+            # try creating a polygon object for entity
             try:
                 # create shapely polygon
-                poly_obj = shapely.geometry.Polygon(poly_list[0],poly_list[1:])
+                poly_obj = shapely.geometry.Polygon(coord_list[0],coord_list[1:])
             except:
                 continue
             else:
-                # testing for intersection of points and polygon
-                int_test = poly_obj.intersects(xy_point)
-                # if there is an intersection
-                if int_test:
-                    # extract intersected points
-                    int_map = list(map(poly_obj.intersects, xy_point.geoms))
-                    int_indices, = np.nonzero(int_map)
-                    intersection_mask[int_indices] = (5-j)
+                # buffer polygon and add to list
+                poly_list.append(poly_obj.buffer(BUFFER))
+        # create shapely multipolygon object using a union
+        mpoly_obj = shapely.unary_union(poly_list)
+        # testing for intersection of points and multipolygon
+        int_test = mpoly_obj.intersects(xy_point)
+        # if there is an intersection
+        if int_test:
+            # extract intersected points
+            int_map = list(map(mpoly_obj.intersects, xy_point.geoms))
+            int_indices, = np.nonzero(int_map)
+            intersection_mask[int_indices] = (5-j)
     # fill output data mask
     dinput['pf'] = np.zeros((ntime, nlat, nlon), dtype=np.uint8)
     dinput['pf'][0,ii,jj] = intersection_mask[:]
@@ -229,6 +239,10 @@ def arguments():
     parser.add_argument('--shapefile','-F',
         type=pathlib.Path,
         help='Shapefile to run')
+    # distance to buffer polygons within shapefiles
+    parser.add_argument('--buffer','-B',
+        type=float, default=0.0,
+        help='Distance to buffer polygons')
     # verbosity settings
     # verbose will output information about each output file
     parser.add_argument('--verbose','-V',
@@ -254,6 +268,7 @@ def main():
     # run program
     era5_land_mask_permafrost(args.directory, 
         SHAPEFILE=args.shapefile,
+        BUFFER=args.buffer,
         MODE=args.mode)
 
 # run main program

@@ -100,7 +100,7 @@ def era5_land_mask_arctic(base_dir,
     MODEL = 'ERA5-Land'
     ddir = base_dir.joinpath(MODEL)
 
-    # input land mask and output permafrost mask
+    # input land mask and output arctic mask
     input_file = ddir.joinpath(f'lsm.nc')
     output_file = ddir.joinpath(f'carctic.nc')
 
