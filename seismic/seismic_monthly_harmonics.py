@@ -116,7 +116,7 @@ def seismic_monthly_harmonics(base_dir, MODEL, LMAX=60, MMAX=None,
     # add attributes for earth parameters
     factors = gravtk.units(lmax=LMAX).spatial(*LOVE)
     attributes['earth_radius'] = f'{factors.rad_e:0.3f} cm'
-    attributes['earth_density'] = f'{factors.rho_e:0.3f} g/cm'
+    attributes['earth_density'] = f'{factors.rho_e:0.3f} g/cm^3'
     attributes['earth_gravity_constant'] = f'{factors.GM:0.3f} cm^3/s^2'
     # output suffix for data formats
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')[DATAFORM]

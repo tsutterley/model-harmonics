@@ -9,8 +9,8 @@ This software was developed with the goal of supporting science applications for
 time-variable gravity.
 The ``model-harmonics`` projects consists of extension routines for the set of ``gravity-toolkit`` tools.
 
-ECCO
-====
+OBP
+===
 
 Uses outputs from the NASA-JPL `Estimating the Circulation and Climate of the Ocean (ECCO) <https://ecco-group.org/>`_ model.
 For ECCO near real-time Kalman-filtered (kf080i) and Rauch-Tung-Striebel (RTS) smoother (dr080i) models, reads 12-hour ocean bottom pressure data (OBP) and calculates monthly averages.
@@ -19,9 +19,9 @@ Near real-time models are downloaded using the ``jpl_ecco_sync.py`` program,
 monthly Cube92 models are calculated using the ``jpl_ecco_cube92_sync.py`` program,
 interpolated Version 4 models are downloaded using the ``jpl_ecco_v4_sync.py`` program, and
 monthly Version 4 and 5 models in LLC tile format are downloaded using the ``jpl_ecco_llc_sync.py`` program.
-Because Boussinesq-type models conserve volume rather than mass, the global area average of each monthly map is removed [Greatbatch1994]_.
+Because Boussinesq-type models conserve volume rather than mass, the global area average of each monthly map is removed :cite:p:`Greatbatch:1994dx`.
 Monthly anomalies in ocean bottom pressure are calculated by removing a multi-annual mean (typically 2003 |ndash| 2007).
-Ocean bottom pressure anomalies are converted to spherical harmonics following [Boy2005]_ (Equations :eq:`1` and :eq:`2`).
+Ocean bottom pressure anomalies are converted to spherical harmonics following :cite:t:`Boy:2005el` (Equations :eq:`1` and :eq:`2`).
 
 .. math::
     :label: 1
@@ -58,21 +58,21 @@ Ocean bottom pressure anomalies are converted to spherical harmonics following [
             shape=box
             style="filled"
             color="#7570b3"]
-        M [URL="https://github.com/tsutterley/model-harmonics/blob/main/ECCO/ecco_mean_realtime.py"
+        M [URL="https://github.com/tsutterley/model-harmonics/blob/main/OBP/ecco_mean_realtime.py"
             label="Calculate Temporal Mean"
             fontname="Lato"
             fontsize=11
             shape=box
             style="filled"
             color="gray"]
-        R [URL="https://github.com/tsutterley/model-harmonics/blob/main/ECCO/ecco_read_realtime.py"
+        R [URL="https://github.com/tsutterley/model-harmonics/blob/main/OBP/ecco_read_realtime.py"
             label="Calculate Monthly Anomalies"
             fontname="Lato"
             fontsize=11
             shape=box
             style="filled"
             color="gray"]
-        H [URL="https://github.com/tsutterley/model-harmonics/blob/main/ECCO/ecco_monthly_harmonics.py"
+        H [URL="https://github.com/tsutterley/model-harmonics/blob/main/OBP/ecco_monthly_harmonics.py"
             label="Calculate Spherical Harmonics"
             fontname="Lato"
             fontsize=11
@@ -103,22 +103,22 @@ Ocean bottom pressure anomalies are converted to spherical harmonics following [
         H -> T [arrowsize=0.8]
     }
 
-GLDAS
-=====
+TWS
+===
 
 Uses `GLDAS model outputs <https://ldas.gsfc.nasa.gov/gldas>`_ from the NASA Goddard Space Flight Center (GSFC) Hydrological Sciences Laboratory (HSL)
 `Global Land Data Assimilation System Version 2 (GLDAS-2) <https://disc.gsfc.nasa.gov/information/data-release?title=New%20and%20Reprocessed%20GLDAS%20Version%202%20Data%20Products%20Released>`_
-[Rodell2004]_.
+:cite:p:`Rodell:2004ke`.
 GLDAS outputs are downloaded using the ``gesdisc_gldas_sync.py`` program.
 GLDAS version 2.1 is forced with a combination of model and observation data.
 Additionally, the GLDAS project produces two months of "early production stream" products that are run without the forcing data.
 Here, monthly terrestrial water storage (TWS) estimates are calculated by combining the GLDAS soil moisture (`SM`), snow water equivalent (`SWE`) and total canopy storage outputs.
 Monthly anomalies in terrestrial water storage are calculated by removing a multi-annual mean (typically 2003 |ndash| 2007).
 Before converting to spherical harmonics, the GLDAS terrestrial water storage estimates are masked to remove
-`urbanized <https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_mask_vegetation.py>`_,
-`glaciated <https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_mask_arctic.py>`_ and
-`permafrost <https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_mask_permafrost.py>`_ regions.
-Terrestrial water storage anomalies are converted to spherical harmonics following [Wahr1998]_ (Equation :eq:`3`).
+`urbanized <https://github.com/tsutterley/model-harmonics/blob/main/TWS/gldas_mask_vegetation.py>`_,
+`glaciated <https://github.com/tsutterley/model-harmonics/blob/main/TWS/gldas_mask_arctic.py>`_ and
+`permafrost <https://github.com/tsutterley/model-harmonics/blob/main/TWS/gldas_mask_permafrost.py>`_ regions.
+Terrestrial water storage anomalies are converted to spherical harmonics following :cite:t:`Wahr:1998hy` (Equation :eq:`3`).
 
 .. math::
     :label: 3
@@ -144,21 +144,21 @@ Terrestrial water storage anomalies are converted to spherical harmonics followi
             shape=box
             style="filled"
             color="#7570b3"]
-        M [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_mean_monthly.py"
+        M [URL="https://github.com/tsutterley/model-harmonics/blob/main/TWS/gldas_mean_monthly.py"
             label="Calculate Temporal Mean"
             fontname="Lato"
             fontsize=11
             shape=box
             style="filled"
             color="gray"]
-        R [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_read_monthly.py"
+        R [URL="https://github.com/tsutterley/model-harmonics/blob/main/TWS/gldas_read_monthly.py"
             label="Calculate Monthly Anomalies"
             fontname="Lato"
             fontsize=11
             shape=box
             style="filled"
             color="gray"]
-        H [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/gldas_monthly_harmonics.py"
+        H [URL="https://github.com/tsutterley/model-harmonics/blob/main/TWS/gldas_monthly_harmonics.py"
             label="Calculate Spherical Harmonics"
             fontname="Lato"
             fontsize=11
@@ -206,7 +206,7 @@ NCEP-CFSR outputs are downloaded using the ``ucar_rda_cfsr_surface.py`` program.
 `JRA-55 <http://jra.kishou.go.jp/JRA-55/index_en.html>`_ is computed by the Japan Meteorological Agency (JMA) and is available starting from 1958.
 JRA-55 outputs are downloaded using the ``ucar_rda_jra55_surface.py`` program.
 
-Spherical harmonics from reanalysis outputs are computed here using three different schemes of complexity following [Boy2005]_ and [Swenson2002]_:
+Spherical harmonics from reanalysis outputs are computed here using three different schemes of complexity following :cite:t:`Boy:2005el,Swenson:2002kf`:
 1) a thin-layer 2D spherical geometry,
 2) a thin-layer 2D geometry with realistic geometry incorporating model orography and estimates of geoid height (Equations :eq:`4` and :eq:`5`), and
 3) a 3D atmospheric geometry integrating over the model layers (Equations :eq:`4` and :eq:`6`).
@@ -252,14 +252,14 @@ Anomalies for each reanalysis are calculated relative to a multi-annual mean (su
             shape=box
             style="filled"
             color="#7570b3"]
-        M [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/reanalysis_mean_pressure.py"
+        M [URL="https://github.com/tsutterley/model-harmonics/blob/main/TWS/reanalysis_mean_pressure.py"
             label="Calculate Temporal Mean"
             fontname="Lato"
             fontsize=11
             shape=box
             style="filled"
             color="gray"]
-        H [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/reanalysis_pressure_harmonics.py"
+        H [URL="https://github.com/tsutterley/model-harmonics/blob/main/TWS/reanalysis_pressure_harmonics.py"
             label="Calculate Spherical Harmonics"
             fontname="Lato"
             fontsize=11
@@ -300,7 +300,7 @@ Anomalies for each reanalysis are calculated relative to a multi-annual mean (su
             shape=box
             style="filled"
             color="#7570b3"]
-        L [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/model_level_coefficients.py"
+        L [URL="https://github.com/tsutterley/model-harmonics/blob/main/TWS/model_level_coefficients.py"
             label="Model Level\nCoefficients"
             fontname="Lato"
             fontsize=11
@@ -319,21 +319,21 @@ Anomalies for each reanalysis are calculated relative to a multi-annual mean (su
             shape=box
             style="filled"
             color="#7570b3"]
-        G [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/reanalysis_geopotential_heights.py"
+        G [URL="https://github.com/tsutterley/model-harmonics/blob/main/TWS/reanalysis_geopotential_heights.py"
             label="Calculate Geopotential Heights\nand Pressure Differences"
             fontname="Lato"
             fontsize=11
             shape=box
             style="filled"
             color="gray"]
-        M [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/reanalysis_mean_harmonics.py"
+        M [URL="https://github.com/tsutterley/model-harmonics/blob/main/TWS/reanalysis_mean_harmonics.py"
             label="Calculate Temporal Mean\nSpherical Harmonics"
             fontname="Lato"
             fontsize=11
             shape=box
             style="filled"
             color="gray"]
-        H [URL="https://github.com/tsutterley/model-harmonics/blob/main/GLDAS/reanalysis_atmospheric_harmonics.py"
+        H [URL="https://github.com/tsutterley/model-harmonics/blob/main/TWS/reanalysis_atmospheric_harmonics.py"
             label="Calculate Spherical Harmonics"
             fontname="Lato"
             fontsize=11
@@ -379,7 +379,7 @@ For ERA5,  monthly surface mass balance (SMB) estimates are calculated by combin
 ERA5 surface mass balance estimates are not including runoff as those variables are presently `inaccurate over glaciated surfaces <https://confluence.ecmwf.int/pages/viewpage.action?pageId=208488132>`_.
 Monthly cumulative anomalies in surface mass balance are calculated by removing a multi-annual mean (typically 1980 |ndash| 1995).
 Before converting to spherical harmonics, the surface mass balance estimates are masked to isolate regions of interest.
-Surface mass balance anomalies are converted to spherical harmonics following [Wahr1998]_ (Equation :eq:`7`).
+Surface mass balance anomalies are converted to spherical harmonics following :cite:t:`Wahr:1998hy` (Equation :eq:`7`).
 
 .. math::
     :label: 7
@@ -450,16 +450,3 @@ Surface mass balance anomalies are converted to spherical harmonics following [W
     }
 
 .. |ndash|    unicode:: U+2013 .. EN DASH
-
-References
-##########
-
-.. [Boy2005] J.-P. Boy and B. F. Chao, "Precise evaluation of atmospheric loading effects on Earth's time‐variable gravity field", *Journal of Geophysical Research: Solid Earth*, 110(B08412), (2005). `doi: 10.1029/2002JB002333 <https://doi.org/10.1029/2002JB002333>`_
-
-.. [Greatbatch1994] R. J. Greatbatch, "A note on the representation of steric sea level in models that conserve volume rather than mass", *Journal of Geophysical Research*, 99(C6), 12767--12771, (1994). `doi: 10.1029/94JC00847 <https://doi.org/10.1029/94JC00847>`_
-
-.. [Rodell2004] M. Rodell et al., "The Global Land Data Assimilation System", *Bulletin of the American Meteorological Society*, 85(3), (2004). `doi: 10.1175/BAMS-85-3-381 <https://doi.org/10.1175/BAMS-85-3-381>`_
-
-.. [Swenson2002] S. Swenson and J. Wahr, "Estimated effects of the vertical structure of atmospheric mass on the time‐variable geoid", *Journal of Geophysical Research*, 107(B9), 2194, (2002) `doi: 10.1029/2000JB000024 <https://doi.org/10.1029/2000JB000024>`_
-
-.. [Wahr1998] J. Wahr, M. Molenaar, and F. Bryan, "Time variability of the Earth's gravity field: Hydrological and oceanic effects and their possible detection using GRACE", *Journal of Geophysical Research*, 103(B12), 30205--30229, (1998). `doi: 10.1029/98JB02844 <https://doi.org/10.1029/98JB02844>`_

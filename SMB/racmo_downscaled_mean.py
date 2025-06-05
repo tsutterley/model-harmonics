@@ -616,8 +616,6 @@ def racmo_downscaled_mean(base_dir, REGION, VERSION, PRODUCT,
         VARNAME = var if PRODUCT in ('SMB','PRECIP') else f'{var}corr'
         input_dir = base_dir.joinpath(f'SMB1km_v{VERSION}')
         file_type = 'compressed'
-        dinput = compressed_file_mean(input_dir, VERSION, PRODUCT,
-            RANGE[0], RANGE[1], GZIP=GZIP)
     elif (VERSION == '3.0') and (REGION == 'gris'):
         RACMO_MODEL = ['FGRN055','2.3p2','DS1km']
         var = input_products[PRODUCT]

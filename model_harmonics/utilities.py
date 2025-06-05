@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 utilities.py
-Written by Tyler Sutterley (11/2023)
+Written by Tyler Sutterley (10/2024)
 Download and management utilities for syncing time and auxiliary files
 Adds additional modules to the gravity_toolkit utilities
 
@@ -10,6 +10,8 @@ PYTHON DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 10/2024: update CMR search utility to replace deprecated scrolling
+        https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html
     Updated 11/2023: updated ssl context to fix deprecation error
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 01/2023: add default ssl context attribute with protocol
@@ -323,7 +325,6 @@ def cmr(
     CMR_KEYS.append(f'?provider={provider}')
     CMR_KEYS.append('&sort_key[]=start_date')
     CMR_KEYS.append('&sort_key[]=producer_granule_id')
-    CMR_KEYS.append('&scroll=true')
     CMR_KEYS.append(f'&page_size={cmr_page_size}')
     # dictionary of product shortnames and version
     CMR_KEYS.append(f'&short_name={short_name}')
@@ -341,21 +342,22 @@ def cmr(
     granule_names = []
     granule_urls = []
     granule_mtimes = []
-    cmr_scroll_id = None
+    cmr_search_after = None
     while True:
         req = urllib2.Request(cmr_query_url)
-        if cmr_scroll_id:
-            req.add_header('cmr-scroll-id', cmr_scroll_id)
+        # add CMR search after header
+        if cmr_search_after:
+            req.add_header('CMR-Search-After', cmr_search_after)
+            logging.debug(f'CMR-Search-After: {cmr_search_after}')
         response = opener.open(req)
-        # get scroll id for next iteration
-        if not cmr_scroll_id:
-            headers = {k.lower():v for k,v in dict(response.info()).items()}
-            cmr_scroll_id = headers['cmr-scroll-id']
+        # get search after index for next iteration
+        headers = {k.lower():v for k,v in dict(response.info()).items()}
+        cmr_search_after = headers.get('cmr-search-after')
         # read the CMR search as JSON
         search_page = json.loads(response.read().decode('utf8'))
         ids,urls,mtimes = cmr_filter_json(search_page,
             endpoint=endpoint, request_type=request_type)
-        if not urls:
+        if not urls or cmr_search_after is None:
             break
         # extend lists
         granule_names.extend(ids)

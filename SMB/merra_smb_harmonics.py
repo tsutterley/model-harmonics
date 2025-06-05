@@ -301,7 +301,7 @@ def merra_smb_harmonics(ddir, PRODUCT, YEARS, RANGE=None, REGION=None,
     args = (PRODUCT, LMAX, order_str, suffix[DATAFORM])
     output_pattern = r'MERRA2_(\d+)_tavgM_2d_{0}_CLM_L{1:d}{2}_([-]?\d+).{3}'
     output_regex = re.compile(output_pattern.format(*args), re.VERBOSE)
-    # find all output ECCO OBP harmonic files (not just ones created in run)
+    # find all output harmonic files (not just ones created in run)
     output_files = [f for f in output_dir.iterdir()
         if re.match(output_regex,f.name)]
     for fi in sorted(output_files):

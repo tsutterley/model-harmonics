@@ -27,9 +27,10 @@ dependencies:
   - scikit-learn
   - scipy
   - sphinx
+  - sphinx-argparse>=0.4
+  - sphinxcontrib-bibtex
   - sphinx_rtd_theme
   - pip:
-     - sphinx-argparse>=0.4
      - geoid-toolkit
-     - git+https://github.com/tsutterley/gravity-toolkit.git
+     - gravity-toolkit
      - ..

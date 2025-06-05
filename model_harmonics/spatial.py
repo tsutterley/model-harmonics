@@ -459,6 +459,7 @@ def geocentric_latitude(
     ):
     """
     Converts from geodetic latitude to geocentric latitude for an ellipsoid
+    :cite:p:`Snyder:1982gf`
 
     Parameters
     ----------
@@ -475,11 +476,6 @@ def geocentric_latitude(
     -------
     geocentric_latitude: np.ndarray
         latitude intersecting the center of the Earth (degrees north)
-
-    References
-    ----------
-    .. [1] J. P. Snyder, *Map Projections used by the U.S. Geological Survey*,
-        Geological Survey Bulletin 1532, U.S. Government Printing Office, (1982).
     """
     # first numerical eccentricity
     ecc1 = np.sqrt((2.0*flat - flat**2)*a_axis**2)/a_axis
@@ -502,7 +498,8 @@ def scale_factors(
     ):
     """
     Calculates scaling factors to account for polar stereographic
-    distortion including special case of at the exact pole [1]_ [2]_
+    distortion including special case of at the exact pole
+    :cite:p:`Snyder:1982gf`
 
     Parameters
     ----------
@@ -522,12 +519,6 @@ def scale_factors(
     -------
     scale: np.ndarray
         scaling factors at input latitudes
-
-    References
-    ----------
-    .. [1] J. P. Snyder, *Map Projections used by the U.S. Geological Survey*,
-        Geological Survey Bulletin 1532, U.S. Government Printing Office, (1982).
-    .. [2] JPL Technical Memorandum 3349-85-101
     """
     assert metric.lower() in ['distance', 'area'], 'Unknown metric'
     # convert latitude from degrees to positive radians

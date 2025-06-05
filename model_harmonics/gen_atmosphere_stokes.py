@@ -112,8 +112,8 @@ def gen_atmosphere_stokes(GPH, pressure, lon, lat, LMAX=60, MMAX=None,
     METHOD: str, default 'BC05'
         Method of integrating over pressure levels
 
-            - ``'BC05'``: [Boy2005]_
-            - ``'SW02'``: [Swenson2002]_
+            - ``'BC05'``: :cite:p:`Boy:2005el`
+            - ``'SW02'``: :cite:p:`Swenson:2002kf`
 
     Returns
     -------
@@ -125,17 +125,6 @@ def gen_atmosphere_stokes(GPH, pressure, lon, lat, LMAX=60, MMAX=None,
         spherical harmonic degree to LMAX
     m: np.ndarray
         spherical harmonic order to MMAX
-
-    References
-    ----------
-    .. [Boy2005] J.-P. Boy and B. F. Chao, "Precise evaluation of
-        atmospheric loading effects on Earth's time‐variable gravity field",
-        *Journal of Geophysical Research: Solid Earth*, 110(B08412), (2005).
-        `doi: 10.1029/2002JB002333 <https://doi.org/10.1029/2002JB002333>`_
-    .. [Swenson2002] S. Swenson and J. Wahr, "Estimated effects of the vertical
-        structure of atmospheric mass on the time‐variable geoid",
-        *Journal of Geophysical Research*, 107(B9), 2194, (2002).
-        `doi: 10.1029/2000JB000024 <https://doi.org/10.1029/2000JB000024>`_
     """
 
     # converting LMAX to integer

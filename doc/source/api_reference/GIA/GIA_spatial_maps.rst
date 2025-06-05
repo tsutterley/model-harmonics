@@ -19,15 +19,15 @@ Calling Sequence
     :nodefault:
 
     --gia -G : @after
-        * ``'IJ05-R2'``: `Ivins R2 GIA Models <https://doi.org/10.1002/jgrb.50208>`_
-        * ``'W12a'``: `Whitehouse GIA Models <https://doi.org/10.1111/j.1365-246X.2012.05557.x>`_
-        * ``'SM09'``: `Simpson/Milne GIA Models <https://doi.org/10.1029/2010JB007776>`_
-        * ``'ICE6G'``: `ICE-6G GIA Models <https://doi.org/10.1002/2014JB011176>`_
-        * ``'Wu10'``: `Wu (2010) GIA Correction <https://doi.org/10.1038/ngeo938>`_
-        * ``'AW13-ICE6G'``: `Geruo A ICE-6G GIA Models <https://doi.org/10.1093/gji/ggs030>`_
-        * ``'AW13-IJ05'``: `Geruo A IJ05-R2 GIA Models <https://doi.org/10.1093/gji/ggs030>`_
-        * ``'Caron'``: `Caron JPL GIA Assimilation <https://doi.org/10.1002/2017GL076644>`_
-        * ``'ICE6G-D'``: `ICE-6G Version-D GIA Models <https://doi.org/10.1002/2016JB013844>`_
+        * ``'IJ05-R2'``: Ivins R2 GIA Models :cite:p:`Ivins:2013cq`
+        * ``'W12a'``: Whitehouse GIA Models :cite:p:`Whitehouse:2012jj`
+        * ``'SM09'``: Simpson/Milne GIA Models :cite:p:`Simpson:2009hg`
+        * ``'ICE6G'``: ICE-6G GIA Models :cite:p:`Peltier:2015bo`
+        * ``'Wu10'``: Wu (2010) GIA Correction :cite:p:`Wu:2010dq`
+        * ``'AW13-ICE6G'``: Geruo A ICE-6G GIA Models :cite:p:`A:2013kh`
+        * ``'AW13-IJ05'``: Geruo A IJ05-R2 GIA Models :cite:p:`A:2013kh`
+        * ``'Caron'``: Caron JPL GIA Assimilation :cite:p:`Caron:2018ba`
+        * ``'ICE6G-D'``: ICE-6G Version-D GIA Models :cite:p:`Peltier:2018dp`
         * ``'ascii'``: reformatted GIA in ascii format
         * ``'netCDF4'``: reformatted GIA in netCDF4 format
         * ``'HDF5'``: reformatted GIA in HDF5 format
