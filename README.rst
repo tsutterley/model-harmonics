@@ -2,26 +2,27 @@
 model-harmonics
 ===============
 
-|Language|
 |License|
-|PyPI Version|
 |Documentation Status|
+|PyPI|
+|commits-since|
 |zenodo|
-
-.. |Language| image:: https://img.shields.io/pypi/pyversions/model-harmonics?color=green
-   :target: https://www.python.org/
 
 .. |License| image:: https://img.shields.io/github/license/tsutterley/model-harmonics
    :target: https://github.com/tsutterley/model-harmonics/blob/main/LICENSE
 
-.. |PyPI Version| image:: https://img.shields.io/pypi/v/model-harmonics.svg
+.. |Documentation Status| image:: https://readthedocs.org/projects/model-harmonics/badge/?version=latest
+   :target: https://model-harmonics.readthedocs.io/en/latest/?badge=latest
+
+.. |PyPI| image:: https://img.shields.io/pypi/v/model-harmonics.svg
    :target: https://pypi.python.org/pypi/model-harmonics/
 
-.. |Documentation Status| image:: https://readthedocs.org/projects/model-harmonics/badge/?version=latest
-   :target: https://gravity-toolkit.readthedocs.io/projects/model-harmonics/en/latest/?badge=latest
+.. |commits-since| image:: https://img.shields.io/github/commits-since/tsutterley/model-harmonics/latest
+   :target: https://github.com/tsutterley/model-harmonics/releases/latest
 
-.. |zenodo| image:: https://zenodo.org/badge/325402443.svg
-   :target: https://zenodo.org/badge/latestdoi/325402443
+.. |zenodo| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.5156964.svg
+   :target: https://doi.org/10.5281/zenodo.5156964
+
 
 Python tools for obtaining and working with model synthetic spherical harmonic coefficients for comparing with data from the the NASA/DLR Gravity Recovery and Climate Experiment (GRACE) and the NASA/GFZ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
 

@@ -1,0 +1,35 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: model-harmonics
+message: Python tools for working with spherical harmonic coefficients computed from models
+type: software
+authors:
+  - given-names: Tyler
+    family-names: Sutterley
+    affiliation: University of Washington, Applied Physics Laboratory
+  - given-names: Isabella
+    family-names: Velicogna
+    affiliation: University of California, Irvine
+  - given-names: Yara
+    family-names: Mohajerani
+  - given-names: Hugo
+    family-names: Lecomte
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.5156964
+    description: Zenodo Archive
+repository-code: 'https://github.com/tsutterley/model-harmonics'
+url: 'https://model-harmonics.readthedocs.io'
+repository: 'https://pypi.org/project/model-harmonics'
+doi: "10.5281/zenodo.5156964"
+version: "1.1.2"
+date-released: "2025-06-05"
+keywords:
+  - gravity
+  - spherical harmonics
+  - land surface models
+  - climate models
+  - reanalysis
+license: MIT
