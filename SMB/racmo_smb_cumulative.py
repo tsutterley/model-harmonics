@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 racmo_smb_cumulative.py
-Written by Tyler Sutterley (12/2022)
+Written by Tyler Sutterley (06/2025)
 Reads RACMO datafiles to calculate cumulative anomalies in derived surface
     mass balance products
 
@@ -29,6 +29,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 06/2025: generalize the regular expression for model region
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -82,7 +83,7 @@ def racmo_smb_cumulative(model_file, VARIABLE,
     # RACMO SMB model file
     model_file = pathlib.Path(model_file).expanduser().absolute()
     # try to extract region and version from filename
-    R1 = re.compile(r'[XF]?(ANT27|GRN11|GRN055|PEN055|ASE055)',re.VERBOSE)
+    R1 = re.compile(r'[P]?[XF]?(ANT|GRN|PEN|ASE)(\d+)',re.VERBOSE)
     R2 = re.compile(r'(RACMO\d+(\.\d+)?(p\d+)?)',re.VERBOSE)
     REGION = R1.search(model_file.name).group(0)
     VERSION = R2.search(model_file.name).group(0)
