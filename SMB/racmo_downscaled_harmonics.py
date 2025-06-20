@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 racmo_downscaled_harmonics.py
-Written by Tyler Sutterley (06/2024)
+Written by Tyler Sutterley (06/2025)
 Read RACMO surface mass balance products and converts to spherical harmonics
 Shifts dates of SMB point masses to mid-month values to correspond with GRACE
 
@@ -49,6 +49,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 06/2025: generalize the regular expression for model region
     Updated 06/2024: updates for using downscaled Antarctic RACMO products
         fix reading of optional masks for reducing to regions
     Updated 04/2024: changed polar stereographic area function to scale_factors
@@ -105,7 +106,7 @@ def racmo_downscaled_harmonics(model_file, VARIABLE,
     # verify input model file
     model_file = pathlib.Path(model_file).expanduser().absolute()
     # try to extract region and version from filename
-    R1 = re.compile(r'[XF]?(GRN11|GRN055|ANT27)', re.VERBOSE)
+    R1 = re.compile(r'[P]?[XF]?(ANT|GRN|PEN|ASE)(\d+)',re.VERBOSE)
     R2 = re.compile(r'(RACMO\d+(\.\d+)?(p\d+)?)', re.VERBOSE)
     R3 = re.compile(r'(DS\d+km)_v(\d(\.\d+)?)', re.VERBOSE)
     MODEL_REGION = R1.search(model_file.name).group(0)
