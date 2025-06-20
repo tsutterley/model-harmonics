@@ -30,6 +30,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 06/2025: generalize the regular expression for model region
+        can remap netCDF4 variable names for specified product
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -63,6 +64,7 @@ from __future__ import print_function
 
 import sys
 import re
+import copy
 import gzip
 import uuid
 import time
@@ -75,10 +77,12 @@ import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
 
 # PURPOSE: read and cumulative RACMO SMB SMB estimates
-def racmo_smb_cumulative(model_file, VARIABLE,
-    RANGE=None,
-    GZIP=False,
-    MODE=0o775):
+def racmo_smb_cumulative(model_file, PRODUCT,
+        RANGE=None,
+        VARIABLE=None,
+        GZIP=False,
+        MODE=0o775
+    ):
 
     # RACMO SMB model file
     model_file = pathlib.Path(model_file).expanduser().absolute()
@@ -98,6 +102,9 @@ def racmo_smb_cumulative(model_file, VARIABLE,
     racmo_products['snowfall'] = 'Snowfall'
     racmo_products['snowmelt'] = 'Snowmelt'
     racmo_products['subl'] = 'Sublimation'
+    # check if variable is remapped
+    if VARIABLE is None:
+        VARIABLE = copy.copy(PRODUCT)
 
     # Open the RACMO SMB NetCDF file for reading
     if GZIP:
@@ -148,9 +155,9 @@ def racmo_smb_cumulative(model_file, VARIABLE,
         day=DD,hour=hh,minute=mm,second=ss)
 
     # copy data to masked array
-    DATA = np.ma.array(fd[VARIABLE].copy())
+    DATA = np.ma.array(fd[PRODUCT].copy())
     # invalid data value
-    DATA.fill_value = np.float64(attrs[VARIABLE]['_FillValue'])
+    DATA.fill_value = np.float64(attrs[PRODUCT]['_FillValue'])
     # set masks
     DATA.mask = (DATA.data == DATA.fill_value)
     # input shape of RACMO data
@@ -164,20 +171,20 @@ def racmo_smb_cumulative(model_file, VARIABLE,
     i,j = np.nonzero(~DATA.mask[0,:,:])
     valid_count = np.count_nonzero(~DATA.mask[0,:,:])
     # allocate for output variable
-    fd[VARIABLE] = np.ma.zeros((nt,ny,nx),fill_value=DATA.fill_value)
-    fd[VARIABLE].mask = (DATA.mask | np.isnan(DATA.data))
+    fd[PRODUCT] = np.ma.zeros((nt,ny,nx),fill_value=DATA.fill_value)
+    fd[PRODUCT].mask = (DATA.mask | np.isnan(DATA.data))
     CUMULATIVE = np.zeros((valid_count))
     # calculate output cumulative anomalies for variable
     for t in range(nt):
         # convert mass flux from yearly rate and
         # calculate cumulative anomalies at time t
         CUMULATIVE += (DATA.data[t,i,j] - MEAN[i,j])
-        fd[VARIABLE].data[t,i,j] = CUMULATIVE.copy()
+        fd[PRODUCT].data[t,i,j] = CUMULATIVE.copy()
     # replace masked values with fill value
-    fd[VARIABLE].data[fd[VARIABLE].mask] = fd[VARIABLE].fill_value
+    fd[PRODUCT].data[fd[PRODUCT].mask] = fd[PRODUCT].fill_value
 
     # Output NetCDF filename
-    FILE = f'{VERSION}_{REGION}_{VARIABLE.upper()}_cumul.nc'
+    FILE = f'{VERSION}_{REGION}_{PRODUCT.upper()}_cumul.nc'
     output_file = model_file.with_name(FILE)
     logging.info(str(output_file))
 
@@ -201,7 +208,7 @@ def racmo_smb_cumulative(model_file, VARIABLE,
         nc[key] = f_out.createVariable(key, fd[key].dtype,
             ('rlat','rlon',), zlib=True)
     # output variable
-    nc[VARIABLE] = f_out.createVariable(VARIABLE, fd[VARIABLE].dtype,
+    nc[PRODUCT] = f_out.createVariable(PRODUCT, fd[PRODUCT].dtype,
         ('time','rlat','rlon',), fill_value=DATA.fill_value, zlib=True)
 
     # copy variable and attributes for projection
@@ -271,6 +278,9 @@ def arguments():
     parser.add_argument('--product','-P',
         type=str, metavar='PRODUCT', default='smb', choices=choices,
         help='RACMO SMB product to calculate')
+    parser.add_argument('--variable','-N',
+        type=str, default=None,
+        help='RACMO netCDF variable name for product')
     # start and end years to run for mean
     parser.add_argument('--mean','-m',
         metavar=('START','END'), type=int, nargs=2,
@@ -303,6 +313,7 @@ def main():
 
     # run program
     racmo_smb_cumulative(args.infile, args.product,
+        VARIABLE=args.variable,
         RANGE=args.mean,
         GZIP=args.gzip,
         MODE=args.mode)
