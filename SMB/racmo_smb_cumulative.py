@@ -124,21 +124,24 @@ def racmo_smb_cumulative(model_file, PRODUCT,
     attributes_list = ['axis','calendar','description','grid_mapping',
         'long_name','standard_name','units','_FillValue']
     for key in [VARIABLE,'lon','lat','rlon','rlat','time']:
+        # output variable name (check if remapped)
+        var = PRODUCT if (key == VARIABLE) else key
         # remove singleton dimensions
-        fd[key] = np.squeeze(f_in.variables[key][:].copy())
+        fd[var] = np.squeeze(f_in.variables[key][:].copy())
         # get applicable attributes for variable
-        attrs[key] = {}
+        attrs[var] = {}
         for att_name in attributes_list:
             # try getting the attribute
             try:
                 ncattr, = [s for s in f_in[key].ncattrs() if
                     re.match(att_name,s,re.I)]
-                attrs[key][att_name] = f_in[key].getncattr(ncattr)
+                attrs[var][att_name] = f_in[key].getncattr(ncattr)
             except (ValueError,AttributeError):
                 pass
             else:
-                if isinstance(attrs[key][att_name],str):
-                    attrs[key][att_name] = attrs[key][att_name].strip()
+                # strip whitespace for string attributes
+                if isinstance(attrs[var][att_name],str):
+                    attrs[var][att_name] = attrs[var][att_name].strip()
 
     # parse date string within netCDF4 file
     date_string = attrs['time']['units']
