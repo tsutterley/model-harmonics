@@ -40,7 +40,7 @@ CALLING SEQUENCE:
 
 INPUTS:
     GLDAS land surface model
-        CLM: Common Land Model (CLM)
+        CLM: Community Land Model (CLM)
         CLSM: Catchment Land Surface Model (CLSM)
         MOS: Mosaic model
         NOAH: Noah model
@@ -157,7 +157,7 @@ import model_harmonics as mdlhmc
 
 # GLDAS models
 gldas_products = {}
-gldas_products['CLM'] = 'GLDAS Common Land Model (CLM)'
+gldas_products['CLM'] = 'GLDAS Community Land Model (CLM)'
 gldas_products['CLSM'] = 'GLDAS Catchment Land Surface Model (CLSM)'
 gldas_products['MOS'] = 'GLDAS Mosaic model'
 gldas_products['NOAH'] = 'GLDAS Noah model'

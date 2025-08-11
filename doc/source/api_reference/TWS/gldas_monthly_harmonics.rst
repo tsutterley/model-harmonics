@@ -19,7 +19,7 @@ Calling Sequence
     :nodefault:
 
     model : @after
-        * ``'CLM'``: GLDAS Common Land Model
+        * ``'CLM'``: GLDAS Community Land Model
         * ``'CLSM'``: GLDAS Catchment Land Surface Model
         * ``'MOS'``: GLDAS Mosaic model
         * ``'NOAH'``: GLDAS Noah model
