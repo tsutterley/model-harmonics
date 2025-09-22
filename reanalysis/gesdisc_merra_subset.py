@@ -123,7 +123,7 @@ def gesdisc_merra_subset(base_dir, SHORTNAME, HOST=None, VERSION=None,
             # for each granule
             for id,url,mtime in zip(ids,urls,mtimes):
                 # build filename for output
-                FILE = f'{pathlib.PosixPath(id).name}.SUB.nc'
+                FILE = f'{pathlib.PosixPath(id).stem}.SUB.nc'
                 local_file = DIRECTORY.joinpath(FILE)
                 # get subsetting API url for granule
                 request_url = mdlhmc.utilities.build_request(
