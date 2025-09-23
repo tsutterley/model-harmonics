@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 merra_smb_mask.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (09/2025)
 
 Creates a mask for MERRA-2 land ice data using a set of shapefiles
 https://goldsmr4.gesdisc.eosdis.nasa.gov/data/MERRA2_MONTHLY/
@@ -38,6 +38,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 09/2025: use importlib to attempt to import dependencies
     Updated 03/2023: use full path to output file in verbose logging
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -62,25 +63,15 @@ import logging
 import netCDF4
 import pathlib
 import argparse
-import warnings
 import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
 
 # attempt imports
-try:
-    import fiona
-except ModuleNotFoundError:
-    warnings.filterwarnings("module")
-    warnings.warn("fiona not available", ImportWarning)
-try:
-    import shapely.ops
-    import shapely.geometry
-except ModuleNotFoundError:
-    warnings.filterwarnings("module")
-    warnings.warn("shapely not available", ImportWarning)
-# ignore warnings
-warnings.filterwarnings("ignore")
+fiona = mdlhmc.utilities.import_dependency('fiona')
+shapely = mdlhmc.utilities.import_dependency('shapely')
+shapely.ops = mdlhmc.utilities.import_dependency('shapely.ops')
+shapely.geometry = mdlhmc.utilities.import_dependency('shapely.geometry')
 
 # PURPOSE: read shapefile to find points within a specified region
 def read_shapefile(input_shapefile, AREA=None, BUFFER=None):

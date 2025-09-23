@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 spatial.py
-Written by Tyler Sutterley (06/2024)
+Written by Tyler Sutterley (09/2025)
 Functions for reading, writing and processing spatial data
 Extends gravity_toolkit spatial module adding raster support
 
@@ -9,6 +9,7 @@ PYTHON DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 09/2025: use importlib to attempt to import dependencies
     Updated 06/2024: added function for calculating latitude and longitude
     Updated 04/2024: changed polar stereographic area function to scale_factors
     Updated 11/2023: add class for creating spatial mosaics
@@ -24,28 +25,20 @@ import copy
 import uuid
 import logging
 import pathlib
-import warnings
 import numpy as np
-import gravity_toolkit.spatial
+import gravity_toolkit as gravtk
 from model_harmonics.datum import datum
 
 # attempt imports
-try:
-    import osgeo.gdal, osgeo.osr, osgeo.gdalconst
-except (AttributeError, ImportError, ModuleNotFoundError) as exc:
-    warnings.filterwarnings("module")
-    warnings.warn("GDAL not available", ImportWarning)
-try:
-    import pyproj
-except (AttributeError, ImportError, ModuleNotFoundError) as exc:
-    warnings.filterwarnings("module")
-    warnings.warn("pyproj not available", ImportWarning)
-# ignore warnings
-warnings.filterwarnings("ignore")
+osgeo = gravtk.utilities.import_dependency('osgeo')
+osgeo.gdal = gravtk.utilities.import_dependency('osgeo.gdal')
+osgeo.osr = gravtk.utilities.import_dependency('osgeo.osr')
+osgeo.gdalconst = gravtk.utilities.import_dependency('osgeo.gdalconst')
+pyproj = gravtk.utilities.import_dependency('pyproj')
 
 # PURPOSE: additional routines for the spatial module
 # for reading and writing raster data
-class raster(gravity_toolkit.spatial):
+class raster(gravtk.spatial):
     """
     Inheritance of ``spatial`` class for reading and writing
     raster data

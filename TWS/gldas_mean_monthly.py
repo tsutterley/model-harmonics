@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 gldas_mean_monthly.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (09/2025)
 
 Reads GLDAS monthly datafiles from http://ldas.gsfc.nasa.gov/gldas/
 Adding Soil Moisture, snow water equivalent (SWE) and total canopy storage
@@ -75,6 +75,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 09/2025: use importlib to attempt to import dependencies
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: attributes from units class for writing to netCDF4/HDF5
     Updated 12/2022: single implicit import of spherical harmonic tools
@@ -112,17 +113,11 @@ import logging
 import netCDF4
 import pathlib
 import argparse
-import warnings
 import numpy as np
 import gravity_toolkit as gravtk
+
 # attempt imports
-try:
-    import pygrib
-except ModuleNotFoundError:
-    warnings.filterwarnings("module")
-    warnings.warn("pygrib not available", ImportWarning)
-# ignore warnings
-warnings.filterwarnings("ignore")
+pygrib = gravtk.utilities.import_dependency('pygrib')
 
 # GLDAS models
 gldas_products = {}
