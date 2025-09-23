@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 spatial_operators.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (06/2025)
 Performs basic operations on spatial files
 
 CALLING SEQUENCE:
@@ -20,6 +20,7 @@ COMMAND LINE OPTIONS:
         mean
         error
         RMS
+        mask
     -S X, --spacing X: spatial resolution of input data (dlon,dlat)
     -I X, --interval X: input grid interval
         1: (0:360, 90:-90)
@@ -48,6 +49,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 06/2025: add option to mask data with subsequent files
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: updated inputs to spatial from_file function
     Updated 12/2022: single implicit import of spherical harmonic tools
@@ -214,6 +216,12 @@ def spatial_operators(INPUT_FILES, OUTPUT_FILE, OPERATION=None, DDEG=None,
             output.replace_invalid(output.fill_value,mask=dinput[i].mask)
         # convert from total in quadrature to RMS
         output = output.scale(1.0/n_files).power(0.5)
+    elif (OPERATION == 'mask'):
+        # mask data with subsequent files
+        output = dinput[0].copy()
+        for i in range(n_files):
+            # update mask with values from file
+            output.replace_invalid(output.fill_value, mask=dinput[i].mask)
 
     # copy date variables
     if DATE:
@@ -256,9 +264,10 @@ def arguments():
         type=pathlib.Path, nargs=1,
         help='Output file')
     # operation to run
+    operations = ['add','subtract','multiply','divide','mean','error','RMS','mask']
     parser.add_argument('--operation','-O',
         metavar='OPERATION', type=str, required=True,
-        choices=['add','subtract','multiply','divide','mean','error','RMS'],
+        choices=operations,
         help='Operation to run')
     # output grid parameters
     parser.add_argument('--spacing','-S',

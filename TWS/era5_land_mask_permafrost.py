@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 era5_land_mask_permafrost.py
-Written by Tyler Sutterley (04/2025)
+Written by Tyler Sutterley (09/2025)
 
 Creates a mask for ERA5-Land based on the permafrost/surface classification
 from the NSIDC Circum-Arctic Map of Permafrost and Ground-Ice Conditions
@@ -40,6 +40,7 @@ REFERENCES:
         ground ice conditions. Boulder, CO: National Snow and Ice Data Center.
 
 UPDATE HISTORY:
+    Updated 09/2025: use importlib to attempt to import dependencies
     Written 04/2025
 """
 from __future__ import print_function
@@ -51,25 +52,14 @@ import logging
 import netCDF4
 import pathlib
 import argparse
-import warnings
 import numpy as np
 import model_harmonics as mdlhmc
 
 # attempt imports
-try:
-    import fiona
-except ModuleNotFoundError:
-    warnings.filterwarnings("module")
-    warnings.warn("fiona not available")
-    warnings.warn("Some functions will throw an exception if called")
-try:
-    import shapely.geometry
-except ModuleNotFoundError:
-    warnings.filterwarnings("module")
-    warnings.warn("shapely not available")
-    warnings.warn("Some functions will throw an exception if called")
-# ignore warnings
-warnings.filterwarnings("ignore")
+fiona = mdlhmc.utilities.import_dependency('fiona')
+shapely = mdlhmc.utilities.import_dependency('shapely')
+shapely.ops = mdlhmc.utilities.import_dependency('shapely.ops')
+shapely.geometry = mdlhmc.utilities.import_dependency('shapely.geometry')
 
 # Read the NSIDC Circum-Arctic Map of Permafrost and Ground-Ice Conditions
 # and create a mask for continuous/discontinuous permafrost

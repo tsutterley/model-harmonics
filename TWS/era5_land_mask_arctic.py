@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 era5_land_mask_arctic.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (09/2023)
 
 Creates a mask for ERA5-Land data for Greenland, Svalbard, Iceland and
     the Russian High Arctic defined by a set of shapefiles
@@ -28,6 +28,7 @@ PYTHON DEPENDENCIES:
         https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 09/2025: use importlib to attempt to import dependencies
     Written 04/2025
 """
 from __future__ import print_function
@@ -39,25 +40,14 @@ import logging
 import netCDF4
 import pathlib
 import argparse
-import warnings
 import numpy as np
 import model_harmonics as mdlhmc
 
 # attempt imports
-try:
-    import fiona
-except ModuleNotFoundError:
-    warnings.filterwarnings("module")
-    warnings.warn("fiona not available")
-    warnings.warn("Some functions will throw an exception if called")
-try:
-    import shapely.geometry
-except ModuleNotFoundError:
-    warnings.filterwarnings("module")
-    warnings.warn("shapely not available")
-    warnings.warn("Some functions will throw an exception if called")
-# ignore warnings
-warnings.filterwarnings("ignore")
+fiona = mdlhmc.utilities.import_dependency('fiona')
+shapely = mdlhmc.utilities.import_dependency('shapely')
+shapely.ops = mdlhmc.utilities.import_dependency('shapely.ops')
+shapely.geometry = mdlhmc.utilities.import_dependency('shapely.geometry')
 
 # PURPOSE: read shapefile to find points within a specified region
 def read_shapefile(input_shapefile, AREA=None, BUFFER=None):

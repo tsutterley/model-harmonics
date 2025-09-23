@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 u"""
 racmo_smb_harmonics.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (06/2025)
 Read RACMO surface mass balance products and converts to spherical harmonics
 Shifts dates of SMB point masses to mid-month values to correspond with GRACE
 
@@ -51,6 +51,7 @@ PROGRAM DEPENDENCIES:
         and filters the GRACE/GRACE-FO coefficients for striping errors
 
 UPDATE HISTORY:
+    Updated 06/2025: generalize the regular expression for model region
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
         use spatial function for calculating geocentric latitude
     Updated 02/2023: use love numbers class with additional attributes
@@ -107,7 +108,7 @@ def racmo_smb_harmonics(model_file, VARIABLE,
     # RACMO SMB model file
     model_file = pathlib.Path(model_file).expanduser().absolute()
     # try to extract region and version from filename
-    R1 = re.compile(r'[XF]?(ANT27|GRN11|GRN055|PEN055|ASE055)',re.VERBOSE)
+    R1 = re.compile(r'[P]?[XF]?(ANT|GRN|PEN|ASE)(\d+)',re.VERBOSE)
     R2 = re.compile(r'(RACMO\d+(\.\d+)?(p\d+)?)',re.VERBOSE)
     REGION = R1.search(model_file.name).group(0)
     VERSION = R2.search(model_file.name).group(0)
