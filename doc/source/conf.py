@@ -37,13 +37,23 @@ release = f"v{version}"
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "matplotlib.sphinxext.plot_directive",
+    "myst_nb",
     "numpydoc",
     'sphinxcontrib.bibtex',
     "sphinx.ext.autodoc",
     "sphinx.ext.graphviz",
     "sphinx.ext.viewcode",
+    "sphinx_design",
     "sphinxarg.ext"
 ]
+
+# use myst for notebooks
+source_suffix = {
+    ".rst": "restructuredtext",
+    ".ipynb": "myst-nb",
+}
+nb_execution_mode = "off"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -63,6 +73,9 @@ numpydoc_show_class_members = False
 pygments_style = 'native'
 bibtex_bibfiles = ['_assets/model-refs.bib']
 bibtex_default_style = 'plain'
+plot_html_show_formats = False
+numfig = True
+numfig_secnum_depth = 1
 
 # -- Options for HTML output -------------------------------------------------
 
