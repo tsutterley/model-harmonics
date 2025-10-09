@@ -1,5 +1,6 @@
-model-harmonics
-===============
+=============================
+model-harmonics Documentation
+=============================
 
 
 Welcome to the documentation for ``model-harmonics``, a set of Python tools for working with model synthetic spherical harmonic fields.
