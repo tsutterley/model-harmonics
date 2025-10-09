@@ -38,9 +38,9 @@ including measurements of ocean winds, temperature, topography, salinity, circul
 PO.DAAC is `migrating its data archive to the Earthdata Cloud <https://podaac.jpl.nasa.gov/cloud-datasets/migration>`_,
 which is hosted in Amazon Web Services (AWS).
 
-If any problems contact JPL PO.DAAC support at `podaac@podaac.jpl.nasa.gov <mailto:podaac@podaac.jpl.nasa.gov>`_
-or the NASA EOSDIS support team `support@earthdata.nasa.gov <mailto:support@earthdata.nasa.gov>`_.
-
+.. tip::
+    If any problems contact JPL PO.DAAC support at `podaac@podaac.jpl.nasa.gov <mailto:podaac@podaac.jpl.nasa.gov>`_
+    or the NASA EOSDIS support team `support@earthdata.nasa.gov <mailto:support@earthdata.nasa.gov>`_.
 
 WebDAV
 ------
