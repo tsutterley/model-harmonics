@@ -37,7 +37,6 @@ release = f"v{version}"
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "matplotlib.sphinxext.plot_directive",
     "myst_nb",
     "numpydoc",
     'sphinxcontrib.bibtex',

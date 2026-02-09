@@ -6962,7 +6962,7 @@ packages:
 - pypi: ./
   name: model-harmonics
   version: 1.1.2
-  sha256: 4886da687e582121e18296eb6c4113c9575a96f95c6e0fb0b08d05d6463ce69f
+  sha256: a5680f81f726cf76f98129ce62594c86e6962936aa7f6c396b024dc4d2da5a5d
   requires_dist:
   - cdsapi
   - ecmwf-api-client
