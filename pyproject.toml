@@ -80,7 +80,7 @@ testpaths = [
 [tool.coverage.run]
 branch = true
 source = [
-    "model-harmonics",
+    "model_harmonics",
     "test",
 ]
 omit = [
