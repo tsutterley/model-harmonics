@@ -1,20 +1,72 @@
-model-harmonics
-===============
+=============================
+model-harmonics Documentation
+=============================
 
-Python tools for obtaining and working with model synthetic spherical
-harmonic coefficients for comparing with data from the the NASA/DLR
-Gravity Recovery and Climate Experiment (GRACE) and the NASA/GFZ
-Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
+
+Welcome to the documentation for ``model-harmonics``, a set of Python tools for working with model synthetic spherical harmonic fields.
+
+This documentation is intended to explain how to obtain and work with
+synthetic spherical harmonic coefficients to order to compare with
+time-variable gravity observations or to provide geophysical corrections.
+
+Introduction
+------------
+
+.. grid:: 2 2 2 2
+    :padding: 0
+
+    .. grid-item-card::  Installation
+      :text-align: center
+      :link: ./getting_started/Install.html
+
+      :material-outlined:`download;5em`
+
+    .. grid-item-card::  Overview
+      :text-align: center
+      :link: ./getting_started/Overview.html
+
+      :material-outlined:`library_books;5em`
+
+Contribute
+----------
+
+.. grid:: 2 2 4 4
+    :padding: 0
+
+    .. grid-item-card::  Guidelines
+      :text-align: center
+      :link: ./getting_started/Contributing.html
+
+      :material-outlined:`groups;5em`
+
+    .. grid-item-card::  Code of Conduct
+      :text-align: center
+      :link: ./getting_started/Code-of-Conduct.html
+
+      :material-outlined:`gavel;5em`
+
+    .. grid-item-card::  Issues
+      :text-align: center
+      :link: https://github.com/tsutterley/model-harmonics/issues
+
+      :material-outlined:`bug_report;5em`
+
+    .. grid-item-card::  Citation Information
+      :text-align: center
+      :link: ./project/Citations.html
+
+      :material-outlined:`alternate_email;5em`
 
 .. toctree::
     :maxdepth: 2
+    :hidden:
     :caption: Getting Started
 
     getting_started/Install.rst
     getting_started/Overview.rst
     getting_started/NASA-Earthdata.rst
     getting_started/Contributing.rst
-    getting_started/Citations.rst
+    getting_started/Code-of-Conduct.rst
 
 .. toctree::
     :maxdepth: 1
@@ -145,6 +197,16 @@ Gravity Recovery and Climate Experiment Follow-On (GRACE-FO) missions
 .. toctree::
     :maxdepth: 1
     :hidden:
+    :caption: Project Details
+
+    project/Contributors.rst
+    project/Licenses.rst
+    project/Testing.rst
+    project/Citations.rst
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
     :caption: Bibliography
 
-    getting_started/Bibliography.rst
+    project/Bibliography.rst

@@ -1,0 +1,176 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "model-harmonics"
+version = "1.1.2"
+description = "Python tools for working with model synthetic spherical harmonic fields"
+keywords = [
+    "gravity",
+    "physical geodesy",
+    "satellite geodesy",
+    "spherical harmonics",
+]
+
+authors = [
+    {name = "Tyler Sutterley"},
+    {name = "Yara Mohajerani"},
+    {name = "Isabella Velicogna"},
+    {email = "tsutterl@uw.edu"}
+]
+maintainers = [{ name = "model-harmonics contributors" }]
+license = {file = "LICENSE"}
+readme = "README.rst"
+
+requires-python = "~=3.6"
+dependencies = [
+    "cdsapi",
+    "ecmwf-api-client",
+    "fiona",
+    "geoid-toolkit",
+    "gravity-toolkit",
+    "h5py",
+    "netCDF4",
+    "pyproj",
+    "shapely",
+    "scikit-learn",
+]
+
+classifiers=[
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+
+[project.urls]
+Homepage = "https://model-harmonics.readthedocs.io"
+Documentation = "https://model-harmonics.readthedocs.io"
+Repository = "https://github.com/tsutterley/model-harmonics"
+Issues = "https://github.com/tsutterley/model-harmonics/issues"
+
+[project.optional-dependencies]
+doc = ["docutils", "graphviz", "myst-nb", "numpydoc", "sphinx", "sphinx-argparse>=0.4", "sphinxcontrib-bibtex", "sphinx-design", "sphinx_rtd_theme"]
+dev = ["flake8", "pytest>=4.6", "pytest-cov", "pytest-xdist"]
+
+[tool.setuptools.packages.find]
+exclude = ["test*", "run*"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+norecursedirs = ".git"
+addopts = "-n auto --verbose --capture=no"
+python_files = [
+    "test*.py"
+]
+testpaths = [
+    "test"
+]
+
+[tool.coverage.run]
+branch = true
+source = [
+    "model_harmonics",
+    "test",
+]
+omit = [
+    "setup.py",
+    "conf.py",
+    "GIA/*",
+    "OBP/*",
+    "reanalysis/*",
+    "scripts/*",
+    "seismic/*",
+    "SMB/*",
+    "TWS/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+precision = 2
+
+[tool.ruff]
+line-length = 80
+indent-width = 4
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+docstring-code-format = false
+
+[tool.pixi.workspace]
+name = "model-harmonics"
+authors = ["model-harmonics contributors"]
+channels = ["conda-forge"]
+platforms = ["osx-arm64", "linux-64", "win-64"]
+
+[tool.pixi.pypi-dependencies]
+model-harmonics = { path = ".", editable = true }
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+dev = { features = ["dev", "doc"], solve-group = "default" }
+doc = { features = ["doc"], solve-group = "default" }
+
+[tool.pixi.tasks.export-env]
+args = [ { "arg" = "flags", "default" = "" } ]
+cmd = "pixi workspace export conda-environment {{ flags }} > environment.yml"
+description = "Export workspace to a conda environment file" 
+
+[tool.pixi.feature.doc.tasks.docs]
+args = [ { "arg" = "flags", "default" = "" } ]
+cmd = "make html {{ flags }}"
+cwd = "doc"
+description = "Create HTML documentation with sphinx"
+
+[tool.pixi.feature.dev.tasks.test]
+args = [ { "arg" = "flags", "default" = "" }, { "arg" = "test", "default" = "." } ]
+cmd = "pytest {{ flags }} {{ test }}"
+cwd = "test"
+description = "Run the pytest suite"
+
+[tool.pixi.feature.dev.tasks.lint]
+args = [ { "arg" = "flags", "default" = "--select=E9,F63,F7,F82 --show-source" }, { "arg" = "test", "default" = "." } ]
+cmd = "flake8 {{ test }} --count {{ flags }} --statistics --extend-exclude 'build/,run/,*.ipynb_checkpoints/,.pixi/'"
+description = "Run flake8 to check for compilation errors"
+
+[tool.pixi.dependencies]
+cdsapi = "*"
+ecmwf-api-client = "*"
+fiona = "*"
+h5py = "*"
+netcdf4 = "*"
+pyproj = "*"
+shapely = "*"
+scikit-learn = "*"
+
+[tool.pixi.feature.dev.dependencies]
+flake8 = "*"
+pytest = "*"
+pytest-cov = "*"
+pytest-xdist = "*"
+
+[tool.pixi.feature.doc.dependencies]
+docutils = "*"
+graphviz = "*"
+markupsafe = "*"
+myst-nb = "*"
+numpydoc = "*"
+sphinx = "*"
+sphinx-argparse = "*"
+sphinxcontrib-bibtex = "*"
+sphinx-design = "*"
+sphinx_rtd_theme = "*"

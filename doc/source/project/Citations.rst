@@ -22,31 +22,16 @@ most recently to the following work:
     from time-variable gravity and ocean model outputs", *Remote Sensing*, 11(18),
     2108, (2019). `doi: 10.3390/rs11182108 <https://doi.org/10.3390/rs11182108>`_
 
-If you have used ``model-harmonics`` in your work, please consider citing our library:
+.. admonition:: Please consider citing our library
 
     T. C. Sutterley, et al., "model-harmonics: Python tools for working with
     spherical harmonic coefficients from atmospheric, oceanic and land surface models",
     (2020). `doi: 10.5281/zenodo.5156964 <https://doi.org/10.5281/zenodo.5156964>`_
 
-Contributors
-############
-
-.. include:: ../../../CONTRIBUTORS.rst
-
-Development
-###########
-This is an open source project.  We welcome any help in maintaining and developing the software and documentation.
-Anyone at any career stage and with any level of coding experience can contribute.
-Please see the `Contribution Guidelines <./Contributing.html>`_ for more information.
-
-Problem Reports
-###############
-If you have found a problem in these programs, or you would like to suggest an improvement or modification,
-please submit a `GitHub issue <https://github.com/tsutterley/model-harmonics/issues>`_ and we will get back to you.
-
 Dependencies
 ############
-These extension routines are dependent on:
+
+This software is also dependent on other Python packages:
 
 - `geoid-toolkit: Python utilities for calculating geoid heights from static gravity field coefficients <https://github.com/tsutterley/geoid-toolkit/>`_
 - `gravity-toolkit: Python tools for working with GRACE/GRACE-FO time-variable gravity data <https://github.com/tsutterley/gravity-toolkit>`_
@@ -70,11 +55,15 @@ These extension routines are dependent on:
 
 Disclaimer
 ##########
+
+This work is currently supported by the NASA GRACE-FO Science Team (Grant Number 80NSSC24K1153).
 This program is not sponsored or maintained by the Universities Space Research Association (USRA),
 the Center for Space Research at the University of Texas (UTCSR),
 the Jet Propulsion Laboratory (JPL),
 the German Research Centre for Geosciences (GeoForschungsZentrum, GFZ) or NASA.
-It is provided here for your convenience but *with no guarantees whatsoever*.
+
+.. caution::
+    This software is provided here for your convenience but *with no guarantees whatsoever*.
 
 This product includes software developed at:
 

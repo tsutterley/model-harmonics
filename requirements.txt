@@ -1,8 +1,0 @@
-cdsapi
-ecmwf-api-client
-fiona
-geoid-toolkit
-gravity-toolkit
-pyproj
-shapely
-scikit-learn
