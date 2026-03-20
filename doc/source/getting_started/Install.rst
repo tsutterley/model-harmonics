@@ -3,14 +3,21 @@ Installation
 ============
 
 ``model-harmonics`` is available for download from the `GitHub repository <https://github.com/tsutterley/model-harmonics>`_,
-and the `Python Package Index (pypi) <https://pypi.org/project/model-harmonics/>`_.
+the `Python Package Index (pypi) <https://pypi.org/project/model-harmonics/>`_,
+and from `conda-forge <https://anaconda.org/conda-forge/model-harmonics>`_.
 
 
-The simplest installation for most users will likely be using ``pip``:
+The simplest installation for most users will likely be using ``conda`` or ``mamba``:
 
 .. code-block:: bash
 
-    pip install model-harmonics
+    conda install -c conda-forge model-harmonics
+
+``conda`` installed versions of ``model-harmonics`` can be upgraded to the latest stable release:
+
+.. code-block:: bash
+
+    conda update model-harmonics
 
 Development Install
 ###################

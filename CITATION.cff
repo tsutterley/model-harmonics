@@ -45,6 +45,9 @@ identifiers:
   - type: url
     value: https://pypi.org/project/model-harmonics
     description: model-harmonics on PyPI
+  - type: url
+    value: https://anaconda.org/conda-forge/model-harmonics
+    description: model-harmonics on conda-forge
 repository-code: 'https://github.com/tsutterley/model-harmonics'
 url: 'https://model-harmonics.readthedocs.io'
 doi: "10.5281/zenodo.5156964"

@@ -5,6 +5,7 @@ model-harmonics
 |License|
 |Documentation Status|
 |PyPI|
+|conda-forge|
 |commits-since|
 |zenodo|
 
@@ -16,6 +17,9 @@ model-harmonics
 
 .. |PyPI| image:: https://img.shields.io/pypi/v/model-harmonics.svg
    :target: https://pypi.python.org/pypi/model-harmonics/
+
+.. |conda-forge| image:: https://img.shields.io/conda/vn/conda-forge/model-harmonics
+   :target: https://anaconda.org/conda-forge/model-harmonics
 
 .. |commits-since| image:: https://img.shields.io/github/commits-since/tsutterley/model-harmonics/latest
    :target: https://github.com/tsutterley/model-harmonics/releases/latest
