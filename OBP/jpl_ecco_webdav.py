@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 jpl_ecco_webdav.py
 Written by Tyler Sutterley (05/2023)
 
@@ -54,6 +54,7 @@ UPDATE HISTORY:
         default credentials from environmental variables
     Written 12/2020 for public release
 """
+
 from __future__ import print_function
 
 import sys
@@ -68,34 +69,45 @@ import posixpath
 import lxml.etree
 import gravity_toolkit as gravtk
 
+
 # PURPOSE: retrieve JPL ECCO Drive WebDAV credentials
 def jpl_ecco_webdav(USER, PASSWORD, parser=lxml.etree.HTMLParser()):
     # build opener for retrieving JPL ECCO Drive WebDAV credentials
     # Add the username and password for NASA Earthdata Login system
     URS = 'https://urs.earthdata.nasa.gov'
-    gravtk.utilities.build_opener(USER, PASSWORD,
-        password_manager=True, authorization_header=True, urs=URS)
+    gravtk.utilities.build_opener(
+        USER,
+        PASSWORD,
+        password_manager=True,
+        authorization_header=True,
+        urs=URS,
+    )
     # All calls to urllib2.urlopen will now use handler
     # Make sure not to include the protocol in with the URL, or
     # HTTPPasswordMgrWithDefaultRealm will be confused.
-    HOST = posixpath.join('https://ecco.jpl.nasa.gov','drive')
+    HOST = posixpath.join('https://ecco.jpl.nasa.gov', 'drive')
     parameters = gravtk.utilities.urlencode(
-        {'client_id':'gA5gkD03X2RMcpJUi8zbRA', 'response_type':'code',
-        'state':base64.b64encode(HOST.encode()),
-        'redirect_uri':posixpath.join(HOST,'authenticated'),
-        'required_scope': 'country+study_area'}
+        {
+            'client_id': 'gA5gkD03X2RMcpJUi8zbRA',
+            'response_type': 'code',
+            'state': base64.b64encode(HOST.encode()),
+            'redirect_uri': posixpath.join(HOST, 'authenticated'),
+            'required_scope': 'country+study_area',
+        }
     )
     # retrieve cookies from NASA Earthdata URS
     request = gravtk.utilities.urllib2.Request(
-        url=posixpath.join(URS,'oauth',f'authorize?{parameters}'))
+        url=posixpath.join(URS, 'oauth', f'authorize?{parameters}')
+    )
     gravtk.utilities.urllib2.urlopen(request)
     # read and parse request for webdav password
     request = gravtk.utilities.urllib2.Request(url=HOST)
     response = gravtk.utilities.urllib2.urlopen(request, timeout=20)
     tree = lxml.etree.parse(response, parser)
-    WEBDAV, = tree.xpath('//input[@id="password"]/@value')
+    (WEBDAV,) = tree.xpath('//input[@id="password"]/@value')
     # return webdav password
     return WEBDAV
+
 
 # PURPOSE: create argument parser
 def arguments():
@@ -106,27 +118,44 @@ def arguments():
     )
     # command line parameters
     # NASA Earthdata credentials
-    parser.add_argument('--user','-U',
-        type=str, default=os.environ.get('EARTHDATA_USERNAME'),
-        help='Username for NASA Earthdata Login')
-    parser.add_argument('--password','-W',
-        type=str, default=os.environ.get('EARTHDATA_PASSWORD'),
-        help='Password for NASA Earthdata Login')
-    parser.add_argument('--netrc','-N',
-        type=pathlib.Path, default=pathlib.Path.home().joinpath('.netrc'),
-        help='Path to .netrc file for authentication')
+    parser.add_argument(
+        '--user',
+        '-U',
+        type=str,
+        default=os.environ.get('EARTHDATA_USERNAME'),
+        help='Username for NASA Earthdata Login',
+    )
+    parser.add_argument(
+        '--password',
+        '-W',
+        type=str,
+        default=os.environ.get('EARTHDATA_PASSWORD'),
+        help='Password for NASA Earthdata Login',
+    )
+    parser.add_argument(
+        '--netrc',
+        '-N',
+        type=pathlib.Path,
+        default=pathlib.Path.home().joinpath('.netrc'),
+        help='Path to .netrc file for authentication',
+    )
     # append to netrc
-    parser.add_argument('--append','-A',
-        default=False, action='store_true',
-        help='Append .netrc file instead of printing')
+    parser.add_argument(
+        '--append',
+        '-A',
+        default=False,
+        action='store_true',
+        help='Append .netrc file instead of printing',
+    )
     # return the parser
     return parser
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # NASA Earthdata hostname
     URS = 'urs.earthdata.nasa.gov'
@@ -134,7 +163,9 @@ def main():
     HOST = 'ecco.jpl.nasa.gov'
     # get NASA Earthdata credentials
     try:
-        args.user,_,args.password = netrc.netrc(args.netrc).authenticators(URS)
+        args.user, _, args.password = netrc.netrc(args.netrc).authenticators(
+            URS
+        )
     except:
         # check that NASA Earthdata credentials were entered
         if not args.user:
@@ -146,7 +177,7 @@ def main():
             args.password = getpass.getpass(prompt)
 
     # check internet connection before attempting to run program
-    DRIVE = posixpath.join('https://ecco.jpl.nasa.gov','drive')
+    DRIVE = posixpath.join('https://ecco.jpl.nasa.gov', 'drive')
     if gravtk.utilities.check_connection(DRIVE):
         # compile HTML parser for lxml
         WEBDAV = jpl_ecco_webdav(args.user, args.password)
@@ -158,6 +189,7 @@ def main():
             args.netrc.chmod(0o600)
         else:
             print(f'\nWebDAV Password for {args.user}@{HOST}:\n\t{WEBDAV}')
+
 
 # run main program
 if __name__ == '__main__':

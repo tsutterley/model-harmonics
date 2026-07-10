@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 merra_smb_cumulative.py
 Written by Tyler Sutterley (06/2023)
 Reads MERRA-2 datafiles to calculate monthly cumulative anomalies
@@ -67,6 +67,7 @@ UPDATE HISTORY:
     Updated 01/2017: can output different data products
     Written 11/2016
 """
+
 from __future__ import print_function
 
 import sys
@@ -78,6 +79,7 @@ import pathlib
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
+
 
 # PURPOSE: read variables from MERRA-2 tavgM_2d_int and tavgM_2d_glc files
 def read_merra_variables(merra_flux_file, merra_ice_surface_file):
@@ -91,30 +93,41 @@ def read_merra_variables(merra_flux_file, merra_ice_surface_file):
         dinput['lat'] = fid1.variables['lat'][:].copy()
         # convert time from netCDF4 units to Julian Days
         date_string = fid1.variables['time'].units
-        epoch,to_secs = gravtk.time.parse_date_string(date_string)
-        dinput['time'] = gravtk.time.convert_delta_time(
-            to_secs*fid1.variables['time'][:],epoch1=epoch,
-            epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0) + 2400000.5
+        epoch, to_secs = gravtk.time.parse_date_string(date_string)
+        dinput['time'] = (
+            gravtk.time.convert_delta_time(
+                to_secs * fid1.variables['time'][:],
+                epoch1=epoch,
+                epoch2=(1858, 11, 17, 0, 0, 0),
+                scale=1.0 / 86400.0,
+            )
+            + 2400000.5
+        )
         # read each variable of interest in MERRA-2 flux file
-        for key in ['PRECCU','PRECLS','PRECSN','EVAP']:
+        for key in ['PRECCU', 'PRECLS', 'PRECSN', 'EVAP']:
             # Getting the data from each NetCDF variable of interest
-            dinput[key] = np.ma.array(fid1.variables[key][:].squeeze(),
-                fill_value=fid1.variables[key]._FillValue)
-            dinput[key].mask = (dinput[key].data == dinput[key].fill_value)
+            dinput[key] = np.ma.array(
+                fid1.variables[key][:].squeeze(),
+                fill_value=fid1.variables[key]._FillValue,
+            )
+            dinput[key].mask = dinput[key].data == dinput[key].fill_value
     # read each variable of interest in MERRA-2 ice surface file
     logging.debug(str(merra_ice_surface_file))
     with netCDF4.Dataset(merra_ice_surface_file, mode='r') as fid2:
-        for key in ['RUNOFF','WESNSC']:
+        for key in ['RUNOFF', 'WESNSC']:
             # Getting the data from each NetCDF variable of interest
-            dinput[key] = np.ma.array(fid2.variables[key][:].squeeze(),
-                fill_value=fid2.variables[key]._FillValue)
-            dinput[key].mask = (dinput[key].data == dinput[key].fill_value)
+            dinput[key] = np.ma.array(
+                fid2.variables[key][:].squeeze(),
+                fill_value=fid2.variables[key]._FillValue,
+            )
+            dinput[key].mask = dinput[key].data == dinput[key].fill_value
     return dinput
 
-# PURPOSE: read monthly MERRA-2 datasets to calculate cumulative anomalies
-def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
-    VERBOSE=False, MODE=0o775):
 
+# PURPOSE: read monthly MERRA-2 datasets to calculate cumulative anomalies
+def merra_smb_cumulative(
+    DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None, VERBOSE=False, MODE=0o775
+):
     # create logger for verbosity level
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[VERBOSE])
@@ -130,8 +143,14 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     # regular expression operator to find datafiles (and not the xml files)
     regex_pattern = r'MERRA2_(\d+).{0}.(\d{{4}})(\d{{2}}).nc4(?!.xml)'
     # sign for each product to calculate total SMB
-    smb_sign = {'PRECCU':1.0,'PRECLS':1.0,'PRECSN':1.0,'EVAP':-1.0,
-        'RUNOFF':-1.0,'WESNSC':1.0}
+    smb_sign = {
+        'PRECCU': 1.0,
+        'PRECLS': 1.0,
+        'PRECSN': 1.0,
+        'EVAP': -1.0,
+        'RUNOFF': -1.0,
+        'WESNSC': 1.0,
+    }
     # titles for each output data product
     merra_products = {}
     merra_products['SMB'] = 'MERRA-2 Surface Mass Balance'
@@ -142,21 +161,28 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     merra_products['RUNOFF'] = 'MERRA-2 Meltwater Runoff'
     # source of each output data product
     merra_sources = {}
-    merra_sources['SMB'] = ['PRECCU','PRECLS','PRECSN','EVAP','RUNOFF','WESNSC']
-    merra_sources['ACCUM'] = ['PRECSN','EVAP']
-    merra_sources['PRECIP'] = ['PRECCU','PRECLS','PRECSN']
-    merra_sources['RAINFALL'] = ['PRECCU','PRECLS']
-    merra_sources['SUBLIM'] = ['EVAP','WESNSC']
+    merra_sources['SMB'] = [
+        'PRECCU',
+        'PRECLS',
+        'PRECSN',
+        'EVAP',
+        'RUNOFF',
+        'WESNSC',
+    ]
+    merra_sources['ACCUM'] = ['PRECSN', 'EVAP']
+    merra_sources['PRECIP'] = ['PRECCU', 'PRECLS', 'PRECSN']
+    merra_sources['RAINFALL'] = ['PRECCU', 'PRECLS']
+    merra_sources['SUBLIM'] = ['EVAP', 'WESNSC']
     merra_sources['RUNOFF'] = ['RUNOFF']
     # output data file format
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
     # output bad value
     fill_value = -9999.0
     # output dimensions and extents
-    nlat,nlon = (361,576)
-    extent = [-180.0,179.375,-90.0,90.0]
+    nlat, nlon = (361, 576)
+    extent = [-180.0, 179.375, -90.0, 90.0]
     # grid spacing
-    dlon,dlat = (0.625,0.5)
+    dlon, dlat = (0.625, 0.5)
 
     # attributes for output files
     attributes = {}
@@ -172,27 +198,43 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
     args = (PRODUCT, RANGE[0], RANGE[1], suffix[DATAFORM])
     mean_file = 'MERRA2.tavgM_2d_{0}_mean_Nx.{1:4d}-{2:4d}.{3}'.format(*args)
     # remove singleton dimensions
-    if (DATAFORM == 'ascii'):
+    if DATAFORM == 'ascii':
         # ascii (.txt)
-        merra_mean = gravtk.spatial().from_ascii(
-            DIRECTORY.joinpath(mean_file),
-            date=False, spacing=[dlon,dlat],
-            nlat=nlat, nlon=nlon, extent=extent).squeeze()
-    elif (DATAFORM == 'netCDF4'):
+        merra_mean = (
+            gravtk.spatial()
+            .from_ascii(
+                DIRECTORY.joinpath(mean_file),
+                date=False,
+                spacing=[dlon, dlat],
+                nlat=nlat,
+                nlon=nlon,
+                extent=extent,
+            )
+            .squeeze()
+        )
+    elif DATAFORM == 'netCDF4':
         # netcdf (.nc)
-        merra_mean = gravtk.spatial().from_netCDF4(
-            DIRECTORY.joinpath(mean_file),
-            date=False, varname=PRODUCT).squeeze()
-    elif (DATAFORM == 'HDF5'):
+        merra_mean = (
+            gravtk.spatial()
+            .from_netCDF4(
+                DIRECTORY.joinpath(mean_file), date=False, varname=PRODUCT
+            )
+            .squeeze()
+        )
+    elif DATAFORM == 'HDF5':
         # HDF5 (.H5)
-        merra_mean = gravtk.spatial().from_HDF5(
-            DIRECTORY.joinpath(mean_file),
-            date=False, varname=PRODUCT).squeeze()
+        merra_mean = (
+            gravtk.spatial()
+            .from_HDF5(
+                DIRECTORY.joinpath(mean_file), date=False, varname=PRODUCT
+            )
+            .squeeze()
+        )
 
     # find years of available data
-    YEARS = sorted([d for d in P1.iterdir() if re.match(r'\d{4}',d.name)])
+    YEARS = sorted([d for d in P1.iterdir() if re.match(r'\d{4}', d.name)])
     # check that are years are available
-    for Y in range(int(YEARS[9].name), int(YEARS[-1].name)+1):
+    for Y in range(int(YEARS[9].name), int(YEARS[-1].name) + 1):
         if not P1.joinpath(str(Y)).exists():
             raise FileNotFoundError('Not all years available on file system')
     # compile regular expression operator for flux product
@@ -200,11 +242,11 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
 
     # monthly cumulative anomalies
     # cumulative mass anomalies calculated by removing mean balance flux
-    cumul = gravtk.spatial(nlat=nlat,nlon=nlon,fill_value=fill_value)
+    cumul = gravtk.spatial(nlat=nlat, nlon=nlon, fill_value=fill_value)
     cumul.lat = np.copy(merra_mean.lat)
     cumul.lon = np.copy(merra_mean.lon)
     # output data and mask
-    cumul.data = np.zeros((nlat,nlon))
+    cumul.data = np.zeros((nlat, nlon))
     cumul.mask = np.copy(merra_mean.mask)
     # for each input file
     for Y in YEARS:
@@ -218,13 +260,13 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
         indices = np.argsort([rx.match(f.name).group(3) for f in input_files])
         input_files = [input_files[indice] for indice in indices]
         # for each monthly file
-        for M,merra_flux_file in enumerate(input_files):
+        for M, merra_flux_file in enumerate(input_files):
             # extract parameters from input flux file
-            MOD,Y1,M1 = rx.findall(merra_flux_file.name).pop()
+            MOD, Y1, M1 = rx.findall(merra_flux_file.name).pop()
             # days per month in year
             dpm = gravtk.time.calendar_days(int(Y1))
             # corresponding ice surface product file
-            args = (MOD,'tavgM_2d_glc_Nx',Y1,M1)
+            args = (MOD, 'tavgM_2d_glc_Nx', Y1, M1)
             f2 = 'MERRA2_{0}.{1}.{2}{3}.nc4'.format(*args)
             # full path for flux and ice surface files
             merra_ice_surface_file = d2.joinpath(f2)
@@ -234,55 +276,63 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
             # read netCDF4 files for variables of interest
             var = read_merra_variables(merra_flux_file, merra_ice_surface_file)
             # convert from Julian days to calendar dates
-            YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(var['time'],
-                FORMAT='tuple')
+            YY, MM, DD, hh, mm, ss = gravtk.time.convert_julian(
+                var['time'], FORMAT='tuple'
+            )
             # calculate the total seconds in month
-            seconds = dpm[M]*24.0*60.0*60.0
+            seconds = dpm[M] * 24.0 * 60.0 * 60.0
             # spatial object for monthly variable
-            dinput = gravtk.spatial(nlat=nlat,nlon=nlon,
-                fill_value=fill_value)
+            dinput = gravtk.spatial(nlat=nlat, nlon=nlon, fill_value=fill_value)
             dinput.lat = np.copy(var['lat'])
             dinput.lon = np.copy(var['lon'])
             # calculate time in year decimal
-            dinput.time = gravtk.time.convert_calendar_decimal(YY,
-                MM,day=DD,hour=hh,minute=mm,second=ss)
+            dinput.time = gravtk.time.convert_calendar_decimal(
+                YY, MM, day=DD, hour=hh, minute=mm, second=ss
+            )
             # output data and mask
-            dinput.data = np.zeros((nlat,nlon))
-            dinput.mask = np.zeros((nlat,nlon),dtype=bool)
-            for p in ['PRECCU','PRECLS','PRECSN','EVAP','RUNOFF','WESNSC']:
+            dinput.data = np.zeros((nlat, nlon))
+            dinput.mask = np.zeros((nlat, nlon), dtype=bool)
+            for p in ['PRECCU', 'PRECLS', 'PRECSN', 'EVAP', 'RUNOFF', 'WESNSC']:
                 dinput.mask |= var[p].mask
             # valid indices for all variables
-            indy,indx = np.nonzero(np.logical_not(dinput.mask))
-            if (PRODUCT == 'SMB'):
+            indy, indx = np.nonzero(np.logical_not(dinput.mask))
+            if PRODUCT == 'SMB':
                 # calculate SMB and convert from flux to monthly
-                for p in ['PRECCU','PRECLS','PRECSN','EVAP','RUNOFF','WESNSC']:
-                    tmp = var[p][indy,indx]*seconds*smb_sign[p]
-                    dinput.data[indy,indx] += tmp
-            elif (PRODUCT == 'ACCUM'):
+                for p in [
+                    'PRECCU',
+                    'PRECLS',
+                    'PRECSN',
+                    'EVAP',
+                    'RUNOFF',
+                    'WESNSC',
+                ]:
+                    tmp = var[p][indy, indx] * seconds * smb_sign[p]
+                    dinput.data[indy, indx] += tmp
+            elif PRODUCT == 'ACCUM':
                 # calculate accumulation and convert from flux to monthly
-                for p in ['PRECSN','EVAP','WESNSC']:
-                    tmp = var[p][indy,indx]*seconds*smb_sign[p]
-                    dinput.data[indy,indx] += tmp
-            elif (PRODUCT == 'PRECIP'):
+                for p in ['PRECSN', 'EVAP', 'WESNSC']:
+                    tmp = var[p][indy, indx] * seconds * smb_sign[p]
+                    dinput.data[indy, indx] += tmp
+            elif PRODUCT == 'PRECIP':
                 # calculate precipitation and convert from flux to monthly
-                for p in ['PRECCU','PRECLS','PRECSN']:
-                    tmp = var[p][indy,indx]*seconds
-                    dinput.data[indy,indx] += tmp
-            elif (PRODUCT == 'RAINFALL'):
+                for p in ['PRECCU', 'PRECLS', 'PRECSN']:
+                    tmp = var[p][indy, indx] * seconds
+                    dinput.data[indy, indx] += tmp
+            elif PRODUCT == 'RAINFALL':
                 # calculate rainfall and convert from flux to monthly
-                for p in ['PRECCU','PRECLS']:
-                    tmp = var[p][indy,indx]*seconds
-                    dinput.data[indy,indx] += tmp
-            elif (PRODUCT == 'SUBLIM'):
+                for p in ['PRECCU', 'PRECLS']:
+                    tmp = var[p][indy, indx] * seconds
+                    dinput.data[indy, indx] += tmp
+            elif PRODUCT == 'SUBLIM':
                 # calculate sublimation and convert from flux to monthly
-                for p in ['EVAP','WESNSC']:
-                    tmp = var[p][indy,indx]*seconds
-                    dinput.data[indy,indx] += tmp
-            elif (PRODUCT == 'RUNOFF'):
+                for p in ['EVAP', 'WESNSC']:
+                    tmp = var[p][indy, indx] * seconds
+                    dinput.data[indy, indx] += tmp
+            elif PRODUCT == 'RUNOFF':
                 # convert runoff from flux to monthly
                 for p in ['RUNOFF']:
-                    tmp = var[p][indy,indx]*seconds
-                    dinput.data[indy,indx] += tmp
+                    tmp = var[p][indy, indx] * seconds
+                    dinput.data[indy, indx] += tmp
             # update masks
             dinput.update_mask()
             # subtract mean and add to cumulative anomalies
@@ -293,20 +343,21 @@ def merra_smb_cumulative(DIRECTORY, PRODUCT, RANGE=None, DATAFORM=None,
             # copy cumulative variables to output data
             output = cumul.copy()
             # output MERRA-2 cumulative data file
-            args = (MOD,PRODUCT,Y1,M1,suffix[DATAFORM])
+            args = (MOD, PRODUCT, Y1, M1, suffix[DATAFORM])
             FILE = 'MERRA2_{0}.tavgM_2d_{1}_cumul_Nx.{2}{3}.{4}'.format(*args)
             output_file = output_dir.joinpath(FILE)
-            if (DATAFORM == 'ascii'):
+            if DATAFORM == 'ascii':
                 # ascii (.txt)
                 output.to_ascii(output_file, verbose=VERBOSE)
-            elif (DATAFORM == 'netCDF4'):
+            elif DATAFORM == 'netCDF4':
                 # netcdf (.nc)
                 output.to_netCDF4(output_file, verbose=VERBOSE, **attributes)
-            elif (DATAFORM == 'HDF5'):
+            elif DATAFORM == 'HDF5':
                 # HDF5 (.H5)
                 output.to_HDF5(output_file, verbose=VERBOSE, **attributes)
             # change the permissions mode
             output_file.chmod(mode=MODE)
+
 
 # PURPOSE: create argument parser
 def arguments():
@@ -317,46 +368,79 @@ def arguments():
             """
     )
     # command line parameters
-    choices = ['SMB','ACCUM','PRECIP','RAINFALL','SUBLIM','RUNOFF']
-    parser.add_argument('product',
-        type=str, nargs='+', choices=choices,
-        help='MERRA-2 derived product')
+    choices = ['SMB', 'ACCUM', 'PRECIP', 'RAINFALL', 'SUBLIM', 'RUNOFF']
+    parser.add_argument(
+        'product',
+        type=str,
+        nargs='+',
+        choices=choices,
+        help='MERRA-2 derived product',
+    )
     # working data directory
-    parser.add_argument('--directory','-D',
-        type=pathlib.Path, default=pathlib.Path.cwd(),
-        help='Working data directory')
+    parser.add_argument(
+        '--directory',
+        '-D',
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
+        help='Working data directory',
+    )
     # start and end years to run for mean
-    parser.add_argument('--mean','-m',
-        metavar=('START','END'), type=int, nargs=2,
-        default=[1980,1995],
-        help='Start and end year range for mean')
+    parser.add_argument(
+        '--mean',
+        '-m',
+        metavar=('START', 'END'),
+        type=int,
+        nargs=2,
+        default=[1980, 1995],
+        help='Start and end year range for mean',
+    )
     # input and output data format (ascii, netCDF4, HDF5)
-    parser.add_argument('--format','-F',
-        type=str, default='netCDF4', choices=['ascii','netCDF4','HDF5'],
-        help='Input and output data format')
+    parser.add_argument(
+        '--format',
+        '-F',
+        type=str,
+        default='netCDF4',
+        choices=['ascii', 'netCDF4', 'HDF5'],
+        help='Input and output data format',
+    )
     # print information about each output file
-    parser.add_argument('--verbose','-V',
-        action='count', default=0,
-        help='Verbose output of processing run')
+    parser.add_argument(
+        '--verbose',
+        '-V',
+        action='count',
+        default=0,
+        help='Verbose output of processing run',
+    )
     # permissions mode of the local directories and files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='Permission mode of directories and files')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='Permission mode of directories and files',
+    )
     # return the parser
     return parser
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # run program for each input product
     for PRODUCT in args.product:
-        merra_smb_cumulative(args.directory, PRODUCT, RANGE=args.mean,
-            DATAFORM=args.format, VERBOSE=args.verbose, MODE=args.mode)
+        merra_smb_cumulative(
+            args.directory,
+            PRODUCT,
+            RANGE=args.mean,
+            DATAFORM=args.format,
+            VERBOSE=args.verbose,
+            MODE=args.mode,
+        )
+
 
 # run main program
 if __name__ == '__main__':
     main()
-

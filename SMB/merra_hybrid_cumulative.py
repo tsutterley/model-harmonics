@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 merra_hybrid_cumulative.py
 Written by Tyler Sutterley (02/2023)
 Reads MERRA-2 hybrid datafiles to calculate cumulative anomalies in
@@ -49,6 +49,7 @@ UPDATE HISTORY:
         added gzip compression option
     Written 10/2019
 """
+
 from __future__ import print_function
 
 import re
@@ -62,10 +63,12 @@ import argparse
 import numpy as np
 import model_harmonics as mdlhmc
 
+
 # PURPOSE: calculate cumulative anomalies in MERRA-2 hybrid
 # surface mass balance variables
-def merra_hybrid_cumulative(base_dir, REGION, VERSION,
-    RANGE=None, GZIP=False, MODE=0o775):
+def merra_hybrid_cumulative(
+    base_dir, REGION, VERSION, RANGE=None, GZIP=False, MODE=0o775
+):
     """
     Calculates cumulative anomalies of MERRA-2 hybrid
     surface mass balance products
@@ -95,35 +98,35 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION,
     DIRECTORY = base_dir.joinpath(VERSION)
     # set version parameters
     suffix = '.gz' if GZIP else ''
-    if (VERSION == 'v0'):
+    if VERSION == 'v0':
         # input and output netCDF4 files
-        args = (REGION.lower(),suffix)
+        args = (REGION.lower(), suffix)
         hybrid_file = 'm2_hybrid_p_minus_e_melt_{0}.nc{1}'.format(*args)
         output_file = 'm2_hybrid_cumul_{0}.nc{1}'.format(*args)
         # names of variables to read
-        VARIABLES = ('p_minus_e','melt')
+        VARIABLES = ('p_minus_e', 'melt')
         AREA = None
         anomaly_flag = '_anomaly'
-    elif VERSION in ('v1','v1.0'):
+    elif VERSION in ('v1', 'v1.0'):
         # input and output netCDF4 files
-        MAJOR_VERSION = re.match(r'((v\d+)(\.\d+)?)$',VERSION).group(2)
-        args = (MAJOR_VERSION,REGION.lower(),suffix)
+        MAJOR_VERSION = re.match(r'((v\d+)(\.\d+)?)$', VERSION).group(2)
+        args = (MAJOR_VERSION, REGION.lower(), suffix)
         hybrid_file = 'gsfc_fdm_smb_{0}_{1}.nc{2}'.format(*args)
         output_file = 'gsfc_fdm_smb_cumul_{0}_{1}.nc{2}'.format(*args)
         # names of variables to read
-        VARIABLES = ('runoff','rainfall','snowfall_minus_sublimation','SMB')
+        VARIABLES = ('runoff', 'rainfall', 'snowfall_minus_sublimation', 'SMB')
         AREA = None
         # flag to append to output netCDF4 variables
         anomaly_flag = '_anomaly'
     else:
         # input and output netCDF4 files
-        FILE_VERSION = VERSION.replace('.','_')
-        args = (FILE_VERSION,REGION.lower(),suffix)
+        FILE_VERSION = VERSION.replace('.', '_')
+        args = (FILE_VERSION, REGION.lower(), suffix)
         firn_height_file = 'gsfc_fdm_{0}_{1}.nc{2}'.format(*args)
         hybrid_file = 'gsfc_fdm_smb_{0}_{1}.nc{2}'.format(*args)
         output_file = 'gsfc_fdm_smb_cumul_{0}_{1}.nc{2}'.format(*args)
         # names of variables to read
-        VARIABLES = ('Me','Ra','Ru','Sn-Ev','SMB')
+        VARIABLES = ('Me', 'Ra', 'Ru', 'Sn-Ev', 'SMB')
         AREA = 'iArea'
         # flag to append to output netCDF4 variables
         anomaly_flag = '_a'
@@ -152,9 +155,11 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION,
         fd[AREA] = fileID.variables[AREA][:].copy()
         # get each attribute for area variable if applicable
         attrs[AREA] = {}
-        for att_name in ['units','long_name','standard_name']:
-            if hasattr(fileID.variables[AREA],att_name):
-                attrs[AREA][att_name]=fileID.variables[AREA].getncattr(att_name)
+        for att_name in ['units', 'long_name', 'standard_name']:
+            if hasattr(fileID.variables[AREA], att_name):
+                attrs[AREA][att_name] = fileID.variables[AREA].getncattr(
+                    att_name
+                )
     elif AREA:
         # Open the MERRA-2 Hybrid firn height file for reading
         input_firn_file = DIRECTORY.joinpath(firn_height_file)
@@ -170,26 +175,26 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION,
         fd[AREA] = fid1.variables[AREA][:].copy()
         # get each attribute for area variable if applicable
         attrs[AREA] = {}
-        for att_name in ['units','long_name','standard_name']:
-            if hasattr(fid1.variables[AREA],att_name):
-                attrs[AREA][att_name]=fid1.variables[AREA].getncattr(att_name)
+        for att_name in ['units', 'long_name', 'standard_name']:
+            if hasattr(fid1.variables[AREA], att_name):
+                attrs[AREA][att_name] = fid1.variables[AREA].getncattr(att_name)
         # close the firn height file
         fid1.close()
 
     # extract x and y coordinate arrays from grids if applicable
     # else create meshgrids of coordinate arrays
-    if (np.ndim(fileID.variables['x'][:]) == 2):
+    if np.ndim(fileID.variables['x'][:]) == 2:
         xg = fileID.variables['x'][:].copy()
         yg = fileID.variables['y'][:].copy()
-        fd['x'],fd['y'] = (xg[:,0],yg[0,:])
+        fd['x'], fd['y'] = (xg[:, 0], yg[0, :])
     else:
         fd['x'] = fileID.variables['x'][:].copy()
         fd['y'] = fileID.variables['y'][:].copy()
-        xg,yg = np.meshgrid(fd['x'],fd['y'],indexing='ij')
+        xg, yg = np.meshgrid(fd['x'], fd['y'], indexing='ij')
     # time is year decimal at time step 5 days
-    time_step = 5.0/365.25
+    time_step = 5.0 / 365.25
     # calculate mean period for MERRA-2
-    tt, = np.nonzero((fd['time'] >= RANGE[0]) & (fd['time'] < (RANGE[1]+1)))
+    (tt,) = np.nonzero((fd['time'] >= RANGE[0]) & (fd['time'] < (RANGE[1] + 1)))
 
     # for each variable
     for v in VARIABLES:
@@ -198,31 +203,31 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION,
         # invalid data value
         DATA.fill_value = np.float64(fileID.variables[v]._FillValue)
         # set masks
-        DATA.mask = (DATA.data == DATA.fill_value)
+        DATA.mask = DATA.data == DATA.fill_value
         # get each attribute for variable if applicable
         attrs[v] = {}
-        for att_name in ['units','long_name','standard_name','comment']:
-            if hasattr(fileID.variables[v],att_name):
+        for att_name in ['units', 'long_name', 'standard_name', 'comment']:
+            if hasattr(fileID.variables[v], att_name):
                 attrs[v][att_name] = fileID.variables[v].getncattr(att_name)
         # input shape of MERRA-2 Hybrid firn data
-        nt,nx,ny = np.shape(DATA)
+        nt, nx, ny = np.shape(DATA)
 
         # cumulative mass anomalies calculated by removing mean balance flux
         # mean of data for variable (converted from yearly rate)
-        MEAN = np.mean(DATA.data[tt,:,:]*time_step, axis=0)
+        MEAN = np.mean(DATA.data[tt, :, :] * time_step, axis=0)
         # indices of specified ice mask at the first slice
-        i,j = np.nonzero(~DATA.mask[0,:,:])
-        valid_count = np.count_nonzero(~DATA.mask[0,:,:])
+        i, j = np.nonzero(~DATA.mask[0, :, :])
+        valid_count = np.count_nonzero(~DATA.mask[0, :, :])
         # allocate for output variable
-        fd[v] = np.ma.zeros((nt,nx,ny),fill_value=DATA.fill_value)
-        fd[v].mask = (DATA.mask | np.isnan(DATA.data))
+        fd[v] = np.ma.zeros((nt, nx, ny), fill_value=DATA.fill_value)
+        fd[v].mask = DATA.mask | np.isnan(DATA.data)
         CUMULATIVE = np.zeros((valid_count))
         # calculate output cumulative anomalies for variable
         for t in range(nt):
             # convert mass flux from yearly rate and
             # calculate cumulative anomalies at time t
-            CUMULATIVE += (DATA.data[t,i,j]*time_step - MEAN[i,j])
-            fd[v].data[t,i,j] = CUMULATIVE.copy()
+            CUMULATIVE += DATA.data[t, i, j] * time_step - MEAN[i, j]
+            fd[v].data[t, i, j] = CUMULATIVE.copy()
         # replace masked values with fill value
         fd[v].data[fd[v].mask] = fd[v].fill_value
     # close the NetCDF files
@@ -235,12 +240,12 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION,
     # output MERRA-2 data file with cumulative data
     if GZIP:
         # open virtual file object for output
-        fileID = netCDF4.Dataset(uuid.uuid4().hex, 'w',
-            memory=True, format='NETCDF4')
+        fileID = netCDF4.Dataset(
+            uuid.uuid4().hex, 'w', memory=True, format='NETCDF4'
+        )
     else:
         # opening NetCDF file for writing
-        fileID = netCDF4.Dataset(output_cumulative_file, 'w',
-            format='NETCDF4')
+        fileID = netCDF4.Dataset(output_cumulative_file, 'w', format='NETCDF4')
 
     # Defining the NetCDF dimensions
     fileID.createDimension('x', nx)
@@ -255,28 +260,45 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION,
     nc['time'] = fileID.createVariable('time', fd['time'].dtype, ('time',))
     # output area variable
     if AREA:
-        nc[AREA] = fileID.createVariable(AREA, fd[AREA].dtype, ('x','y',),
-            fill_value=fd[AREA].fill_value, zlib=True)
+        nc[AREA] = fileID.createVariable(
+            AREA,
+            fd[AREA].dtype,
+            (
+                'x',
+                'y',
+            ),
+            fill_value=fd[AREA].fill_value,
+            zlib=True,
+        )
     # for each output variable
     for v in VARIABLES:
         # append anomaly flag
         var = f'{v}{anomaly_flag}'
-        nc[v] = fileID.createVariable(var, fd[v].dtype, ('time','x','y',),
-            fill_value=fd[v].fill_value, zlib=True)
+        nc[v] = fileID.createVariable(
+            var,
+            fd[v].dtype,
+            (
+                'time',
+                'x',
+                'y',
+            ),
+            fill_value=fd[v].fill_value,
+            zlib=True,
+        )
 
     # filling NetCDF variables
-    for key,val in fd.items():
+    for key, val in fd.items():
         nc[key][:] = val.copy()
 
     # create variable and attributes for projection
     if REGION in ('gris',):
-        crs = fileID.createVariable('Polar_Stereographic',np.byte,())
+        crs = fileID.createVariable('Polar_Stereographic', np.byte, ())
         crs.standard_name = 'Polar_Stereographic'
         crs.grid_mapping_name = 'polar_stereographic'
         crs.straight_vertical_longitude_from_pole = -45.0
         crs.latitude_of_projection_origin = 90.0
         crs.standard_parallel = 70.0
-        crs.scale_factor_at_projection_origin = 1.
+        crs.scale_factor_at_projection_origin = 1.0
         crs.false_easting = 0.0
         crs.false_northing = 0.0
         crs.semi_major_axis = 6378.137
@@ -284,13 +306,13 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION,
         crs.inverse_flattening = 298.257223563
         crs.spatial_epsg = '3413'
     elif REGION in ('ais',):
-        crs = fileID.createVariable('Polar_Stereographic',np.byte,())
+        crs = fileID.createVariable('Polar_Stereographic', np.byte, ())
         crs.standard_name = 'Polar_Stereographic'
         crs.grid_mapping_name = 'polar_stereographic'
         crs.straight_vertical_longitude_from_pole = 0.0
         crs.latitude_of_projection_origin = -90.0
         crs.standard_parallel = -71.0
-        crs.scale_factor_at_projection_origin = 1.
+        crs.scale_factor_at_projection_origin = 1.0
         crs.false_easting = 0.0
         crs.false_northing = 0.0
         crs.semi_major_axis = 6378.137
@@ -310,30 +332,34 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION,
     # defining attributes for area variable
     if AREA:
         # set area variable attributes
-        for att_name,att_val in attrs[AREA].items():
-            nc[AREA].setncattr(att_name,att_val)
+        for att_name, att_val in attrs[AREA].items():
+            nc[AREA].setncattr(att_name, att_val)
         # set grid mapping attribute
-        nc[AREA].setncattr('grid_mapping','Polar_Stereographic')
+        nc[AREA].setncattr('grid_mapping', 'Polar_Stereographic')
     # Defining attributes for variables
     for v in VARIABLES:
         # set variable attributes
-        for att_name,att_val in attrs[v].items():
-            nc[v].setncattr(att_name,att_val.replace(' per year',''))
+        for att_name, att_val in attrs[v].items():
+            nc[v].setncattr(att_name, att_val.replace(' per year', ''))
         # set grid mapping attribute
-        nc[v].setncattr('grid_mapping','Polar_Stereographic')
+        nc[v].setncattr('grid_mapping', 'Polar_Stereographic')
     # Defining attributes for date
     nc['time'].long_name = 'time, 5-daily resolution'
     nc['time'].units = 'decimal years, 5-daily resolution'
     # global attributes of NetCDF file
-    fileID.title = (f'Cumulative anomalies in GSFC-FDM{VERSION} variables '
-        f'relative to {RANGE[0]:4d}-{RANGE[1]:4d}')
-    fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
+    fileID.title = (
+        f'Cumulative anomalies in GSFC-FDM{VERSION} variables '
+        f'relative to {RANGE[0]:4d}-{RANGE[1]:4d}'
+    )
+    fileID.date_created = time.strftime('%Y-%m-%d', time.localtime())
     fileID.source = f'version {VERSION}'
-    fileID.references = ("Medley, B., Neumann, T. A., Zwally, H. J., "
-        "Smith, B. E., and Stevens, C. M.: Simulations of Firn Processes "
-        "over the Greenland and Antarctic Ice Sheets: 1980--2021, "
-        "The Cryosphere, https://doi.org/10.5194/tc-16-3971-2022, 2022.")
-    fileID.institution = "NASA Goddard Space Flight Center (GSFC)"
+    fileID.references = (
+        'Medley, B., Neumann, T. A., Zwally, H. J., '
+        'Smith, B. E., and Stevens, C. M.: Simulations of Firn Processes '
+        'over the Greenland and Antarctic Ice Sheets: 1980--2021, '
+        'The Cryosphere, https://doi.org/10.5194/tc-16-3971-2022, 2022.'
+    )
+    fileID.institution = 'NASA Goddard Space Flight Center (GSFC)'
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
@@ -351,6 +377,7 @@ def merra_hybrid_cumulative(base_dir, REGION, VERSION,
     # change the permissions mode
     output_cumulative_file.chmod(mode=MODE)
 
+
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
@@ -361,51 +388,90 @@ def arguments():
     )
     # command line parameters
     # working data directory
-    parser.add_argument('--directory','-D',
-        type=pathlib.Path, default=pathlib.Path.cwd(),
-        help='Working data directory')
+    parser.add_argument(
+        '--directory',
+        '-D',
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
+        help='Working data directory',
+    )
     # region of firn model
-    parser.add_argument('--region','-R',
-        type=str, default='gris', choices=['gris','ais'],
-        help='Region of firn model to calculate')
+    parser.add_argument(
+        '--region',
+        '-R',
+        type=str,
+        default='gris',
+        choices=['gris', 'ais'],
+        help='Region of firn model to calculate',
+    )
     # version of firn model
-    versions = ['v0','v1','v1.0','v1.1','v1.2','v1.2.1']
-    parser.add_argument('--version','-v',
-        type=str, default='v1.2.1', choices=versions,
-        help='Version of firn model to calculate')
+    versions = ['v0', 'v1', 'v1.0', 'v1.1', 'v1.2', 'v1.2.1']
+    parser.add_argument(
+        '--version',
+        '-v',
+        type=str,
+        default='v1.2.1',
+        choices=versions,
+        help='Version of firn model to calculate',
+    )
     # start and end years to run for mean
-    parser.add_argument('--mean','-m',
-        metavar=('START','END'), type=int, nargs=2,
-        default=[1980,1995],
-        help='Start and end year range for mean')
+    parser.add_argument(
+        '--mean',
+        '-m',
+        metavar=('START', 'END'),
+        type=int,
+        nargs=2,
+        default=[1980, 1995],
+        help='Start and end year range for mean',
+    )
     # netCDF4 files are gzip compressed
-    parser.add_argument('--gzip','-G',
-        default=False, action='store_true',
-        help='netCDF4 file is locally gzip compressed')
+    parser.add_argument(
+        '--gzip',
+        '-G',
+        default=False,
+        action='store_true',
+        help='netCDF4 file is locally gzip compressed',
+    )
     # print information about each input and output file
-    parser.add_argument('--verbose','-V',
-        action='count', default=0,
-        help='Verbose output of processing run')
+    parser.add_argument(
+        '--verbose',
+        '-V',
+        action='count',
+        default=0,
+        help='Verbose output of processing run',
+    )
     # permissions mode of the local directories and files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='Permission mode of directories and files')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='Permission mode of directories and files',
+    )
     # return the parser
     return parser
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[args.verbose])
 
     # run program
-    merra_hybrid_cumulative(args.directory, args.region, args.version,
-        RANGE=args.mean, GZIP=args.gzip, MODE=args.mode)
+    merra_hybrid_cumulative(
+        args.directory,
+        args.region,
+        args.version,
+        RANGE=args.mean,
+        GZIP=args.gzip,
+        MODE=args.mode,
+    )
+
 
 # run main program
 if __name__ == '__main__':

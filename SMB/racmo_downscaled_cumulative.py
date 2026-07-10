@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 racmo_downscaled_cumulative.py
 Written by Tyler Sutterley (06/2024)
 Calculates cumulative anomalies of RACMO surface mass balance products
@@ -49,6 +49,7 @@ UPDATE HISTORY:
     Updated 02/2017: using getopt to set base directory
     Written 10/2016
 """
+
 from __future__ import print_function
 
 import sys
@@ -80,6 +81,7 @@ input_products['RUNOFF'] = 'runoff'
 input_products['SNOWMELT'] = 'snowmelt'
 input_products['REFREEZE'] = 'refreeze'
 
+
 # PURPOSE: get the dimensions for the input data matrices
 def get_dimensions(input_dir, VERSION, PRODUCT, GZIP=False):
     """Get the total dimensions of the input data
@@ -108,56 +110,58 @@ def get_dimensions(input_dir, VERSION, PRODUCT, GZIP=False):
     # regular expression operator for finding variables
     regex = re.compile(VARIABLE, re.VERBOSE | re.IGNORECASE)
     # if reading yearly files or compressed files
-    if VERSION in ('1.0','4.0','5.0','6.0'):
+    if VERSION in ('1.0', '4.0', '5.0', '6.0'):
         # find input files
         pattern = rf'{VARIABLE}.(\d+).BN_(.*?).MM.nc(\.gz)?'
         rx = re.compile(pattern, re.VERBOSE | re.IGNORECASE)
         infiles = sorted([f for f in input_dir.iterdir() if rx.match(f.name)])
-        nt = 12*len(infiles)
+        nt = 12 * len(infiles)
         # read netCDF file for dataset (could also set memory=None)
         if GZIP:
             # read bytes from compressed file
             fd = gzip.open(str(infiles[0]), 'rb')
             # read netCDF file for dataset from bytes
-            fileID = netCDF4.Dataset(uuid.uuid4().hex,mode='r',memory=fd.read())
+            fileID = netCDF4.Dataset(
+                uuid.uuid4().hex, mode='r', memory=fd.read()
+            )
         else:
             fileID = netCDF4.Dataset(infiles[0], mode='r')
         # shape of the input data matrix
-        ncvar, = [v for v in fileID.variables.keys() if regex.match(v)]
-        nm,ny,nx = fileID.variables[ncvar].shape
+        (ncvar,) = [v for v in fileID.variables.keys() if regex.match(v)]
+        nm, ny, nx = fileID.variables[ncvar].shape
         fileID.close()
-    elif VERSION in ('2.0','3.0'):
+    elif VERSION in ('2.0', '3.0'):
         # if reading bytes from compressed file or netcdf file directly
         gz = '.gz' if GZIP else ''
         # input dataset for variable
         file_format = {}
         file_format['2.0'] = '{0}.1958-2016.BN_RACMO2.3p2_FGRN11_GrIS.MM.nc{1}'
         file_format['3.0'] = '{0}.1958-2016.BN_RACMO2.3p2_FGRN055_GrIS.MM.nc{1}'
-        f = input_dir.joinpath(file_format[VERSION].format(VARIABLE.lower(),gz))
+        f = input_dir.joinpath(
+            file_format[VERSION].format(VARIABLE.lower(), gz)
+        )
         if GZIP:
             # read bytes from compressed file
             fd = gzip.open(str(f), 'rb')
             # read netCDF file for dataset from bytes
-            fileID = netCDF4.Dataset(uuid.uuid4().hex,mode='r',memory=fd.read())
+            fileID = netCDF4.Dataset(
+                uuid.uuid4().hex, mode='r', memory=fd.read()
+            )
         else:
             # read netCDF file for dataset (could also set memory=None)
             fileID = netCDF4.Dataset(f, mode='r')
         # shape of the input data matrix
-        ncvar, = [v for v in fileID.variables.keys() if regex.match(v)]
-        nt,ny,nx = fileID.variables[ncvar].shape
+        (ncvar,) = [v for v in fileID.variables.keys() if regex.match(v)]
+        nt, ny, nx = fileID.variables[ncvar].shape
         fd.close() if GZIP else fileID.close()
     # return the data dimensions
-    return (nt,ny,nx)
+    return (nt, ny, nx)
+
 
 # PURPOSE: read individual yearly netcdf files and calculate anomalies
 def yearly_file_cumulative(
-        input_dir,
-        REGION,
-        VERSION,
-        PRODUCT,
-        MEAN,
-        GZIP=False
-    ):
+    input_dir, REGION, VERSION, PRODUCT, MEAN, GZIP=False
+):
     """Read individual yearly netcdf files and calculate
     cumulative anomalies
 
@@ -196,47 +200,49 @@ def yearly_file_cumulative(
     n_files = len(input_files)
     # input dimensions and counter variable
     # get dimensions for input VERSION
-    nt,ny,nx = get_dimensions(input_dir, VERSION, PRODUCT, GZIP=GZIP)
+    nt, ny, nx = get_dimensions(input_dir, VERSION, PRODUCT, GZIP=GZIP)
     # create counter variable
     c = 0
     # allocate for all data
     dinput = {}
-    dinput['LON'] = np.zeros((ny,nx))
-    dinput['LAT'] = np.zeros((ny,nx))
+    dinput['LON'] = np.zeros((ny, nx))
+    dinput['LAT'] = np.zeros((ny, nx))
     dinput['x'] = np.zeros((nx))
     dinput['y'] = np.zeros((ny))
     dinput['TIME'] = np.zeros((nt))
-    dinput['MASK'] = np.zeros((ny,nx),dtype=np.int8)
-    dinput[VARIABLE] = np.zeros((nt,ny,nx))
-    CUMULATIVE = np.zeros((ny,nx))
+    dinput['MASK'] = np.zeros((ny, nx), dtype=np.int8)
+    dinput[VARIABLE] = np.zeros((nt, ny, nx))
+    CUMULATIVE = np.zeros((ny, nx))
 
     # if reading bytes from compressed file or netcdf file directly
     gz = '.gz' if GZIP else ''
     # input area file with ice mask and model topography
-    if VERSION in ('4.0','5.0'):
+    if VERSION in ('4.0', '5.0'):
         f1 = f'Icemask_Topo_Iceclasses_lon_lat_average_1km_GrIS.nc{gz}'
         input_mask_file = input_dir.joinpath(f1)
         if GZIP:
             # read bytes from compressed file
             fd = gzip.open(input_mask_file, 'rb')
             # read netCDF file for topography and ice classes from bytes
-            fileID = netCDF4.Dataset(uuid.uuid4().hex, mode='r', memory=fd.read())
+            fileID = netCDF4.Dataset(
+                uuid.uuid4().hex, mode='r', memory=fd.read()
+            )
         else:
             # read netCDF file for topography and ice classes
             fileID = netCDF4.Dataset(input_mask_file, mode='r')
         # Getting the data from each netCDF variable
-        dinput['LON'] = np.array(fileID.variables['LON'][:,:])
-        dinput['LAT'] = np.array(fileID.variables['LAT'][:,:])
+        dinput['LON'] = np.array(fileID.variables['LON'][:, :])
+        dinput['LAT'] = np.array(fileID.variables['LAT'][:, :])
         dinput['x'] = np.array(fileID.variables['x'][:])
         dinput['y'] = np.array(fileID.variables['y'][:])
-        promicemask = np.array(fileID.variables['Promicemask'][:,:])
-        topography = np.array(fileID.variables['Topography'][:,:])
+        promicemask = np.array(fileID.variables['Promicemask'][:, :])
+        topography = np.array(fileID.variables['Topography'][:, :])
         # close the compressed file objects
         fd.close() if GZIP else fileID.close()
         # find ice sheet points from promicemask that valid
-        ii,jj = np.nonzero((promicemask >= 1) & (promicemask <= 3))
-        dinput['MASK'] = np.zeros((ny,nx),dtype=np.int8)
-        dinput['MASK'][ii,jj] = 1
+        ii, jj = np.nonzero((promicemask >= 1) & (promicemask <= 3))
+        dinput['MASK'] = np.zeros((ny, nx), dtype=np.int8)
+        dinput['MASK'][ii, jj] = 1
 
     # for each file of interest
     for t in range(n_files):
@@ -245,20 +251,24 @@ def yearly_file_cumulative(
             # read bytes from compressed file
             fd = gzip.open(str(input_files[t]), 'rb')
             # read netCDF file for dataset from bytes
-            fileID = netCDF4.Dataset(uuid.uuid4().hex, mode='r', memory=fd.read())
+            fileID = netCDF4.Dataset(
+                uuid.uuid4().hex, mode='r', memory=fd.read()
+            )
         else:
             # read netCDF file for dataset (could also set memory=None)
             fileID = netCDF4.Dataset(input_files[t], mode='r')
         # check if ERA5 3-hourly data
         ERA5_3h = re.search(r'ERA5_3h', input_files[t].name)
         # Getting the data from each netCDF variable
-        if (VERSION == '1.0'):
-            dinput['LON'][:,:] = fileID.variables['LON'][:,:].copy()
-            dinput['LAT'][:,:] = fileID.variables['LAT'][:,:].copy()
+        if VERSION == '1.0':
+            dinput['LON'][:, :] = fileID.variables['LON'][:, :].copy()
+            dinput['LAT'][:, :] = fileID.variables['LAT'][:, :].copy()
             dinput['x'][:] = fileID.variables['x'][:].copy()
             dinput['y'][:] = fileID.variables['y'][:].copy()
-            dinput['MASK'][:,:] = fileID.variables['icemask'][:,:].astype(np.int8)
-        elif (VERSION == '6.0'):
+            dinput['MASK'][:, :] = fileID.variables['icemask'][:, :].astype(
+                np.int8
+            )
+        elif VERSION == '6.0':
             # extract coordinates
             if ERA5_3h:
                 dinput['x'][:] = fileID.variables['x'][:].copy()
@@ -271,33 +281,46 @@ def yearly_file_cumulative(
             dx = np.diff(dinput['x'])[0]
             dy = np.diff(dinput['y'])[0]
             # calculate latitude and longitude of grid cells
-            dinput['LON'][:,:], dinput['LAT'][:,:] = mdlhmc.spatial.get_latlon(
-                dinput['x'] - dx/2.0, dinput['y'] - dy/2.0,
-                srs_epsg=EPSG)
+            dinput['LON'][:, :], dinput['LAT'][:, :] = (
+                mdlhmc.spatial.get_latlon(
+                    dinput['x'] - dx / 2.0,
+                    dinput['y'] - dy / 2.0,
+                    srs_epsg=EPSG,
+                )
+            )
             # find variable of interest
-            ncvar, = [v for v in fileID.variables.keys() if regex.match(v)]
+            (ncvar,) = [v for v in fileID.variables.keys() if regex.match(v)]
             valid = np.any(fileID.variables[ncvar], axis=0)
             dinput['MASK'] = valid.astype(np.int8)
         # calculate dates from delta times
         delta_time = fileID.variables['time'][:].copy()
         date_string = fileID.variables['time'].units
-        epoch,to_secs = gravtk.time.parse_date_string(date_string)
+        epoch, to_secs = gravtk.time.parse_date_string(date_string)
         # calculate time array in Julian days
-        JD = gravtk.time.convert_delta_time(delta_time*to_secs, epoch1=epoch,
-            epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0) + 2400000.5
+        JD = (
+            gravtk.time.convert_delta_time(
+                delta_time * to_secs,
+                epoch1=epoch,
+                epoch2=(1858, 11, 17, 0, 0, 0),
+                scale=1.0 / 86400.0,
+            )
+            + 2400000.5
+        )
         # for each month
         for m in range(12):
             # convert from Julian days to calendar dates
-            YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(JD[m],
-                format='tuple')
+            YY, MM, DD, hh, mm, ss = gravtk.time.convert_julian(
+                JD[m], format='tuple'
+            )
             # calculate time in year-decimal
-            dinput['TIME'][c] = gravtk.time.convert_calendar_decimal(YY, MM,
-                day=DD, hour=hh, minute=mm, second=ss)
+            dinput['TIME'][c] = gravtk.time.convert_calendar_decimal(
+                YY, MM, day=DD, hour=hh, minute=mm, second=ss
+            )
             # find variable of interest
-            ncvar, = [v for v in fileID.variables.keys() if regex.match(v)]
+            (ncvar,) = [v for v in fileID.variables.keys() if regex.match(v)]
             # extract data and add to total cumulative matrix
-            CUMULATIVE += (fileID.variables[ncvar][m,:,:].copy() - MEAN)
-            dinput[VARIABLE][c,:,:] = CUMULATIVE.copy()
+            CUMULATIVE += fileID.variables[ncvar][m, :, :].copy() - MEAN
+            dinput[VARIABLE][c, :, :] = CUMULATIVE.copy()
             # add to counter
             c += 1
         # close the NetCDF file
@@ -306,15 +329,11 @@ def yearly_file_cumulative(
     # return the cumulative anomalies
     return dinput
 
+
 # PURPOSE: read compressed netCDF4 files and calculate cumulative anomalies
 def compressed_file_cumulative(
-        input_dir,
-        REGION,
-        VERSION,
-        PRODUCT,
-        MEAN,
-        GZIP=False
-    ):
+    input_dir, REGION, VERSION, PRODUCT, MEAN, GZIP=False
+):
     """Read compressed netCDF4 files and calculate cumulative anomalies
 
     Parameters
@@ -365,12 +384,12 @@ def compressed_file_cumulative(
         # read netCDF file for topography and ice classes
         fileID = netCDF4.Dataset(input_mask_file, mode='r')
     # Getting the data from each netCDF variable
-    dinput['LON'] = np.array(fileID.variables['LON'][:,:])
-    dinput['LAT'] = np.array(fileID.variables['LAT'][:,:])
+    dinput['LON'] = np.array(fileID.variables['LON'][:, :])
+    dinput['LAT'] = np.array(fileID.variables['LAT'][:, :])
     dinput['x'] = np.array(fileID.variables['x'][:])
     dinput['y'] = np.array(fileID.variables['y'][:])
-    promicemask = np.array(fileID.variables['Promicemask'][:,:])
-    topography = np.array(fileID.variables['Topography'][:,:])
+    promicemask = np.array(fileID.variables['Promicemask'][:, :])
+    topography = np.array(fileID.variables['Topography'][:, :])
     # close the compressed file objects
     fd.close() if GZIP else fileID.close()
 
@@ -380,7 +399,7 @@ def compressed_file_cumulative(
     file_format['3.0'] = '{0}.1958-2018.BN_RACMO2.3p2_FGRN055_GrIS.MM.nc{1}'
 
     # input dataset for variable
-    f2 = file_format[VERSION].format(VARIABLE.lower(),gz)
+    f2 = file_format[VERSION].format(VARIABLE.lower(), gz)
     input_file = input_dir.joinpath(f2)
     if GZIP:
         # read bytes from compressed file
@@ -391,34 +410,42 @@ def compressed_file_cumulative(
         # read netCDF file for dataset (could also set memory=None)
         fileID = netCDF4.Dataset(input_file, mode='r')
     # shape of the input data matrix
-    nt,ny,nx = fileID.variables[VARNAME].shape
+    nt, ny, nx = fileID.variables[VARNAME].shape
 
     # find ice sheet points from promicemask that valid
-    ii,jj = np.nonzero((promicemask >= 1) & (promicemask <= 3))
-    dinput['MASK'] = np.zeros((ny,nx),dtype=np.int8)
-    dinput['MASK'][ii,jj] = 1
+    ii, jj = np.nonzero((promicemask >= 1) & (promicemask <= 3))
+    dinput['MASK'] = np.zeros((ny, nx), dtype=np.int8)
+    dinput['MASK'][ii, jj] = 1
 
     # calculate dates from delta times
     # Months since 1958-01-15 at 00:00:00
     delta_time = fileID.variables['time'][:].copy()
     date_string = fileID.variables['time'].units
-    epoch,to_secs = gravtk.time.parse_date_string(date_string)
+    epoch, to_secs = gravtk.time.parse_date_string(date_string)
     # calculate time array in Julian days
-    JD = gravtk.time.convert_delta_time(delta_time*to_secs, epoch1=epoch,
-        epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0) + 2400000.5
+    JD = (
+        gravtk.time.convert_delta_time(
+            delta_time * to_secs,
+            epoch1=epoch,
+            epoch2=(1858, 11, 17, 0, 0, 0),
+            scale=1.0 / 86400.0,
+        )
+        + 2400000.5
+    )
     # convert from Julian days to calendar dates
-    YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(JD, format='tuple')
+    YY, MM, DD, hh, mm, ss = gravtk.time.convert_julian(JD, format='tuple')
     # calculate time in year-decimal
-    dinput['TIME'] = gravtk.time.convert_calendar_decimal(YY, MM,
-        day=DD, hour=hh, minute=mm, second=ss)
+    dinput['TIME'] = gravtk.time.convert_calendar_decimal(
+        YY, MM, day=DD, hour=hh, minute=mm, second=ss
+    )
 
     # calculate cumulative
-    CUMULATIVE = np.zeros((ny,nx))
-    dinput[VARNAME] = np.zeros((nt,ny,nx))
+    CUMULATIVE = np.zeros((ny, nx))
+    dinput[VARNAME] = np.zeros((nt, ny, nx))
     for t in range(nt):
         # extract data and add to total cumulative matrix
-        CUMULATIVE += (fileID.variables[VARNAME][t,:,:].copy() - MEAN)
-        dinput[VARNAME][t,:,:] = CUMULATIVE.copy()
+        CUMULATIVE += fileID.variables[VARNAME][t, :, :].copy() - MEAN
+        dinput[VARNAME][t, :, :] = CUMULATIVE.copy()
 
     # close the compressed file objects
     fd.close() if GZIP else fileID.close()
@@ -426,14 +453,26 @@ def compressed_file_cumulative(
     # return the cumulative anomalies
     return dinput
 
-# PURPOSE: write RACMO downscaled data to netCDF4
-def ncdf_racmo(dinput, FILENAME=None, REGION=None,
-    UNITS=None, LONGNAME=None, VARNAME=None,
-    LONNAME=None, LATNAME=None, XNAME=None, YNAME=None,
-    TIMENAME=None, MASKNAME=None,
-    TIME_UNITS='years', TIME_LONGNAME='Date_in_Decimal_Years',
-    TITLE = None, CLOBBER = False):
 
+# PURPOSE: write RACMO downscaled data to netCDF4
+def ncdf_racmo(
+    dinput,
+    FILENAME=None,
+    REGION=None,
+    UNITS=None,
+    LONGNAME=None,
+    VARNAME=None,
+    LONNAME=None,
+    LATNAME=None,
+    XNAME=None,
+    YNAME=None,
+    TIMENAME=None,
+    MASKNAME=None,
+    TIME_UNITS='years',
+    TIME_LONGNAME='Date_in_Decimal_Years',
+    TITLE=None,
+    CLOBBER=False,
+):
     # setting NetCDF clobber attribute
     if CLOBBER:
         clobber = 'w'
@@ -442,7 +481,7 @@ def ncdf_racmo(dinput, FILENAME=None, REGION=None,
 
     # opening NetCDF file for writing
     FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME, clobber, format="NETCDF4")
+    fileID = netCDF4.Dataset(FILENAME, clobber, format='NETCDF4')
 
     # Dimensions of parameters
     n_time = 1 if (np.ndim(dinput[TIMENAME]) == 0) else len(dinput[TIMENAME])
@@ -456,13 +495,13 @@ def ncdf_racmo(dinput, FILENAME=None, REGION=None,
 
     # create variable and attributes for projection
     if REGION in ('gris',):
-        crs = fileID.createVariable('Polar_Stereographic',np.byte,())
+        crs = fileID.createVariable('Polar_Stereographic', np.byte, ())
         crs.standard_name = 'Polar_Stereographic'
         crs.grid_mapping_name = 'polar_stereographic'
         crs.straight_vertical_longitude_from_pole = -45.0
         crs.latitude_of_projection_origin = 90.0
         crs.standard_parallel = 70.0
-        crs.scale_factor_at_projection_origin = 1.
+        crs.scale_factor_at_projection_origin = 1.0
         crs.false_easting = 0.0
         crs.false_northing = 0.0
         crs.semi_major_axis = 6378.137
@@ -470,13 +509,13 @@ def ncdf_racmo(dinput, FILENAME=None, REGION=None,
         crs.inverse_flattening = 298.257223563
         crs.spatial_epsg = '3413'
     elif REGION in ('ais',):
-        crs = fileID.createVariable('Polar_Stereographic',np.byte,())
+        crs = fileID.createVariable('Polar_Stereographic', np.byte, ())
         crs.standard_name = 'Polar_Stereographic'
         crs.grid_mapping_name = 'polar_stereographic'
         crs.straight_vertical_longitude_from_pole = 0.0
         crs.latitude_of_projection_origin = -90.0
         crs.standard_parallel = -71.0
-        crs.scale_factor_at_projection_origin = 1.
+        crs.scale_factor_at_projection_origin = 1.0
         crs.false_easting = 0.0
         crs.false_northing = 0.0
         crs.semi_major_axis = 6378.137
@@ -487,23 +526,59 @@ def ncdf_racmo(dinput, FILENAME=None, REGION=None,
     # defining the NetCDF variables
     nc[XNAME] = fileID.createVariable(XNAME, dinput[XNAME].dtype, (XNAME,))
     nc[YNAME] = fileID.createVariable(YNAME, dinput[YNAME].dtype, (YNAME,))
-    nc[TIMENAME] = fileID.createVariable(TIMENAME, dinput[TIMENAME].dtype,
-        (TIMENAME,))
-    nc[LONNAME] = fileID.createVariable(LONNAME, dinput[LONNAME].dtype,
-        (YNAME,XNAME,))
-    nc[LATNAME] = fileID.createVariable(LATNAME, dinput[LATNAME].dtype,
-        (YNAME,XNAME,))
-    nc[MASKNAME] = fileID.createVariable(MASKNAME, dinput[MASKNAME].dtype,
-        (YNAME,XNAME,), fill_value=0, zlib=True)
-    if (n_time > 1):
-        nc[VARNAME] = fileID.createVariable(VARNAME, dinput[VARNAME].dtype,
-            (TIMENAME,YNAME,XNAME,), zlib=True)
+    nc[TIMENAME] = fileID.createVariable(
+        TIMENAME, dinput[TIMENAME].dtype, (TIMENAME,)
+    )
+    nc[LONNAME] = fileID.createVariable(
+        LONNAME,
+        dinput[LONNAME].dtype,
+        (
+            YNAME,
+            XNAME,
+        ),
+    )
+    nc[LATNAME] = fileID.createVariable(
+        LATNAME,
+        dinput[LATNAME].dtype,
+        (
+            YNAME,
+            XNAME,
+        ),
+    )
+    nc[MASKNAME] = fileID.createVariable(
+        MASKNAME,
+        dinput[MASKNAME].dtype,
+        (
+            YNAME,
+            XNAME,
+        ),
+        fill_value=0,
+        zlib=True,
+    )
+    if n_time > 1:
+        nc[VARNAME] = fileID.createVariable(
+            VARNAME,
+            dinput[VARNAME].dtype,
+            (
+                TIMENAME,
+                YNAME,
+                XNAME,
+            ),
+            zlib=True,
+        )
     else:
-        nc[VARNAME] = fileID.createVariable(VARNAME, dinput[VARNAME].dtype,
-            (YNAME,XNAME,), zlib=True)
+        nc[VARNAME] = fileID.createVariable(
+            VARNAME,
+            dinput[VARNAME].dtype,
+            (
+                YNAME,
+                XNAME,
+            ),
+            zlib=True,
+        )
 
     # filling NetCDF variables
-    for key,val in dinput.items():
+    for key, val in dinput.items():
         nc[key][:] = val.copy()
 
     # Defining attributes for longitude and latitude
@@ -543,9 +618,17 @@ def ncdf_racmo(dinput, FILENAME=None, REGION=None,
     # Closing the NetCDF file
     fileID.close()
 
+
 # PURPOSE: calculate RACMO cumulative anomalies with respect to a mean field
-def racmo_downscaled_cumulative(base_dir, REGION, VERSION, PRODUCT,
-    RANGE=[1961,1990], GZIP=False, MODE=0o775):
+def racmo_downscaled_cumulative(
+    base_dir,
+    REGION,
+    VERSION,
+    PRODUCT,
+    RANGE=[1961, 1990],
+    GZIP=False,
+    MODE=0o775,
+):
     """
     Calculate RACMO cumulative anomalies with respect to a mean field
 
@@ -591,45 +674,45 @@ def racmo_downscaled_cumulative(base_dir, REGION, VERSION, PRODUCT,
 
     # versions 1 and 4 are in separate files for each year
     if (VERSION == '1.0') and (REGION == 'gris'):
-        RACMO_MODEL = ['XGRN11','2.3','DS1km']
+        RACMO_MODEL = ['XGRN11', '2.3', 'DS1km']
         VARNAME = input_products[PRODUCT]
         SUBDIRECTORY = f'{VARNAME}_v{VERSION}'
         input_dir = base_dir.joinpath(f'SMB1km_v{VERSION}', SUBDIRECTORY)
         file_type = 'yearly'
     elif (VERSION == '2.0') and (REGION == 'gris'):
-        RACMO_MODEL = ['XGRN11','2.3p2','DS1km']
+        RACMO_MODEL = ['XGRN11', '2.3p2', 'DS1km']
         var = input_products[PRODUCT]
-        VARNAME = var if PRODUCT in ('SMB','PRECIP') else f'{var}corr'
+        VARNAME = var if PRODUCT in ('SMB', 'PRECIP') else f'{var}corr'
         input_dir = base_dir.joinpath(f'SMB1km_v{VERSION}')
         file_type = 'compressed'
     elif (VERSION == '3.0') and (REGION == 'gris'):
-        RACMO_MODEL = ['FGRN055','2.3p2','DS1km']
+        RACMO_MODEL = ['FGRN055', '2.3p2', 'DS1km']
         var = input_products[PRODUCT]
         VARNAME = var if (PRODUCT == 'SMB') else f'{var}corr'
         input_dir = base_dir.joinpath(f'SMB1km_v{VERSION}')
         file_type = 'compressed'
     elif (VERSION == '4.0') and (REGION == 'gris'):
-        RACMO_MODEL = ['FGRN055','2.3p2','DS1km']
+        RACMO_MODEL = ['FGRN055', '2.3p2', 'DS1km']
         var = input_products[PRODUCT]
         VARNAME = var if (PRODUCT == 'SMB') else f'{var}corr'
         SUBDIRECTORY = PRODUCT.lower()
         input_dir = base_dir.joinpath(f'SMB1km_v{VERSION}', SUBDIRECTORY)
         file_type = 'yearly'
     elif (VERSION == '5.0') and (REGION == 'gris'):
-        RACMO_MODEL = ['FGRN055','2.3p2','DS1km']
+        RACMO_MODEL = ['FGRN055', '2.3p2', 'DS1km']
         var = input_products[PRODUCT]
         VARNAME = var if (PRODUCT == 'SMB') else f'{var}corr'
         SUBDIRECTORY = PRODUCT.lower()
         input_dir = base_dir.joinpath(f'SMB1km_v{VERSION}', SUBDIRECTORY)
         file_type = 'yearly'
     elif (VERSION == '6.0') and (REGION == 'gris'):
-        RACMO_MODEL = ['FGRN055','2.3p2','DS1km']
+        RACMO_MODEL = ['FGRN055', '2.3p2', 'DS1km']
         var = input_products[PRODUCT]
         VARNAME = var if (PRODUCT == 'SMB') else f'{var}corr'
         input_dir = base_dir.joinpath('GrIS-1km')
         file_type = 'yearly'
     elif (VERSION == '6.0') and (REGION == 'ais'):
-        RACMO_MODEL = ['XANT27','2.3p2','DS2km']
+        RACMO_MODEL = ['XANT27', '2.3p2', 'DS2km']
         var = input_products[PRODUCT]
         VARNAME = var if (PRODUCT == 'SMB') else f'{var}corr'
         input_dir = base_dir.joinpath('AIS-2km')
@@ -639,26 +722,16 @@ def racmo_downscaled_cumulative(base_dir, REGION, VERSION, PRODUCT,
     arg = (*RACMO_MODEL, VERSION, PRODUCT, *RANGE)
     mean_file = '{0}_RACMO{1}_{2}_v{3}_{4}_Mean_{5:4d}-{6:4d}.nc'.format(*arg)
     with netCDF4.Dataset(input_dir.joinpath(mean_file), mode='r') as fileID:
-        MEAN = fileID[VARNAME][:,:].copy()
+        MEAN = fileID[VARNAME][:, :].copy()
 
     # read data and calculate cumulative
-    if (file_type == 'yearly'):
+    if file_type == 'yearly':
         dinput = yearly_file_cumulative(
-            input_dir,
-            REGION,
-            VERSION,
-            PRODUCT,
-            MEAN,
-            GZIP=GZIP
+            input_dir, REGION, VERSION, PRODUCT, MEAN, GZIP=GZIP
         )
-    elif (file_type == 'compressed'):
+    elif file_type == 'compressed':
         dinput = compressed_file_cumulative(
-            input_dir,
-            REGION,
-            VERSION,
-            PRODUCT,
-            MEAN,
-            GZIP=GZIP
+            input_dir, REGION, VERSION, PRODUCT, MEAN, GZIP=GZIP
         )
 
     # output cumulative as netCDF4 file
@@ -666,12 +739,25 @@ def racmo_downscaled_cumulative(base_dir, REGION, VERSION, PRODUCT,
     FILE = '{0}_RACMO{1}_{2}_v{3}_{4}_cumul.nc'.format(*args)
     output_file = input_dir.joinpath(FILE)
     TITLE = 'Downscaled_cumulative_anomalies_relative_to_{0:4d}-{1:4d}_Mean'
-    ncdf_racmo(dinput, FILENAME=output_file, REGION=REGION,
-        UNITS='mmWE', LONGNAME=longname[PRODUCT], VARNAME=VARNAME,
-        LONNAME='LON', LATNAME='LAT', XNAME='x', YNAME='y', TIMENAME='TIME',
-        MASKNAME='MASK', TITLE=TITLE.format(*RANGE), CLOBBER=True)
+    ncdf_racmo(
+        dinput,
+        FILENAME=output_file,
+        REGION=REGION,
+        UNITS='mmWE',
+        LONGNAME=longname[PRODUCT],
+        VARNAME=VARNAME,
+        LONNAME='LON',
+        LATNAME='LAT',
+        XNAME='x',
+        YNAME='y',
+        TIMENAME='TIME',
+        MASKNAME='MASK',
+        TITLE=TITLE.format(*RANGE),
+        CLOBBER=True,
+    )
     # change the permissions mode
     output_file.chmod(mode=MODE)
+
 
 # PURPOSE: create argument parser
 def arguments():
@@ -683,13 +769,22 @@ def arguments():
     )
     # command line parameters
     # working data directory
-    parser.add_argument('--directory','-D',
-        type=pathlib.Path, default=pathlib.Path.cwd(),
-        help='Working data directory')
+    parser.add_argument(
+        '--directory',
+        '-D',
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
+        help='Working data directory',
+    )
     # region of RACMO model
-    parser.add_argument('--region','-R',
-        type=str, default='gris', choices=['gris','ais'],
-        help='Region of RACMO model to calculate')
+    parser.add_argument(
+        '--region',
+        '-R',
+        type=str,
+        default='gris',
+        choices=['gris', 'ais'],
+        help='Region of RACMO model to calculate',
+    )
     # Downscaled version
     # 1.0: RACMO2.3/XGRN11/DS1km
     # 2.0: RACMO2.3p2/XGRN11/DS1km
@@ -698,34 +793,63 @@ def arguments():
     # 5.0: RACMO2.3p2/FGRN055/DS1km
     # 6.0: RACMO2.3p2/FGRN055/DS1km
     # 6.0: RACMO2.3p2/XANT27/DS2km
-    choices = ['1.0','2.0','3.0','4.0','5.0','6.0']
-    parser.add_argument('--version','-v',
-        type=str, default='6.0', choices=choices,
-        help='Downscaled RACMO Version')
+    choices = ['1.0', '2.0', '3.0', '4.0', '5.0', '6.0']
+    parser.add_argument(
+        '--version',
+        '-v',
+        type=str,
+        default='6.0',
+        choices=choices,
+        help='Downscaled RACMO Version',
+    )
     # Products to calculate cumulative
-    parser.add_argument('--product','-p',
-        metavar='PRODUCT', type=str, nargs='+',
-        default=['SMB'], choices=input_products.keys(),
-        help='RACMO product to calculate')
+    parser.add_argument(
+        '--product',
+        '-p',
+        metavar='PRODUCT',
+        type=str,
+        nargs='+',
+        default=['SMB'],
+        choices=input_products.keys(),
+        help='RACMO product to calculate',
+    )
     # start and end years to run for mean
-    parser.add_argument('--mean','-m',
-        metavar=('START','END'), type=int, nargs=2,
-        default=[1961,1990],
-        help='Start and end year range for mean')
+    parser.add_argument(
+        '--mean',
+        '-m',
+        metavar=('START', 'END'),
+        type=int,
+        nargs=2,
+        default=[1961, 1990],
+        help='Start and end year range for mean',
+    )
     # netCDF4 files are gzip compressed
-    parser.add_argument('--gzip','-G',
-        default=False, action='store_true',
-        help='netCDF4 file is locally gzip compressed')
+    parser.add_argument(
+        '--gzip',
+        '-G',
+        default=False,
+        action='store_true',
+        help='netCDF4 file is locally gzip compressed',
+    )
     # verbose output of processing run
-    parser.add_argument('--verbose','-V',
-        action='count', default=0,
-        help='Verbose output of processing run')
+    parser.add_argument(
+        '--verbose',
+        '-V',
+        action='count',
+        default=0,
+        help='Verbose output of processing run',
+    )
     # permissions mode of the local directories and files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='Permission mode of directories and files')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='Permission mode of directories and files',
+    )
     # return the parser
     return parser
+
 
 # Main program that calls racmo_downscaled_cumulative()
 def main():
@@ -744,13 +868,13 @@ def main():
             args.directory,
             args.region,
             args.version,
-            PRODUCT, 
+            PRODUCT,
             RANGE=args.mean,
             GZIP=args.gzip,
-            MODE=args.mode
+            MODE=args.mode,
         )
+
 
 # run main program
 if __name__ == '__main__':
     main()
-

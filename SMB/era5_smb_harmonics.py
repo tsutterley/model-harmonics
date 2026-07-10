@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 era5_smb_harmonics.py
 Written by Tyler Sutterley (03/2023)
 Reads monthly ERA5 surface mass balance anomalies and
@@ -67,6 +67,7 @@ UPDATE HISTORY:
     Updated 12/2021: can use variable loglevels for verbose output
     Written 10/2021
 """
+
 from __future__ import print_function
 
 import sys
@@ -80,11 +81,21 @@ import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
 
-# PURPOSE: read ERA5 cumulative data and convert to spherical harmonics
-def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
-    MASKS=None, LMAX=0, MMAX=None, LOVE_NUMBERS=0, REFERENCE=None,
-    DATAFORM=None, MODE=0o775):
 
+# PURPOSE: read ERA5 cumulative data and convert to spherical harmonics
+def era5_smb_harmonics(
+    ddir,
+    YEARS,
+    RANGE=None,
+    REGION=None,
+    MASKS=None,
+    LMAX=0,
+    MMAX=None,
+    LOVE_NUMBERS=0,
+    REFERENCE=None,
+    DATAFORM=None,
+    MODE=0o775,
+):
     # setup subdirectories
     ddir = pathlib.Path(ddir).expanduser().absolute()
     d1 = ddir.joinpath('ERA5-Cumul-P-E-{0:4d}-{1:4d}'.format(*RANGE))
@@ -101,7 +112,7 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     attributes['project'] = 'ECMWF atmospheric reanalysis'
     attributes['title'] = 'ERA5 Precipitation minus Evaporation'
     attributes['product_name'] = 'P-E'
-    attributes['source'] = ', '.join(['tp','e'])
+    attributes['source'] = ', '.join(['tp', 'e'])
     attributes['product_type'] = 'gravity_field'
     attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
@@ -111,21 +122,21 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     order_str = 'M{MMAX:d}' if (MMAX != LMAX) else ''
 
     # output dimensions and extents
-    nlat,nlon = (721,1440)
-    extent = [0.0,359.75,-90.0,90.0]
+    nlat, nlon = (721, 1440)
+    extent = [0.0, 359.75, -90.0, 90.0]
     # grid spacing
-    dlon,dlat = (0.25,0.25)
+    dlon, dlat = (0.25, 0.25)
     # latitude and longitude
-    glon = np.arange(extent[0],extent[1]+dlon,dlon)
-    glat = np.arange(extent[3],extent[2]-dlat,-dlat)
+    glon = np.arange(extent[0], extent[1] + dlon, dlon)
+    glat = np.arange(extent[3], extent[2] - dlat, -dlat)
     # create mesh grid of latitude and longitude
-    gridlon,gridlat = np.meshgrid(glon,glat)
+    gridlon, gridlat = np.meshgrid(glon, glat)
 
     # create mask object for reducing data
     if bool(MASKS):
-        input_mask = np.zeros((nlat,nlon),dtype=bool)
+        input_mask = np.zeros((nlat, nlon), dtype=bool)
     else:
-        input_mask = np.ones((nlat,nlon),dtype=bool)
+        input_mask = np.ones((nlat, nlon), dtype=bool)
     # read masks for reducing regions before converting to harmonics
     for mask_file in MASKS:
         logging.debug(str(mask_file))
@@ -141,14 +152,16 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     # ellipsoidal flattening
     flat = ellipsoid_params.flat
     # calculate geocentric latitude and convert to degrees
-    latitude_geocentric = mdlhmc.spatial.geocentric_latitude(gridlon, gridlat,
-        a_axis=a_axis, flat=flat)
+    latitude_geocentric = mdlhmc.spatial.geocentric_latitude(
+        gridlon, gridlat, a_axis=a_axis, flat=flat
+    )
     # colatitude in radians
-    theta = (90.0 - latitude_geocentric[:,0])*np.pi/180.0
+    theta = np.radians(90.0 - latitude_geocentric[:, 0])
 
     # read load love numbers
-    LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
-        REFERENCE=REFERENCE, FORMAT='class')
+    LOVE = gravtk.load_love_numbers(
+        LMAX, LOVE_NUMBERS=LOVE_NUMBERS, REFERENCE=REFERENCE, FORMAT='class'
+    )
     # add attributes for earth parameters
     attributes['earth_model'] = LOVE.model
     attributes['earth_love_numbers'] = LOVE.citation
@@ -161,24 +174,28 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     PLM, dPLM = gravtk.plm_holmes(LMAX, np.cos(theta))
 
     # find input files from era5_smb_cumulative.py
-    regex_years = r'\d{4}' if (YEARS is None) else '|'.join(map(str,YEARS))
+    regex_years = r'\d{4}' if (YEARS is None) else '|'.join(map(str, YEARS))
     rx = re.compile(r'ERA5\-Cumul\-P-E\-({0})\.nc$'.format(regex_years))
     input_files = sorted([f for f in d1.iterdir() if rx.match(f.name)])
 
     # create list of yearly ERA5 files
     spatial_list = []
     # for each input file
-    for t,input_file in enumerate(input_files):
+    for t, input_file in enumerate(input_files):
         # read data file for data format
-        if (DATAFORM == 'ascii'):
+        if DATAFORM == 'ascii':
             # ascii (.txt)
-            era5_data = gravtk.spatial().from_ascii(input_file,
-                spacing=[dlon,dlat], nlat=nlat, nlon=nlon,
-                extent=extent)
-        elif (DATAFORM == 'netCDF4'):
+            era5_data = gravtk.spatial().from_ascii(
+                input_file,
+                spacing=[dlon, dlat],
+                nlat=nlat,
+                nlon=nlon,
+                extent=extent,
+            )
+        elif DATAFORM == 'netCDF4':
             # netCDF4 (.nc)
             era5_data = gravtk.spatial().from_netCDF4(input_file, varname='SMB')
-        elif (DATAFORM == 'HDF5'):
+        elif DATAFORM == 'HDF5':
             # HDF5 (.H5)
             era5_data = gravtk.spatial().from_HDF5(input_file, varname='SMB')
         # if reducing to a region of interest before converting to harmonics
@@ -192,13 +209,13 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
         spatial_list.extend(era5_data)
     # convert to combined data cube and clear memory from spatial list
     era5_data = gravtk.spatial().from_list(spatial_list, clear=True)
-    nlat,nlon,nt = era5_data.shape
+    nlat, nlon, nt = era5_data.shape
 
     # for each month of data
-    for i in range(nt-1):
+    for i in range(nt - 1):
         # convert data to mm w.e.
         M1 = era5_data.index(i).scale(1000.0)
-        M2 = era5_data.index(i+1).scale(1000.0)
+        M2 = era5_data.index(i + 1).scale(1000.0)
         # attributes for input files
         attributes['lineage'] = []
         attributes['lineage'].append(pathlib.Path(M1.filename).name)
@@ -206,15 +223,22 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
         # calculate 2-month moving average
         # weighting by number of days in each month
         dpm = gravtk.time.calendar_days(np.floor(M1.time))
-        W = np.float64(dpm[(t+1) % 12] + dpm[t % 12])
-        MASS = (dpm[t % 12]*M1.data + dpm[(t+1) % 12]*M2.data)/W
+        W = np.float64(dpm[(t + 1) % 12] + dpm[t % 12])
+        MASS = (dpm[t % 12] * M1.data + dpm[(t + 1) % 12] * M2.data) / W
         # convert to spherical harmonics
-        era5_Ylms = gravtk.gen_stokes(MASS, glon, latitude_geocentric[:,0],
-            LMAX=LMAX, MMAX=MMAX, UNITS=3, PLM=PLM, LOVE=LOVE)
+        era5_Ylms = gravtk.gen_stokes(
+            MASS,
+            glon,
+            latitude_geocentric[:, 0],
+            LMAX=LMAX,
+            MMAX=MMAX,
+            UNITS=3,
+            PLM=PLM,
+            LOVE=LOVE,
+        )
         # copy date information
         era5_Ylms.time = np.mean([M1.time, M2.time])
-        era5_Ylms.month = gravtk.time.calendar_to_grace(
-            era5_Ylms.time)
+        era5_Ylms.month = gravtk.time.calendar_to_grace(era5_Ylms.time)
         # add attributes to output harmonics
         era5_Ylms.attributes['ROOT'] = attributes
         # output spherical harmonic data file
@@ -229,7 +253,7 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     output_date_file = d2.joinpath('ERA5_SMB_DATES.txt')
     fid1 = output_date_file.open(mode='w', encoding='utf8')
     # date file header information
-    print('{0:8} {1:^6} {2:^5}'.format('Mid-date','GRACE','Month'), file=fid1)
+    print('{0:8} {1:^6} {2:^5}'.format('Mid-date', 'GRACE', 'Month'), file=fid1)
     # index file listing all output spherical harmonic files
     output_index_file = d2.joinpath('index.txt')
     fid2 = output_index_file.open(mode='w', encoding='utf8')
@@ -238,12 +262,12 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     output_pattern = r'ERA5_CUMUL_P-E_CLM_L{0:d}{1}_([-]?\d+).{2}'
     output_regex = re.compile(output_pattern.format(*args), re.VERBOSE)
     # find all output harmonic files (not just ones created in run)
-    output_files = [f for f in d2.iterdir() if re.match(output_regex,f.name)]
+    output_files = [f for f in d2.iterdir() if re.match(output_regex, f.name)]
     for fi in sorted(output_files):
         # extract GRACE month
-        grace_month, = np.array(re.findall(output_regex,fi.name), dtype=int)
-        YY,MM = gravtk.time.grace_to_calendar(grace_month)
-        tdec, = gravtk.time.convert_calendar_decimal(YY, MM)
+        (grace_month,) = np.array(re.findall(output_regex, fi.name), dtype=int)
+        YY, MM = gravtk.time.grace_to_calendar(grace_month)
+        (tdec,) = gravtk.time.convert_calendar_decimal(YY, MM)
         # print date, GRACE month and calendar month to date file
         fid1.write(f'{tdec:11.6f} {grace_month:03d} {MM:02.0f}\n')
         # print output file to index
@@ -256,90 +280,152 @@ def era5_smb_harmonics(ddir, YEARS, RANGE=None, REGION=None,
     output_date_file.chmod(mode=MODE)
     output_index_file.chmod(mode=MODE)
 
+
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
         description="""Reads monthly ERA5 surface mass balance
             anomalies and converts to spherical harmonic coefficients
             """,
-        fromfile_prefix_chars="@"
+        fromfile_prefix_chars='@',
     )
     parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     # working data directory
-    parser.add_argument('--directory','-D',
-        type=pathlib.Path, default=pathlib.Path.cwd(),
-        help='Working data directory')
+    parser.add_argument(
+        '--directory',
+        '-D',
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
+        help='Working data directory',
+    )
     # start and end years to run for mean
-    parser.add_argument('--mean',
-        metavar=('START','END'), type=int, nargs=2,
-        default=[1980,1995],
-        help='Start and end year range for mean')
+    parser.add_argument(
+        '--mean',
+        metavar=('START', 'END'),
+        type=int,
+        nargs=2,
+        default=[1980, 1995],
+        help='Start and end year range for mean',
+    )
     # years to run
     now = datetime.datetime.now()
-    parser.add_argument('--year','-Y',
-        type=int, nargs='+', default=range(2000,now.year+1),
-        help='Years of model outputs to run')
+    parser.add_argument(
+        '--year',
+        '-Y',
+        type=int,
+        nargs='+',
+        default=range(2000, now.year + 1),
+        help='Years of model outputs to run',
+    )
     # region name for subdirectory
-    parser.add_argument('--region','-R',
-        type=str, default=None,
-        help='Region name for subdirectory')
+    parser.add_argument(
+        '--region',
+        '-R',
+        type=str,
+        default=None,
+        help='Region name for subdirectory',
+    )
     # mask file for reducing to regions
-    parser.add_argument('--mask',
+    parser.add_argument(
+        '--mask',
         type=pathlib.Path,
-        nargs='+', default=[],
-        help='netCDF4 masks file for reducing to regions')
+        nargs='+',
+        default=[],
+        help='netCDF4 masks file for reducing to regions',
+    )
     # maximum spherical harmonic degree and order
-    parser.add_argument('--lmax','-l',
-        type=int, default=60,
-        help='Maximum spherical harmonic degree')
-    parser.add_argument('--mmax','-m',
-        type=int, default=None,
-        help='Maximum spherical harmonic order')
+    parser.add_argument(
+        '--lmax',
+        '-l',
+        type=int,
+        default=60,
+        help='Maximum spherical harmonic degree',
+    )
+    parser.add_argument(
+        '--mmax',
+        '-m',
+        type=int,
+        default=None,
+        help='Maximum spherical harmonic order',
+    )
     # different treatments of the load Love numbers
     # 0: Han and Wahr (1995) values from PREM
     # 1: Gegout (2005) values from PREM
     # 2: Wang et al. (2012) values from PREM
     # 3: Wang et al. (2012) values from PREM with hard sediment
     # 4: Wang et al. (2012) values from PREM with soft sediment
-    parser.add_argument('--love','-n',
-        type=int, default=0, choices=[0,1,2,3,4],
-        help='Treatment of the Load Love numbers')
+    parser.add_argument(
+        '--love',
+        '-n',
+        type=int,
+        default=0,
+        choices=[0, 1, 2, 3, 4],
+        help='Treatment of the Load Love numbers',
+    )
     # option for setting reference frame for gravitational load love number
     # reference frame options (CF, CM, CE)
-    parser.add_argument('--reference',
-        type=str.upper, default='CF', choices=['CF','CM','CE'],
-        help='Reference frame for load Love numbers')
+    parser.add_argument(
+        '--reference',
+        type=str.upper,
+        default='CF',
+        choices=['CF', 'CM', 'CE'],
+        help='Reference frame for load Love numbers',
+    )
     # input and output data format (ascii, netCDF4, HDF5)
-    parser.add_argument('--format','-F',
-        type=str, default='netCDF4', choices=['ascii','netCDF4','HDF5'],
-        help='Input and output data format')
+    parser.add_argument(
+        '--format',
+        '-F',
+        type=str,
+        default='netCDF4',
+        choices=['ascii', 'netCDF4', 'HDF5'],
+        help='Input and output data format',
+    )
     # print information about each input and output file
-    parser.add_argument('--verbose','-V',
-        action='count', default=0,
-        help='Verbose output of processing run')
+    parser.add_argument(
+        '--verbose',
+        '-V',
+        action='count',
+        default=0,
+        help='Verbose output of processing run',
+    )
     # permissions mode of the local directories and files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='Permission mode of directories and files')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='Permission mode of directories and files',
+    )
     # return the parser
     return parser
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[args.verbose])
 
     # run program with parameters
-    era5_smb_harmonics(args.directory, args.year, RANGE=args.mean,
-        REGION=args.region, MASKS=args.mask, LMAX=args.lmax, MMAX=args.mmax,
-        LOVE_NUMBERS=args.love, REFERENCE=args.reference,
-        DATAFORM=args.format, MODE=args.mode)
+    era5_smb_harmonics(
+        args.directory,
+        args.year,
+        RANGE=args.mean,
+        REGION=args.region,
+        MASKS=args.mask,
+        LMAX=args.lmax,
+        MMAX=args.mmax,
+        LOVE_NUMBERS=args.love,
+        REFERENCE=args.reference,
+        DATAFORM=args.format,
+        MODE=args.mode,
+    )
+
 
 # run main program
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 GIA_GSFC_mascons.py
 Written by Tyler Sutterley (09/2023)
 Calculates GIA equivalent water height corrections for GSFC mascons at the
@@ -79,6 +79,7 @@ UPDATE HISTORY:
         include lon_span and lat_span in output mascon file
     Written 07/2018
 """
+
 from __future__ import print_function
 
 import sys
@@ -93,6 +94,7 @@ import traceback
 import numpy as np
 import gravity_toolkit as gravtk
 
+
 # PURPOSE: keep track of threads
 def info(args):
     logging.info(pathlib.Path(sys.argv[0]).name)
@@ -102,55 +104,64 @@ def info(args):
         logging.info(f'parent process: {os.getppid():d}')
     logging.info(f'process id: {os.getpid():d}')
 
-# PURPOSE: calculate GIA corrections at locations of GSFC mascons
-def GIA_GSFC_mascons(grace_file,
-    GIA=None,
-    GIA_FILE=None,
-    LMAX=0,
-    MODE=None
-    ):
 
+# PURPOSE: calculate GIA corrections at locations of GSFC mascons
+def GIA_GSFC_mascons(grace_file, GIA=None, GIA_FILE=None, LMAX=0, MODE=None):
     # verify path to input GRACE/GRACE-FO file
     grace_file = pathlib.Path(grace_file).expanduser().absolute()
     # extract mascon release and version from filename
-    rx = re.compile(r'(GSFC\.glb|gsfc.glb_)\.(\d{4})(\d{2})\_'
-        r'(\d{4})(\d{2})\_(.*?)(\_.*?)?.h5',re.VERBOSE)
-    PROC,SY,SM,EY,EM,VERSION,AUX = rx.findall(grace_file.name).pop()
+    rx = re.compile(
+        r'(GSFC\.glb|gsfc.glb_)\.(\d{4})(\d{2})\_'
+        r'(\d{4})(\d{2})\_(.*?)(\_.*?)?.h5',
+        re.VERBOSE,
+    )
+    PROC, SY, SM, EY, EM, VERSION, AUX = rx.findall(grace_file.name).pop()
     # read the HDF5 file
     output_data = {}
     logging.info(f'{str(grace_file)} -->')
-    with h5py.File(grace_file,'r') as fileID:
-        for key in ['lat_center','lon_center','lat_span','lon_span']:
+    with h5py.File(grace_file, 'r') as fileID:
+        for key in ['lat_center', 'lon_center', 'lat_span', 'lon_span']:
             output_data[key] = fileID['mascon'][key][:].flatten()
 
     # read arrays of kl, hl, and ll Love Numbers
     # these Love numbers are not used in the spatial calculation
-    LOVE = gravtk.load_love_numbers(LMAX,
-        LOVE_NUMBERS=0, REFERENCE='CF', FORMAT='class')
+    LOVE = gravtk.load_love_numbers(
+        LMAX, LOVE_NUMBERS=0, REFERENCE='CF', FORMAT='class'
+    )
     # do not include the elastic component in the unit coefficients
     factors = gravtk.units(lmax=LMAX).harmonic(*LOVE, include_elastic=False)
 
     # input GIA spherical harmonic datafiles
     GIA_Ylms = gravtk.read_GIA_model(GIA_FILE, GIA=GIA, LMAX=LMAX)
     # Converting GIA rates to cm w.e. for mascon coordinates
-    gia_output = gravtk.clenshaw_summation(GIA_Ylms['clm'], GIA_Ylms['slm'],
-        output_data['lon_center'], output_data['lat_center'],
-        RAD=0, LMAX=LMAX, UNITS=factors.cmwe)
+    gia_output = gravtk.clenshaw_summation(
+        GIA_Ylms['clm'],
+        GIA_Ylms['slm'],
+        output_data['lon_center'],
+        output_data['lat_center'],
+        RAD=0,
+        LMAX=LMAX,
+        UNITS=factors.cmwe,
+    )
     output_data['gia'] = gia_output.astype(np.float64)
 
     # output to file
     FILE = f'GIA_{GIA_Ylms["title"]}_L{LMAX:d}_GSFC_mascons.h5'
     output_file = grace_file.with_name(FILE)
     logging.info(f'\t{str(output_file)}')
-    HDF5_GSFC_mascons(output_data, GIA_Ylms, VERSION=VERSION,
-        FILENAME=output_file, CLOBBER=True)
+    HDF5_GSFC_mascons(
+        output_data,
+        GIA_Ylms,
+        VERSION=VERSION,
+        FILENAME=output_file,
+        CLOBBER=True,
+    )
     # change the permissions mode
     output_file.chmod(mode=MODE)
 
-# PURPOSE: outputting the interpolated data to HDF5
-def HDF5_GSFC_mascons(output_data, GIA,
-    VERSION='', FILENAME='', CLOBBER=False):
 
+# PURPOSE: outputting the interpolated data to HDF5
+def HDF5_GSFC_mascons(output_data, GIA, VERSION='', FILENAME='', CLOBBER=False):
     # setting HDF5 clobber attribute
     if CLOBBER:
         clobber = 'w'
@@ -165,7 +176,7 @@ def HDF5_GSFC_mascons(output_data, GIA,
     fileID.create_group('correction')
 
     # Dimensions of parameters
-    nmas, = output_data['gia'].shape
+    (nmas,) = output_data['gia'].shape
 
     # HDF5 file attributes
     attrib = {}
@@ -187,24 +198,36 @@ def HDF5_GSFC_mascons(output_data, GIA,
     attrib['gia'] = {}
     attrib['gia']['long_name'] = 'Equivalent_water_height'
     attrib['gia']['model'] = str(GIA['title'])
-    attrib['gia']['description'] = ('Equivalent water thickness rate due '
-        'to Glacial Isostatic Adjustment (GIA)')
+    attrib['gia']['description'] = (
+        'Equivalent water thickness rate due '
+        'to Glacial Isostatic Adjustment (GIA)'
+    )
     attrib['gia']['source'] = str(GIA['citation'])
     attrib['gia']['reference'] = str(GIA['reference'])
     attrib['gia']['coordinates'] = '/mascon/lat_center /mascon/lon_center'
     attrib['gia']['units'] = 'cm/yr'
     # groups for each key
-    groups = dict(lat_center='mascon', lon_center='mascon', lat_span='mascon',
-        lon_span='mascon', gia='correction')
+    groups = dict(
+        lat_center='mascon',
+        lon_center='mascon',
+        lat_span='mascon',
+        lon_span='mascon',
+        gia='correction',
+    )
 
     # create HDF5 records
     h5 = {}
-    for key,val in output_data.items():
+    for key, val in output_data.items():
         # Defining the HDF5 dataset variables
-        h5[key] = fileID.create_dataset(f'{groups[key]}/{key}',
-            (nmas,), data=val, dtype=val.dtype, compression='gzip')
+        h5[key] = fileID.create_dataset(
+            f'{groups[key]}/{key}',
+            (nmas,),
+            data=val,
+            dtype=val.dtype,
+            compression='gzip',
+        )
         # add HDF5 variable attributes
-        for att_name,att_val in attrib[key].items():
+        for att_name, att_val in attrib[key].items():
             h5[key].attrs[att_name] = att_val
         # attach dimensions
         h5[key].dims[0].label = 'RECORD_SIZE'
@@ -212,22 +235,25 @@ def HDF5_GSFC_mascons(output_data, GIA,
     # HDF5 file title
     fileID.attrs['featureType'] = 'timeSeries'
     fileID.attrs['title'] = 'GIA_Correction'
-    fileID.attrs['summary'] = ('Glacial_Isostatic_Adjustment_Corrections_'
-        'for_NASA_Goddard_Space_Flight_Center_(GSFC)_mascons.')
-    fileID.attrs['date_created'] = time.strftime('%Y-%m-%d',time.localtime())
+    fileID.attrs['summary'] = (
+        'Glacial_Isostatic_Adjustment_Corrections_'
+        'for_NASA_Goddard_Space_Flight_Center_(GSFC)_mascons.'
+    )
+    fileID.attrs['date_created'] = time.strftime('%Y-%m-%d', time.localtime())
     fileID.attrs['version'] = VERSION
     # add geospatial and temporal attributes
     fileID.attrs['geospatial_lat_min'] = output_data['lat_center'].min()
     fileID.attrs['geospatial_lat_max'] = output_data['lat_center'].max()
     fileID.attrs['geospatial_lon_min'] = output_data['lon_center'].min()
     fileID.attrs['geospatial_lon_max'] = output_data['lon_center'].max()
-    fileID.attrs['geospatial_lat_units'] = "degrees_north"
-    fileID.attrs['geospatial_lon_units'] = "degrees_east"
+    fileID.attrs['geospatial_lat_units'] = 'degrees_north'
+    fileID.attrs['geospatial_lon_units'] = 'degrees_east'
     # add software information
     fileID.attrs['software_reference'] = gravtk.version.project_name
     fileID.attrs['software_version'] = gravtk.version.full_version
     # Closing the HDF5 file
     fileID.close()
+
 
 # PURPOSE: create argument parser
 def arguments():
@@ -235,13 +261,16 @@ def arguments():
         description="""Calculates GIA equivalent water height corrections
             for GSFC mascons at the central points of each mascon
             """,
-        fromfile_prefix_chars="@"
+        fromfile_prefix_chars='@',
     )
     parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
-    parser.add_argument('infile',
-        type=pathlib.Path, nargs='+',
-        help='GSFC GRACE mascon file to run')
+    parser.add_argument(
+        'infile',
+        type=pathlib.Path,
+        nargs='+',
+        help='GSFC GRACE mascon file to run',
+    )
     # GIA model type list
     models = {}
     models['IJ05-R2'] = 'Ivins R2 GIA Models'
@@ -257,47 +286,74 @@ def arguments():
     models['netCDF4'] = 'reformatted GIA in netCDF4 format'
     models['HDF5'] = 'reformatted GIA in HDF5 format'
     # GIA model type
-    parser.add_argument('--gia','-G',
-        type=str, metavar='GIA', choices=models.keys(),
-        help='GIA model type to read')
+    parser.add_argument(
+        '--gia',
+        '-G',
+        type=str,
+        metavar='GIA',
+        choices=models.keys(),
+        help='GIA model type to read',
+    )
     # full path to GIA file
-    parser.add_argument('--gia-file',
-        type=pathlib.Path,
-        help='GIA file to read')
+    parser.add_argument(
+        '--gia-file', type=pathlib.Path, help='GIA file to read'
+    )
     # degree of truncation
-    parser.add_argument('--lmax','-l',
-        type=int, default=120,
-        help='Maximum degree of spherical harmonics')
+    parser.add_argument(
+        '--lmax',
+        '-l',
+        type=int,
+        default=120,
+        help='Maximum degree of spherical harmonics',
+    )
     # different treatments of the load Love numbers
     # 0: Han and Wahr (1995) values from PREM
     # 1: Gegout (2005) values from PREM
     # 2: Wang et al. (2012) values from PREM
     # 3: Wang et al. (2012) values from PREM with hard sediment
     # 4: Wang et al. (2012) values from PREM with soft sediment
-    parser.add_argument('--love','-n',
-        type=int, default=0, choices=[0,1,2,3,4],
-        help='Treatment of the Load Love numbers')
+    parser.add_argument(
+        '--love',
+        '-n',
+        type=int,
+        default=0,
+        choices=[0, 1, 2, 3, 4],
+        help='Treatment of the Load Love numbers',
+    )
     # option for setting reference frame for gravitational load love number
     # reference frame options (CF, CM, CE)
-    parser.add_argument('--reference',
-        type=str.upper, default='CF', choices=['CF','CM','CE'],
-        help='Reference frame for load Love numbers')
+    parser.add_argument(
+        '--reference',
+        type=str.upper,
+        default='CF',
+        choices=['CF', 'CM', 'CE'],
+        help='Reference frame for load Love numbers',
+    )
     # print information about processing run
-    parser.add_argument('--verbose','-V',
-        action='count', default=0,
-        help='Verbose output of processing run')
+    parser.add_argument(
+        '--verbose',
+        '-V',
+        action='count',
+        default=0,
+        help='Verbose output of processing run',
+    )
     # permissions mode of the local directories and files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='Permissions mode of output files')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='Permissions mode of output files',
+    )
     # return the parser
     return parser
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
@@ -308,19 +364,22 @@ def main():
         # try to run the analysis with listed parameters
         try:
             info(args)
-            GIA_GSFC_mascons(grace_file,
+            GIA_GSFC_mascons(
+                grace_file,
                 GIA=args.gia,
                 GIA_FILE=args.gia_file,
                 LMAX=args.lmax,
                 LOVE_NUMBERS=args.love,
                 REFERENCE=args.reference,
-                MODE=args.mode)
+                MODE=args.mode,
+            )
         except Exception as exc:
             # if there has been an error exception
             # print the type, value, and stack trace of the
             # current exception being handled
             logging.critical(f'process id {os.getpid():d} failed')
             logging.error(traceback.format_exc())
+
 
 # run main program
 if __name__ == '__main__':

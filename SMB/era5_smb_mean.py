@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 era5_smb_mean.py
 Written by Tyler Sutterley (12/2022)
 Reads monthly ERA5 datafiles to calculate multi-annual means
@@ -41,6 +41,7 @@ UPDATE HISTORY:
     Updated 12/2021: can use variable loglevels for verbose output
     Written 10/2021
 """
+
 from __future__ import print_function
 
 import sys
@@ -50,6 +51,7 @@ import pathlib
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
+
 
 # PURPOSE: read variables from ERA5 P-E files
 def read_era5_variables(era5_flux_file):
@@ -64,49 +66,56 @@ def read_era5_variables(era5_flux_file):
         dinput['longitude'] = fileID.variables['longitude'][:].copy()
         # convert time from netCDF4 units to Julian Days
         date_string = fileID.variables['time'].units
-        epoch,to_secs = gravtk.time.parse_date_string(date_string)
-        dinput['time'] = gravtk.time.convert_delta_time(
-            to_secs*fileID.variables['time'][:],epoch1=epoch,
-            epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0) + 2400000.5
+        epoch, to_secs = gravtk.time.parse_date_string(date_string)
+        dinput['time'] = (
+            gravtk.time.convert_delta_time(
+                to_secs * fileID.variables['time'][:],
+                epoch1=epoch,
+                epoch2=(1858, 11, 17, 0, 0, 0),
+                scale=1.0 / 86400.0,
+            )
+            + 2400000.5
+        )
         # read each variable of interest in ERA5 flux file
-        for key in ['tp','e']:
-                # Getting the data from each NetCDF variable of interest
+        for key in ['tp', 'e']:
+            # Getting the data from each NetCDF variable of interest
             # check dimensions for expver slice
-            if (fileID.variables[key].ndim == 4):
+            if fileID.variables[key].ndim == 4:
                 dinput[key] = ncdf_expver(fileID, key)
             else:
-                dinput[key] = np.ma.array(fileID.variables[key][:].squeeze(),
-                    fill_value=fileID.variables[key]._FillValue)
-            dinput[key].mask = (dinput[key].data == dinput[key].fill_value)
+                dinput[key] = np.ma.array(
+                    fileID.variables[key][:].squeeze(),
+                    fill_value=fileID.variables[key]._FillValue,
+                )
+            dinput[key].mask = dinput[key].data == dinput[key].fill_value
     # return the output variables
     return dinput
+
 
 # PURPOSE: extract variable from a 4d netCDF4 dataset
 # ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
 def ncdf_expver(fileID, VARNAME):
-    ntime,nexp,nlat,nlon = fileID.variables[VARNAME].shape
+    ntime, nexp, nlat, nlon = fileID.variables[VARNAME].shape
     fill_value = fileID.variables[VARNAME]._FillValue
     # reduced output
-    output = np.ma.zeros((ntime,nlat,nlon))
+    output = np.ma.zeros((ntime, nlat, nlon))
     output.fill_value = fill_value
     for t in range(ntime):
         # iterate over expver slices to find valid outputs
         for j in range(nexp):
             # check if any are valid for expver
-            if np.any(fileID.variables[VARNAME][t,j,:,:]):
-                output[t,:,:] = fileID.variables[VARNAME][t,j,:,:]
+            if np.any(fileID.variables[VARNAME][t, j, :, :]):
+                output[t, :, :] = fileID.variables[VARNAME][t, j, :, :]
     # update mask variable
-    output.mask = (output.data == output.fill_value)
+    output.mask = output.data == output.fill_value
     # return the reduced output variable
     return output
 
-# PURPOSE: read monthly ERA5 datasets to calculate multi-annual means
-def era5_smb_mean(DIRECTORY,
-    RANGE=None,
-    DATAFORM=None,
-    VERBOSE=False,
-    MODE=0o775):
 
+# PURPOSE: read monthly ERA5 datasets to calculate multi-annual means
+def era5_smb_mean(
+    DIRECTORY, RANGE=None, DATAFORM=None, VERBOSE=False, MODE=0o775
+):
     # create logger for verbosity level
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[VERBOSE])
@@ -115,13 +124,13 @@ def era5_smb_mean(DIRECTORY,
     DIRECTORY = pathlib.Path(DIRECTORY).expanduser().absolute()
 
     # sign for each product to calculate total SMB
-    smb_sign = {'tp':1.0,'e':-1.0}
+    smb_sign = {'tp': 1.0, 'e': -1.0}
     # output data file format and title
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
     # output bad value
     fill_value = -9999.0
     # output dimensions and extents
-    nlat,nlon = (721,1440)
+    nlat, nlon = (721, 1440)
 
     # attributes for output files
     attributes = {}
@@ -129,19 +138,18 @@ def era5_smb_mean(DIRECTORY,
     attributes['units'] = 'm w.e.'
     attributes['longname'] = 'Equivalent_Water_Thickness'
     attributes['title'] = 'ERA5 Precipitation minus Evaporation'
-    attributes['source'] = ', '.join(['tp','e'])
+    attributes['source'] = ', '.join(['tp', 'e'])
     attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # mean balance flZux
-    era5_mean = gravtk.spatial(nlat=nlat,nlon=nlon,
-        fill_value=fill_value)
+    era5_mean = gravtk.spatial(nlat=nlat, nlon=nlon, fill_value=fill_value)
     # output data and mask
-    era5_mean.data = np.zeros((nlat,nlon))
-    era5_mean.mask = np.zeros((nlat,nlon),dtype=bool)
+    era5_mean.data = np.zeros((nlat, nlon))
+    era5_mean.mask = np.zeros((nlat, nlon), dtype=bool)
     era5_mean.time = 0.0
     count = 0.0
     # for each input file
-    for Y in range(int(RANGE[0]), int(RANGE[-1])+1):
+    for Y in range(int(RANGE[0]), int(RANGE[-1]) + 1):
         # full path for flux file
         era5_flux_file = DIRECTORY.joinpath(f'ERA5-Monthly-P-E-{Y:4d}.nc')
         logging.debug(str(era5_flux_file))
@@ -153,29 +161,32 @@ def era5_smb_mean(DIRECTORY,
         # days per month in year
         dpm = gravtk.time.calendar_days(Y)
         # for each month of data
-        for i,t in enumerate(var['time']):
+        for i, t in enumerate(var['time']):
             # convert from Julian days to calendar dates
-            YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(t,
-                FORMAT='tuple')
+            YY, MM, DD, hh, mm, ss = gravtk.time.convert_julian(
+                t, FORMAT='tuple'
+            )
             # spatial object for each month
-            dinput = gravtk.spatial(nlat=nlat,nlon=nlon,
-                fill_value=fill_value)
+            dinput = gravtk.spatial(nlat=nlat, nlon=nlon, fill_value=fill_value)
             dinput.lat = np.copy(var['latitude'])
             dinput.lon = np.copy(var['longitude'])
             # calculate time in year decimal
-            dinput.time = gravtk.time.convert_calendar_decimal(YY,
-                MM,day=DD,hour=hh,minute=mm,second=ss)
+            dinput.time = gravtk.time.convert_calendar_decimal(
+                YY, MM, day=DD, hour=hh, minute=mm, second=ss
+            )
             # output data and mask
-            dinput.data = np.zeros((nlat,nlon))
-            dinput.mask = np.zeros((nlat,nlon),dtype=bool)
-            for p in ['tp','e']:
-                dinput.mask |= var[p].mask[i,:,:]
+            dinput.data = np.zeros((nlat, nlon))
+            dinput.mask = np.zeros((nlat, nlon), dtype=bool)
+            for p in ['tp', 'e']:
+                dinput.mask |= var[p].mask[i, :, :]
             # valid indices for all variables
-            indy,indx = np.nonzero(np.logical_not(dinput.mask))
+            indy, indx = np.nonzero(np.logical_not(dinput.mask))
             # calculate "SMB" as precipitation minus evaporation
             # multiply by number of days to get total per month
-            for p in ['tp','e']:
-                dinput.data[indy,indx] += dpm[i]*var[p][i,indy,indx]*smb_sign[p]
+            for p in ['tp', 'e']:
+                dinput.data[indy, indx] += (
+                    dpm[i] * var[p][i, indy, indx] * smb_sign[p]
+                )
             # update mask
             dinput.update_mask()
             # add monthly fluxes to total
@@ -188,8 +199,8 @@ def era5_smb_mean(DIRECTORY,
             count += 1.0
 
     # convert from totals to means
-    indy,indx = np.nonzero(np.logical_not(era5_mean.mask))
-    era5_mean.data[indy,indx] /= count
+    indy, indx = np.nonzero(np.logical_not(era5_mean.mask))
+    era5_mean.data[indy, indx] /= count
     era5_mean.update_mask()
     era5_mean.time /= count
 
@@ -197,17 +208,18 @@ def era5_smb_mean(DIRECTORY,
     args = (RANGE[0], RANGE[1], suffix[DATAFORM])
     FILE = 'ERA5-Mean-P-E-{0:4d}-{1:4d}.{2}'.format(*args)
     output_file = DIRECTORY.joinpath(FILE)
-    if (DATAFORM == 'ascii'):
+    if DATAFORM == 'ascii':
         # ascii (.txt)
         era5_mean.to_ascii(output_file, verbose=VERBOSE)
-    elif (DATAFORM == 'netCDF4'):
+    elif DATAFORM == 'netCDF4':
         # netcdf (.nc)
         era5_mean.to_netCDF4(output_file, verbose=VERBOSE, **attributes)
-    elif (DATAFORM == 'HDF5'):
+    elif DATAFORM == 'HDF5':
         # HDF5 (.H5)
         era5_mean.to_HDF5(output_file, verbose=VERBOSE, **attributes)
     # change the permissions mode
     output_file.chmod(mode=MODE)
+
 
 # PURPOSE: create argument parser
 def arguments():
@@ -219,43 +231,68 @@ def arguments():
     )
     # command line parameters
     # working data directory
-    parser.add_argument('--directory','-D',
-        type=pathlib.Path, default=pathlib.Path.cwd(),
-        help='Working data directory')
+    parser.add_argument(
+        '--directory',
+        '-D',
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
+        help='Working data directory',
+    )
     # start and end years to run for mean
-    parser.add_argument('--mean','-m',
-        metavar=('START','END'), type=int, nargs=2,
-        default=[1980,1995],
-        help='Start and end year range for mean')
+    parser.add_argument(
+        '--mean',
+        '-m',
+        metavar=('START', 'END'),
+        type=int,
+        nargs=2,
+        default=[1980, 1995],
+        help='Start and end year range for mean',
+    )
     # input and output data format (ascii, netCDF4, HDF5)
-    parser.add_argument('--format','-F',
-        type=str, default='netCDF4', choices=['ascii','netCDF4','HDF5'],
-        help='Input and output data format')
+    parser.add_argument(
+        '--format',
+        '-F',
+        type=str,
+        default='netCDF4',
+        choices=['ascii', 'netCDF4', 'HDF5'],
+        help='Input and output data format',
+    )
     # print information about each output file
-    parser.add_argument('--verbose','-V',
-        action='count', default=0,
-        help='Verbose output of processing run')
+    parser.add_argument(
+        '--verbose',
+        '-V',
+        action='count',
+        default=0,
+        help='Verbose output of processing run',
+    )
     # permissions mode of the local directories and files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='Permission mode of directories and files')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='Permission mode of directories and files',
+    )
     # return the parser
     return parser
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # run program with parameters
-    era5_smb_mean(args.directory,
+    era5_smb_mean(
+        args.directory,
         RANGE=args.mean,
         DATAFORM=args.format,
         VERBOSE=args.verbose,
-        MODE=args.mode)
+        MODE=args.mode,
+    )
+
 
 # run main program
 if __name__ == '__main__':
     main()
-

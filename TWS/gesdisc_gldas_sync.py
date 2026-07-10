@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 gesdisc_gldas_sync.py
 Written by Tyler Sutterley (05/2023)
 
@@ -96,6 +96,7 @@ UPDATE HISTORY:
         minor changes to check_connection function to parallel other programs
     Written 02/2017
 """
+
 from __future__ import print_function
 
 import sys
@@ -120,11 +121,22 @@ gldas_products['MOS'] = 'GLDAS Mosaic model'
 gldas_products['NOAH'] = 'GLDAS Noah model'
 gldas_products['VIC'] = 'GLDAS Variable Infiltration Capacity (VIC) model'
 
-# PURPOSE: sync local GLDAS files with GESDISC server
-def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
-    VERSION='', EARLY=False, TIMEOUT=0, LOG=False, LIST=False, MODE=0o775,
-    CLOBBER=False):
 
+# PURPOSE: sync local GLDAS files with GESDISC server
+def gesdisc_gldas_sync(
+    DIRECTORY,
+    MODEL,
+    YEARS,
+    SPATIAL='',
+    TEMPORAL='',
+    VERSION='',
+    EARLY=False,
+    TIMEOUT=0,
+    LOG=False,
+    LIST=False,
+    MODE=0o775,
+    CLOBBER=False,
+):
     # check if directory exists and recursively create if not
     DIRECTORY = pathlib.Path(DIRECTORY).expanduser().absolute()
     DIRECTORY.mkdir(mode=MODE, parents=True, exist_ok=True)
@@ -133,7 +145,7 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
     if LOG:
         # output to log file
         # format: NASA_GESDISC_GLDAS_sync_2002-04-01.log
-        today = time.strftime('%Y-%m-%d',time.localtime())
+        today = time.strftime('%Y-%m-%d', time.localtime())
         output_logfile = f'NASA_GESDISC_GLDAS_{MODEL}_sync_{today}.log'
         LOGFILE = DIRECTORY.joinpath(output_logfile)
         logging.basicConfig(filename=LOGFILE, level=logging.INFO)
@@ -143,7 +155,7 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
         logging.basicConfig(level=logging.INFO)
 
     # Version and product flags
-    V1,V2 = (f'_V{VERSION}','') if (VERSION == '1') else ('',f'.{VERSION}')
+    V1, V2 = (f'_V{VERSION}', '') if (VERSION == '1') else ('', f'.{VERSION}')
     PRODUCT = f'GLDAS_{MODEL}{SPATIAL}_{TEMPORAL}{V2}'
     EP = '_EP' if EARLY else ''
     # shortname for model on GESDISC server
@@ -155,33 +167,52 @@ def gesdisc_gldas_sync(DIRECTORY, MODEL, YEARS, SPATIAL='', TEMPORAL='',
     logging.info(f'VERSION={VERSION}{EP}')
 
     # for each year to sync
-    for Y in map(str,YEARS):
+    for Y in map(str, YEARS):
         # start and end date for query
-        start_date,end_date = (f'{Y}-01-01',  f'{Y}-12-31')
+        start_date, end_date = (f'{Y}-01-01', f'{Y}-12-31')
         # query CMR for model granules
-        ids,urls,mtimes = mdlhmc.utilities.cmr(SHORTNAME,
-            version=VERSION, start_date=start_date, end_date=end_date,
-            provider='GES_DISC', verbose=True)
+        ids, urls, mtimes = mdlhmc.utilities.cmr(
+            SHORTNAME,
+            version=VERSION,
+            start_date=start_date,
+            end_date=end_date,
+            provider='GES_DISC',
+            verbose=True,
+        )
         # recursively create local directory for data
         local_dir = DIRECTORY.joinpath(PRODUCT, Y)
         local_dir.mkdir(mode=MODE, parents=True, exist_ok=True)
         # sync model granules
-        for id,url,mtime in zip(ids,urls,mtimes):
+        for id, url, mtime in zip(ids, urls, mtimes):
             # local version of the granule
             local_file = local_dir.joinpath(id)
             # copy file from remote directory comparing modified dates
-            http_pull_file(url, mtime, local_file,
-                TIMEOUT=TIMEOUT, LIST=LIST, CLOBBER=CLOBBER,
-                MODE=MODE)
+            http_pull_file(
+                url,
+                mtime,
+                local_file,
+                TIMEOUT=TIMEOUT,
+                LIST=LIST,
+                CLOBBER=CLOBBER,
+                MODE=MODE,
+            )
 
     # close log file and set permissions level to MODE
     if LOG:
         LOGFILE.chmod(mode=MODE)
 
+
 # PURPOSE: pull file from a remote host checking if file exists locally
 # and if the remote file is newer than the local file
-def http_pull_file(remote_file,remote_mtime,local_file,
-    TIMEOUT=0,LIST=False,CLOBBER=False,MODE=0o775):
+def http_pull_file(
+    remote_file,
+    remote_mtime,
+    local_file,
+    TIMEOUT=0,
+    LIST=False,
+    CLOBBER=False,
+    MODE=0o775,
+):
     # if file exists in file system: check if remote file is newer
     TEST = False
     OVERWRITE = ' (clobber)'
@@ -190,8 +221,9 @@ def http_pull_file(remote_file,remote_mtime,local_file,
         # check last modification time of local file
         local_mtime = local_file.stat().st_mtime
         # if remote file is newer: overwrite the local file
-        if (mdlhmc.utilities.even(remote_mtime) >
-            mdlhmc.utilities.even(local_mtime)):
+        if mdlhmc.utilities.even(remote_mtime) > mdlhmc.utilities.even(
+            local_mtime
+        ):
             TEST = True
             OVERWRITE = ' (overwrite)'
     else:
@@ -207,8 +239,9 @@ def http_pull_file(remote_file,remote_mtime,local_file,
             # Create and submit request. There are a wide range of exceptions
             # that can be thrown here, including HTTPError and URLError.
             request = mdlhmc.utilities.urllib2.Request(remote_file)
-            response = mdlhmc.utilities.urllib2.urlopen(request,
-                timeout=TIMEOUT)
+            response = mdlhmc.utilities.urllib2.urlopen(
+                request, timeout=TIMEOUT
+            )
             # chunked transfer encoding size
             CHUNK = 16 * 1024
             # copy contents to local file using chunked transfer encoding
@@ -219,6 +252,7 @@ def http_pull_file(remote_file,remote_mtime,local_file,
             os.utime(local_file, (local_file.stat().st_atime, remote_mtime))
             local_file.chmod(mode=MODE)
 
+
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
@@ -227,82 +261,144 @@ def arguments():
             """
     )
     # command line parameters
-    parser.add_argument('model',
-        type=str, nargs='+', choices=gldas_products.keys(),
-        help='GLDAS land surface model')
+    parser.add_argument(
+        'model',
+        type=str,
+        nargs='+',
+        choices=gldas_products.keys(),
+        help='GLDAS land surface model',
+    )
     # NASA Earthdata credentials
-    parser.add_argument('--user','-U',
-        type=str, default=os.environ.get('EARTHDATA_USERNAME'),
-        help='Username for NASA Earthdata Login')
-    parser.add_argument('--password','-W',
-        type=str, default=os.environ.get('EARTHDATA_PASSWORD'),
-        help='Password for NASA Earthdata Login')
-    parser.add_argument('--netrc','-N',
-        type=pathlib.Path, default=pathlib.Path.home().joinpath('.netrc'),
-        help='Path to .netrc file for authentication')
+    parser.add_argument(
+        '--user',
+        '-U',
+        type=str,
+        default=os.environ.get('EARTHDATA_USERNAME'),
+        help='Username for NASA Earthdata Login',
+    )
+    parser.add_argument(
+        '--password',
+        '-W',
+        type=str,
+        default=os.environ.get('EARTHDATA_PASSWORD'),
+        help='Password for NASA Earthdata Login',
+    )
+    parser.add_argument(
+        '--netrc',
+        '-N',
+        type=pathlib.Path,
+        default=pathlib.Path.home().joinpath('.netrc'),
+        help='Path to .netrc file for authentication',
+    )
     # working data directory
-    parser.add_argument('--directory','-D',
-        type=pathlib.Path, default=pathlib.Path.cwd(),
-        help='Working data directory')
+    parser.add_argument(
+        '--directory',
+        '-D',
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
+        help='Working data directory',
+    )
     # years to download
     now = time.gmtime()
-    parser.add_argument('--year','-Y',
-        type=int, nargs='+', default=range(2000,now.tm_year+1),
-        help='Years of model outputs to sync')
+    parser.add_argument(
+        '--year',
+        '-Y',
+        type=int,
+        nargs='+',
+        default=range(2000, now.tm_year + 1),
+        help='Years of model outputs to sync',
+    )
     # GLDAS model version
-    parser.add_argument('--version','-v',
-        type=str, default='2.1',
-        help='GLDAS model version')
+    parser.add_argument(
+        '--version', '-v', type=str, default='2.1', help='GLDAS model version'
+    )
     # model spatial resolution
     # 10: 1.0 degrees latitude/longitude
     # 025: 0.25 degrees latitude/longitude
-    parser.add_argument('--spacing','-S',
-        type=str, default='10', choices=['10','025'],
-        help='Spatial resolution of models to sync')
+    parser.add_argument(
+        '--spacing',
+        '-S',
+        type=str,
+        default='10',
+        choices=['10', '025'],
+        help='Spatial resolution of models to sync',
+    )
     # model temporal resolution
     # M: Monthly data products
     # 3H: 3-hourly data products
-    parser.add_argument('--temporal','-T',
-        type=str, default='M', choices=['M','3H'],
-        help='Temporal resolution of models to sync')
+    parser.add_argument(
+        '--temporal',
+        '-T',
+        type=str,
+        default='M',
+        choices=['M', '3H'],
+        help='Temporal resolution of models to sync',
+    )
     # GLDAS early products
-    parser.add_argument('--early','-e',
-        default=False, action='store_true',
-        help='Sync GLDAS early products')
+    parser.add_argument(
+        '--early',
+        '-e',
+        default=False,
+        action='store_true',
+        help='Sync GLDAS early products',
+    )
     # connection timeout
-    parser.add_argument('--timeout','-t',
-        type=int, default=360,
-        help='Timeout in seconds for blocking operations')
+    parser.add_argument(
+        '--timeout',
+        '-t',
+        type=int,
+        default=360,
+        help='Timeout in seconds for blocking operations',
+    )
     # Output log file in form
     # NASA_GESDISC_GLDAS_sync_2002-04-01.log
-    parser.add_argument('--log','-l',
-        default=False, action='store_true',
-        help='Output log file')
+    parser.add_argument(
+        '--log',
+        '-l',
+        default=False,
+        action='store_true',
+        help='Output log file',
+    )
     # sync options
-    parser.add_argument('--list','-L',
-        default=False, action='store_true',
-        help='Only print files that could be transferred')
-    parser.add_argument('--clobber','-C',
-        default=False, action='store_true',
-        help='Overwrite existing data in transfer')
+    parser.add_argument(
+        '--list',
+        '-L',
+        default=False,
+        action='store_true',
+        help='Only print files that could be transferred',
+    )
+    parser.add_argument(
+        '--clobber',
+        '-C',
+        default=False,
+        action='store_true',
+        help='Overwrite existing data in transfer',
+    )
     # permissions mode of the directories and files synced (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='Permission mode of directories and files synced')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='Permission mode of directories and files synced',
+    )
     # return the parser
     return parser
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # NASA Earthdata hostname
     URS = 'urs.earthdata.nasa.gov'
     # get NASA Earthdata credentials
     try:
-        args.user,_,args.password = netrc.netrc(args.netrc).authenticators(URS)
+        args.user, _, args.password = netrc.netrc(args.netrc).authenticators(
+            URS
+        )
     except:
         # check that NASA Earthdata credentials were entered
         if not args.user:
@@ -315,19 +411,33 @@ def main():
 
     # build a urllib opener for NASA GESDISC
     # Add the username and password for NASA Earthdata Login system
-    mdlhmc.utilities.build_opener(args.user, args.password,
-        password_manager=True, authorization_header=False)
+    mdlhmc.utilities.build_opener(
+        args.user,
+        args.password,
+        password_manager=True,
+        authorization_header=False,
+    )
 
     # check internet connection before attempting to run program
-    HOST = posixpath.join('https://hydro1.gesdisc.eosdis.nasa.gov','data')
+    HOST = posixpath.join('https://hydro1.gesdisc.eosdis.nasa.gov', 'data')
     if mdlhmc.utilities.check_credentials(HOST):
         # for each GLDAS model
         for MODEL in args.model:
-            gesdisc_gldas_sync(args.directory, MODEL, args.year,
-                VERSION=args.version, EARLY=args.early,
-                SPATIAL=args.spacing, TEMPORAL=args.temporal,
-                TIMEOUT=args.timeout, LOG=args.log, LIST=args.list,
-                CLOBBER=args.clobber, MODE=args.mode)
+            gesdisc_gldas_sync(
+                args.directory,
+                MODEL,
+                args.year,
+                VERSION=args.version,
+                EARLY=args.early,
+                SPATIAL=args.spacing,
+                TEMPORAL=args.temporal,
+                TIMEOUT=args.timeout,
+                LOG=args.log,
+                LIST=args.list,
+                CLOBBER=args.clobber,
+                MODE=args.mode,
+            )
+
 
 # run main program
 if __name__ == '__main__':

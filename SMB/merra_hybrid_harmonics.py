@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 merra_hybrid_harmonics.py
 Written by Tyler Sutterley (04/2024)
 Read MERRA-2 hybrid variables and converts to spherical harmonics
@@ -85,6 +85,7 @@ UPDATE HISTORY:
     Updated 09/2021: use original FDM file for ais products
     Written 08/2021
 """
+
 from __future__ import print_function
 
 import sys
@@ -102,19 +103,26 @@ import numpy as np
 import scipy.interpolate
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
+
 # ignore pyproj and divide by zero warnings
-warnings.filterwarnings("ignore")
+warnings.filterwarnings('ignore')
+
 
 # PURPOSE: set the projection parameters based on the region name
 def set_projection(REGION):
-    if (REGION == 'ais'):
+    if REGION == 'ais':
         projection_flag = 'EPSG:3031'
-    elif (REGION == 'gris'):
+    elif REGION == 'gris':
         projection_flag = 'EPSG:3413'
     return projection_flag
 
+
 # PURPOSE: read MERRA-2 hybrid SMB estimates and convert to spherical harmonics
-def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
+def merra_hybrid_harmonics(
+    base_dir,
+    REGION,
+    VARIABLE,
+    YEARS,
     VERSION='v1',
     MASKS=None,
     LMAX=None,
@@ -123,8 +131,8 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     REFERENCE=None,
     DATAFORM=None,
     GZIP=False,
-    MODE=0o775):
-
+    MODE=0o775,
+):
     # MERRA-2 hybrid directory
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
     DIRECTORY = base_dir.joinpath(VERSION)
@@ -134,15 +142,15 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     # set the input netCDF4 file for the variable of interest
     if VARIABLE in ('cum_smb_anomaly',):
         FILE_VERSION = copy.copy(VERSION)
-        args = (VERSION,REGION.lower(),suffix)
+        args = (VERSION, REGION.lower(), suffix)
         hybrid_file = 'gsfc_fdm_{0}_{1}.nc{2}'.format(*args)
-    elif VARIABLE in ('FAC','height','h_a') or (REGION.lower() == 'ais'):
-        FILE_VERSION = VERSION.replace('.','_')
-        args = (FILE_VERSION,REGION.lower(),suffix)
+    elif VARIABLE in ('FAC', 'height', 'h_a') or (REGION.lower() == 'ais'):
+        FILE_VERSION = VERSION.replace('.', '_')
+        args = (FILE_VERSION, REGION.lower(), suffix)
         hybrid_file = 'gsfc_fdm_{0}_{1}.nc{2}'.format(*args)
-    elif VARIABLE in ('Me_a','Ra_a','Ru_a','Sn-Ev_a','SMB_a'):
-        FILE_VERSION = VERSION.replace('.','_')
-        args = (FILE_VERSION,REGION.lower(),suffix)
+    elif VARIABLE in ('Me_a', 'Ra_a', 'Ru_a', 'Sn-Ev_a', 'SMB_a'):
+        FILE_VERSION = VERSION.replace('.', '_')
+        args = (FILE_VERSION, REGION.lower(), suffix)
         hybrid_file = 'gsfc_fdm_smb_cumul_{0}_{1}.nc{2}'.format(*args)
     else:
         raise ValueError(f'Unknown variable {VARIABLE}')
@@ -164,63 +172,67 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     # Get data from each netCDF variable and remove singleton dimensions
     fd = {}
     # time is year decimal at time step 5 days
-    time_step = 5.0/365.25
+    time_step = 5.0 / 365.25
     # reduce grids to time period of input buffered by time steps
-    tmin = np.min(YEARS) - 2.0*time_step
-    tmax = np.max(YEARS) + 1.0 + 2.0*time_step
+    tmin = np.min(YEARS) - 2.0 * time_step
+    tmax = np.max(YEARS) + 1.0 + 2.0 * time_step
     # find indices to times
-    nt, = fileID.variables['time'].shape
-    f = scipy.interpolate.interp1d(fileID.variables['time'][:],
-        np.arange(nt), kind='nearest', bounds_error=False,
-        fill_value=(0,nt))
-    imin,imax = f((tmin,tmax)).astype(np.int64)
+    (nt,) = fileID.variables['time'].shape
+    f = scipy.interpolate.interp1d(
+        fileID.variables['time'][:],
+        np.arange(nt),
+        kind='nearest',
+        bounds_error=False,
+        fill_value=(0, nt),
+    )
+    imin, imax = f((tmin, tmax)).astype(np.int64)
     # read reduced time variables
-    fd['time'] = fileID.variables['time'][imin:imax+1].copy()
+    fd['time'] = fileID.variables['time'][imin : imax + 1].copy()
     # read reduced dataset and remove singleton dimensions
-    fd[VARIABLE] = np.squeeze(fileID.variables[VARIABLE][imin:imax+1,:,:])
+    fd[VARIABLE] = np.squeeze(fileID.variables[VARIABLE][imin : imax + 1, :, :])
     # invalid data value
     fv = np.float64(fileID.variables[VARIABLE]._FillValue)
     # input variable units
     variable_units = fileID.variables[VARIABLE].units
     # input shape of MERRA-2 Hybrid firn data
-    nt,nx,ny = np.shape(fd[VARIABLE])
+    nt, nx, ny = np.shape(fd[VARIABLE])
     # extract x and y coordinate arrays from grids if applicable
     # else create meshgrids of coordinate arrays
-    if (np.ndim(fileID.variables['x'][:]) == 2):
+    if np.ndim(fileID.variables['x'][:]) == 2:
         xg = fileID.variables['x'][:].copy()
         yg = fileID.variables['y'][:].copy()
-        fd['x'],fd['y'] = (xg[:,0],yg[0,:])
+        fd['x'], fd['y'] = (xg[:, 0], yg[0, :])
     else:
         fd['x'] = fileID.variables['x'][:].copy()
         fd['y'] = fileID.variables['y'][:].copy()
-        xg,yg = np.meshgrid(fd['x'],fd['y'],indexing='ij')
+        xg, yg = np.meshgrid(fd['x'], fd['y'], indexing='ij')
     # extract area of each grid cell if applicable
     # calculate using dimensions if not possible
-    fd['area'] = np.zeros((nx,ny))
+    fd['area'] = np.zeros((nx, ny))
     try:
         # ice covered area
-        fd['area'][:,:] = fileID.variables['iArea'][:,:].copy()
+        fd['area'][:, :] = fileID.variables['iArea'][:, :].copy()
     except:
         # calculate grid areas (assume fully ice covered)
         dx = np.abs(fd['x'][1] - fd['x'][0])
         dy = np.abs(fd['y'][1] - fd['y'][0])
-        fd['area'][:,:] = dx*dy
+        fd['area'][:, :] = dx * dy
     # close the NetCDF files
     fileID.close()
 
     # create mask object for reducing data
     if not MASKS:
-        fd['mask'] = np.ones((nx,ny),dtype=bool)
+        fd['mask'] = np.ones((nx, ny), dtype=bool)
     else:
-        fd['mask'] = np.zeros((nx,ny),dtype=bool)
+        fd['mask'] = np.zeros((nx, ny), dtype=bool)
     # read masks for reducing regions before converting to harmonics
     for mask_file in MASKS:
         logging.info(mask_file)
-        fileID = netCDF4.Dataset(mask_file,'r')
+        fileID = netCDF4.Dataset(mask_file, 'r')
         fd['mask'] |= fileID.variables['mask'][:].astype(bool)
         fileID.close()
     # indices of valid MERRA hybrid data
-    fd['mask'] &= (fd[VARIABLE].data[0,:,:] != fv)
+    fd['mask'] &= fd[VARIABLE].data[0, :, :] != fv
 
     # pyproj transformer for converting to input coordinates (EPSG)
     MODEL_EPSG = set_projection(REGION)
@@ -229,7 +241,7 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     transformer = pyproj.Transformer.from_crs(crs1, crs2, always_xy=True)
     direction = pyproj.enums.TransformDirection.INVERSE
     # convert projection from model coordinates
-    gridlon,gridlat = transformer.transform(xg, yg, direction=direction)
+    gridlon, gridlat = transformer.transform(xg, yg, direction=direction)
     # polar stereographic standard parallel (latitude of true scale)
     reference_latitude = crs2.to_dict().pop('lat_ts')
 
@@ -242,36 +254,39 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     # Average Radius of the Earth with equal surface area [m]
     rad_e = ellipsoid_params.rad_e
     # calculate geocentric latitude and convert to degrees
-    latitude_geocentric = mdlhmc.spatial.geocentric_latitude(gridlon, gridlat,
-        a_axis=a_axis, flat=flat)
+    latitude_geocentric = mdlhmc.spatial.geocentric_latitude(
+        gridlon, gridlat, a_axis=a_axis, flat=flat
+    )
 
     # reduce latitude and longitude to valid and masked points
-    indx,indy = np.nonzero(fd['mask'])
-    lon,lat = (gridlon[indx,indy],latitude_geocentric[indx,indy])
+    indx, indy = np.nonzero(fd['mask'])
+    lon, lat = (gridlon[indx, indy], latitude_geocentric[indx, indy])
     # scaled areas
-    ps_scale = mdlhmc.spatial.scale_factors(gridlat[indx,indy], flat=flat,
-        reference_latitude=reference_latitude)
+    ps_scale = mdlhmc.spatial.scale_factors(
+        gridlat[indx, indy], flat=flat, reference_latitude=reference_latitude
+    )
     # unit parameters for each input variable type
-    if VARIABLE in ('FAC','height','h_a'):
+    if VARIABLE in ('FAC', 'height', 'h_a'):
         # areas in terms of solid angle (steradians)
-        scaling_factor = ps_scale*fd['area'][indx,indy]/(rad_e**2)
+        scaling_factor = ps_scale * fd['area'][indx, indy] / (rad_e**2)
         # use custom UNITS to keep as inputs but use 4-pi norm
-        UNITS = np.ones((LMAX+1))/(4.0*np.pi)
+        UNITS = np.ones((LMAX + 1)) / (4.0 * np.pi)
         # output spherical harmonic units
         harmonic_units = copy.copy(variable_units)
     else:
         # densities of meteoric ice [kg/m^3]
         rho_ice = 917.0
         # scaling factor to convert inputs from from meters ice eq to g
-        scaling_factor = 1000.0*rho_ice*ps_scale*fd['area'][indx,indy]
+        scaling_factor = 1000.0 * rho_ice * ps_scale * fd['area'][indx, indy]
         # use named point mass units code (grams)
         UNITS = 1
         # output spherical harmonic units
         harmonic_units = 'Geodesy_Normalization'
 
     # read load love numbers
-    LOVE = gravtk.load_love_numbers(LMAX, LOVE_NUMBERS=LOVE_NUMBERS,
-        REFERENCE=REFERENCE, FORMAT='class')
+    LOVE = gravtk.load_love_numbers(
+        LMAX, LOVE_NUMBERS=LOVE_NUMBERS, REFERENCE=REFERENCE, FORMAT='class'
+    )
     # upper bound of spherical harmonic orders (default = LMAX)
     MMAX = np.copy(LMAX) if not MMAX else MMAX
     # output string for both LMAX == MMAX and LMAX != MMAX cases
@@ -279,20 +294,21 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
 
     # allocate for output spherical harmonics
     Ylms = gravtk.harmonics(lmax=LMAX, mmax=MMAX)
-    Ylms.clm = np.zeros((LMAX+1,MMAX+1,nt))
-    Ylms.slm = np.zeros((LMAX+1,MMAX+1,nt))
+    Ylms.clm = np.zeros((LMAX + 1, MMAX + 1, nt))
+    Ylms.slm = np.zeros((LMAX + 1, MMAX + 1, nt))
     Ylms.time = np.zeros((nt))
     Ylms.month = np.zeros((nt), dtype=np.int64)
     # for each time step
     for t in range(nt):
         # reduce data for date and scale
-        scaled = scaling_factor*fd[VARIABLE][t,indx,indy]
+        scaled = scaling_factor * fd[VARIABLE][t, indx, indy]
         # convert to spherical harmonics
-        YLMS = gravtk.gen_point_load(scaled, lon, lat,
-            LMAX=LMAX, MMAX=MMAX, UNITS=UNITS, LOVE=LOVE)
+        YLMS = gravtk.gen_point_load(
+            scaled, lon, lat, LMAX=LMAX, MMAX=MMAX, UNITS=UNITS, LOVE=LOVE
+        )
         # copy harmonics for time step
-        Ylms.clm[:,:,t] = YLMS.clm[:,:].copy()
-        Ylms.slm[:,:,t] = YLMS.slm[:,:].copy()
+        Ylms.clm[:, :, t] = YLMS.clm[:, :].copy()
+        Ylms.slm[:, :, t] = YLMS.slm[:, :].copy()
         # copy date parameters for time step
         Ylms.time[t] = fd['time'][t].copy()
         Ylms.month[t] = gravtk.time.calendar_to_grace(Ylms.time[t])
@@ -319,13 +335,20 @@ def merra_hybrid_harmonics(base_dir, REGION, VARIABLE, YEARS,
     # add attributes to output harmonics
     Ylms.attributes['ROOT'] = attributes
     # output spherical harmonic data file
-    args = (FILE_VERSION,REGION.lower(),VARIABLE,LMAX,order_str,suffix[DATAFORM])
+    args = (
+        FILE_VERSION,
+        REGION.lower(),
+        VARIABLE,
+        LMAX,
+        order_str,
+        suffix[DATAFORM],
+    )
     FILE = 'gsfc_fdm_{0}_{1}_{2}_CLM_L{3:d}{4}.{5}'.format(*args)
     output_file = DIRECTORY.joinpath(FILE)
-    Ylms.to_file(output_file, format=DATAFORM,
-        date=True, units=harmonic_units)
+    Ylms.to_file(output_file, format=DATAFORM, date=True, units=harmonic_units)
     # change the permissions mode of the output file to MODE
     output_file.chmod(mode=MODE)
+
 
 # PURPOSE: create argument parser
 def arguments():
@@ -333,89 +356,154 @@ def arguments():
         description="""Read MERRA-2 hybrid variables and
             converts to spherical harmonics
             """,
-        fromfile_prefix_chars="@"
+        fromfile_prefix_chars='@',
     )
     parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     # working data directory
-    parser.add_argument('--directory','-D',
-        type=pathlib.Path, default=pathlib.Path.cwd(),
-        help='Working data directory')
+    parser.add_argument(
+        '--directory',
+        '-D',
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
+        help='Working data directory',
+    )
     # region of firn model
-    parser.add_argument('--region','-R',
-        type=str, default='gris', choices=['gris','ais'],
-        help='Region of firn model to calculate')
+    parser.add_argument(
+        '--region',
+        '-R',
+        type=str,
+        default='gris',
+        choices=['gris', 'ais'],
+        help='Region of firn model to calculate',
+    )
     # version of firn model
-    versions = ['v0','v1','v1.0','v1.1','v1.2','v1.2.1']
-    parser.add_argument('--version','-v',
-        type=str, default='v1.2.1', choices=versions,
-        help='Version of firn model to calculate')
+    versions = ['v0', 'v1', 'v1.0', 'v1.1', 'v1.2', 'v1.2.1']
+    parser.add_argument(
+        '--version',
+        '-v',
+        type=str,
+        default='v1.2.1',
+        choices=versions,
+        help='Version of firn model to calculate',
+    )
     # products from firn model
-    parser.add_argument('--product','-P',
-        type=str, default='SMB_a',
-        help='MERRA-2 hybrid product to calculate')
+    parser.add_argument(
+        '--product',
+        '-P',
+        type=str,
+        default='SMB_a',
+        help='MERRA-2 hybrid product to calculate',
+    )
     # years to run
     now = datetime.datetime.now()
-    parser.add_argument('--year','-Y',
-        type=int, nargs='+', default=range(2000,now.year+1),
-        help='Years of model outputs to run')
+    parser.add_argument(
+        '--year',
+        '-Y',
+        type=int,
+        nargs='+',
+        default=range(2000, now.year + 1),
+        help='Years of model outputs to run',
+    )
     # mask file for reducing to regions
-    parser.add_argument('--mask',
+    parser.add_argument(
+        '--mask',
         type=pathlib.Path,
-        nargs='+', default=[],
-        help='netCDF4 masks file for reducing to regions')
+        nargs='+',
+        default=[],
+        help='netCDF4 masks file for reducing to regions',
+    )
     # maximum spherical harmonic degree and order
-    parser.add_argument('--lmax','-l',
-        type=int, default=60,
-        help='Maximum spherical harmonic degree')
-    parser.add_argument('--mmax','-m',
-        type=int, default=None,
-        help='Maximum spherical harmonic order')
+    parser.add_argument(
+        '--lmax',
+        '-l',
+        type=int,
+        default=60,
+        help='Maximum spherical harmonic degree',
+    )
+    parser.add_argument(
+        '--mmax',
+        '-m',
+        type=int,
+        default=None,
+        help='Maximum spherical harmonic order',
+    )
     # different treatments of the load Love numbers
     # 0: Han and Wahr (1995) values from PREM
     # 1: Gegout (2005) values from PREM
     # 2: Wang et al. (2012) values from PREM
     # 3: Wang et al. (2012) values from PREM with hard sediment
     # 4: Wang et al. (2012) values from PREM with soft sediment
-    parser.add_argument('--love','-n',
-        type=int, default=0, choices=[0,1,2,3,4],
-        help='Treatment of the Load Love numbers')
+    parser.add_argument(
+        '--love',
+        '-n',
+        type=int,
+        default=0,
+        choices=[0, 1, 2, 3, 4],
+        help='Treatment of the Load Love numbers',
+    )
     # option for setting reference frame for gravitational load love number
     # reference frame options (CF, CM, CE)
-    parser.add_argument('--reference',
-        type=str.upper, default='CF', choices=['CF','CM','CE'],
-        help='Reference frame for load Love numbers')
+    parser.add_argument(
+        '--reference',
+        type=str.upper,
+        default='CF',
+        choices=['CF', 'CM', 'CE'],
+        help='Reference frame for load Love numbers',
+    )
     # input and output data format (ascii, netCDF4, HDF5)
-    parser.add_argument('--format','-F',
-        type=str, default='netCDF4', choices=['ascii','netCDF4','HDF5'],
-        help='Input and output data format')
+    parser.add_argument(
+        '--format',
+        '-F',
+        type=str,
+        default='netCDF4',
+        choices=['ascii', 'netCDF4', 'HDF5'],
+        help='Input and output data format',
+    )
     # print information about each input and output file
-    parser.add_argument('--verbose','-V',
-        action='count', default=0,
-        help='Verbose output of processing run')
+    parser.add_argument(
+        '--verbose',
+        '-V',
+        action='count',
+        default=0,
+        help='Verbose output of processing run',
+    )
     # netCDF4 files are gzip compressed
-    parser.add_argument('--gzip','-G',
-        default=False, action='store_true',
-        help='netCDF4 file is locally gzip compressed')
+    parser.add_argument(
+        '--gzip',
+        '-G',
+        default=False,
+        action='store_true',
+        help='netCDF4 file is locally gzip compressed',
+    )
     # permissions mode of the local directories and files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='Permission mode of directories and files')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='Permission mode of directories and files',
+    )
     # return the parser
     return parser
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[args.verbose])
 
     # run program
-    merra_hybrid_harmonics(args.directory, args.region, args.product, args.year,
+    merra_hybrid_harmonics(
+        args.directory,
+        args.region,
+        args.product,
+        args.year,
         VERSION=args.version,
         MASKS=args.mask,
         LMAX=args.lmax,
@@ -424,7 +512,9 @@ def main():
         REFERENCE=args.reference,
         DATAFORM=args.format,
         GZIP=args.gzip,
-        MODE=args.mode)
+        MODE=args.mode,
+    )
+
 
 # run main program
 if __name__ == '__main__':

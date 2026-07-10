@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 racmo_smb_cumulative.py
 Written by Tyler Sutterley (06/2025)
 Reads RACMO datafiles to calculate cumulative anomalies in derived surface
@@ -60,6 +60,7 @@ UPDATE HISTORY:
     Updated 01/2014: create date files. add new RACMO 2.3 model
     Written 10/2011
 """
+
 from __future__ import print_function
 
 import sys
@@ -76,19 +77,16 @@ import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
 
-# PURPOSE: read and cumulative RACMO SMB SMB estimates
-def racmo_smb_cumulative(model_file, PRODUCT,
-        RANGE=None,
-        VARIABLE=None,
-        GZIP=False,
-        MODE=0o775
-    ):
 
+# PURPOSE: read and cumulative RACMO SMB SMB estimates
+def racmo_smb_cumulative(
+    model_file, PRODUCT, RANGE=None, VARIABLE=None, GZIP=False, MODE=0o775
+):
     # RACMO SMB model file
     model_file = pathlib.Path(model_file).expanduser().absolute()
     # try to extract region and version from filename
-    R1 = re.compile(r'[P]?[XF]?(ANT|GRN|PEN|ASE)(\d+)',re.VERBOSE)
-    R2 = re.compile(r'(RACMO\d+(\.\d+)?(p\d+)?)',re.VERBOSE)
+    R1 = re.compile(r'[P]?[XF]?(ANT|GRN|PEN|ASE)(\d+)', re.VERBOSE)
+    R2 = re.compile(r'(RACMO\d+(\.\d+)?(p\d+)?)', re.VERBOSE)
     REGION = R1.search(model_file.name).group(0)
     VERSION = R2.search(model_file.name).group(0)
     # RACMO products
@@ -120,10 +118,18 @@ def racmo_smb_cumulative(model_file, PRODUCT,
     logging.info(list(f_in.variables.keys()))
 
     # Get data and attributes for each netCDF variable
-    fd,attrs = ({},{})
-    attributes_list = ['axis','calendar','description','grid_mapping',
-        'long_name','standard_name','units','_FillValue']
-    for key in [VARIABLE,'lon','lat','rlon','rlat','time']:
+    fd, attrs = ({}, {})
+    attributes_list = [
+        'axis',
+        'calendar',
+        'description',
+        'grid_mapping',
+        'long_name',
+        'standard_name',
+        'units',
+        '_FillValue',
+    ]
+    for key in [VARIABLE, 'lon', 'lat', 'rlon', 'rlat', 'time']:
         # output variable name (check if remapped)
         var = PRODUCT if (key == VARIABLE) else key
         # remove singleton dimensions
@@ -133,56 +139,65 @@ def racmo_smb_cumulative(model_file, PRODUCT,
         for att_name in attributes_list:
             # try getting the attribute
             try:
-                ncattr, = [s for s in f_in[key].ncattrs() if
-                    re.match(att_name,s,re.I)]
+                (ncattr,) = [
+                    s
+                    for s in f_in[key].ncattrs()
+                    if re.match(att_name, s, re.I)
+                ]
                 attrs[var][att_name] = f_in[key].getncattr(ncattr)
-            except (ValueError,AttributeError):
+            except (ValueError, AttributeError):
                 pass
             else:
                 # strip whitespace for string attributes
-                if isinstance(attrs[var][att_name],str):
+                if isinstance(attrs[var][att_name], str):
                     attrs[var][att_name] = attrs[var][att_name].strip()
 
     # parse date string within netCDF4 file
     date_string = attrs['time']['units']
-    epoch1,to_secs = gravtk.time.parse_date_string(date_string)
+    epoch1, to_secs = gravtk.time.parse_date_string(date_string)
     # calculate Julian day by converting to MJD and adding offset
-    JD = gravtk.time.convert_delta_time(fd['time']*to_secs,
-        epoch1=epoch1, epoch2=(1858,11,17,0,0,0),
-        scale=1.0/86400.0) + 2400000.5
+    JD = (
+        gravtk.time.convert_delta_time(
+            fd['time'] * to_secs,
+            epoch1=epoch1,
+            epoch2=(1858, 11, 17, 0, 0, 0),
+            scale=1.0 / 86400.0,
+        )
+        + 2400000.5
+    )
     # convert from Julian days to calendar dates
-    YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(JD,
-        FORMAT='tuple')
+    YY, MM, DD, hh, mm, ss = gravtk.time.convert_julian(JD, FORMAT='tuple')
     # convert from calendar dates to year-decimal
-    TIME = gravtk.time.convert_calendar_decimal(YY,MM,
-        day=DD,hour=hh,minute=mm,second=ss)
+    TIME = gravtk.time.convert_calendar_decimal(
+        YY, MM, day=DD, hour=hh, minute=mm, second=ss
+    )
 
     # copy data to masked array
     DATA = np.ma.array(fd[PRODUCT].copy())
     # invalid data value
     DATA.fill_value = np.float64(attrs[PRODUCT]['_FillValue'])
     # set masks
-    DATA.mask = (DATA.data == DATA.fill_value)
+    DATA.mask = DATA.data == DATA.fill_value
     # input shape of RACMO data
-    nt,ny,nx = np.shape(DATA)
+    nt, ny, nx = np.shape(DATA)
 
     # calculate mean period for RACMO
-    tt, = np.nonzero((TIME >= RANGE[0]) & (TIME < (RANGE[1]+1)))
+    (tt,) = np.nonzero((TIME >= RANGE[0]) & (TIME < (RANGE[1] + 1)))
     # cumulative mass anomalies calculated by removing mean balance flux
-    MEAN = np.mean(DATA.data[tt,:,:], axis=0)
+    MEAN = np.mean(DATA.data[tt, :, :], axis=0)
     # indices of specified ice mask at the first slice
-    i,j = np.nonzero(~DATA.mask[0,:,:])
-    valid_count = np.count_nonzero(~DATA.mask[0,:,:])
+    i, j = np.nonzero(~DATA.mask[0, :, :])
+    valid_count = np.count_nonzero(~DATA.mask[0, :, :])
     # allocate for output variable
-    fd[PRODUCT] = np.ma.zeros((nt,ny,nx),fill_value=DATA.fill_value)
-    fd[PRODUCT].mask = (DATA.mask | np.isnan(DATA.data))
+    fd[PRODUCT] = np.ma.zeros((nt, ny, nx), fill_value=DATA.fill_value)
+    fd[PRODUCT].mask = DATA.mask | np.isnan(DATA.data)
     CUMULATIVE = np.zeros((valid_count))
     # calculate output cumulative anomalies for variable
     for t in range(nt):
         # convert mass flux from yearly rate and
         # calculate cumulative anomalies at time t
-        CUMULATIVE += (DATA.data[t,i,j] - MEAN[i,j])
-        fd[PRODUCT].data[t,i,j] = CUMULATIVE.copy()
+        CUMULATIVE += DATA.data[t, i, j] - MEAN[i, j]
+        fd[PRODUCT].data[t, i, j] = CUMULATIVE.copy()
     # replace masked values with fill value
     fd[PRODUCT].data[fd[PRODUCT].mask] = fd[PRODUCT].fill_value
 
@@ -194,59 +209,81 @@ def racmo_smb_cumulative(model_file, PRODUCT,
     # output MERRA-2 data file with cumulative data
     if GZIP:
         # open virtual file object for output
-        f_out = netCDF4.Dataset(uuid.uuid4().hex,'w',memory=True,
-            format='NETCDF4')
+        f_out = netCDF4.Dataset(
+            uuid.uuid4().hex, 'w', memory=True, format='NETCDF4'
+        )
     else:
         # opening NetCDF file for writing
-        f_out = netCDF4.Dataset(output_file, 'w', format="NETCDF4")
+        f_out = netCDF4.Dataset(output_file, 'w', format='NETCDF4')
 
     # python dictionary with netCDF4 variables
     nc = {}
     # defining the NetCDF dimensions
-    for key in ['rlon','rlat','time']:
+    for key in ['rlon', 'rlat', 'time']:
         f_out.createDimension(key, len(fd[key]))
         nc[key] = f_out.createVariable(key, fd[key].dtype, (key,))
     # for each geolocation variable
-    for key in ['lon','lat']:
-        nc[key] = f_out.createVariable(key, fd[key].dtype,
-            ('rlat','rlon',), zlib=True)
+    for key in ['lon', 'lat']:
+        nc[key] = f_out.createVariable(
+            key,
+            fd[key].dtype,
+            (
+                'rlat',
+                'rlon',
+            ),
+            zlib=True,
+        )
     # output variable
-    nc[PRODUCT] = f_out.createVariable(PRODUCT, fd[PRODUCT].dtype,
-        ('time','rlat','rlon',), fill_value=DATA.fill_value, zlib=True)
+    nc[PRODUCT] = f_out.createVariable(
+        PRODUCT,
+        fd[PRODUCT].dtype,
+        (
+            'time',
+            'rlat',
+            'rlon',
+        ),
+        fill_value=DATA.fill_value,
+        zlib=True,
+    )
 
     # copy variable and attributes for projection
-    crs = f_out.createVariable('rotated_pole',np.byte,())
+    crs = f_out.createVariable('rotated_pole', np.byte, ())
     for att_name in f_in['rotated_pole'].ncattrs():
         att_val = f_in['rotated_pole'].getncattr(att_name)
-        crs.setncattr(att_name,att_val)
+        crs.setncattr(att_name, att_val)
 
     # filling NetCDF variables
-    for key,val in fd.items():
+    for key, val in fd.items():
         nc[key][:] = val.copy()
         # for each variable attribute
-        for att_name,att_val in attrs[key].items():
+        for att_name, att_val in attrs[key].items():
             if att_name not in ('_FillValue',):
-                nc[key].setncattr(att_name,att_val)
+                nc[key].setncattr(att_name, att_val)
 
     # global attributes of NetCDF file
-    for att_name in ['comment','Domain','Experiment','source','title']:
+    for att_name in ['comment', 'Domain', 'Experiment', 'source', 'title']:
         try:
-            ncattr, = [s for s in f_in.variables[key].ncattrs()
-                if re.match(att_name,s,re.I)]
+            (ncattr,) = [
+                s
+                for s in f_in.variables[key].ncattrs()
+                if re.match(att_name, s, re.I)
+            ]
             attribute = f_in.getncattr(ncattr)
-        except (ValueError,AttributeError):
+        except (ValueError, AttributeError):
             pass
         else:
-            f_out.setncattr(att_name,attribute)
+            f_out.setncattr(att_name, attribute)
     # output attribute for mean
-    f_out.description = (f'Cumulative anomalies in {VERSION} {REGION} variables '
-        f'relative to {RANGE[0]:4d}-{RANGE[1]:4d}')
+    f_out.description = (
+        f'Cumulative anomalies in {VERSION} {REGION} variables '
+        f'relative to {RANGE[0]:4d}-{RANGE[1]:4d}'
+    )
     # add software information
     f_out.software_reference = mdlhmc.version.project_name
     f_out.software_version = mdlhmc.version.full_version
     f_out.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # date created
-    f_out.date_created = time.strftime('%Y-%m-%d',time.localtime())
+    f_out.date_created = time.strftime('%Y-%m-%d', time.localtime())
 
     # Output NetCDF file information
     logging.info(list(f_out.variables.keys()))
@@ -264,6 +301,7 @@ def racmo_smb_cumulative(model_file, PRODUCT,
     # change the permissions mode
     output_file.chmod(mode=MODE)
 
+
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
@@ -272,54 +310,95 @@ def arguments():
             """
     )
     # command line parameters
-    parser.add_argument('infile',
-        type=pathlib.Path,
-        help='RACMO SMB file to run')
+    parser.add_argument(
+        'infile', type=pathlib.Path, help='RACMO SMB file to run'
+    )
     # products from SMB model
-    choices = ['precip','rainfall','refreeze','runoff','smb',
-        'sndiv','snowfall','snowmelt','subl']
-    parser.add_argument('--product','-P',
-        type=str, metavar='PRODUCT', default='smb', choices=choices,
-        help='RACMO SMB product to calculate')
-    parser.add_argument('--variable','-N',
-        type=str, default=None,
-        help='RACMO netCDF variable name for product')
+    choices = [
+        'precip',
+        'rainfall',
+        'refreeze',
+        'runoff',
+        'smb',
+        'sndiv',
+        'snowfall',
+        'snowmelt',
+        'subl',
+    ]
+    parser.add_argument(
+        '--product',
+        '-P',
+        type=str,
+        metavar='PRODUCT',
+        default='smb',
+        choices=choices,
+        help='RACMO SMB product to calculate',
+    )
+    parser.add_argument(
+        '--variable',
+        '-N',
+        type=str,
+        default=None,
+        help='RACMO netCDF variable name for product',
+    )
     # start and end years to run for mean
-    parser.add_argument('--mean','-m',
-        metavar=('START','END'), type=int, nargs=2,
-        default=[1980,1995],
-        help='Start and end year range for mean')
+    parser.add_argument(
+        '--mean',
+        '-m',
+        metavar=('START', 'END'),
+        type=int,
+        nargs=2,
+        default=[1980, 1995],
+        help='Start and end year range for mean',
+    )
     # print information about each input and output file
-    parser.add_argument('--verbose','-V',
-        action='count', default=0,
-        help='Verbose output of processing run')
+    parser.add_argument(
+        '--verbose',
+        '-V',
+        action='count',
+        default=0,
+        help='Verbose output of processing run',
+    )
     # netCDF4 files are gzip compressed
-    parser.add_argument('--gzip','-G',
-        default=False, action='store_true',
-        help='netCDF4 file is locally gzip compressed')
+    parser.add_argument(
+        '--gzip',
+        '-G',
+        default=False,
+        action='store_true',
+        help='netCDF4 file is locally gzip compressed',
+    )
     # permissions mode of the local directories and files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='Permission mode of directories and files')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='Permission mode of directories and files',
+    )
     # return the parser
     return parser
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[args.verbose])
 
     # run program
-    racmo_smb_cumulative(args.infile, args.product,
+    racmo_smb_cumulative(
+        args.infile,
+        args.product,
         VARIABLE=args.variable,
         RANGE=args.mean,
         GZIP=args.gzip,
-        MODE=args.mode)
+        MODE=args.mode,
+    )
+
 
 # run main program
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 jpl_ecco_sync.py
 Written by Tyler Sutterley (05/2023)
 
@@ -108,6 +108,7 @@ UPDATE HISTORY:
     Updated 05-06/2016: using __future__ print function. format log line
     Written 03/2016
 """
+
 from __future__ import print_function
 
 import sys
@@ -126,10 +127,20 @@ import posixpath
 import lxml.etree
 import gravity_toolkit as gravtk
 
-# PURPOSE: sync ECCO Near Real-Time model data from JPL ECCO drive server
-def jpl_ecco_sync(DIRECTORY, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
-    LOG=False, LIST=False, CLOBBER=False, CHECKSUM=False, MODE=None):
 
+# PURPOSE: sync ECCO Near Real-Time model data from JPL ECCO drive server
+def jpl_ecco_sync(
+    DIRECTORY,
+    MODEL,
+    YEAR=None,
+    PRODUCT=None,
+    TIMEOUT=None,
+    LOG=False,
+    LIST=False,
+    CLOBBER=False,
+    CHECKSUM=False,
+    MODE=None,
+):
     # check if directory exists and recursively create if not
     DIRECTORY = pathlib.Path(DIRECTORY).expanduser().absolute()
     DIRECTORY.mkdir(mode=MODE, parents=True, exist_ok=True)
@@ -142,7 +153,7 @@ def jpl_ecco_sync(DIRECTORY, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
     # create log file with list of synchronized files (or print to terminal)
     if LOG:
         # format: JPL_ECCO_kf080i_OBP_sync_2002-04-01.log
-        today = time.strftime('%Y-%m-%d',time.localtime())
+        today = time.strftime('%Y-%m-%d', time.localtime())
         LOGFILE = DIRECTORY.joinpath(f'JPL_ECCO_{MODEL}_{PRODUCT}_{today}.log')
         logging.basicConfig(filename=LOGFILE, level=logging.INFO)
         logging.info(f'ECCO Near Real-Time {PRODUCT} Sync Log ({today})')
@@ -155,8 +166,8 @@ def jpl_ecco_sync(DIRECTORY, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
 
     # path to model files
     model_path = {}
-    model_path['kf080i'] = ['NearRealTime','KalmanFilter']
-    model_path['dr080i'] = ['NearRealTime','Smoother']
+    model_path['kf080i'] = ['NearRealTime', 'KalmanFilter']
+    model_path['dr080i'] = ['NearRealTime', 'Smoother']
     # compile regular expression operator for years to sync
     # will not include the PREV, misc, forcing directories or aux files
     if YEAR is None:
@@ -170,11 +181,12 @@ def jpl_ecco_sync(DIRECTORY, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
     R3 = re.compile(rf'{PRODUCT}_(.*?).cdf$', re.VERBOSE)
 
     # remote subdirectory for MODEL on JPL ECCO data server
-    PATH = [HOST,'drive','files',*model_path[MODEL]]
+    PATH = [HOST, 'drive', 'files', *model_path[MODEL]]
     # open connection with ECCO drive server at remote directory
     # find remote yearly directories for MODEL
-    years,mtimes = gravtk.utilities.drive_list(PATH,
-        timeout=TIMEOUT,build=False,parser=parser,pattern=R1,sort=True)
+    years, mtimes = gravtk.utilities.drive_list(
+        PATH, timeout=TIMEOUT, build=False, parser=parser, pattern=R1, sort=True
+    )
     for yr in years:
         # print string for year
         logging.info(yr)
@@ -182,9 +194,14 @@ def jpl_ecco_sync(DIRECTORY, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
         PATH.append(yr)
         # open connection with ECCO drive server at remote directory
         # read and parse request for remote subdirectories
-        subdirs,mtimes = gravtk.utilities.drive_list(PATH,
-            timeout=TIMEOUT, build=False, parser=parser,
-            pattern=R2, sort=True)
+        subdirs, mtimes = gravtk.utilities.drive_list(
+            PATH,
+            timeout=TIMEOUT,
+            build=False,
+            parser=parser,
+            pattern=R2,
+            sort=True,
+        )
         # for each remote subdirectory
         for sd in subdirs:
             # add the subdirecotry directory to the path
@@ -196,17 +213,29 @@ def jpl_ecco_sync(DIRECTORY, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
             # check if directory exists and recursively create if not
             local_dir.mkdir(mode=MODE, parents=True, exist_ok=True)
             # read and parse request for files (find names and modified dates)
-            colnames,mtimes = gravtk.utilities.drive_list(PATH,
-                timeout=TIMEOUT, build=False, parser=parser,
-                pattern=R3, sort=True)
+            colnames, mtimes = gravtk.utilities.drive_list(
+                PATH,
+                timeout=TIMEOUT,
+                build=False,
+                parser=parser,
+                pattern=R3,
+                sort=True,
+            )
             # for each file on the remote server
-            for colname,remote_mtime in zip(colnames,mtimes):
+            for colname, remote_mtime in zip(colnames, mtimes):
                 # remote and local versions of the file
-                remote_file = posixpath.join(remote_dir,colname)
+                remote_file = posixpath.join(remote_dir, colname)
                 local_file = local_dir.joinpath(colname)
-                http_pull_file(remote_file, remote_mtime,
-                    local_file, TIMEOUT=TIMEOUT, LIST=LIST,
-                    CLOBBER=CLOBBER, CHECKSUM=CHECKSUM, MODE=MODE)
+                http_pull_file(
+                    remote_file,
+                    remote_mtime,
+                    local_file,
+                    TIMEOUT=TIMEOUT,
+                    LIST=LIST,
+                    CLOBBER=CLOBBER,
+                    CHECKSUM=CHECKSUM,
+                    MODE=MODE,
+                )
             # remove the directory from the path
             PATH.remove(sd)
         # remove the year directory from the path
@@ -216,10 +245,19 @@ def jpl_ecco_sync(DIRECTORY, MODEL, YEAR=None, PRODUCT=None, TIMEOUT=None,
     if LOG:
         LOGFILE.chmod(mode=MODE)
 
+
 # PURPOSE: pull file from a remote host checking if file exists locally
 # and if the remote file is newer than the local file
-def http_pull_file(remote_file, remote_mtime, local_file,
-    TIMEOUT=None, LIST=False, CLOBBER=False, CHECKSUM=False, MODE=0o775):
+def http_pull_file(
+    remote_file,
+    remote_mtime,
+    local_file,
+    TIMEOUT=None,
+    LIST=False,
+    CLOBBER=False,
+    CHECKSUM=False,
+    MODE=0o775,
+):
     # if file exists in file system: check if remote file is newer
     TEST = False
     OVERWRITE = ' (clobber)'
@@ -232,22 +270,21 @@ def http_pull_file(remote_file, remote_mtime, local_file,
         # There are a wide range of exceptions that can be thrown here
         # including HTTPError and URLError.
         request = gravtk.utilities.urllib2.Request(remote_file)
-        response = gravtk.utilities.urllib2.urlopen(request,
-            timeout=TIMEOUT)
+        response = gravtk.utilities.urllib2.urlopen(request, timeout=TIMEOUT)
         # copy remote file contents to bytesIO object
         remote_buffer = io.BytesIO(response.read())
         remote_buffer.seek(0)
         # generate checksum hash for remote file
         remote_hash = gravtk.utilities.get_hash(remote_buffer)
         # compare checksums
-        if (local_hash != remote_hash):
+        if local_hash != remote_hash:
             TEST = True
             OVERWRITE = f' (checksums: {local_hash} {remote_hash})'
     elif local_file.exists():
         # check last modification time of local file
         local_mtime = local_file.stat().st_mtime
         # if remote file is newer: overwrite the local file
-        if (remote_mtime > local_mtime):
+        if remote_mtime > local_mtime:
             TEST = True
             OVERWRITE = ' (overwrite)'
     else:
@@ -273,8 +310,9 @@ def http_pull_file(remote_file, remote_mtime, local_file,
                 # There are a wide range of exceptions that can be thrown here
                 # including HTTPError and URLError.
                 request = gravtk.utilities.urllib2.Request(remote_file)
-                response = gravtk.utilities.urllib2.urlopen(request,
-                    timeout=TIMEOUT)
+                response = gravtk.utilities.urllib2.urlopen(
+                    request, timeout=TIMEOUT
+                )
                 # copy contents to local file using chunked transfer encoding
                 # transfer should work properly with ascii and binary formats
                 with local_file.open(mode='wb') as f:
@@ -282,6 +320,7 @@ def http_pull_file(remote_file, remote_mtime, local_file,
             # keep remote modification time of file and local access time
             os.utime(local_file, (local_file.stat().st_atime, remote_mtime))
             local_file.chmod(mode=MODE)
+
 
 # PURPOSE: create argument parser
 def arguments():
@@ -291,69 +330,113 @@ def arguments():
         """
     )
     # command line parameters
-    parser.add_argument('model',
-        type=str, nargs='+',
-        default=['kf080i','dr080i'], choices=['kf080i','dr080i'],
-        help='ECCO Near Real-Time Model')
+    parser.add_argument(
+        'model',
+        type=str,
+        nargs='+',
+        default=['kf080i', 'dr080i'],
+        choices=['kf080i', 'dr080i'],
+        help='ECCO Near Real-Time Model',
+    )
     # NASA Earthdata credentials
-    parser.add_argument('--user','-U',
-        type=str, default=os.environ.get('EARTHDATA_USERNAME'),
-        help='Username for NASA Earthdata Login')
-    parser.add_argument('--webdav','-W',
-        type=str, default=os.environ.get('ECCO_PASSWORD'),
-        help='WebDAV password for JPL ECCO Drive Login')
-    parser.add_argument('--netrc','-N',
-        type=pathlib.Path, default=pathlib.Path.home().joinpath('.netrc'),
-        help='Path to .netrc file for authentication')
+    parser.add_argument(
+        '--user',
+        '-U',
+        type=str,
+        default=os.environ.get('EARTHDATA_USERNAME'),
+        help='Username for NASA Earthdata Login',
+    )
+    parser.add_argument(
+        '--webdav',
+        '-W',
+        type=str,
+        default=os.environ.get('ECCO_PASSWORD'),
+        help='WebDAV password for JPL ECCO Drive Login',
+    )
+    parser.add_argument(
+        '--netrc',
+        '-N',
+        type=pathlib.Path,
+        default=pathlib.Path.home().joinpath('.netrc'),
+        help='Path to .netrc file for authentication',
+    )
     # working data directory
-    parser.add_argument('--directory','-D',
-        type=pathlib.Path, default=pathlib.Path.cwd(),
-        help='Working data directory')
+    parser.add_argument(
+        '--directory',
+        '-D',
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
+        help='Working data directory',
+    )
     # ECCO model years to sync
-    parser.add_argument('--year','-Y',
-        type=int, nargs='+',
-        help='Years to sync')
+    parser.add_argument(
+        '--year', '-Y', type=int, nargs='+', help='Years to sync'
+    )
     # ECCO model product to sync
-    parser.add_argument('--product', '-P',
-        type=str, default='OBP',
-        help='Product to sync')
+    parser.add_argument(
+        '--product', '-P', type=str, default='OBP', help='Product to sync'
+    )
     # connection timeout
-    parser.add_argument('--timeout','-t',
-        type=int, default=360,
-        help='Timeout in seconds for blocking operations')
+    parser.add_argument(
+        '--timeout',
+        '-t',
+        type=int,
+        default=360,
+        help='Timeout in seconds for blocking operations',
+    )
     # Output log file in form
     # JPL_ECCO_kf080i_OBP_sync_2002-04-01.log
-    parser.add_argument('--log','-l',
-        default=False, action='store_true',
-        help='Output log file')
+    parser.add_argument(
+        '--log',
+        '-l',
+        default=False,
+        action='store_true',
+        help='Output log file',
+    )
     # sync options
-    parser.add_argument('--list','-L',
-        default=False, action='store_true',
-        help='Only print files that could be transferred')
-    parser.add_argument('--checksum',
-        default=False, action='store_true',
-        help='Compare hashes to check for overwriting existing data')
-    parser.add_argument('--clobber','-C',
-        default=False, action='store_true',
-        help='Overwrite existing data in transfer')
+    parser.add_argument(
+        '--list',
+        '-L',
+        default=False,
+        action='store_true',
+        help='Only print files that could be transferred',
+    )
+    parser.add_argument(
+        '--checksum',
+        default=False,
+        action='store_true',
+        help='Compare hashes to check for overwriting existing data',
+    )
+    parser.add_argument(
+        '--clobber',
+        '-C',
+        default=False,
+        action='store_true',
+        help='Overwrite existing data in transfer',
+    )
     # permissions mode of the directories and files synced (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='Permission mode of directories and files synced')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='Permission mode of directories and files synced',
+    )
     # return the parser
     return parser
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # JPL ECCO drive hostname
     HOST = 'ecco.jpl.nasa.gov'
     # get NASA Earthdata and JPL ECCO drive credentials
     try:
-        args.user,_,args.webdav = netrc.netrc(args.netrc).authenticators(HOST)
+        args.user, _, args.webdav = netrc.netrc(args.netrc).authenticators(HOST)
     except:
         # check that NASA Earthdata credentials were entered
         if not args.user:
@@ -366,17 +449,26 @@ def main():
 
     # build a urllib opener for JPL ECCO Drive
     # Add the username and password for NASA Earthdata Login system
-    gravtk.utilities.build_opener(args.user,args.webdav)
+    gravtk.utilities.build_opener(args.user, args.webdav)
 
     # check internet connection before attempting to run program
     # check JPL ECCO Drive credentials before attempting to run program
     DRIVE = f'https://{HOST}/drive/files'
     if gravtk.utilities.check_credentials(DRIVE):
         for MODEL in args.model:
-            jpl_ecco_sync(args.directory, MODEL, YEAR=args.year,
-                PRODUCT=args.product, TIMEOUT=args.timeout, LOG=args.log,
-                LIST=args.list, CLOBBER=args.clobber, CHECKSUM=args.checksum,
-                MODE=args.mode)
+            jpl_ecco_sync(
+                args.directory,
+                MODEL,
+                YEAR=args.year,
+                PRODUCT=args.product,
+                TIMEOUT=args.timeout,
+                LOG=args.log,
+                LIST=args.list,
+                CLOBBER=args.clobber,
+                CHECKSUM=args.checksum,
+                MODE=args.mode,
+            )
+
 
 # run main program
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 spatial.py
 Written by Tyler Sutterley (09/2025)
 Functions for reading, writing and processing spatial data
@@ -21,6 +21,7 @@ UPDATE HISTORY:
     Updated 02/2023: geotiff read and write to inheritance of spatial class
     Written 10/2022
 """
+
 import copy
 import uuid
 import logging
@@ -35,6 +36,7 @@ osgeo.gdal = gravtk.utilities.import_dependency('osgeo.gdal')
 osgeo.osr = gravtk.utilities.import_dependency('osgeo.osr')
 osgeo.gdalconst = gravtk.utilities.import_dependency('osgeo.gdalconst')
 pyproj = gravtk.utilities.import_dependency('pyproj')
+
 
 # PURPOSE: additional routines for the spatial module
 # for reading and writing raster data
@@ -74,7 +76,9 @@ class raster(gravtk.spatial):
         input or output filename
 
     """
+
     np.seterr(invalid='ignore')
+
     # inherit spatial class to read more data types
     def __init__(self, projection=None, **kwargs):
         super().__init__(**kwargs)
@@ -99,23 +103,24 @@ class raster(gravtk.spatial):
         # set filename
         self.case_insensitive_filename(filename)
         # set default keyword arguments
-        kwargs.setdefault('compression',None)
-        kwargs.setdefault('bounds',None)
+        kwargs.setdefault('compression', None)
+        kwargs.setdefault('bounds', None)
         # Open the geotiff file for reading
         logging.info(self.filename)
-        if (kwargs['compression'] == 'gzip'):
+        if kwargs['compression'] == 'gzip':
             # read as GDAL gzip virtual geotiff dataset
-            mmap_name = f"/vsigzip/{str(self.filename)}"
+            mmap_name = f'/vsigzip/{str(self.filename)}'
             ds = osgeo.gdal.Open(mmap_name)
-        elif (kwargs['compression'] == 'bytes'):
+        elif kwargs['compression'] == 'bytes':
             # read as GDAL memory-mapped (diskless) geotiff dataset
-            mmap_name = f"/vsimem/{uuid.uuid4().hex}"
+            mmap_name = f'/vsimem/{uuid.uuid4().hex}'
             osgeo.gdal.FileFromMemBuffer(mmap_name, self.filename.read())
             ds = osgeo.gdal.Open(mmap_name)
         else:
             # read geotiff dataset
-            ds = osgeo.gdal.Open(str(self.filename),
-                osgeo.gdalconst.GA_ReadOnly)
+            ds = osgeo.gdal.Open(
+                str(self.filename), osgeo.gdalconst.GA_ReadOnly
+            )
         # get the spatial projection reference information
         srs = ds.GetSpatialRef()
         self.attributes['projection'] = srs.ExportToProj4()
@@ -129,32 +134,35 @@ class raster(gravtk.spatial):
         # calculate image extents
         xmin = info_geotiff[0]
         ymax = info_geotiff[3]
-        xmax = xmin + (xsize-1)*info_geotiff[1]
-        ymin = ymax + (ysize-1)*info_geotiff[5]
+        xmax = xmin + (xsize - 1) * info_geotiff[1]
+        ymin = ymax + (ysize - 1) * info_geotiff[5]
         # x and y pixel center coordinates (converted from upper left)
-        x = xmin + info_geotiff[1]/2.0 + np.arange(xsize)*info_geotiff[1]
-        y = ymax + info_geotiff[5]/2.0 + np.arange(ysize)*info_geotiff[5]
+        x = xmin + info_geotiff[1] / 2.0 + np.arange(xsize) * info_geotiff[1]
+        y = ymax + info_geotiff[5] / 2.0 + np.arange(ysize) * info_geotiff[5]
         # if reducing to specified bounds
         if kwargs['bounds'] is not None:
             # reduced x and y limits
-            xlimits = (kwargs['bounds'][0],kwargs['bounds'][1])
-            ylimits = (kwargs['bounds'][2],kwargs['bounds'][3])
+            xlimits = (kwargs['bounds'][0], kwargs['bounds'][1])
+            ylimits = (kwargs['bounds'][2], kwargs['bounds'][3])
             # Specify offset and rows and columns to read
-            xoffset = int((xlimits[0] - xmin)/info_geotiff[1])
-            yoffset = int((ymax - ylimits[1])/np.abs(info_geotiff[5]))
-            xcount = int((xlimits[1] - xlimits[0])/info_geotiff[1]) + 1
-            ycount = int((ylimits[1] - ylimits[0])/np.abs(info_geotiff[5])) + 1
+            xoffset = int((xlimits[0] - xmin) / info_geotiff[1])
+            yoffset = int((ymax - ylimits[1]) / np.abs(info_geotiff[5]))
+            xcount = int((xlimits[1] - xlimits[0]) / info_geotiff[1]) + 1
+            ycount = (
+                int((ylimits[1] - ylimits[0]) / np.abs(info_geotiff[5])) + 1
+            )
             # reduced x and y pixel center coordinates
             self.x = x[slice(xoffset, xoffset + xcount, None)]
             self.y = y[slice(yoffset, yoffset + ycount, None)]
             # read reduced image with GDAL
-            self.data = ds.ReadAsArray(xoff=xoffset, yoff=yoffset,
-                xsize=xcount, ysize=ycount)
+            self.data = ds.ReadAsArray(
+                xoff=xoffset, yoff=yoffset, xsize=xcount, ysize=ycount
+            )
             # reduced image extent (converted back to upper left)
-            xmin = np.min(self.x) - info_geotiff[1]/2.0
-            xmax = np.max(self.x) - info_geotiff[1]/2.0
-            ymin = np.min(self.y) - info_geotiff[5]/2.0
-            ymax = np.max(self.y) - info_geotiff[5]/2.0
+            xmin = np.min(self.x) - info_geotiff[1] / 2.0
+            xmax = np.max(self.x) - info_geotiff[1] / 2.0
+            ymin = np.min(self.y) - info_geotiff[5] / 2.0
+            ymax = np.max(self.y) - info_geotiff[5] / 2.0
         else:
             # x and y pixel center coordinates
             self.x = np.copy(x)
@@ -169,7 +177,7 @@ class raster(gravtk.spatial):
         self.fill_value = ds.GetRasterBand(1).GetNoDataValue()
         if self.fill_value or (self.fill_value == 0):
             # mask invalid values
-            self.mask[:] = (self.data == self.fill_value)
+            self.mask[:] = self.data == self.fill_value
         # close the dataset
         ds = None
         self.update_mask()
@@ -202,12 +210,18 @@ class raster(gravtk.spatial):
         # verify grid dimensions to be iterable
         self.expand_dims()
         # grid shape
-        ny,nx,nband = np.shape(self.data)
+        ny, nx, nband = np.shape(self.data)
         # output as geotiff or specified driver
         driver = osgeo.gdal.GetDriverByName(kwargs['driver'])
         # set up the dataset with creation options
-        ds = driver.Create(str(self.filename), nx, ny, nband,
-            kwargs['dtype'], kwargs['options'])
+        ds = driver.Create(
+            str(self.filename),
+            nx,
+            ny,
+            nband,
+            kwargs['dtype'],
+            kwargs['options'],
+        )
         # top left x, w-e pixel resolution, rotation
         # top left y, rotation, n-s pixel resolution
         xmin, xmax, ymin, ymax = self.attributes['extent']
@@ -217,14 +231,14 @@ class raster(gravtk.spatial):
         srs = osgeo.osr.SpatialReference()
         srs.ImportFromWkt(self.attributes['wkt'])
         # export
-        ds.SetProjection( srs.ExportToWkt() )
+        ds.SetProjection(srs.ExportToWkt())
         # for each band
         for band in range(nband):
             # set fill value for band (0 is falsy)
             if self.fill_value or (self.fill_value == 0):
-                ds.GetRasterBand(band+1).SetNoDataValue(self.fill_value)
+                ds.GetRasterBand(band + 1).SetNoDataValue(self.fill_value)
             # write band to geotiff array
-            ds.GetRasterBand(band+1).WriteArray(self.data[:,:,band])
+            ds.GetRasterBand(band + 1).WriteArray(self.data[:, :, band])
         # print filename if verbose
         logging.info(self.filename)
         # close dataset
@@ -262,8 +276,9 @@ class raster(gravtk.spatial):
         # target spatial reference (WGS84 latitude and longitude)
         target = pyproj.CRS.from_epsg(4326)
         # create transformation
-        transformer = pyproj.Transformer.from_crs(source, target,
-            always_xy=True)
+        transformer = pyproj.Transformer.from_crs(
+            source, target, always_xy=True
+        )
         # create meshgrid of points in original projection
         x, y = np.meshgrid(self.x, self.y)
         # convert coordinates to latitude and longitude
@@ -272,8 +287,7 @@ class raster(gravtk.spatial):
 
     @property
     def spacing(self):
-        """Step size of ``raster`` object ``[x, y]``
-        """
+        """Step size of ``raster`` object ``[x, y]``"""
         return (self.x[1] - self.x[0], self.y[1] - self.y[0])
 
     @property
@@ -294,11 +308,11 @@ class raster(gravtk.spatial):
         temp = raster(fill_value=self.fill_value)
         # copy attributes or update attributes dictionary
         if isinstance(self.attributes, list):
-            setattr(temp,'attributes',self.attributes)
+            setattr(temp, 'attributes', self.attributes)
         elif isinstance(self.attributes, dict):
             temp.attributes.update(self.attributes)
         # assign variables to self
-        var = ['x','y','data','mask','error','time','month','filename']
+        var = ['x', 'y', 'data', 'mask', 'error', 'time', 'month', 'filename']
         for key in var:
             try:
                 val = getattr(self, key)
@@ -314,11 +328,11 @@ class raster(gravtk.spatial):
         Add a singleton dimension to a spatial object if non-existent
         """
         # output spatial with a third dimension
-        if (np.ndim(self.data) == 2):
-            self.data = self.data[:,:,None]
+        if np.ndim(self.data) == 2:
+            self.data = self.data[:, :, None]
             # try expanding mask variable
             try:
-                self.mask = self.mask[:,:,None]
+                self.mask = self.mask[:, :, None]
             except Exception as exc:
                 pass
         # get spacing and dimensions
@@ -337,12 +351,12 @@ class raster(gravtk.spatial):
         # output spatial object
         temp = self.copy()
         # copy dimensions and reverse order
-        if (axis == 0):
+        if axis == 0:
             temp.y = temp.y[::-1].copy()
-        elif (axis == 1):
+        elif axis == 1:
             temp.x = temp.x[::-1].copy()
         # attempt to reverse possible data variables
-        for key in ['data','mask','error']:
+        for key in ['data', 'mask', 'error']:
             try:
                 setattr(temp, key, np.flip(getattr(self, key), axis=axis))
             except Exception as exc:
@@ -352,26 +366,26 @@ class raster(gravtk.spatial):
         return temp
 
     def __str__(self):
-        """String representation of the ``raster`` object
-        """
+        """String representation of the ``raster`` object"""
         properties = ['model_harmonics.raster']
         extent = ', '.join(map(str, self.extent))
-        properties.append(f"    extent: {extent}")
+        properties.append(f'    extent: {extent}')
         spacing = ', '.join(map(str, self.spacing))
-        properties.append(f"    spacing: {spacing}")
+        properties.append(f'    spacing: {spacing}')
         shape = ', '.join(map(str, self.shape))
-        properties.append(f"    shape: {shape}")
+        properties.append(f'    shape: {shape}')
         if self.month:
-            properties.append(f"    start_month: {min(self.month)}")
-            properties.append(f"    end_month: {max(self.month)}")
+            properties.append(f'    start_month: {min(self.month)}')
+            properties.append(f'    end_month: {max(self.month)}')
         return '\n'.join(properties)
 
+
 class mosaic:
-    """Utility for creating spatial mosaics
-    """
+    """Utility for creating spatial mosaics"""
+
     def __init__(self, **kwargs):
-        self.extent = [np.inf,-np.inf,np.inf,-np.inf]
-        self.spacing = [None,None]
+        self.extent = [np.inf, -np.inf, np.inf, -np.inf]
+        self.spacing = [None, None]
         self.fill_value = np.nan
 
     def update_spacing(self, x, y):
@@ -393,13 +407,13 @@ class mosaic:
             return self
         # get extent of new data
         extent = [x.min(), x.max(), y.min(), y.max()]
-        if (extent[0] < self.extent[0]):
+        if extent[0] < self.extent[0]:
             self.extent[0] = np.copy(extent[0])
-        if (extent[1] > self.extent[1]):
+        if extent[1] > self.extent[1]:
             self.extent[1] = np.copy(extent[1])
-        if (extent[2] < self.extent[2]):
+        if extent[2] < self.extent[2]:
             self.extent[2] = np.copy(extent[2])
-        if (extent[3] > self.extent[3]):
+        if extent[3] > self.extent[3]:
             self.extent[3] = np.copy(extent[3])
         return self
 
@@ -411,8 +425,12 @@ class mosaic:
         if not np.any(x) or not np.any(y):
             return (None, None)
         # get the image coordinates
-        iy = np.array((y[:,None] - self.extent[2])/self.spacing[1], dtype=np.int64)
-        ix = np.array((x[None,:] - self.extent[0])/self.spacing[0], dtype=np.int64)
+        iy = np.array(
+            (y[:, None] - self.extent[2]) / self.spacing[1], dtype=np.int64
+        )
+        ix = np.array(
+            (x[None, :] - self.extent[0]) / self.spacing[0], dtype=np.int64
+        )
         return (iy, ix)
 
     @property
@@ -420,36 +438,45 @@ class mosaic:
         """Dimensions of the mosaic"""
         dims = [None, None]
         # calculate y dimensions with new extents
-        dims[0] = np.int64((self.extent[3] - self.extent[2])/self.spacing[1]) + 1
+        dims[0] = (
+            np.int64((self.extent[3] - self.extent[2]) / self.spacing[1]) + 1
+        )
         # calculate x dimensions with new extents
-        dims[1] = np.int64((self.extent[1] - self.extent[0])/self.spacing[0]) + 1
+        dims[1] = (
+            np.int64((self.extent[1] - self.extent[0]) / self.spacing[0]) + 1
+        )
         return dims
 
     @property
     def shape(self):
         """Shape of the mosaic"""
-        return (self.dimensions[0], self.dimensions[1], )
+        return (
+            self.dimensions[0],
+            self.dimensions[1],
+        )
 
     @property
     def x(self):
         """X-coordinates of the mosaic"""
-        return self.extent[0] + self.spacing[0]*np.arange(self.dimensions[1])
+        return self.extent[0] + self.spacing[0] * np.arange(self.dimensions[1])
 
     @property
     def y(self):
         """Y-coordinates of the mosaic"""
-        return self.extent[2] + self.spacing[1]*np.arange(self.dimensions[0])
+        return self.extent[2] + self.spacing[1] * np.arange(self.dimensions[0])
+
 
 # get WGS84 parameters in CGS (centimeters, grams, seconds)
 _wgs84 = datum(ellipsoid='WGS84', units='CGS')
 
+
 # PURPOSE: calculate the geocentric latitudes
 def geocentric_latitude(
-        lon: np.ndarray,
-        lat: np.ndarray,
-        a_axis: float = _wgs84.a_axis,
-        flat: float = _wgs84.flat,
-    ):
+    lon: np.ndarray,
+    lat: np.ndarray,
+    a_axis: float = _wgs84.a_axis,
+    flat: float = _wgs84.flat,
+):
     """
     Converts from geodetic latitude to geocentric latitude for an ellipsoid
     :cite:p:`Snyder:1982gf`
@@ -471,24 +498,25 @@ def geocentric_latitude(
         latitude intersecting the center of the Earth (degrees north)
     """
     # first numerical eccentricity
-    ecc1 = np.sqrt((2.0*flat - flat**2)*a_axis**2)/a_axis
+    ecc1 = np.sqrt((2.0 * flat - flat**2) * a_axis**2) / a_axis
     # geodetic latitude in radians
-    latitude_geodetic_rad = np.pi*lat/180.0
+    latitude_geodetic_rad = np.radians(lat)
     # prime vertical radius of curvature
-    N = a_axis/np.sqrt(1.0 - ecc1**2.*np.sin(latitude_geodetic_rad)**2.)
+    N = a_axis / np.sqrt(1.0 - ecc1**2.0 * np.sin(latitude_geodetic_rad) ** 2.0)
     # calculate X, Y and Z from geodetic latitude and longitude
-    X = N * np.cos(latitude_geodetic_rad) * np.cos(np.pi*lon/180.0)
-    Y = N * np.cos(latitude_geodetic_rad) * np.sin(np.pi*lon/180.0)
+    X = N * np.cos(latitude_geodetic_rad) * np.cos(np.radians(lon))
+    Y = N * np.cos(latitude_geodetic_rad) * np.sin(np.radians(lon))
     Z = (N * (1.0 - ecc1**2.0)) * np.sin(latitude_geodetic_rad)
     # calculate geocentric latitude and convert to degrees
-    return 180.0*np.arctan(Z / np.sqrt(X**2.0 + Y**2.0))/np.pi
+    return np.degrees(np.arctan(Z / np.sqrt(X**2.0 + Y**2.0)))
+
 
 def scale_factors(
-        lat: np.ndarray,
-        flat: float = _wgs84.flat,
-        reference_latitude: float = 70.0,
-        metric: str = 'area'
-    ):
+    lat: np.ndarray,
+    flat: float = _wgs84.flat,
+    reference_latitude: float = 70.0,
+    metric: str = 'area',
+):
     """
     Calculates scaling factors to account for polar stereographic
     distortion including special case of at the exact pole
@@ -515,32 +543,42 @@ def scale_factors(
     """
     assert metric.lower() in ['distance', 'area'], 'Unknown metric'
     # convert latitude from degrees to positive radians
-    theta = np.abs(lat)*np.pi/180.0
+    theta = np.radians(np.abs(lat))
     # convert reference latitude from degrees to positive radians
-    theta_ref = np.abs(reference_latitude)*np.pi/180.0
+    theta_ref = np.radians(np.abs(reference_latitude))
     # square of the eccentricity of the ellipsoid
     # ecc2 = (1-b**2/a**2) = 2.0*flat - flat^2
-    ecc2 = 2.0*flat - flat**2
+    ecc2 = 2.0 * flat - flat**2
     # eccentricity of the ellipsoid
     ecc = np.sqrt(ecc2)
     # calculate ratio at input latitudes
-    m = np.cos(theta)/np.sqrt(1.0 - ecc2*np.sin(theta)**2)
-    t = np.tan(np.pi/4.0 - theta/2.0)/((1.0 - ecc*np.sin(theta)) / \
-        (1.0 + ecc*np.sin(theta)))**(ecc/2.0)
+    m = np.cos(theta) / np.sqrt(1.0 - ecc2 * np.sin(theta) ** 2)
+    t = np.tan(np.pi / 4.0 - theta / 2.0) / (
+        (1.0 - ecc * np.sin(theta)) / (1.0 + ecc * np.sin(theta))
+    ) ** (ecc / 2.0)
     # calculate ratio at reference latitude
-    mref = np.cos(theta_ref)/np.sqrt(1.0 - ecc2*np.sin(theta_ref)**2)
-    tref = np.tan(np.pi/4.0 - theta_ref/2.0)/((1.0 - ecc*np.sin(theta_ref)) / \
-        (1.0 + ecc*np.sin(theta_ref)))**(ecc/2.0)
+    mref = np.cos(theta_ref) / np.sqrt(1.0 - ecc2 * np.sin(theta_ref) ** 2)
+    tref = np.tan(np.pi / 4.0 - theta_ref / 2.0) / (
+        (1.0 - ecc * np.sin(theta_ref)) / (1.0 + ecc * np.sin(theta_ref))
+    ) ** (ecc / 2.0)
     # distance scaling
-    k = (mref/m)*(t/tref)
-    kp = 0.5*mref*np.sqrt(((1.0+ecc)**(1.0+ecc))*((1.0-ecc)**(1.0-ecc)))/tref
-    if (metric.lower() == 'distance'):
+    k = (mref / m) * (t / tref)
+    kp = (
+        0.5
+        * mref
+        * np.sqrt(((1.0 + ecc) ** (1.0 + ecc)) * ((1.0 - ecc) ** (1.0 - ecc)))
+        / tref
+    )
+    if metric.lower() == 'distance':
         # distance scaling
-        scale = np.where(np.isclose(theta, np.pi/2.0), 1.0/kp, 1.0/k)
-    elif (metric.lower() == 'area'):
+        scale = np.where(np.isclose(theta, np.pi / 2.0), 1.0 / kp, 1.0 / k)
+    elif metric.lower() == 'area':
         # area scaling
-        scale = np.where(np.isclose(theta, np.pi/2.0), 1.0/(kp**2), 1.0/(k**2))
+        scale = np.where(
+            np.isclose(theta, np.pi / 2.0), 1.0 / (kp**2), 1.0 / (k**2)
+        )
     return scale
+
 
 def get_latlon(x, y, srs_proj4=None, srs_wkt=None, srs_epsg=None):
     """
@@ -574,8 +612,7 @@ def get_latlon(x, y, srs_proj4=None, srs_wkt=None, srs_epsg=None):
     # target spatial reference (WGS84 latitude and longitude)
     target = pyproj.CRS.from_epsg(4326)
     # create transformation
-    transformer = pyproj.Transformer.from_crs(source, target,
-        always_xy=True)
+    transformer = pyproj.Transformer.from_crs(source, target, always_xy=True)
     # create meshgrid of points in original projection
     gridx, gridy = np.meshgrid(x, y)
     # convert coordinates to latitude and longitude

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 gldas_mask_vegetation.py
 Written by Tyler Sutterley (05/2023)
 
@@ -34,6 +34,7 @@ UPDATE HISTORY:
     Updated 06/2018: using python3 compatible octal and input
     Written 03/2018
 """
+
 from __future__ import print_function
 
 import sys
@@ -45,13 +46,13 @@ import argparse
 import numpy as np
 import model_harmonics as mdlhmc
 
+
 # Read the GLDAS vegetation index and create a mask defining each type
 def gldas_mask_vegetation(ddir, SPACING=None, MODE=0o775):
-
     # verify input data directory
     ddir = pathlib.Path(ddir).expanduser().absolute()
     # parameters for each grid spacing
-    if (SPACING == '025'):
+    if SPACING == '025':
         dx, dy = (0.25, 0.25)
         nx, ny = (1440, 600)
         latlimit_south = -59.875
@@ -59,7 +60,7 @@ def gldas_mask_vegetation(ddir, SPACING=None, MODE=0o775):
         # input binary land mask and output netCDF4 mask
         input_file = ddir.joinpath(f'modmodis_domveg20_{dx:4.2f}.bin')
         output_file = ddir.joinpath(f'modmodis_domveg20_{SPACING}.nc')
-    elif (SPACING == '10'):
+    elif SPACING == '10':
         dx, dy = (1.0, 1.0)
         nx, ny = (360, 150)
         latlimit_south = -59.5
@@ -71,37 +72,50 @@ def gldas_mask_vegetation(ddir, SPACING=None, MODE=0o775):
     # python dictionary with input data
     dinput = {}
     # latitude and longitude
-    dinput['longitude'] = longlimit_west + np.arange(nx)*dx
-    dinput['latitude'] = latlimit_south + np.arange(ny)*dy
+    dinput['longitude'] = longlimit_west + np.arange(nx) * dx
+    dinput['latitude'] = latlimit_south + np.arange(ny) * dy
     # read MODIS vegetation index binary file
     logging.info(str(input_file))
     binary_input = np.fromfile(input_file, '>f4')
-    dinput['index'] = np.zeros((ny,nx),dtype=np.uint16)
-    dinput['index'][:,:] = binary_input.reshape(ny,nx)
+    dinput['index'] = np.zeros((ny, nx), dtype=np.uint16)
+    dinput['index'][:, :] = binary_input.reshape(ny, nx)
     # write to output netCDF4 (.nc)
     ncdf_index_write(dinput, FILENAME=output_file)
     # change the permission level to MODE
     output_file.chmod(mode=MODE)
 
+
 # PURPOSE: write vegetation index data to netCDF4 file
 def ncdf_index_write(dinput, FILENAME=None):
     # opening NetCDF file for writing
     FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
+    fileID = netCDF4.Dataset(FILENAME, 'w', format='NETCDF4')
 
     # Defining the NetCDF dimensions
-    LATNAME,LONNAME = ('latitude','longitude')
-    for key in [LONNAME,LATNAME]:
+    LATNAME, LONNAME = ('latitude', 'longitude')
+    for key in [LONNAME, LATNAME]:
         fileID.createDimension(key, len(dinput[key]))
 
     # defining the NetCDF variables
     nc = {}
-    nc[LATNAME]=fileID.createVariable(LATNAME,dinput[LATNAME].dtype,(LATNAME,))
-    nc[LONNAME]=fileID.createVariable(LONNAME,dinput[LONNAME].dtype,(LONNAME,))
-    nc['index'] = fileID.createVariable('index', dinput['index'].dtype,
-        (LATNAME,LONNAME,), fill_value=0, zlib=True)
+    nc[LATNAME] = fileID.createVariable(
+        LATNAME, dinput[LATNAME].dtype, (LATNAME,)
+    )
+    nc[LONNAME] = fileID.createVariable(
+        LONNAME, dinput[LONNAME].dtype, (LONNAME,)
+    )
+    nc['index'] = fileID.createVariable(
+        'index',
+        dinput['index'].dtype,
+        (
+            LATNAME,
+            LONNAME,
+        ),
+        fill_value=0,
+        zlib=True,
+    )
     # filling NetCDF variables
-    for key,val in dinput.items():
+    for key, val in dinput.items():
         nc[key][:] = np.copy(val)
 
     # Defining attributes for longitude and latitude
@@ -138,7 +152,7 @@ def ncdf_index_write(dinput, FILENAME=None):
     fileID.software_version = mdlhmc.version.full_version
     fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # date created
-    fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
+    fileID.date_created = time.strftime('%Y-%m-%d', time.localtime())
 
     # Output NetCDF structure information
     logging.info(str(FILENAME))
@@ -146,6 +160,7 @@ def ncdf_index_write(dinput, FILENAME=None):
 
     # Closing the NetCDF file
     fileID.close()
+
 
 # PURPOSE: create argument parser
 def arguments():
@@ -156,40 +171,58 @@ def arguments():
     )
     # command line parameters
     # working data directory for location of GLDAS data
-    parser.add_argument('--directory','-D',
-        type=pathlib.Path, default=pathlib.Path.cwd(),
-        help='Working data directory')
+    parser.add_argument(
+        '--directory',
+        '-D',
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
+        help='Working data directory',
+    )
     # model spatial resolution
     # 10: 1.0 degrees latitude/longitude
     # 025: 0.25 degrees latitude/longitude
-    parser.add_argument('--spacing','-S',
-        type=str, default='10', choices=['10','025'],
-        help='Spatial resolution of models to run')
+    parser.add_argument(
+        '--spacing',
+        '-S',
+        type=str,
+        default='10',
+        choices=['10', '025'],
+        help='Spatial resolution of models to run',
+    )
     # verbosity settings
     # verbose will output information about each output file
-    parser.add_argument('--verbose','-V',
-        action='count', default=0,
-        help='Verbose output of processing run')
+    parser.add_argument(
+        '--verbose',
+        '-V',
+        action='count',
+        default=0,
+        help='Verbose output of processing run',
+    )
     # permissions mode of the local directories and files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='permissions mode of output files')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='permissions mode of output files',
+    )
     # return the parser
     return parser
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[args.verbose])
 
     # run program
-    gldas_mask_vegetation(args.directory, SPACING=args.spacing,
-        MODE=args.mode)
+    gldas_mask_vegetation(args.directory, SPACING=args.spacing, MODE=args.mode)
+
 
 # run main program
 if __name__ == '__main__':

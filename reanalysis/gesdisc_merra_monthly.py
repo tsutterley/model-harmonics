@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 gesdisc_merra_monthly.py
 Written by Tyler Sutterley (05/2023)
 
@@ -70,6 +70,7 @@ UPDATE HISTORY:
     Updated 06/2018: using python3 compatible octal, input and urllib
     Written 03/2018
 """
+
 from __future__ import print_function
 
 import sys
@@ -87,9 +88,18 @@ import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
 
+
 # PURPOSE: sync local MERRA-2 files with GESDISC server
-def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
-    TIMEOUT=None, LOG=False, VERBOSE=False, MODE=None):
+def gesdisc_merra_monthly(
+    base_dir,
+    SHORTNAME,
+    VERSION=None,
+    YEARS=None,
+    TIMEOUT=None,
+    LOG=False,
+    VERBOSE=False,
+    MODE=None,
+):
     # full path to MERRA-2 directory
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
     # check if DIRECTORY exists and recursively create if not
@@ -100,7 +110,7 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
     loglevel = logging.INFO if VERBOSE else logging.CRITICAL
     if LOG:
         # format: NASA_GESDISC_MERRA2_monthly_2002-04-01.log
-        today = time.strftime('%Y-%m-%d',time.localtime())
+        today = time.strftime('%Y-%m-%d', time.localtime())
         output_logfile = f'NASA_GESDISC_MERRA2_monthly_{today}.log'
         LOGFILE = DIRECTORY.joinpath(output_logfile)
         fid = LOGFILE.open(mode='w', encoding='utf8')
@@ -128,71 +138,98 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
     # time format for CMR queries
     isotime_format = '{0}-{1}-{2:02.0f}T{3:02.0f}:{4:02.0f}:{5:02.0f}'
     # output dimensions
-    nlevels,nlat,nlon = (72,361,576)
+    nlevels, nlat, nlon = (72, 361, 576)
     # dictionary of variable attributes
     attributes = dict(ROOT={})
     # file-level attributes to retrieve
-    root_attributes = ['Contact', 'Conventions', 'Institution',
-        'References', 'Format', 'SpatialCoverage', 'VersionID',
-        'identifier_product_doi_authority', 'identifier_product_doi',
-        'ShortName', 'LongName', 'Title', 'DataResolution',
-        'LatitudeResolution', 'LongitudeResolution',
-        'SouthernmostLatitude', 'NorthernmostLatitude',
-        'WesternmostLongitude', 'EasternmostLongitude']
+    root_attributes = [
+        'Contact',
+        'Conventions',
+        'Institution',
+        'References',
+        'Format',
+        'SpatialCoverage',
+        'VersionID',
+        'identifier_product_doi_authority',
+        'identifier_product_doi',
+        'ShortName',
+        'LongName',
+        'Title',
+        'DataResolution',
+        'LatitudeResolution',
+        'LongitudeResolution',
+        'SouthernmostLatitude',
+        'NorthernmostLatitude',
+        'WesternmostLongitude',
+        'EasternmostLongitude',
+    ]
 
     # for each unique date
     for YEAR in YEARS:
         dpm = gravtk.time.calendar_days(YEAR)
         # for each month of the year
-        for i,days_per_month in enumerate(dpm):
+        for i, days_per_month in enumerate(dpm):
             # year and month as strings
             YY = f'{YEAR:4d}'
-            MM = f'{i+1:02d}'
+            MM = f'{i + 1:02d}'
             # start and end date for query
-            start_date = isotime_format.format(YY,MM,1.0,0.0,0.0,0.0)
-            end_date = isotime_format.format(YY,MM,days_per_month,23.0,59.0,59.0)
+            start_date = isotime_format.format(YY, MM, 1.0, 0.0, 0.0, 0.0)
+            end_date = isotime_format.format(
+                YY, MM, days_per_month, 23.0, 59.0, 59.0
+            )
             # query for data
-            ids,urls,mtimes = mdlhmc.utilities.cmr(SHORTNAME, version=VERSION,
-                start_date=start_date, end_date=end_date,
-                provider='GES_DISC', verbose=VERBOSE)
+            ids, urls, mtimes = mdlhmc.utilities.cmr(
+                SHORTNAME,
+                version=VERSION,
+                start_date=start_date,
+                end_date=end_date,
+                provider='GES_DISC',
+                verbose=VERBOSE,
+            )
             # skip years and months without any data
             if not ids:
                 continue
             # python dictionary with output data
             dinput = {}
             dinput[TIMENAME] = np.zeros((1))
-            dinput[VARNAME] = np.zeros((1,nlat,nlon))
-            dinput[TNAME] = np.zeros((1,nlevels,nlat,nlon))
-            dinput[QNAME] = np.zeros((1,nlevels,nlat,nlon))
+            dinput[VARNAME] = np.zeros((1, nlat, nlon))
+            dinput[TNAME] = np.zeros((1, nlevels, nlat, nlon))
+            dinput[QNAME] = np.zeros((1, nlevels, nlat, nlon))
             # python dictionary with count for converting totals to means
             count = {}
             count[TIMENAME] = np.zeros((1))
-            count[VARNAME] = np.zeros((1,nlat,nlon))
-            count[TNAME] = np.zeros((1,nlevels,nlat,nlon))
-            count[QNAME] = np.zeros((1,nlevels,nlat,nlon))
+            count[VARNAME] = np.zeros((1, nlat, nlon))
+            count[TNAME] = np.zeros((1, nlevels, nlat, nlon))
+            count[QNAME] = np.zeros((1, nlevels, nlat, nlon))
             # for each url
-            for id,url,mtime in zip(ids,urls,mtimes):
+            for id, url, mtime in zip(ids, urls, mtimes):
                 # build subsetting API url for granule
-                request_url = mdlhmc.utilities.build_request(SHORTNAME,
-                    VERSION, url, host='https://goldsmr5.gesdisc.eosdis.nasa.gov',
-                    variables=[VARNAME,TNAME,QNAME])
+                request_url = mdlhmc.utilities.build_request(
+                    SHORTNAME,
+                    VERSION,
+                    url,
+                    host='https://goldsmr5.gesdisc.eosdis.nasa.gov',
+                    variables=[VARNAME, TNAME, QNAME],
+                )
                 # Create and submit request. There are a wide range of exceptions
                 # that can be thrown here, including HTTPError and URLError.
-                response = mdlhmc.utilities.from_http(request_url,
+                response = mdlhmc.utilities.from_http(
+                    request_url,
                     timeout=TIMEOUT,
                     context=None,
                     verbose=VERBOSE,
-                    fid=fid)
+                    fid=fid,
+                )
                 response.seek(0)
                 # open remote file with netCDF4
-                fileID = netCDF4.Dataset(id,'r',memory=response.read())
-                MOD,DATASET,Y,M,D,AUX = rx1.findall(id).pop()
+                fileID = netCDF4.Dataset(id, 'r', memory=response.read())
+                MOD, DATASET, Y, M, D, AUX = rx1.findall(id).pop()
                 # extract dimension variables
-                nt, = fileID.variables[TIMENAME].shape
-                for dim in (LEVELNAME,LATNAME,LONNAME):
+                (nt,) = fileID.variables[TIMENAME].shape
+                for dim in (LEVELNAME, LATNAME, LONNAME):
                     dinput[dim] = fileID.variables[dim][:].copy()
                     # extract variable attributes
-                    attributes[dim] = ncdf_attributes(fileID,dim)
+                    attributes[dim] = ncdf_attributes(fileID, dim)
                 # bad value
                 fill_value = fileID.variables[VARNAME]._FillValue
                 # add over time slices products to monthly output
@@ -201,29 +238,29 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
                     dinput[TIMENAME][0] += TIME
                     count[TIMENAME][0] += 1.0
                     # surface pressure
-                    PS = fileID.variables[VARNAME][t,:,:].copy()
-                    ii,jj = np.nonzero(PS != fill_value)
-                    dinput[VARNAME][0,ii,jj] += PS[ii,jj]
-                    count[VARNAME][0,ii,jj] += 1.0
+                    PS = fileID.variables[VARNAME][t, :, :].copy()
+                    ii, jj = np.nonzero(PS != fill_value)
+                    dinput[VARNAME][0, ii, jj] += PS[ii, jj]
+                    count[VARNAME][0, ii, jj] += 1.0
                     # air temperature
-                    T = fileID.variables[TNAME][t,:,:,:].copy()
-                    ii,jj,kk = np.nonzero(T != fill_value)
-                    dinput[TNAME][0,ii,jj,kk] += T[ii,jj,kk]
-                    count[TNAME][0,ii,jj,kk] += 1.0
+                    T = fileID.variables[TNAME][t, :, :, :].copy()
+                    ii, jj, kk = np.nonzero(T != fill_value)
+                    dinput[TNAME][0, ii, jj, kk] += T[ii, jj, kk]
+                    count[TNAME][0, ii, jj, kk] += 1.0
                     # specific humidity
-                    QV = fileID.variables[QNAME][t,:,:,:].copy()
-                    ii,jj,kk = np.nonzero(QV != fill_value)
-                    dinput[QNAME][0,ii,jj,kk] += QV[ii,jj,kk]
-                    count[QNAME][0,ii,jj,kk] += 1.0
+                    QV = fileID.variables[QNAME][t, :, :, :].copy()
+                    ii, jj, kk = np.nonzero(QV != fill_value)
+                    dinput[QNAME][0, ii, jj, kk] += QV[ii, jj, kk]
+                    count[QNAME][0, ii, jj, kk] += 1.0
                     # get attributes for each variable
                     for var in (TIMENAME, VARNAME, TNAME, QNAME):
                         # extract variable attributes
-                        attributes[var] = ncdf_attributes(fileID,var)
+                        attributes[var] = ncdf_attributes(fileID, var)
                 # get each root attribute of interest
                 for att_name in root_attributes:
                     try:
                         att_val = fileID.getncattr(att_name)
-                        att_val = re.sub(r'inst\d+_3d',r'instM_3d',att_val)
+                        att_val = re.sub(r'inst\d+_3d', r'instM_3d', att_val)
                     except Exception as exc:
                         pass
                     else:
@@ -232,7 +269,7 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
                 fileID.close()
             # calculate mean from totals
             dinput[TIMENAME] /= count[TIMENAME]
-            for key in [VARNAME,TNAME,QNAME]:
+            for key in [VARNAME, TNAME, QNAME]:
                 # find valid values
                 valid_indices = np.nonzero(count[key] > 0)
                 dinput[key][valid_indices] /= count[key][valid_indices]
@@ -240,14 +277,23 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
                 complementary_indices = np.nonzero(count[key] == 0)
                 dinput[key][complementary_indices] = fill_value
             # output to netCDF4 file (replace hour variable with monthly)
-            DATASET = re.sub(r'inst\d+_3d',r'instM_3d',DATASET)
+            DATASET = re.sub(r'inst\d+_3d', r'instM_3d', DATASET)
             attributes['time']['units'] = f'minutes since {YY}-{MM}-01 00:00:00'
             FILE = f'MERRA2_{MOD}.{DATASET}.{YY}{MM}.SUB.nc'
             local_file = DIRECTORY.joinpath(FILE)
-            ncdf_model_write(dinput, attributes, fill_value,
-                VARNAME=VARNAME, TNAME=TNAME, QNAME=QNAME,
-                LONNAME=LONNAME, LATNAME=LATNAME, LEVELNAME=LEVELNAME,
-                TIMENAME=TIMENAME, FILENAME=local_file)
+            ncdf_model_write(
+                dinput,
+                attributes,
+                fill_value,
+                VARNAME=VARNAME,
+                TNAME=TNAME,
+                QNAME=QNAME,
+                LONNAME=LONNAME,
+                LATNAME=LATNAME,
+                LEVELNAME=LEVELNAME,
+                TIMENAME=TIMENAME,
+                FILENAME=local_file,
+            )
             # set permissions mode to MODE
             local_file.chmod(mode=MODE)
 
@@ -256,12 +302,19 @@ def gesdisc_merra_monthly(base_dir, SHORTNAME, VERSION=None, YEARS=None,
         fid.close()
         LOGFILE.chmod(mode=MODE)
 
+
 # PURPOSE: get attributes for a variable
 def ncdf_attributes(fileID, var):
     # dictionary of attributes and list of attributes to retrieve
     attributes = {}
-    attributes_list = ['calendar', 'long_name', 'positive',
-        'standard_name', 'units', 'valid_range']
+    attributes_list = [
+        'calendar',
+        'long_name',
+        'positive',
+        'standard_name',
+        'units',
+        'valid_range',
+    ]
     # for each potential attribute
     for att_name in attributes_list:
         try:
@@ -273,46 +326,73 @@ def ncdf_attributes(fileID, var):
     # return the dictionary of attributes
     return attributes
 
-# PURPOSE: write output model layer fields data to file
-def ncdf_model_write(dinput, attributes, fill_value,
-    VARNAME=None, TNAME=None, QNAME=None, LONNAME=None, LATNAME=None,
-    LEVELNAME=None, TIMENAME=None, FILENAME=None):
 
+# PURPOSE: write output model layer fields data to file
+def ncdf_model_write(
+    dinput,
+    attributes,
+    fill_value,
+    VARNAME=None,
+    TNAME=None,
+    QNAME=None,
+    LONNAME=None,
+    LATNAME=None,
+    LEVELNAME=None,
+    TIMENAME=None,
+    FILENAME=None,
+):
     # opening NetCDF4 file for writing
     FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
+    fileID = netCDF4.Dataset(FILENAME, 'w', format='NETCDF4')
 
     # Defining the NetCDF4 dimensions and creating dimension variables
     nc = {}
-    for key in [LONNAME,LATNAME,TIMENAME,LEVELNAME]:
+    for key in [LONNAME, LATNAME, TIMENAME, LEVELNAME]:
         fileID.createDimension(key, len(dinput[key]))
-        nc[key] = fileID.createVariable(key,dinput[key].dtype,(key,))
+        nc[key] = fileID.createVariable(key, dinput[key].dtype, (key,))
     # creating the layered NetCDF4 variables
-    for key in [TNAME,QNAME]:
-        nc[key] = fileID.createVariable(key, dinput[key].dtype,
-            (TIMENAME,LEVELNAME,LATNAME,LONNAME,),
-            fill_value=fill_value, zlib=True)
+    for key in [TNAME, QNAME]:
+        nc[key] = fileID.createVariable(
+            key,
+            dinput[key].dtype,
+            (
+                TIMENAME,
+                LEVELNAME,
+                LATNAME,
+                LONNAME,
+            ),
+            fill_value=fill_value,
+            zlib=True,
+        )
     # creating the surface NetCDF4 variables
     for key in [VARNAME]:
-        nc[key] = fileID.createVariable(key, dinput[key].dtype,
-            (TIMENAME,LATNAME,LONNAME,),
-            fill_value=fill_value, zlib=True)
+        nc[key] = fileID.createVariable(
+            key,
+            dinput[key].dtype,
+            (
+                TIMENAME,
+                LATNAME,
+                LONNAME,
+            ),
+            fill_value=fill_value,
+            zlib=True,
+        )
 
     # filling NetCDF4 variables
-    for key,val in dinput.items():
+    for key, val in dinput.items():
         nc[key][:] = val.copy()
         # set netCDF4 attributes for variable
-        for att_name,att_val in attributes[key].items():
+        for att_name, att_val in attributes[key].items():
             nc[key].setncattr(att_name, att_val)
 
     # Defining file-level attributes
-    for att_name,att_val in attributes['ROOT'].items():
+    for att_name, att_val in attributes['ROOT'].items():
         fileID.setncattr(att_name, att_val)
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
     # date created
-    fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
+    fileID.date_created = time.strftime('%Y-%m-%d', time.localtime())
 
     # Output NetCDF structure information
     logging.info(str(FILENAME))
@@ -320,6 +400,7 @@ def ncdf_model_write(dinput, attributes, fill_value,
 
     # Closing the NetCDF file
     fileID.close()
+
 
 # PURPOSE: create argument parser
 def arguments():
@@ -331,63 +412,107 @@ def arguments():
     )
     # command line parameters
     # NASA Earthdata credentials
-    parser.add_argument('--user','-U',
-        type=str, default=os.environ.get('EARTHDATA_USERNAME'),
-        help='Username for NASA Earthdata Login')
-    parser.add_argument('--password','-W',
-        type=str, default=os.environ.get('EARTHDATA_PASSWORD'),
-        help='Password for NASA Earthdata Login')
-    parser.add_argument('--netrc','-N',
-        type=pathlib.Path, default=pathlib.Path.home().joinpath('.netrc'),
-        help='Path to .netrc file for authentication')
+    parser.add_argument(
+        '--user',
+        '-U',
+        type=str,
+        default=os.environ.get('EARTHDATA_USERNAME'),
+        help='Username for NASA Earthdata Login',
+    )
+    parser.add_argument(
+        '--password',
+        '-W',
+        type=str,
+        default=os.environ.get('EARTHDATA_PASSWORD'),
+        help='Password for NASA Earthdata Login',
+    )
+    parser.add_argument(
+        '--netrc',
+        '-N',
+        type=pathlib.Path,
+        default=pathlib.Path.home().joinpath('.netrc'),
+        help='Path to .netrc file for authentication',
+    )
     # working data directory
-    parser.add_argument('--directory','-D',
-        type=pathlib.Path, default=pathlib.Path.cwd(),
-        help='Working data directory')
+    parser.add_argument(
+        '--directory',
+        '-D',
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
+        help='Working data directory',
+    )
     # MERRA-2 product shortname
-    parser.add_argument('--shortname','-s',
-        type=str, default='M2I3NVASM',
-        help='MERRA-2 product shortname')
+    parser.add_argument(
+        '--shortname',
+        '-s',
+        type=str,
+        default='M2I3NVASM',
+        help='MERRA-2 product shortname',
+    )
     # MERRA-2 version
-    parser.add_argument('--version','-v',
-        type=str, default='5.12.4',
-        help='MERRA-2 version')
+    parser.add_argument(
+        '--version', '-v', type=str, default='5.12.4', help='MERRA-2 version'
+    )
     # years to download
     now = time.gmtime()
-    parser.add_argument('--year','-Y',
-        type=int, nargs='+', default=range(2000,now.tm_year+1),
-        help='Years of model outputs to sync')
+    parser.add_argument(
+        '--year',
+        '-Y',
+        type=int,
+        nargs='+',
+        default=range(2000, now.tm_year + 1),
+        help='Years of model outputs to sync',
+    )
     # connection timeout
-    parser.add_argument('--timeout','-t',
-        type=int, default=360,
-        help='Timeout in seconds for blocking operations')
+    parser.add_argument(
+        '--timeout',
+        '-t',
+        type=int,
+        default=360,
+        help='Timeout in seconds for blocking operations',
+    )
     # Output log file in form
     # NASA_GESDISC_MERRA2_monthly_2002-04-01.log
-    parser.add_argument('--log','-l',
-        default=False, action='store_true',
-        help='Output log file')
+    parser.add_argument(
+        '--log',
+        '-l',
+        default=False,
+        action='store_true',
+        help='Output log file',
+    )
     # print information about each output file
-    parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
+    parser.add_argument(
+        '--verbose',
+        '-V',
+        default=False,
+        action='store_true',
+        help='Verbose output of run',
+    )
     # permissions mode of the directories and files synced (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='Permission mode of directories and files synced')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='Permission mode of directories and files synced',
+    )
     # return the parser
     return parser
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # NASA Earthdata hostname
     URS = 'urs.earthdata.nasa.gov'
     # get NASA Earthdata credentials
     try:
-        args.user,_,args.password = netrc.netrc(args.netrc).authenticators(URS)
+        args.user, _, args.password = netrc.netrc(args.netrc).authenticators(
+            URS
+        )
     except:
         # check that NASA Earthdata credentials were entered
         if not args.user:
@@ -400,19 +525,27 @@ def main():
 
     # build a urllib opener for NASA GESDISC
     # Add the username and password for NASA Earthdata Login system
-    mdlhmc.utilities.build_opener(args.user, args.password,
-        password_manager=True, authorization_header=False)
+    mdlhmc.utilities.build_opener(
+        args.user,
+        args.password,
+        password_manager=True,
+        authorization_header=False,
+    )
 
     # check internet connection before attempting to run program
     HOST = 'https://goldsmr5.gesdisc.eosdis.nasa.gov/'
     if mdlhmc.utilities.check_credentials(HOST):
-        gesdisc_merra_monthly(args.directory, args.shortname,
+        gesdisc_merra_monthly(
+            args.directory,
+            args.shortname,
             VERSION=args.version,
             YEARS=args.year,
             TIMEOUT=args.timeout,
             LOG=args.log,
             VERBOSE=args.verbose,
-            MODE=args.mode)
+            MODE=args.mode,
+        )
+
 
 # run main program
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 reanalysis_mean_pressure.py
 Written by Tyler Sutterley (05/2023)
 Calculates the mean surface pressure fields from reanalysis
@@ -66,6 +66,7 @@ UPDATE HISTORY:
     Updated 03/2018: added portions to run different reanalysis model outputs
     Written 03/2018
 """
+
 from __future__ import print_function
 
 import sys
@@ -78,10 +79,11 @@ import argparse
 import numpy as np
 import gravity_toolkit as gravtk
 
-# PURPOSE: read atmospheric surface pressure fields and calculates yearly mean
-def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
-    VERBOSE=False, MODE=0o775):
 
+# PURPOSE: read atmospheric surface pressure fields and calculates yearly mean
+def reanalysis_mean_pressure(
+    base_dir, MODEL, RANGE=None, VERBOSE=False, MODE=0o775
+):
     # create logger for verbosity level
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[VERBOSE])
@@ -91,7 +93,7 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
     ddir = base_dir.joinpath(MODEL)
 
     # set model specific parameters
-    if (MODEL == 'ERA-Interim'):
+    if MODEL == 'ERA-Interim':
         # invariant parameters file
         input_invariant_file = 'ERA-Interim-Invariant-Parameters.nc'
         # regular expression pattern for finding files
@@ -103,7 +105,7 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
         LONNAME = 'longitude'
         LATNAME = 'latitude'
         TIMENAME = 'time'
-    elif (MODEL == 'ERA5'):
+    elif MODEL == 'ERA5':
         # invariant parameters file
         input_invariant_file = 'ERA5-Invariant-Parameters.nc'
         # regular expression pattern for finding files
@@ -115,7 +117,7 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
         LONNAME = 'longitude'
         LATNAME = 'latitude'
         TIMENAME = 'time'
-    elif (MODEL == 'MERRA-2'):
+    elif MODEL == 'MERRA-2':
         # invariant parameters file
         input_invariant_file = 'MERRA2_101.const_2d_asm_Nx.00000000.nc4'
         # regular expression pattern for finding files
@@ -127,7 +129,7 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
         LONNAME = 'lon'
         LATNAME = 'lat'
         TIMENAME = 'time'
-    elif (MODEL == 'NCEP-DOE-2'):
+    elif MODEL == 'NCEP-DOE-2':
         # invariant parameters file
         input_invariant_file = 'hgt.sfc.nc'
         # regular expression pattern for finding files
@@ -139,7 +141,7 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
         LONNAME = 'lon'
         LATNAME = 'lat'
         TIMENAME = 'time'
-    elif (MODEL == 'NCEP-CFSR'):
+    elif MODEL == 'NCEP-CFSR':
         # invariant parameters file
         input_invariant_file = 'hgt.gdas.nc'
         # regular expression pattern for finding files
@@ -151,7 +153,7 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
         LONNAME = 'lon'
         LATNAME = 'lat'
         TIMENAME = 'time'
-    elif (MODEL == 'JRA-55'):
+    elif MODEL == 'JRA-55':
         # invariant parameters file
         input_invariant_file = 'll125.006_gp.2000.nc'
         # regular expression pattern for finding files
@@ -165,11 +167,12 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
         TIMENAME = 'time'
 
     # read model orography for dimensions
-    geopotential,lon,lat = ncdf_invariant(ddir.joinpath(input_invariant_file),
-        LONNAME, LATNAME, ZNAME)
+    geopotential, lon, lat = ncdf_invariant(
+        ddir.joinpath(input_invariant_file), LONNAME, LATNAME, ZNAME
+    )
     nlat, nlon = np.shape(geopotential)
     # read each reanalysis pressure field and calculate mean
-    regex_years = r'|'.join([rf'{Y:4d}' for Y in range(RANGE[0],RANGE[1]+1)])
+    regex_years = r'|'.join([rf'{Y:4d}' for Y in range(RANGE[0], RANGE[1] + 1)])
     rx = re.compile(regex_pattern.format(regex_years))
     input_files = sorted([f for f in ddir.iterdir() if rx.match(f.name)])
     # output mean pressure field
@@ -177,43 +180,49 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
     p_mean.lon = np.copy(lon)
     p_mean.lat = np.copy(lat)
     p_mean.time = 0.0
-    p_mean.data = np.zeros((nlat,nlon))
-    p_mean.mask = np.zeros((nlat,nlon),dtype=bool)
+    p_mean.data = np.zeros((nlat, nlon))
+    p_mean.mask = np.zeros((nlat, nlon), dtype=bool)
     count = 0
     # for each reanalysis file
-    for i,input_file in enumerate(input_files):
+    for i, input_file in enumerate(input_files):
         # read input data
         logging.debug(str(input_file))
         with netCDF4.Dataset(input_file, mode='r') as fileID:
             # check dimensions for expver slice
-            if (fileID.variables[VARNAME].ndim == 4):
+            if fileID.variables[VARNAME].ndim == 4:
                 pressure = ncdf_expver(fileID, VARNAME)
             else:
                 pressure = fileID.variables[VARNAME][:].copy()
             # use output fill value
             p_mean.fill_value = fileID.variables[VARNAME]._FillValue
             # convert time to Modified Julian Days
-            delta_time=np.copy(fileID.variables[TIMENAME][:])
-            date_string=fileID.variables[TIMENAME].units
-            epoch,to_secs = gravtk.time.parse_date_string(date_string)
-            MJD = gravtk.time.convert_delta_time(delta_time*to_secs,
-                epoch1=epoch, epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0)
+            delta_time = np.copy(fileID.variables[TIMENAME][:])
+            date_string = fileID.variables[TIMENAME].units
+            epoch, to_secs = gravtk.time.parse_date_string(date_string)
+            MJD = gravtk.time.convert_delta_time(
+                delta_time * to_secs,
+                epoch1=epoch,
+                epoch2=(1858, 11, 17, 0, 0, 0),
+                scale=1.0 / 86400.0,
+            )
         # iterate over Julian days
-        for t,JD in enumerate(MJD + 2400000.5):
+        for t, JD in enumerate(MJD + 2400000.5):
             # add to mean pressure
-            p_mean.data += pressure[t,:,:]
-            p_mean.mask |= (pressure[t,:,:] == p_mean.fill_value)
+            p_mean.data += pressure[t, :, :]
+            p_mean.mask |= pressure[t, :, :] == p_mean.fill_value
             # convert from Julian days to calendar dates
-            YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(JD,
-                FORMAT='tuple')
+            YY, MM, DD, hh, mm, ss = gravtk.time.convert_julian(
+                JD, FORMAT='tuple'
+            )
             # convert from calendar dates to year-decimal
-            p_mean.time += gravtk.time.convert_calendar_decimal(YY,
-                MM,day=DD,hour=hh,minute=mm,second=ss)
+            p_mean.time += gravtk.time.convert_calendar_decimal(
+                YY, MM, day=DD, hour=hh, minute=mm, second=ss
+            )
             count += 1
 
     # calculate mean pressure by dividing by count
-    indy,indx = np.nonzero(np.logical_not(p_mean.mask))
-    p_mean.data[indy,indx] /= count
+    indy, indx = np.nonzero(np.logical_not(p_mean.mask))
+    p_mean.data[indy, indx] /= count
     p_mean.update_mask()
     p_mean.time /= np.float64(count)
 
@@ -235,24 +244,26 @@ def reanalysis_mean_pressure(base_dir, MODEL, RANGE=None,
     # change the permissions mode of the output file to MODE
     output_file.chmod(mode=MODE)
 
+
 # PURPOSE: extract pressure variable from a 4d netCDF4 dataset
 # ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
 def ncdf_expver(fileID, VARNAME):
-    ntime,nexp,nlat,nlon = fileID.variables[VARNAME].shape
+    ntime, nexp, nlat, nlon = fileID.variables[VARNAME].shape
     fill_value = fileID.variables[VARNAME]._FillValue
     # reduced surface pressure output
-    pressure = np.ma.zeros((ntime,nlat,nlon))
+    pressure = np.ma.zeros((ntime, nlat, nlon))
     pressure.fill_value = fill_value
     for t in range(ntime):
         # iterate over expver slices to find valid outputs
         for j in range(nexp):
             # check if any are valid for expver
-            if np.any(fileID.variables[VARNAME][t,j,:,:]):
-                pressure[t,:,:] = fileID.variables[VARNAME][t,j,:,:]
+            if np.any(fileID.variables[VARNAME][t, j, :, :]):
+                pressure[t, :, :] = fileID.variables[VARNAME][t, j, :, :]
     # update mask variable
-    pressure.mask = (pressure.data == pressure.fill_value)
+    pressure.mask = pressure.data == pressure.fill_value
     # return the reduced pressure variable
     return pressure
+
 
 # PURPOSE: read reanalysis invariant parameters (geopotential,lat,lon)
 def ncdf_invariant(FILENAME, LONNAME, LATNAME, ZNAME):
@@ -263,52 +274,87 @@ def ncdf_invariant(FILENAME, LONNAME, LATNAME, ZNAME):
         latitude = fileID.variables[LATNAME][:].copy()
     return (geopotential, longitude, latitude)
 
+
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
         description="""Calculates the mean surface pressure
             fields from reanalysis
             """,
-        fromfile_prefix_chars="@"
+        fromfile_prefix_chars='@',
     )
     parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
-    choices = ['ERA-Interim','ERA5','MERRA-2','NCEP-DOE-2','NCEP-CFSR','JRA-55']
-    parser.add_argument('model',
-        type=str, nargs='+',
-        default=['ERA5','MERRA-2'], choices=choices,
-        help='Reanalysis Model')
+    choices = [
+        'ERA-Interim',
+        'ERA5',
+        'MERRA-2',
+        'NCEP-DOE-2',
+        'NCEP-CFSR',
+        'JRA-55',
+    ]
+    parser.add_argument(
+        'model',
+        type=str,
+        nargs='+',
+        default=['ERA5', 'MERRA-2'],
+        choices=choices,
+        help='Reanalysis Model',
+    )
     # working data directory
-    parser.add_argument('--directory','-D',
-        type=pathlib.Path, default=pathlib.Path.cwd(),
-        help='Working data directory')
+    parser.add_argument(
+        '--directory',
+        '-D',
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
+        help='Working data directory',
+    )
     # start and end years to run for mean
-    parser.add_argument('--mean',
-        metavar=('START','END'), type=int, nargs=2,
-        default=[2001,2002],
-        help='Start and end year range for mean')
+    parser.add_argument(
+        '--mean',
+        metavar=('START', 'END'),
+        type=int,
+        nargs=2,
+        default=[2001, 2002],
+        help='Start and end year range for mean',
+    )
     # print information about each input and output file
-    parser.add_argument('--verbose','-V',
-        action='count', default=0,
-        help='Verbose output of processing run')
+    parser.add_argument(
+        '--verbose',
+        '-V',
+        action='count',
+        default=0,
+        help='Verbose output of processing run',
+    )
     # permissions mode of the local directories and files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='Permission mode of directories and files')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='Permission mode of directories and files',
+    )
     # return the parser
     return parser
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # for each reanalysis model
     for MODEL in args.model:
         # run program
-        reanalysis_mean_pressure(args.directory, MODEL, RANGE=args.mean,
-            VERBOSE=args.verbose, MODE=args.mode)
+        reanalysis_mean_pressure(
+            args.directory,
+            MODEL,
+            RANGE=args.mean,
+            VERBOSE=args.verbose,
+            MODE=args.mode,
+        )
+
 
 # run main program
 if __name__ == '__main__':
