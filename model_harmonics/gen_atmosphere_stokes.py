@@ -258,7 +258,7 @@ def gen_atmosphere_stokes(
         # This will sum through all phis in the dot product
         # need to reform pfactor to lonXlat as is originally latXlon
         # output [m,theta]
-        d = np.einsum('mp...,ph...->mh...', m_phi, -pfactor)
+        d = np.einsum('mp...,hp...->mh...', m_phi, -pfactor)
         # Summing product of plms and data over all latitudes
         ylm = np.einsum('mh...,mh...->m...', plm[l, m, :], d[m, :])
         # Multiplying by coefficients to normalize
