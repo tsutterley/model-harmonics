@@ -1,6 +1,6 @@
-========================
-gldas_mask_permafrost.py
-========================
+============================
+``gldas_mask_permafrost.py``
+============================
 
 - Creates a mask for GLDAS data based on the permafrost/surface classification from the `NSIDC Circum-Arctic Map of Permafrost and Ground-Ice Conditions <http://nsidc.org/data/ggd318.html>`_
 

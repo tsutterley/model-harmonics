@@ -1,6 +1,6 @@
-======================
-racmo_smb_harmonics.py
-======================
+==========================
+``racmo_smb_harmonics.py``
+==========================
 
 - Reads monthly RACMO variables and converts to spherical harmonic coefficients :cite:p:`Wahr:1998hy`
 - Estimates the grid values as point masses for calculating the gravitational spherical harmonic coefficients

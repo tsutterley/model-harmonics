@@ -1,6 +1,6 @@
-=======================
-gesdisc_merra_subset.py
-=======================
+===========================
+``gesdisc_merra_subset.py``
+===========================
 
 - Subsets monthly MERRA-2 products for specific variables using the Goddard Earth Sciences Data and Information Server Center (GES DISC) subsetting API
 

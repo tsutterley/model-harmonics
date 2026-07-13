@@ -1,6 +1,6 @@
-====================
-gldas_mask_arctic.py
-====================
+========================
+``gldas_mask_arctic.py``
+========================
 
 - Creates a mask for GLDAS data for Greenland, Svalbard, Iceland and the Russian High Arctic defined by a set of shapefiles
 

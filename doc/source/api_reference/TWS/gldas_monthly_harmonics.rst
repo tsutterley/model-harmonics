@@ -1,6 +1,6 @@
-==========================
-gldas_monthly_harmonics.py
-==========================
+==============================
+``gldas_monthly_harmonics.py``
+==============================
 
 - Reads monthly GLDAS total water storage anomalies and converts to spherical harmonic coefficients :cite:p:`Wahr:1998hy`
 

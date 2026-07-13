@@ -1,6 +1,6 @@
-==============================
-era5_land_monthly_harmonics.py
-==============================
+==================================
+``era5_land_monthly_harmonics.py``
+==================================
 
 - Reads monthly ERA5-Land total water storage anomalies and converts to spherical harmonic coefficients :cite:p:`Wahr:1998hy`
 

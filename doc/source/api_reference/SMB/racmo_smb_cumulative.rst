@@ -1,6 +1,6 @@
-=======================
-racmo_smb_cumulative.py
-=======================
+===========================
+``racmo_smb_cumulative.py``
+===========================
 
 - Reads RACMO datafiles to calculate cumulative anomalies in derived surface mass balance products
 

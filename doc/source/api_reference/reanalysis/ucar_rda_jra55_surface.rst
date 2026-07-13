@@ -1,6 +1,6 @@
-=========================
-ucar_rda_jra55_surface.py
-=========================
+=============================
+``ucar_rda_jra55_surface.py``
+=============================
 
 - Downloads JRA-55 products using a links list csh file provided by the `NCAR/UCAR Research Data Archive (RDA) <https://rda.ucar.edu/>`_
 - JRA-55 6-hour data is more regularly updated compared with the monthly means

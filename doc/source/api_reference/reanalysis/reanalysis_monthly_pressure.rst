@@ -1,6 +1,6 @@
-==============================
-reanalysis_monthly_pressure.py
-==============================
+==================================
+``reanalysis_monthly_pressure.py``
+==================================
 
 Reads daily atmospheric pressure fields from reanalysis and outputs monthly averages
 

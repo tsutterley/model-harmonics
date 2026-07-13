@@ -1,6 +1,6 @@
-=========================
-ecco_monthly_harmonics.py
-=========================
+=============================
+``ecco_monthly_harmonics.py``
+=============================
 
 - Reads monthly ECCO ocean bottom pressure anomalies and converts to spherical harmonic coefficients :cite:p:`Boy:2005el`
 

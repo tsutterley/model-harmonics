@@ -1,6 +1,6 @@
-==========================
-ecco_llc_tile_harmonics.py
-==========================
+==============================
+``ecco_llc_tile_harmonics.py``
+==============================
 
 - Reads monthly ECCO ocean bottom pressure anomalies from LLC tiles and converts to spherical harmonic coefficients :cite:p:`Boy:2005el`
 

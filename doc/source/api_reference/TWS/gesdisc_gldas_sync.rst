@@ -1,6 +1,6 @@
-=====================
-gesdisc_gldas_sync.py
-=====================
+=========================
+``gesdisc_gldas_sync.py``
+=========================
 
 - Syncs GLDAS monthly datafiles from the Goddard Earth Sciences Data and Information Server Center (GES DISC)
 

@@ -1,6 +1,6 @@
-==========================
-cds_reanalysis_retrieve.py
-==========================
+==============================
+``cds_reanalysis_retrieve.py``
+==============================
 
 - Retrieves ERA5 reanalysis netCDF4 datasets from the CDS Web API
 

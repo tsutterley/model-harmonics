@@ -1,6 +1,6 @@
-=================
-merra_smb_mean.py
-=================
+=====================
+``merra_smb_mean.py``
+=====================
 
 - Reads MERRA-2 datafiles to calculate multi-annual means of derived surface mass balance products
 

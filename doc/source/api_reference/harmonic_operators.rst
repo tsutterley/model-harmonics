@@ -1,6 +1,6 @@
-=====================
-harmonic_operators.py
-=====================
+=========================
+``harmonic_operators.py``
+=========================
 
 - Performs basic operations on spherical harmonic files
 

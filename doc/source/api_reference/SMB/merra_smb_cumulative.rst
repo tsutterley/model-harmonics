@@ -1,6 +1,6 @@
-=======================
-merra_smb_cumulative.py
-=======================
+===========================
+``merra_smb_cumulative.py``
+===========================
 
 - Reads MERRA-2 datafiles to calculate monthly cumulative anomalies in derived surface mass balance products
 

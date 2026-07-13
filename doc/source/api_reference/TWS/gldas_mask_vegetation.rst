@@ -1,6 +1,6 @@
-========================
-gldas_mask_vegetation.py
-========================
+============================
+``gldas_mask_vegetation.py``
+============================
 
 - Creates a mask for GLDAS data using the `GLDAS vegetation type binary files <https://ldas.gsfc.nasa.gov/gldas/vegetation-class-mask>`_
 

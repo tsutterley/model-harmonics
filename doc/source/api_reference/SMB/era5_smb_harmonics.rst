@@ -1,6 +1,6 @@
-=====================
-era5_smb_harmonics.py
-=====================
+=========================
+``era5_smb_harmonics.py``
+=========================
 
 - Reads monthly ERA5 surface mass balance anomalies and converts to spherical harmonic coefficients :cite:p:`Wahr:1998hy`
 

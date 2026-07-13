@@ -1,6 +1,6 @@
-======================
-merra_smb_harmonics.py
-======================
+==========================
+``merra_smb_harmonics.py``
+==========================
 
 - Reads monthly MERRA-2 surface mass balance anomalies and converts to spherical harmonic coefficients :cite:p:`Wahr:1998hy`
 

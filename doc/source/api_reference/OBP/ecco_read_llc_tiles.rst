@@ -1,6 +1,6 @@
-======================
-ecco_read_llc_tiles.py
-======================
+==========================
+``ecco_read_llc_tiles.py``
+==========================
 
 - Reads monthly ECCO ocean bottom pressure LLC tile data and calculates multi-annual means
 - Global area average of each ocean bottom pressure map is removed :cite:p:`Greatbatch:1994dx`

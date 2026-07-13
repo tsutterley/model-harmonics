@@ -1,6 +1,6 @@
-==================
-jpl_ecco_webdav.py
-==================
+======================
+``jpl_ecco_webdav.py``
+======================
 
 - Retrieves and prints a user's ECCO Drive WebDAV credentials
 - WebDAV credentials can be used in the `ECCO Drive sync program <https://github.com/tsutterley/model-harmonics/blob/main/OBP/jpl_ecco_sync.py>`_
