@@ -106,7 +106,7 @@ def era5_land_mask_arctic(
 
     # create meshgrid of lat and long
     gridlon, gridlat = np.meshgrid(dinput['longitude'], dinput['latitude'])
-    gridlon[gridlon > 180.0] -= 360.0
+    gridlon = np.where(gridlon > 180, gridlon - 360.0, gridlon)
     # latitude range for valid points
     latmin, latmax = (26.0, 86.0)
     # find valid northern hemisphere points from mask input
