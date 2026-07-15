@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 spatial.py
-Written by Tyler Sutterley (09/2025)
+Written by Tyler Sutterley (07/2026)
 Functions for reading, writing and processing spatial data
 Extends gravity_toolkit spatial module adding raster support
 
@@ -9,6 +9,7 @@ PYTHON DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 07/2026: add HTML representations of mosaic and raster classes
     Updated 09/2025: use importlib to attempt to import dependencies
     Updated 06/2024: added function for calculating latitude and longitude
     Updated 04/2024: changed polar stereographic area function to scale_factors
@@ -374,10 +375,29 @@ class raster(gravtk.spatial):
         properties.append(f'    spacing: {spacing}')
         shape = ', '.join(map(str, self.shape))
         properties.append(f'    shape: {shape}')
-        if self.month:
-            properties.append(f'    start_month: {min(self.month)}')
-            properties.append(f'    end_month: {max(self.month)}')
+        if np.any(self.month):
+            properties.append(f'    start_month: {np.min(self.month)}')
+            properties.append(f'    end_month: {np.max(self.month)}')
         return '\n'.join(properties)
+
+    def __repr__(self):
+        """Representation of the ``raster`` object"""
+        return self.__str__()
+
+    def _html_repr_(self):
+        """HTML representation of the ``raster`` object"""
+        header = 'model_harmonics.raster'
+        properties = {}
+        extent = ', '.join(map(str, self.extent))
+        properties['extent'] = f'[{extent}]'
+        spacing = ', '.join(map(str, self.spacing))
+        properties['spacing'] = f'[{spacing}]'
+        shape = ', '.join(map(str, self.shape))
+        properties['shape'] = f'({shape})'
+        if np.any(self.month):
+            properties['start_month'] = np.min(self.month)
+            properties['end_month'] = np.max(self.month)
+        return gravtk.utilities.html_repr(header, properties)
 
 
 class mosaic:
@@ -464,6 +484,33 @@ class mosaic:
     def y(self):
         """Y-coordinates of the mosaic"""
         return self.extent[2] + self.spacing[1] * np.arange(self.dimensions[0])
+
+    def __str__(self):
+        """String representation of the ``mosaic`` object"""
+        properties = ['model_harmonics.mosaic']
+        extent = ', '.join(map(str, self.extent))
+        properties.append(f'    extent: {extent}')
+        spacing = ', '.join(map(str, self.spacing))
+        properties.append(f'    spacing: {spacing}')
+        shape = ', '.join(map(str, self.shape))
+        properties.append(f'    shape: {shape}')
+        return '\n'.join(properties)
+
+    def __repr__(self):
+        """Representation of the ``mosaic`` object"""
+        return self.__str__()
+
+    def _html_repr_(self):
+        """HTML representation of the ``mosaic`` object"""
+        header = 'model_harmonics.mosaic'
+        properties = {}
+        extent = ', '.join(map(str, self.extent))
+        properties['extent'] = f'[{extent}]'
+        spacing = ', '.join(map(str, self.spacing))
+        properties['spacing'] = f'[{spacing}]'
+        shape = ', '.join(map(str, self.shape))
+        properties['shape'] = f'({shape})'
+        return gravtk.utilities.html_repr(header, properties)
 
 
 # get WGS84 parameters in CGS (centimeters, grams, seconds)
