@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 ecco_geoid_llc_tiles.py
 Written by Tyler Sutterley (05/2023)
 
@@ -50,6 +50,7 @@ UPDATE HISTORY:
     Updated 02/2021: replaced numpy bool to prevent deprecation warning
     Written 02/2021
 """
+
 from __future__ import print_function
 
 import sys
@@ -62,10 +63,11 @@ import numpy as np
 import geoid_toolkit as geoidtk
 import model_harmonics as mdlhmc
 
-# PURPOSE: read ECCO tiled ocean bottom pressure data and calculate mean
-def ecco_geoid_llc_tiles(input_file, output_file, GEOID=None,
-    LMAX=None, MODE=0o775):
 
+# PURPOSE: read ECCO tiled ocean bottom pressure data and calculate mean
+def ecco_geoid_llc_tiles(
+    input_file, output_file, GEOID=None, LMAX=None, MODE=0o775
+):
     # input variable names for each model
     LONNAME = 'XC'
     LATNAME = 'YC'
@@ -73,15 +75,22 @@ def ecco_geoid_llc_tiles(input_file, output_file, GEOID=None,
     MASKNAME = 'maskC'
     # read ECCO tile grid file
     input_file = pathlib.Path(input_file).expanduser().absolute()
-    invariant = ncdf_invariant(input_file,
-        i='i', j='j', tile='tile',
-        lon=LONNAME, lat=LATNAME,
-        depth=ZNAME, mask=MASKNAME)
-    Nt,Nj,Ni = np.shape(invariant['depth'])
-    invalid_mask = np.logical_not(invariant['mask'][0,:,:,:]) | \
-        (invariant['depth'] == 0.0)
+    invariant = ncdf_invariant(
+        input_file,
+        i='i',
+        j='j',
+        tile='tile',
+        lon=LONNAME,
+        lat=LATNAME,
+        depth=ZNAME,
+        mask=MASKNAME,
+    )
+    Nt, Nj, Ni = np.shape(invariant['depth'])
+    invalid_mask = np.logical_not(invariant['mask'][0, :, :, :]) | (
+        invariant['depth'] == 0.0
+    )
     # bad value
-    fill_value = -1e+10
+    fill_value = -1e10
 
     # read gravity model spherical harmonics
     GEOID = pathlib.Path(GEOID).expanduser().absolute()
@@ -93,23 +102,23 @@ def ecco_geoid_llc_tiles(input_file, output_file, GEOID=None,
     # dictionary with output variables
     output = {}
     # copy from invariant
-    for key in ('i','j','tile','lon','lat'):
+    for key in ('i', 'j', 'tile', 'lon', 'lat'):
         output[key] = np.copy(invariant[key])
     # allocate for output geoid height
-    output['geoid'] = np.ma.zeros((Nt,Nj,Ni),fill_value=fill_value)
-    output['geoid'].mask = np.ones((Nt,Nj,Ni),dtype=bool)
+    output['geoid'] = np.ma.zeros((Nt, Nj, Ni), fill_value=fill_value)
+    output['geoid'].mask = np.ones((Nt, Nj, Ni), dtype=bool)
     # calculate geoid for each tile
     for k in range(Nt):
         # find valid points for tile
-        indj,indi = np.nonzero(np.logical_not(invalid_mask[k,:,:]))
+        indj, indi = np.nonzero(np.logical_not(invalid_mask[k, :, :]))
         # latitude and longitude for tile
-        lat = invariant['lat'][k,indj,indi]
-        lon = invariant['lon'][k,indj,indi]
+        lat = invariant['lat'][k, indj, indi]
+        lon = invariant['lon'][k, indj, indi]
         # geoid height for valid points in tile
-        output['geoid'].data[k,indj,indi] = geoidtk.geoid_undulation(
-            lat, lon, 'WGS84', Ylms['clm'], Ylms['slm'], LMAX, R, GM,
-            GAUSS=0)
-        output['geoid'].mask[k,indj,indi] = False
+        output['geoid'].data[k, indj, indi] = geoidtk.geoid_undulation(
+            lat, lon, 'WGS84', Ylms['clm'], Ylms['slm'], LMAX, R, GM, GAUSS=0
+        )
+        output['geoid'].mask[k, indj, indi] = False
     # replace invalid data with fill value
     output['geoid'].data[output['geoid'].mask] = output['geoid'].fill_value
 
@@ -139,62 +148,76 @@ def ecco_geoid_llc_tiles(input_file, output_file, GEOID=None,
     attributes['geoid'] = {}
     attributes['geoid']['long_name'] = 'geoidal_undulation'
     attributes['geoid']['units'] = 'meter'
-    attributes['geoid']['reference'] = \
+    attributes['geoid']['reference'] = (
         'https://doi.org/10.5194/essd-11-647-2019'
+    )
 
     # netcdf (.nc)
     output_file = pathlib.Path(output_file).expanduser().absolute()
-    ncdf_tile_write(output, attributes, FILENAME=output_file,
-        LONNAME='lon', LATNAME='lat', VARNAME='geoid')
+    ncdf_tile_write(
+        output,
+        attributes,
+        FILENAME=output_file,
+        LONNAME='lon',
+        LATNAME='lat',
+        VARNAME='geoid',
+    )
     # change the permissions mode of the output file to MODE
     output_file.chmod(mode=MODE)
 
+
 # PURPOSE: read ECCO invariant grid file
-def ncdf_invariant(invariant_file,**kwargs):
+def ncdf_invariant(invariant_file, **kwargs):
     # output dictionary with invariant parameters
     invariant = {}
     # open netCDF4 file for reading
-    with netCDF4.Dataset(invariant_file,'r') as fileID:
+    with netCDF4.Dataset(invariant_file, 'r') as fileID:
         # extract latitude, longitude, depth, area and valid mask
-        for key,val in kwargs.items():
+        for key, val in kwargs.items():
             invariant[key] = fileID.variables[val][:].copy()
     # return the invariant parameters
     return invariant
 
-# PURPOSE: write tiled data to a netCDF4 file
-def ncdf_tile_write(output, attributes, FILENAME=None, LONNAME=None,
-    LATNAME=None, VARNAME=None):
 
+# PURPOSE: write tiled data to a netCDF4 file
+def ncdf_tile_write(
+    output, attributes, FILENAME=None, LONNAME=None, LATNAME=None, VARNAME=None
+):
     # opening NetCDF file for writing
     FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME,'w')
+    fileID = netCDF4.Dataset(FILENAME, 'w')
 
     # python dictionary with NetCDF variables
     nc = {}
     # Defining the NetCDF dimensions and variables
-    for key in ('i','j','tile'):
+    for key in ('i', 'j', 'tile'):
         fileID.createDimension(key, len(np.atleast_1d(output[key])))
         nc[key] = fileID.createVariable(key, output[key].dtype, (key,))
         # filling NetCDF variables
         nc[key][:] = np.copy(output[key])
         # Defining attributes for variable
-        for att_name,att_val in attributes[key].items():
-            setattr(nc[key],att_name,att_val)
+        for att_name, att_val in attributes[key].items():
+            setattr(nc[key], att_name, att_val)
 
     # Defining the NetCDF variables
-    for key in (LONNAME,LATNAME,VARNAME):
-        if hasattr(output[key],'fill_value'):
-            nc[key] = fileID.createVariable(key, output[key].dtype,
-                ('tile','j','i'), fill_value=output[key].fill_value,
-                zlib=True)
+    for key in (LONNAME, LATNAME, VARNAME):
+        if hasattr(output[key], 'fill_value'):
+            nc[key] = fileID.createVariable(
+                key,
+                output[key].dtype,
+                ('tile', 'j', 'i'),
+                fill_value=output[key].fill_value,
+                zlib=True,
+            )
         else:
-            nc[key] = fileID.createVariable(key, output[key].dtype,
-                ('tile','j','i'))
+            nc[key] = fileID.createVariable(
+                key, output[key].dtype, ('tile', 'j', 'i')
+            )
         # filling NetCDF variables
         nc[key][:] = np.copy(output[key])
         # Defining attributes for variable
-        for att_name,att_val in attributes[key].items():
-            setattr(nc[key],att_name,att_val)
+        for att_name, att_val in attributes[key].items():
+            setattr(nc[key], att_name, att_val)
     # add attribute for date created
     fileID.date_created = datetime.datetime.now().isoformat()
     fileID.title = attributes['title']
@@ -211,6 +234,7 @@ def ncdf_tile_write(output, attributes, FILENAME=None, LONNAME=None,
     # Closing the NetCDF file
     fileID.close()
 
+
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
@@ -220,44 +244,63 @@ def arguments():
     )
     # command line options
     # input and output file
-    parser.add_argument('infile',
-        type=pathlib.Path, nargs='?',
-        help='Input file')
-    parser.add_argument('outfile',
-        type=pathlib.Path, nargs='?',
-        help='Output file')
+    parser.add_argument(
+        'infile', type=pathlib.Path, nargs='?', help='Input file'
+    )
+    parser.add_argument(
+        'outfile', type=pathlib.Path, nargs='?', help='Output file'
+    )
     # path to static gravity harmonics file
-    parser.add_argument('--geoid','-G',
-        type=pathlib.Path,
-        help='gfc file from the GFZ ICGEM')
+    parser.add_argument(
+        '--geoid', '-G', type=pathlib.Path, help='gfc file from the GFZ ICGEM'
+    )
     # maximum spherical harmonic degree and order
-    parser.add_argument('--lmax','-l',
-        type=int, default=None,
-        help='Maximum spherical harmonic degree')
+    parser.add_argument(
+        '--lmax',
+        '-l',
+        type=int,
+        default=None,
+        help='Maximum spherical harmonic degree',
+    )
     # print information about each output file
-    parser.add_argument('--verbose','-V',
-        action='count', default=0,
-        help='Verbose output of processing run')
+    parser.add_argument(
+        '--verbose',
+        '-V',
+        action='count',
+        default=0,
+        help='Verbose output of processing run',
+    )
     # permissions mode of the local directories and files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='Permission mode of directories and files')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='Permission mode of directories and files',
+    )
     # return the parser
     return parser
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[args.verbose])
 
     # run program
-    ecco_geoid_llc_tiles(args.infile, args.outfile, GEOID=args.geoid,
-        LMAX=args.lmax, MODE=args.mode)
+    ecco_geoid_llc_tiles(
+        args.infile,
+        args.outfile,
+        GEOID=args.geoid,
+        LMAX=args.lmax,
+        MODE=args.mode,
+    )
+
 
 # run main program
 if __name__ == '__main__':

@@ -1,6 +1,6 @@
-=====================
-ecco_read_realtime.py
-=====================
+=========================
+``ecco_read_realtime.py``
+=========================
 
 - Reads 12-hour `ECCO ocean bottom pressure data from JPL <https://ecco.jpl.nasa.gov/drive/files/NearRealTime/Readme>`_
 - Global area average of each ocean bottom pressure map is removed :cite:p:`Greatbatch:1994dx`

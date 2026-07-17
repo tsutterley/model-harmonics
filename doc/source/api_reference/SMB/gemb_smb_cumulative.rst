@@ -1,6 +1,6 @@
-======================
-gemb_smb_cumulative.py
-======================
+==========================
+``gemb_smb_cumulative.py``
+==========================
 
 - Reads GEMB datafiles to calculate cumulative anomalies in derived surface mass balance products
 

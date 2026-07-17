@@ -1,6 +1,6 @@
-===================
-gen_pressure_stokes
-===================
+=======================
+``gen_pressure_stokes``
+=======================
 
 - Converts pressure fields from the spatial domain to spherical harmonic coefficients :cite:p:`Boy:2005el,Swenson:2002kf`
 

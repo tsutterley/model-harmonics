@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 gemb_smb_cumulative.py
 Written by Tyler Sutterley (10/2024)
 Calculates cumulative anomalies of GEMB surface mass balance products
@@ -28,6 +28,7 @@ UPDATE HISTORY:
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Written 10/2022
 """
+
 from __future__ import print_function
 
 import re
@@ -39,13 +40,10 @@ import argparse
 import numpy as np
 import model_harmonics as mdlhmc
 
+
 # PURPOSE: calculate cumulative anomalies in GEMB
 # surface mass balance variables
-def gemb_smb_cumulative(model_file,
-        RANGE=None,
-        FILL_VALUE=np.nan,
-        MODE=0o775
-    ):
+def gemb_smb_cumulative(model_file, RANGE=None, FILL_VALUE=np.nan, MODE=0o775):
     """
     Calculates cumulative anomalies of GEMB
     surface mass balance products
@@ -63,8 +61,10 @@ def gemb_smb_cumulative(model_file,
     """
 
     # regular expression pattern for extracting parameters
-    pattern = (r'GEMB_(Greenland|Antarctica)(_and_Periphery)?_'
-        r'SMB_\d{4}_\d{4}_(.*?)mesh_\d+km_(v.*?).nc$')
+    pattern = (
+        r'GEMB_(Greenland|Antarctica)(_and_Periphery)?_'
+        r'SMB_\d{4}_\d{4}_(.*?)mesh_\d+km_(v.*?).nc$'
+    )
     model_file = pathlib.Path(model_file).expanduser().absolute()
     region, aux1, aux2, version = re.findall(pattern, model_file.name).pop()
     # output cumulative file
@@ -88,22 +88,26 @@ def gemb_smb_cumulative(model_file,
     fd['x'] = fileID.variables['x'][:].copy()
     fd['y'] = fileID.variables['y'][:].copy()
     # calculate mean period for GEMB
-    tt, = np.nonzero((fd['time'] >= RANGE[0]) & (fd['time'] < (RANGE[1]+1)))
+    (tt,) = np.nonzero((fd['time'] >= RANGE[0]) & (fd['time'] < (RANGE[1] + 1)))
 
     # copy data and remove singleton dimensions
     centered_SMB = fileID.variables['centered_SMB'][:].copy()
     accum_SMB = fileID.variables['accum_SMB'][:].copy()
     # get each attribute for variable if applicable
-    for v in ['accum_SMB','centered_SMB']:
+    for v in ['accum_SMB', 'centered_SMB']:
         attrs[v] = {}
-        for att_name in ['units','long_name','standard_name','comment']:
-            if hasattr(fileID.variables[v],att_name):
+        for att_name in ['units', 'long_name', 'standard_name', 'comment']:
+            if hasattr(fileID.variables[v], att_name):
                 attrs[v][att_name] = fileID.variables[v].getncattr(att_name)
     # edit cumulative SMB attributes
-    attrs['centered_SMB']['standard_name'] = 'average surface mass balance height'
-    attrs['accum_SMB']['standard_name'] = 'accumulated surface mass balance height'
+    attrs['centered_SMB']['standard_name'] = (
+        'average surface mass balance height'
+    )
+    attrs['accum_SMB']['standard_name'] = (
+        'accumulated surface mass balance height'
+    )
     # input shape of GEMB SMB data
-    nt,ny,nx = np.shape(accum_SMB)
+    nt, ny, nx = np.shape(accum_SMB)
     # get root attributes
     institution = fileID.getncattr('institution')
     revision = fileID.getncattr('revision')
@@ -111,35 +115,35 @@ def gemb_smb_cumulative(model_file,
     fileID.close()
 
     # indices of specified ice mask
-    i,j = np.nonzero(np.isfinite(centered_SMB))
+    i, j = np.nonzero(np.isfinite(centered_SMB))
     valid_count = np.count_nonzero(np.isfinite(centered_SMB))
     # calculate original monthly SMB data from anomalies
-    SMB = np.ma.zeros((nt,ny,nx), fill_value=FILL_VALUE)
-    SMB.mask = np.ones((nt,ny,nx), dtype=bool)
+    SMB = np.ma.zeros((nt, ny, nx), fill_value=FILL_VALUE)
+    SMB.mask = np.ones((nt, ny, nx), dtype=bool)
     SMB_anomaly = np.zeros((valid_count))
     # for each date
     for t in range(nt):
-        SMB.data[t,i,j] = accum_SMB.data[t,i,j] - SMB_anomaly
+        SMB.data[t, i, j] = accum_SMB.data[t, i, j] - SMB_anomaly
         # set masks
-        SMB.mask[t,i,j] = np.isnan(accum_SMB.data[t,i,j])
+        SMB.mask[t, i, j] = np.isnan(accum_SMB.data[t, i, j])
         # update SMB anomaly variable
-        SMB_anomaly[:] = np.copy(accum_SMB[t,i,j])
+        SMB_anomaly[:] = np.copy(accum_SMB[t, i, j])
     # convert invalid values to fill value
     SMB.data[SMB.mask] = SMB.fill_value
 
     # cumulative mass anomalies calculated by removing mean balance flux
-    MEAN = np.mean(SMB[tt,:,:], axis=0)
+    MEAN = np.mean(SMB[tt, :, :], axis=0)
     fd['centered_SMB'] = np.ma.array(MEAN, fill_value=FILL_VALUE)
     fd['centered_SMB'].mask = np.isnan(MEAN)
     # allocate for output variable
-    fd['accum_SMB'] = np.ma.zeros((nt,ny,nx), fill_value=FILL_VALUE)
-    fd['accum_SMB'].mask = (SMB.mask | np.isnan(SMB.data))
+    fd['accum_SMB'] = np.ma.zeros((nt, ny, nx), fill_value=FILL_VALUE)
+    fd['accum_SMB'].mask = SMB.mask | np.isnan(SMB.data)
     CUMULATIVE = np.zeros((valid_count))
     # calculate output cumulative anomalies for variable
     for t in range(nt):
         # calculate cumulative anomalies at time t
-        CUMULATIVE += (SMB.data[t,i,j] - MEAN[i,j])
-        fd['accum_SMB'].data[t,i,j] = CUMULATIVE.copy()
+        CUMULATIVE += SMB.data[t, i, j] - MEAN[i, j]
+        fd['accum_SMB'].data[t, i, j] = CUMULATIVE.copy()
     # replace masked values with fill value
     fd['accum_SMB'].data[fd['accum_SMB'].mask] = fd['accum_SMB'].fill_value
 
@@ -147,7 +151,7 @@ def gemb_smb_cumulative(model_file,
     logging.info(str(output_file))
 
     # output GEMB data file with cumulative data
-    fileID = netCDF4.Dataset(output_file, 'w', format="NETCDF4")
+    fileID = netCDF4.Dataset(output_file, 'w', format='NETCDF4')
 
     # Defining the NetCDF dimensions
     fileID.createDimension('x', nx)
@@ -160,28 +164,41 @@ def gemb_smb_cumulative(model_file,
     nc['x'] = fileID.createVariable('x', fd['x'].dtype, ('x',))
     nc['y'] = fileID.createVariable('y', fd['y'].dtype, ('y',))
     nc['time'] = fileID.createVariable('time', fd['time'].dtype, ('time',))
-    nc['centered_SMB'] = fileID.createVariable('centered_SMB',
-        fd['centered_SMB'].dtype, ('y','x',),
+    nc['centered_SMB'] = fileID.createVariable(
+        'centered_SMB',
+        fd['centered_SMB'].dtype,
+        (
+            'y',
+            'x',
+        ),
         fill_value=fd['centered_SMB'].fill_value,
-        zlib=True)
-    nc['accum_SMB'] = fileID.createVariable('accum_SMB',
-        fd['accum_SMB'].dtype, ('time','y','x',),
+        zlib=True,
+    )
+    nc['accum_SMB'] = fileID.createVariable(
+        'accum_SMB',
+        fd['accum_SMB'].dtype,
+        (
+            'time',
+            'y',
+            'x',
+        ),
         fill_value=fd['accum_SMB'].fill_value,
-        zlib=True)
+        zlib=True,
+    )
 
     # filling NetCDF variables
-    for key,val in fd.items():
+    for key, val in fd.items():
         nc[key][:] = val.copy()
 
     # create variable and attributes for projection
     if region in ('Greenland',):
-        crs = fileID.createVariable('Polar_Stereographic',np.byte,())
+        crs = fileID.createVariable('Polar_Stereographic', np.byte, ())
         crs.standard_name = 'Polar_Stereographic'
         crs.grid_mapping_name = 'polar_stereographic'
         crs.straight_vertical_longitude_from_pole = -45.0
         crs.latitude_of_projection_origin = 90.0
         crs.standard_parallel = 70.0
-        crs.scale_factor_at_projection_origin = 1.
+        crs.scale_factor_at_projection_origin = 1.0
         crs.false_easting = 0.0
         crs.false_northing = 0.0
         crs.semi_major_axis = 6378.137
@@ -189,13 +206,13 @@ def gemb_smb_cumulative(model_file,
         crs.inverse_flattening = 298.257223563
         crs.spatial_epsg = '3413'
     elif region in ('Antarctica',):
-        crs = fileID.createVariable('Polar_Stereographic',np.byte,())
+        crs = fileID.createVariable('Polar_Stereographic', np.byte, ())
         crs.standard_name = 'Polar_Stereographic'
         crs.grid_mapping_name = 'polar_stereographic'
         crs.straight_vertical_longitude_from_pole = 0.0
         crs.latitude_of_projection_origin = -90.0
         crs.standard_parallel = -71.0
-        crs.scale_factor_at_projection_origin = 1.
+        crs.scale_factor_at_projection_origin = 1.0
         crs.false_easting = 0.0
         crs.false_northing = 0.0
         crs.semi_major_axis = 6378.137
@@ -213,22 +230,24 @@ def gemb_smb_cumulative(model_file,
     nc['y'].grid_mapping = 'Polar_Stereographic'
     nc['y'].units = 'meters'
     # for each gridded variable
-    for v in ['accum_SMB','centered_SMB']:
+    for v in ['accum_SMB', 'centered_SMB']:
         # set variable attributes
-        for att_name,att_val in attrs[v].items():
-            nc[v].setncattr(att_name,att_val)
+        for att_name, att_val in attrs[v].items():
+            nc[v].setncattr(att_name, att_val)
         # set grid mapping attribute
-        nc[v].setncattr('grid_mapping','Polar_Stereographic')
+        nc[v].setncattr('grid_mapping', 'Polar_Stereographic')
     # Defining attributes for date
     nc['time'].long_name = 'time'
     nc['time'].units = 'decimal years'
     # global attributes of NetCDF file
-    fileID.title = (f'Cumulative anomalies in GEMB{version} variables '
-        f'relative to {RANGE[0]:4d}-{RANGE[1]:4d}')
-    fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
+    fileID.title = (
+        f'Cumulative anomalies in GEMB{version} variables '
+        f'relative to {RANGE[0]:4d}-{RANGE[1]:4d}'
+    )
+    fileID.date_created = time.strftime('%Y-%m-%d', time.localtime())
     fileID.source = f'version {version}'
-    fileID.authors = "Nicole-Jeanne Schlegel & Alex Gardner"
-    fileID.reference = "https://doi.org/10.5281/zenodo.7199528"
+    fileID.authors = 'Nicole-Jeanne Schlegel & Alex Gardner'
+    fileID.reference = 'https://doi.org/10.5281/zenodo.7199528'
     fileID.institution = institution
     fileID.revision = revision
     # add software information
@@ -242,6 +261,7 @@ def gemb_smb_cumulative(model_file,
     # change the permissions mode
     output_file.chmod(mode=MODE)
 
+
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
@@ -250,28 +270,44 @@ def arguments():
             """
     )
     # command line parameters
-    parser.add_argument('infile',
-        type=pathlib.Path,
-        help='GEMB file to run')
+    parser.add_argument('infile', type=pathlib.Path, help='GEMB file to run')
     # start and end years to run for mean
-    parser.add_argument('--mean','-m',
-        metavar=('START','END'), type=int, nargs=2,
-        default=[1980,1995],
-        help='Start and end year range for mean')
+    parser.add_argument(
+        '--mean',
+        '-m',
+        metavar=('START', 'END'),
+        type=int,
+        nargs=2,
+        default=[1980, 1995],
+        help='Start and end year range for mean',
+    )
     # fill value for ascii
-    parser.add_argument('--fill-value','-f',
-        type=float, default=np.nan,
-        help='Output invalid value')
+    parser.add_argument(
+        '--fill-value',
+        '-f',
+        type=float,
+        default=np.nan,
+        help='Output invalid value',
+    )
     # print information about each input and output file
-    parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
+    parser.add_argument(
+        '--verbose',
+        '-V',
+        default=False,
+        action='store_true',
+        help='Verbose output of run',
+    )
     # permissions mode of the local directories and files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='Permission mode of directories and files')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='Permission mode of directories and files',
+    )
     # return the parser
     return parser
+
 
 # Main program that calls gemb_smb_cumulative()
 def main():
@@ -283,10 +319,10 @@ def main():
     logging.basicConfig(level=loglevels[args.verbose])
 
     # run program
-    gemb_smb_cumulative(args.infile,
-        RANGE=args.mean,
-        FILL_VALUE=args.fill_value,
-        MODE=args.mode)
+    gemb_smb_cumulative(
+        args.infile, RANGE=args.mean, FILL_VALUE=args.fill_value, MODE=args.mode
+    )
+
 
 # run main program
 if __name__ == '__main__':

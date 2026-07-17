@@ -1,6 +1,6 @@
-====================
-noaa_cdc_ncep_ftp.py
-====================
+========================
+``noaa_cdc_ncep_ftp.py``
+========================
 
 - Syncs NOAA-DOE-2 surface reanalysis outputs with the `NOAA CDC ftp server <ftp://ftp.cdc.noaa.gov/Datasets/ncep.reanalysis2.dailyavgs/surface/>`_
 

@@ -1,15 +1,17 @@
 #!/usr/bin/env python
-u"""
+"""
 test_ellispoid.py (12/2022)
 Tests the that ellipsoid estimates are equivalent
 """
+
 import pytest
 import geoid_toolkit as geoidtk
 import model_harmonics as mdlhmc
 
+
 # PURPOSE: test ellipsoid outputs
-@pytest.mark.parametrize("ellipsoid", ['WGS84'])
-@pytest.mark.parametrize("units", ['MKS','CGS'])
+@pytest.mark.parametrize('ellipsoid', ['WGS84'])
+@pytest.mark.parametrize('units', ['MKS', 'CGS'])
 def test_ellipsoid(ellipsoid, units):
     # get dictionary output from geoid-toolkit
     ellipsoid_params = geoidtk.ref_ellipsoid(ellipsoid, UNITS=units)

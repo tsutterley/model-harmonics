@@ -1,6 +1,6 @@
-========================
-least_squares_mascons.py
-========================
+============================
+``least_squares_mascons.py``
+============================
 
 - Reads in an index of spherical harmonic coefficient files
 - Filters and smooths data with specified processing algorithms :cite:p:`Jekeli:1981vj,Swenson:2006hu`

@@ -1,6 +1,6 @@
-===================
-GIA_GSFC_mascons.py
-===================
+=======================
+``GIA_GSFC_mascons.py``
+=======================
 
 - Calculates GIA equivalent water height corrections for GSFC mascons at the central points of each mascon
 

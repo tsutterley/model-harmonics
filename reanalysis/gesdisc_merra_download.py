@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 gesdisc_merra_download.py
 Written by Tyler Sutterley (05/2023)
 
@@ -66,6 +66,7 @@ UPDATE HISTORY:
     Updated 06/2018: using python3 compatible octal, input and urllib
     Written 03/2018
 """
+
 from __future__ import print_function
 
 import sys
@@ -80,9 +81,11 @@ import argparse
 import builtins
 import gravity_toolkit as gravtk
 
+
 # PURPOSE: download MERRA-2 files from GESDISC using a links list file
-def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
-    LOG=False, VERBOSE=False, MODE=None):
+def gesdisc_merra_download(
+    base_dir, links_list_file, TIMEOUT=None, LOG=False, VERBOSE=False, MODE=None
+):
     # full path to MERRA-2 directory
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
     # check if DIRECTORY exists and recursively create if not
@@ -93,7 +96,7 @@ def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
     loglevel = logging.INFO if VERBOSE else logging.CRITICAL
     if LOG:
         # format: NASA_GESDISC_MERRA2_download_2002-04-01.log
-        today = time.strftime('%Y-%m-%d',time.localtime())
+        today = time.strftime('%Y-%m-%d', time.localtime())
         output_logfile = f'NASA_GESDISC_MERRA2_download_{today}.log'
         LOGFILE = DIRECTORY.joinpath(output_logfile)
         fid = LOGFILE.open(mode='w', encoding='utf8')
@@ -107,19 +110,19 @@ def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
     # read the links list file
     links_list_file = pathlib.Path(links_list_file).expanduser().absolute()
     with links_list_file.open(mode='rb') as fileID:
-        lines = fileID.read().decode("utf-8-sig").encode("utf-8").splitlines()
+        lines = fileID.read().decode('utf-8-sig').encode('utf-8').splitlines()
 
     # for each line in the links_list_file
     for f in lines:
         # extract filename from url
         HOST = gravtk.utilities.url_split(f.decode('utf-8'))
-        if re.search(rb'LABEL\=(.*?)\&SHORTNAME',f):
-            FILE, = re.findall(r'LABEL\=(.*?)\&SHORTNAME', f.decode('utf-8'))
-        elif re.search(rb'MERRA2_(\d+)\.(.*?)\.(\d+)\.(.*?).nc',f):
+        if re.search(rb'LABEL\=(.*?)\&SHORTNAME', f):
+            (FILE,) = re.findall(r'LABEL\=(.*?)\&SHORTNAME', f.decode('utf-8'))
+        elif re.search(rb'MERRA2_(\d+)\.(.*?)\.(\d+)\.(.*?).nc', f):
             rx = re.compile(r'MERRA2_(\d+)\.(.*?)\.(\d+)\.(.*?).nc')
-            MOD,DSET,YMD,AUX = rx.findall(f.decode('utf-8')).pop()
+            MOD, DSET, YMD, AUX = rx.findall(f.decode('utf-8')).pop()
             FILE = f'MERRA2_{MOD}.{DSET}.{YMD}.SUB.nc'
-        elif re.search(rb'FAQ',f,re.IGNORECASE):
+        elif re.search(rb'FAQ', f, re.IGNORECASE):
             # skip frequently asked questions hyperlinks
             continue
         else:
@@ -130,9 +133,16 @@ def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
             # output local file
             local_file = DIRECTORY.joinpath(FILE)
             MD5 = gravtk.utilities.get_hash(local_file)
-            gravtk.utilities.from_http(HOST, timeout=TIMEOUT,
-                context=None, local=local_file, hash=MD5, fid=fid,
-                verbose=VERBOSE, mode=MODE)
+            gravtk.utilities.from_http(
+                HOST,
+                timeout=TIMEOUT,
+                context=None,
+                local=local_file,
+                hash=MD5,
+                fid=fid,
+                verbose=VERBOSE,
+                mode=MODE,
+            )
         except:
             remote_file = gravtk.utilities.posixpath.join(HOST)
             logging.critical(f'Link not downloaded: {remote_file}')
@@ -143,6 +153,7 @@ def gesdisc_merra_download(base_dir, links_list_file, TIMEOUT=None,
         fid.close()
         LOGFILE.chmod(mode=MODE)
 
+
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
@@ -152,54 +163,89 @@ def arguments():
             """
     )
     # command line parameters
-    parser.add_argument('file',
-        type=pathlib.Path, nargs='+',
-        help='GESDISC links list file')
+    parser.add_argument(
+        'file', type=pathlib.Path, nargs='+', help='GESDISC links list file'
+    )
     # NASA Earthdata credentials
-    parser.add_argument('--user','-U',
-        type=str, default=os.environ.get('EARTHDATA_USERNAME'),
-        help='Username for NASA Earthdata Login')
-    parser.add_argument('--password','-W',
-        type=str, default=os.environ.get('EARTHDATA_PASSWORD'),
-        help='Password for NASA Earthdata Login')
-    parser.add_argument('--netrc','-N',
-        type=pathlib.Path, default=pathlib.Path.home().joinpath('.netrc'),
-        help='Path to .netrc file for authentication')
+    parser.add_argument(
+        '--user',
+        '-U',
+        type=str,
+        default=os.environ.get('EARTHDATA_USERNAME'),
+        help='Username for NASA Earthdata Login',
+    )
+    parser.add_argument(
+        '--password',
+        '-W',
+        type=str,
+        default=os.environ.get('EARTHDATA_PASSWORD'),
+        help='Password for NASA Earthdata Login',
+    )
+    parser.add_argument(
+        '--netrc',
+        '-N',
+        type=pathlib.Path,
+        default=pathlib.Path.home().joinpath('.netrc'),
+        help='Path to .netrc file for authentication',
+    )
     # working data directory
-    parser.add_argument('--directory','-D',
-        type=pathlib.Path, default=pathlib.Path.cwd(),
-        help='Working data directory')
+    parser.add_argument(
+        '--directory',
+        '-D',
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
+        help='Working data directory',
+    )
     # connection timeout
-    parser.add_argument('--timeout','-t',
-        type=int, default=360,
-        help='Timeout in seconds for blocking operations')
+    parser.add_argument(
+        '--timeout',
+        '-t',
+        type=int,
+        default=360,
+        help='Timeout in seconds for blocking operations',
+    )
     # Output log file in form
     # NASA_GESDISC_MERRA2_download_2002-04-01.log
-    parser.add_argument('--log','-l',
-        default=False, action='store_true',
-        help='Output log file')
+    parser.add_argument(
+        '--log',
+        '-l',
+        default=False,
+        action='store_true',
+        help='Output log file',
+    )
     # print information about each output file
-    parser.add_argument('--verbose','-V',
-        default=False, action='store_true',
-        help='Verbose output of run')
+    parser.add_argument(
+        '--verbose',
+        '-V',
+        default=False,
+        action='store_true',
+        help='Verbose output of run',
+    )
     # permissions mode of the directories and files synced (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='Permission mode of directories and files synced')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='Permission mode of directories and files synced',
+    )
     # return the parser
     return parser
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # NASA Earthdata hostname
     URS = 'urs.earthdata.nasa.gov'
     # get NASA Earthdata credentials
     try:
-        args.user,_,args.password = netrc.netrc(args.netrc).authenticators(URS)
+        args.user, _, args.password = netrc.netrc(args.netrc).authenticators(
+            URS
+        )
     except:
         # check that NASA Earthdata credentials were entered
         if not args.user:
@@ -212,16 +258,27 @@ def main():
 
     # build a urllib opener for NASA GESDISC
     # Add the username and password for NASA Earthdata Login system
-    gravtk.utilities.build_opener(args.user, args.password,
-        password_manager=True, authorization_header=False)
+    gravtk.utilities.build_opener(
+        args.user,
+        args.password,
+        password_manager=True,
+        authorization_header=False,
+    )
 
     # check internet connection before attempting to run program
     HOST = 'http://disc.sci.gsfc.nasa.gov/'
     if gravtk.utilities.check_credentials(HOST):
         # for each links list file from GESDISC
         for FILE in args.file:
-            gesdisc_merra_download(args.directory, FILE, TIMEOUT=args.timeout,
-                LOG=args.log, VERBOSE=args.verbose, MODE=args.mode)
+            gesdisc_merra_download(
+                args.directory,
+                FILE,
+                TIMEOUT=args.timeout,
+                LOG=args.log,
+                VERBOSE=args.verbose,
+                MODE=args.mode,
+            )
+
 
 # run main program
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 era5_land_mask_permafrost.py
 Written by Tyler Sutterley (09/2025)
 
@@ -43,6 +43,7 @@ UPDATE HISTORY:
     Updated 09/2025: use importlib to attempt to import dependencies
     Written 04/2025
 """
+
 from __future__ import print_function
 
 import sys
@@ -61,14 +62,12 @@ shapely = mdlhmc.utilities.import_dependency('shapely')
 shapely.ops = mdlhmc.utilities.import_dependency('shapely.ops')
 shapely.geometry = mdlhmc.utilities.import_dependency('shapely.geometry')
 
+
 # Read the NSIDC Circum-Arctic Map of Permafrost and Ground-Ice Conditions
 # and create a mask for continuous/discontinuous permafrost
-def era5_land_mask_permafrost(base_dir,
-        SHAPEFILE=None,
-        BUFFER=None,
-        MODE=0o775
-    ):
-
+def era5_land_mask_permafrost(
+    base_dir, SHAPEFILE=None, BUFFER=None, MODE=0o775
+):
     # directory models
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
     # ERA5-land products
@@ -83,7 +82,7 @@ def era5_land_mask_permafrost(base_dir,
     dinput = {}
     with netCDF4.Dataset(input_file, 'r') as fileID:
         # find valid points from land mask
-        mask_input = (fileID.variables['lsm'][0,:,:] > 0.0)
+        mask_input = fileID.variables['lsm'][0, :, :] > 0.0
         ntime, nlat, nlon = fileID.variables['lsm'].shape
         # read the latitude and longitude
         dinput['latitude'] = fileID.variables['latitude'][:]
@@ -91,11 +90,11 @@ def era5_land_mask_permafrost(base_dir,
         dinput['time'] = fileID.variables['time'][:]
 
     # create meshgrid of lat and long
-    gridlon,gridlat = np.meshgrid(dinput['longitude'], dinput['latitude'])
+    gridlon, gridlat = np.meshgrid(dinput['longitude'], dinput['latitude'])
     # latitude range for valid points
     latmin, latmax = (26.0, 86.0)
     # find valid northern hemisphere points from mask input
-    ii,jj = np.nonzero(mask_input & (gridlat >= latmin) & (gridlat <= latmax))
+    ii, jj = np.nonzero(mask_input & (gridlat >= latmin) & (gridlat <= latmax))
 
     # reading shapefile
     SHAPEFILE = pathlib.Path(SHAPEFILE).expanduser().absolute()
@@ -107,17 +106,19 @@ def era5_land_mask_permafrost(base_dir,
     crs2 = pyproj.CRS.from_user_input(shape.crs)
     transformer = pyproj.Transformer.from_crs(crs1, crs2, always_xy=True)
     # convert projection from latitude/longitude to polar stereographic
-    X,Y = transformer.transform(gridlon[ii,jj], gridlat[ii,jj])
+    X, Y = transformer.transform(gridlon[ii, jj], gridlat[ii, jj])
     # shapely multipoint object for points
-    xy_point = shapely.geometry.MultiPoint(np.c_[X,Y])
+    xy_point = shapely.geometry.MultiPoint(np.c_[X, Y])
 
     # sparse intersection array
-    count = np.count_nonzero(mask_input & (gridlat >= latmin) & (gridlat <= latmax))
-    intersection_mask = np.zeros((count),dtype=np.uint8)
+    count = np.count_nonzero(
+        mask_input & (gridlat >= latmin) & (gridlat <= latmax)
+    )
+    intersection_mask = np.zeros((count), dtype=np.uint8)
     # iterate over shapefile entities of interest
-    attribute_keys = ['NUM_CODE','EXTENT','EXTENT','EXTENT','EXTENT']
+    attribute_keys = ['NUM_CODE', 'EXTENT', 'EXTENT', 'EXTENT', 'EXTENT']
     # C: continuous, D: discontinuous, I: isolated, S: sporadic, 21: glaciers
-    for j,val in enumerate(['21','S','I','D','C']):
+    for j, val in enumerate(['21', 'S', 'I', 'D', 'C']):
         # find entities
         key = attribute_keys[j]
         entities = [v for v in shape.values() if (v['properties'][key] == val)]
@@ -129,12 +130,14 @@ def era5_land_mask_permafrost(base_dir,
             coord_list = []
             for coords in ent['geometry']['coordinates']:
                 # convert points to latitude/longitude
-                x,y = np.transpose(coords)
-                coord_list.append(np.c_[x,y])
+                x, y = np.transpose(coords)
+                coord_list.append(np.c_[x, y])
             # try creating a polygon object for entity
             try:
                 # create shapely polygon
-                poly_obj = shapely.geometry.Polygon(coord_list[0],coord_list[1:])
+                poly_obj = shapely.geometry.Polygon(
+                    coord_list[0], coord_list[1:]
+                )
             except:
                 continue
             else:
@@ -148,37 +151,47 @@ def era5_land_mask_permafrost(base_dir,
         if int_test:
             # extract intersected points
             int_map = list(map(mpoly_obj.intersects, xy_point.geoms))
-            int_indices, = np.nonzero(int_map)
-            intersection_mask[int_indices] = (5-j)
+            (int_indices,) = np.nonzero(int_map)
+            intersection_mask[int_indices] = 5 - j
     # fill output data mask
     dinput['pf'] = np.zeros((ntime, nlat, nlon), dtype=np.uint8)
-    dinput['pf'][0,ii,jj] = intersection_mask[:]
+    dinput['pf'][0, ii, jj] = intersection_mask[:]
     # find valid southern hemisphere points and replace Antarctica
-    ii,jj = np.nonzero(mask_input & (gridlat <= -60))
-    dinput['pf'][0,ii,jj] = 5
+    ii, jj = np.nonzero(mask_input & (gridlat <= -60))
+    dinput['pf'][0, ii, jj] = 5
     # write to output netCDF4 (.nc)
     ncdf_mask_write(dinput, FILENAME=output_file)
     # change the permission level to MODE
     output_file.chmod(mode=MODE)
 
+
 # PURPOSE: write permafrost mask to netCDF4 file
 def ncdf_mask_write(output_data, FILENAME=None):
     # opening NetCDF file for writing
     FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
+    fileID = netCDF4.Dataset(FILENAME, 'w', format='NETCDF4')
 
     # python dictionary with the NetCDF4 data variables
     nc = {}
     # Defining the NetCDF4 dimensions
-    TIMENAME,LATNAME,LONNAME = ('time','latitude','longitude')
-    for key in [TIMENAME,LONNAME,LATNAME]:
+    TIMENAME, LATNAME, LONNAME = ('time', 'latitude', 'longitude')
+    for key in [TIMENAME, LONNAME, LATNAME]:
         fileID.createDimension(key, len(output_data[key]))
-        nc[key] = fileID.createVariable(key,output_data[key].dtype,(key,))
+        nc[key] = fileID.createVariable(key, output_data[key].dtype, (key,))
     # create the NetCDF4 data variables
-    nc['pf'] = fileID.createVariable('pf', output_data['pf'].dtype,
-        (TIMENAME,LATNAME,LONNAME,), fill_value=0, zlib=True)
+    nc['pf'] = fileID.createVariable(
+        'pf',
+        output_data['pf'].dtype,
+        (
+            TIMENAME,
+            LATNAME,
+            LONNAME,
+        ),
+        fill_value=0,
+        zlib=True,
+    )
     # filling NetCDF variables
-    for key,val in output_data.items():
+    for key, val in output_data.items():
         nc[key][:] = np.copy(val)
 
     # Defining attributes
@@ -203,7 +216,7 @@ def ncdf_mask_write(output_data, FILENAME=None):
     fileID.software_version = mdlhmc.version.full_version
     fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # date created
-    fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
+    fileID.date_created = time.strftime('%Y-%m-%d', time.localtime())
 
     # Output NetCDF structure information
     logging.info(str(FILENAME))
@@ -211,6 +224,7 @@ def ncdf_mask_write(output_data, FILENAME=None):
 
     # Closing the NetCDF file
     fileID.close()
+
 
 # PURPOSE: create argument parser
 def arguments():
@@ -222,44 +236,64 @@ def arguments():
     )
     # command line parameters
     # working data directory
-    parser.add_argument('--directory','-D',
-        type=pathlib.Path, default=pathlib.Path.cwd(),
-        help='Working data directory')
-    # input shapefile to run
-    parser.add_argument('--shapefile','-F',
+    parser.add_argument(
+        '--directory',
+        '-D',
         type=pathlib.Path,
-        help='Shapefile to run')
+        default=pathlib.Path.cwd(),
+        help='Working data directory',
+    )
+    # input shapefile to run
+    parser.add_argument(
+        '--shapefile', '-F', type=pathlib.Path, help='Shapefile to run'
+    )
     # distance to buffer polygons within shapefiles
-    parser.add_argument('--buffer','-B',
-        type=float, default=0.0,
-        help='Distance to buffer polygons')
+    parser.add_argument(
+        '--buffer',
+        '-B',
+        type=float,
+        default=0.0,
+        help='Distance to buffer polygons',
+    )
     # verbosity settings
     # verbose will output information about each output file
-    parser.add_argument('--verbose','-V',
-        action='count', default=0,
-        help='Verbose output of processing run')
+    parser.add_argument(
+        '--verbose',
+        '-V',
+        action='count',
+        default=0,
+        help='Verbose output of processing run',
+    )
     # permissions mode of the local directories and files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='permissions mode of output files')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='permissions mode of output files',
+    )
     # return the parser
     return parser
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[args.verbose])
 
     # run program
-    era5_land_mask_permafrost(args.directory, 
+    era5_land_mask_permafrost(
+        args.directory,
         SHAPEFILE=args.shapefile,
         BUFFER=args.buffer,
-        MODE=args.mode)
+        MODE=args.mode,
+    )
+
 
 # run main program
 if __name__ == '__main__':

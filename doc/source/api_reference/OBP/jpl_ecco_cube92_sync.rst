@@ -1,6 +1,6 @@
-=======================
-jpl_ecco_cube92_sync.py
-=======================
+===========================
+``jpl_ecco_cube92_sync.py``
+===========================
 
 - Converts ECCO2 Cube92 daily model outputs from the `NASA JPL ECCO2 server <https://ecco.jpl.nasa.gov/drive/files/ECCO2/cube92_latlon_quart_90S90N/readme.txt>`_ into monthly averages
 

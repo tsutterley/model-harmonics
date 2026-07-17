@@ -1,6 +1,6 @@
-=========================
-merra_hybrid_harmonics.py
-=========================
+=============================
+``merra_hybrid_harmonics.py``
+=============================
 
 - Reads 5-day MERRA-2 hybrid variables and converts to spherical harmonic coefficients :cite:p:`Wahr:1998hy`
 - Estimates the grid values as point masses for calculating the gravitational spherical harmonic coefficients

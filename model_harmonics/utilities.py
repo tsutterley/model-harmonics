@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 utilities.py
 Written by Tyler Sutterley (10/2024)
 Download and management utilities for syncing time and auxiliary files
@@ -24,15 +24,14 @@ UPDATE HISTORY:
     Updated 04/2022: updated docstrings to numpy documentation format
     Written 01/2021
 """
+
 # extend gravity_toolkit utilities
 from __future__ import annotations
 from gravity_toolkit.utilities import *
 
+
 # PURPOSE: get the git hash value
-def get_git_revision_hash(
-        refname: str = 'HEAD',
-        short: bool = False
-    ):
+def get_git_revision_hash(refname: str = 'HEAD', short: bool = False):
     """
     Get the ``git`` hash value for a particular reference
 
@@ -55,10 +54,10 @@ def get_git_revision_hash(
     with warnings.catch_warnings():
         return str(subprocess.check_output(cmd), encoding='utf8').strip()
 
+
 # PURPOSE: get the current git status
 def get_git_status():
-    """Get the status of a ``git`` repository as a boolean value
-    """
+    """Get the status of a ``git`` repository as a boolean value"""
     # get path to .git directory from current file path
     filename = inspect.getframeinfo(inspect.currentframe()).filename
     basepath = pathlib.Path(filename).absolute().parent.parent
@@ -68,25 +67,25 @@ def get_git_status():
     with warnings.catch_warnings():
         return bool(subprocess.check_output(cmd))
 
+
 def _create_default_ssl_context() -> ssl.SSLContext:
-    """Creates the default SSL context
-    """
+    """Creates the default SSL context"""
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     _set_ssl_context_options(context)
     context.options |= ssl.OP_NO_COMPRESSION
     return context
 
+
 def _create_ssl_context_no_verify() -> ssl.SSLContext:
-    """Creates an SSL context for unverified connections
-    """
+    """Creates an SSL context for unverified connections"""
     context = _create_default_ssl_context()
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE
     return context
 
+
 def _set_ssl_context_options(context: ssl.SSLContext) -> None:
-    """Sets the default options for the SSL context
-    """
+    """Sets the default options for the SSL context"""
     if sys.version_info >= (3, 10) or ssl.OPENSSL_VERSION_INFO >= (1, 1, 0, 7):
         context.minimum_version = ssl.TLSVersion.TLSv1_2
     else:
@@ -95,22 +94,24 @@ def _set_ssl_context_options(context: ssl.SSLContext) -> None:
         context.options |= ssl.OP_NO_TLSv1
         context.options |= ssl.OP_NO_TLSv1_1
 
+
 # default ssl context
 _default_ssl_context = _create_ssl_context_no_verify()
 
+
 # PURPOSE: list a directory on NASA GES DISC https server
 def gesdisc_list(
-        HOST: str | list,
-        username: str | None = None,
-        password: str | None = None,
-        build: bool = False,
-        timeout: int | None = None,
-        urs: str = 'urs.earthdata.nasa.gov',
-        parser = lxml.etree.HTMLParser(),
-        format: str = '%Y-%m-%d %H:%M',
-        pattern: str = '',
-        sort: bool = False
-    ):
+    HOST: str | list,
+    username: str | None = None,
+    password: str | None = None,
+    build: bool = False,
+    timeout: int | None = None,
+    urs: str = 'urs.earthdata.nasa.gov',
+    parser=lxml.etree.HTMLParser(),
+    format: str = '%Y-%m-%d %H:%M',
+    pattern: str = '',
+    sort: bool = False,
+):
     """
     List a directory on NASA GES DISC servers
 
@@ -146,49 +147,56 @@ def gesdisc_list(
     """
     # use netrc credentials
     if build and not (username or password):
-        username,_,password = netrc.netrc().authenticators(urs)
+        username, _, password = netrc.netrc().authenticators(urs)
     # build urllib2 opener with credentials
     if build:
-        build_opener(username, password, password_manager=True,
-            authorization_header=False)
+        build_opener(
+            username,
+            password,
+            password_manager=True,
+            authorization_header=False,
+        )
     # verify inputs for remote https host
     if isinstance(HOST, str):
         HOST = url_split(HOST)
     # try listing from https
     try:
         # Create and submit request.
-        request=urllib2.Request(posixpath.join(*HOST))
-        response=urllib2.urlopen(request, timeout=timeout)
+        request = urllib2.Request(posixpath.join(*HOST))
+        response = urllib2.urlopen(request, timeout=timeout)
     except (urllib2.HTTPError, urllib2.URLError):
         raise Exception('List error from {0}'.format(posixpath.join(*HOST)))
     else:
         # read and parse request for files (column names and modified times)
-        tree = lxml.etree.parse(response,parser)
+        tree = lxml.etree.parse(response, parser)
         colnames = tree.xpath('//tr/td[not(@*)]//a/@href')
         # get the Unix timestamp value for a modification time
-        lastmod = [get_unix_time(i,format=format)
-            for i in tree.xpath('//tr/td[@align="right"][1]/text()')]
+        lastmod = [
+            get_unix_time(i, format=format)
+            for i in tree.xpath('//tr/td[@align="right"][1]/text()')
+        ]
         # reduce using regular expression pattern
         if pattern:
-            i = [i for i,f in enumerate(colnames) if re.search(pattern,f)]
+            i = [i for i, f in enumerate(colnames) if re.search(pattern, f)]
             # reduce list of column names and last modified times
             colnames = [colnames[indice] for indice in i]
             lastmod = [lastmod[indice] for indice in i]
         # sort the list
         if sort:
-            i = [i for i,j in sorted(enumerate(colnames), key=lambda i: i[1])]
+            i = [i for i, j in sorted(enumerate(colnames), key=lambda i: i[1])]
             # sort list of column names and last modified times
             colnames = [colnames[indice] for indice in i]
             lastmod = [lastmod[indice] for indice in i]
         # return the list of column names and last modified times
-        return (colnames,lastmod)
+        return (colnames, lastmod)
+
 
 # PURPOSE: filter the CMR json response for desired data files
 def cmr_filter_json(
-        search_results: dict,
-        endpoint: str = "data",
-        request_type: str = "application/x-netcdf"
-    ):
+    search_results: dict,
+    endpoint: str = 'data',
+    request_type: str = 'application/x-netcdf',
+):
     """
     Filter the CMR json response for desired data files
 
@@ -219,47 +227,51 @@ def cmr_filter_json(
     granule_urls = []
     granule_mtimes = []
     # check that there are urls for request
-    if ('feed' not in search_results) or ('entry' not in search_results['feed']):
-        return (granule_names,granule_urls)
+    if ('feed' not in search_results) or (
+        'entry' not in search_results['feed']
+    ):
+        return (granule_names, granule_urls)
     # descriptor links for each endpoint
     rel = {}
-    rel['data'] = "http://esipfed.org/ns/fedsearch/1.1/data#"
-    rel['opendap'] = "http://esipfed.org/ns/fedsearch/1.1/service#"
-    rel['s3'] = "http://esipfed.org/ns/fedsearch/1.1/s3#"
+    rel['data'] = 'http://esipfed.org/ns/fedsearch/1.1/data#'
+    rel['opendap'] = 'http://esipfed.org/ns/fedsearch/1.1/service#'
+    rel['s3'] = 'http://esipfed.org/ns/fedsearch/1.1/s3#'
     # iterate over references and get cmr location
     for entry in search_results['feed']['entry']:
         granule_names.append(entry['producer_granule_id'])
-        granule_mtimes.append(get_unix_time(entry['updated'],
-            format='%Y-%m-%dT%H:%M:%S.%f%z'))
+        granule_mtimes.append(
+            get_unix_time(entry['updated'], format='%Y-%m-%dT%H:%M:%S.%f%z')
+        )
         for link in entry['links']:
             # skip inherited granules
-            if ('inherited' in link.keys()):
+            if 'inherited' in link.keys():
                 continue
             # append if selected endpoint
-            if (link['rel'] == rel[endpoint]):
+            if link['rel'] == rel[endpoint]:
                 granule_urls.append(link['href'])
                 break
             # alternatively append if selected data type
-            if ('type' not in link.keys()):
+            if 'type' not in link.keys():
                 continue
-            if (link['type'] == request_type):
+            if link['type'] == request_type:
                 granule_urls.append(link['href'])
                 break
     # return the list of urls, granule ids and modified times
     return (granule_names, granule_urls, granule_mtimes)
 
+
 # PURPOSE: cmr queries for model data products
 def cmr(
-        short_name: str,
-        version: str | int | None = None,
-        start_date: str | None = None,
-        end_date: str | None = None,
-        provider: str | None = 'GES_DISC',
-        endpoint: str | None = 'data',
-        request_type: str | None = 'application/x-netcdf',
-        verbose: bool = False,
-        fid = sys.stdout
-    ):
+    short_name: str,
+    version: str | int | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    provider: str | None = 'GES_DISC',
+    endpoint: str | None = 'data',
+    request_type: str | None = 'application/x-netcdf',
+    verbose: bool = False,
+    fid=sys.stdout,
+):
     """
     Query the NASA Common Metadata Repository (CMR) for model data
 
@@ -318,8 +330,11 @@ def cmr(
     cmr_query_type = 'granules'
     cmr_format = 'json'
     cmr_page_size = 2000
-    CMR_HOST = ['https://cmr.earthdata.nasa.gov','search',
-        f'{cmr_query_type}.{cmr_format}']
+    CMR_HOST = [
+        'https://cmr.earthdata.nasa.gov',
+        'search',
+        f'{cmr_query_type}.{cmr_format}',
+    ]
     # build list of CMR query parameters
     CMR_KEYS = []
     CMR_KEYS.append(f'?provider={provider}')
@@ -336,7 +351,7 @@ def cmr(
     end_date = isoformat(end_date) if end_date else ''
     CMR_KEYS.append(f'&temporal={start_date},{end_date}')
     # full CMR query url
-    cmr_query_url = "".join([posixpath.join(*CMR_HOST),*CMR_KEYS])
+    cmr_query_url = ''.join([posixpath.join(*CMR_HOST), *CMR_KEYS])
     logging.info(f'CMR request={cmr_query_url}')
     # output list of granule names and urls
     granule_names = []
@@ -351,12 +366,13 @@ def cmr(
             logging.debug(f'CMR-Search-After: {cmr_search_after}')
         response = opener.open(req)
         # get search after index for next iteration
-        headers = {k.lower():v for k,v in dict(response.info()).items()}
+        headers = {k.lower(): v for k, v in dict(response.info()).items()}
         cmr_search_after = headers.get('cmr-search-after')
         # read the CMR search as JSON
         search_page = json.loads(response.read().decode('utf8'))
-        ids,urls,mtimes = cmr_filter_json(search_page,
-            endpoint=endpoint, request_type=request_type)
+        ids, urls, mtimes = cmr_filter_json(
+            search_page, endpoint=endpoint, request_type=request_type
+        )
         if not urls or cmr_search_after is None:
             break
         # extend lists
@@ -366,19 +382,20 @@ def cmr(
     # return the list of granule ids, urls and modification times
     return (granule_names, granule_urls, granule_mtimes)
 
+
 # PURPOSE: build requests for the GES DISC subsetting API
 def build_request(
-        short_name: str,
-        dataset_version: str | int,
-        url: str | None,
-        host: str | None = None,
-        variables: list | None = [],
-        format: str | None = 'bmM0Lw',
-        service: str | None = 'L34RS_MERRA2',
-        version: str | None = '1.02',
-        bbox: list | None = [-90,-180,90,180],
-        **kwargs
-    ):
+    short_name: str,
+    dataset_version: str | int,
+    url: str | None,
+    host: str | None = None,
+    variables: list | None = [],
+    format: str | None = 'bmM0Lw',
+    service: str | None = 'L34RS_MERRA2',
+    version: str | None = '1.02',
+    bbox: list | None = [-90, -180, 90, 180],
+    **kwargs,
+):
     """
     Build requests for the GES DISC subsetting API
 
@@ -413,9 +430,9 @@ def build_request(
         Formatted url for GES DISC subsetting API
     """
     # split CMR supplied url for granule
-    HOST,*args = url_split(url)
+    HOST, *args = url_split(url)
     host = HOST if (host is None) else host
-    api_host = posixpath.join(host,'daac-bin','OTF','HTTP_services.cgi?')
+    api_host = posixpath.join(host, 'daac-bin', 'OTF', 'HTTP_services.cgi?')
     # create parameters to be encoded
     kwargs['FILENAME'] = posixpath.join(posixpath.sep, *args)
     kwargs['FORMAT'] = format

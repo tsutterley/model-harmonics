@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 ecco_mean_version4.py
 Written by Tyler Sutterley (05/2023)
 
@@ -77,6 +77,7 @@ UPDATE HISTORY:
     Updated 10/2019: changing Y/N flags to True/False
     Written 10/2018
 """
+
 from __future__ import print_function
 
 import sys
@@ -88,10 +89,11 @@ import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
 
-# PURPOSE: read ECCO V4 ocean bottom pressure data and calculate mean
-def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
-    VERBOSE=False, MODE=0o775):
 
+# PURPOSE: read ECCO V4 ocean bottom pressure data and calculate mean
+def ecco_mean_version4(
+    ddir, MODEL, RANGE=None, DATAFORM=None, VERBOSE=False, MODE=0o775
+):
     # create logger for verbosity level
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
     logging.basicConfig(level=loglevels[VERBOSE])
@@ -103,25 +105,25 @@ def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')
 
     # input variable names for each model
-    if (MODEL == 'V4r3'):
+    if MODEL == 'V4r3':
         VARNAME = 'PHIBOT'
         LONNAME = 'i3'
         LATNAME = 'i2'
         TIMENAME = 'tim'
-    elif (MODEL == 'V4r4'):
+    elif MODEL == 'V4r4':
         VARNAME = 'PHIBOT'
         LONNAME = 'i'
         LATNAME = 'j'
         TIMENAME = 'time'
     # output dimensions and extents
-    nlat,nlon = (360,720)
-    extent = [-179.75,179.75,-89.75,89.75]
+    nlat, nlon = (360, 720)
+    extent = [-179.75, 179.75, -89.75, 89.75]
     # grid spacing
-    dlon,dlat = (0.5,0.5)
-    dphi = dlon*np.pi/180.0
-    dth = dlat*np.pi/180.0
+    dlon, dlat = (0.5, 0.5)
+    dphi = np.radians(dlon)
+    dth = np.radians(dlat)
     # bad value
-    fill_value = -1e+10
+    fill_value = -1e10
     # model gamma and rhonil
     gamma = 9.81
     rhonil = 1029
@@ -133,58 +135,79 @@ def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
 
     # read depth data from ecco_depth_version4.py
     input_depth_file = ddir.joinpath('DEPTH.2020.720x360.nc')
-    depth = gravtk.spatial().from_netCDF4(input_depth_file,
-        varname='depth', date=False)
+    depth = gravtk.spatial().from_netCDF4(
+        input_depth_file, varname='depth', date=False
+    )
 
     # compile regular expression operator for finding files for years
-    regex_years = r'|'.join(rf'{y:d}' for y in range(RANGE[0],RANGE[1]+1))
+    regex_years = r'|'.join(rf'{y:d}' for y in range(RANGE[0], RANGE[1] + 1))
     rx1 = re.compile(rf'PHIBOT([\.\_])({regex_years})(_(\d+))?.nc$')
     # find input files
     input_files = [fi for fi in output_dir.iterdir() if rx1.match(fi.name)]
 
     # output multi-annual mean
     obp_mean = gravtk.spatial(fill_value=fill_value)
-    obp_mean.data = np.zeros((nlat,nlon),dtype=np.float64)
-    obp_mean.mask = np.zeros((nlat,nlon),dtype=bool)
+    obp_mean.data = np.zeros((nlat, nlon), dtype=np.float64)
+    obp_mean.mask = np.zeros((nlat, nlon), dtype=bool)
     obp_mean.time = 0.0
     # calculate dimension variables
-    obp_mean.lon = np.arange(extent[0],extent[1]+dlon,dlon)
-    obp_mean.lat = np.arange(extent[2],extent[3]+dlat,dlat)
+    obp_mean.lon = np.arange(extent[0], extent[1] + dlon, dlon)
+    obp_mean.lat = np.arange(extent[2], extent[3] + dlat, dlat)
     # convert grid latitude and longitude to radians
-    theta = (90.0 - obp_mean.lat)*np.pi/180.0
-    phi = obp_mean.lon*np.pi/180.0
+    theta = np.radians(90.0 - obp_mean.lat)
+    phi = np.radians(obp_mean.lon)
     # counter variable for dates
     count = 0.0
     # read each input file
-    for t,input_file in enumerate(input_files):
+    for t, input_file in enumerate(input_files):
         # Open netCDF4 datafile for reading
         field_mapping = gravtk.spatial().default_field_mapping(
-            [LONNAME, LATNAME, VARNAME, TIMENAME])
-        PHIBOT = gravtk.spatial(fill_value=np.nan).from_netCDF4(input_file,
-            verbose=VERBOSE, field_mapping=field_mapping).transpose(axes=(1,2,0))
+            [LONNAME, LATNAME, VARNAME, TIMENAME]
+        )
+        PHIBOT = (
+            gravtk.spatial(fill_value=np.nan)
+            .from_netCDF4(
+                input_file, verbose=VERBOSE, field_mapping=field_mapping
+            )
+            .transpose(axes=(1, 2, 0))
+        )
         PHIBOT.replace_invalid(fill_value)
         # time within netCDF files is days since epoch
         time_string = PHIBOT.attributes['time']['units']
-        epoch1,to_secs = gravtk.time.parse_date_string(time_string)
+        epoch1, to_secs = gravtk.time.parse_date_string(time_string)
         # read ocean bottom pressure anomalies for each month
-        for m,delta_time in enumerate(to_secs*PHIBOT.time):
+        for m, delta_time in enumerate(to_secs * PHIBOT.time):
             # convert from ocean bottom pressure anomalies to absolute
-            obp = gravtk.spatial(spacing=[dlon,dlat],nlon=nlon,
-                nlat=nlat,fill_value=fill_value)
-            obp.data = depth.data*rhonil*gamma + PHIBOT.data[:,:,m]*rhonil
-            obp.mask = (depth.mask | PHIBOT.mask[:,:,m])
+            obp = gravtk.spatial(
+                spacing=[dlon, dlat],
+                nlon=nlon,
+                nlat=nlat,
+                fill_value=fill_value,
+            )
+            obp.data = (
+                depth.data * rhonil * gamma + PHIBOT.data[:, :, m] * rhonil
+            )
+            obp.mask = depth.mask | PHIBOT.mask[:, :, m]
             obp.update_mask()
 
             # calculate Julian day by converting to MJD and adding offset
-            JD = gravtk.time.convert_delta_time(delta_time,
-                epoch1=epoch1, epoch2=(1858,11,17,0,0,0),
-                scale=1.0/86400.0) + 2400000.5
+            JD = (
+                gravtk.time.convert_delta_time(
+                    delta_time,
+                    epoch1=epoch1,
+                    epoch2=(1858, 11, 17, 0, 0, 0),
+                    scale=1.0 / 86400.0,
+                )
+                + 2400000.5
+            )
             # convert from Julian days to calendar dates
-            YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(JD,
-                FORMAT='tuple')
+            YY, MM, DD, hh, mm, ss = gravtk.time.convert_julian(
+                JD, FORMAT='tuple'
+            )
             # convert from calendar dates to year-decimal
-            obp_mean.time += gravtk.time.convert_calendar_decimal(YY,MM,
-                day=DD,hour=hh,minute=mm,second=ss)
+            obp_mean.time += gravtk.time.convert_calendar_decimal(
+                YY, MM, day=DD, hour=hh, minute=mm, second=ss
+            )
 
             # global area average of each ocean bottom pressure map is removed
             # (Greatbatch correction) https://doi.org/10.1029/94JC00847
@@ -192,28 +215,38 @@ def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
             total_newton = 0.0
             for k in range(0, nlat):
                 # Grid point areas (ellipsoidal)
-                area = np.sin(theta[k]) * np.sqrt((a_axis**2)*(b_axis**2)*
-                    ((np.sin(theta[k])**2) * (np.cos(phi)**2) +
-                    (np.sin(theta[k])**2)*(np.sin(phi)**2)) +
-                    (a_axis**4)*(np.cos(theta[k])**2))*dphi*dth
+                area = (
+                    np.sin(theta[k])
+                    * np.sqrt(
+                        (a_axis**2)
+                        * (b_axis**2)
+                        * (
+                            (np.sin(theta[k]) ** 2) * (np.cos(phi) ** 2)
+                            + (np.sin(theta[k]) ** 2) * (np.sin(phi) ** 2)
+                        )
+                        + (a_axis**4) * (np.cos(theta[k]) ** 2)
+                    )
+                    * dphi
+                    * dth
+                )
                 # calculate the grid point weight in newtons
-                newtons = obp.data[k,:]*area
+                newtons = obp.data[k, :] * area
                 # finding ocean points at each lat
-                if np.count_nonzero(~obp.mask[k,:]):
-                    ocean_points, = np.nonzero(~obp.mask[k,:])
+                if np.count_nonzero(~obp.mask[k, :]):
+                    (ocean_points,) = np.nonzero(~obp.mask[k, :])
                     # total area
                     total_area += np.sum(area[ocean_points])
                     # total weight in newtons
                     total_newton += np.sum(newtons[ocean_points])
             # remove global area average of each OBP map
-            ratio = (total_newton/total_area)
-            obp_mean.data += (obp.data - ratio)
+            ratio = total_newton / total_area
+            obp_mean.data += obp.data - ratio
             obp_mean.mask |= np.copy(obp.mask)
             count += 1.0
 
     # convert from totals to means
-    indy,indx = np.nonzero(~obp_mean.mask)
-    obp_mean.data[indy,indx] /= count
+    indy, indx = np.nonzero(~obp_mean.mask)
+    obp_mean.data[indy, indx] /= count
     obp_mean.update_mask()
     obp_mean.time /= count
 
@@ -228,17 +261,18 @@ def ecco_mean_version4(ddir, MODEL, RANGE=None, DATAFORM=None,
     args = (MODEL, RANGE[0], RANGE[1], suffix[DATAFORM])
     FILE = 'ECCO_{0}_OBP_MEAN_{1:4d}-{2:4d}.{3}'.format(*args)
     output_file = output_dir.joinpath(FILE)
-    if (DATAFORM == 'ascii'):
+    if DATAFORM == 'ascii':
         # ascii (.txt)
         obp_mean.to_ascii(output_file, verbose=VERBOSE)
-    elif (DATAFORM == 'netCDF4'):
+    elif DATAFORM == 'netCDF4':
         # netcdf (.nc)
         obp_mean.to_netCDF4(output_file, verbose=VERBOSE, **attributes)
-    elif (DATAFORM == 'HDF5'):
+    elif DATAFORM == 'HDF5':
         # HDF5 (.H5)
         obp_mean.to_HDF5(output_file, verbose=VERBOSE, **attributes)
     # change the permissions mode of the output file to MODE
     output_file.chmod(mode=MODE)
+
 
 # PURPOSE: create argument parser
 def arguments():
@@ -249,45 +283,79 @@ def arguments():
             """
     )
     # command line parameters
-    parser.add_argument('model',
-        type=str, nargs='+',
-        default=['V4r3','V4r4'], choices=['V4r3','V4r4'],
-        help='ECCO Version 4 Model')
+    parser.add_argument(
+        'model',
+        type=str,
+        nargs='+',
+        default=['V4r3', 'V4r4'],
+        choices=['V4r3', 'V4r4'],
+        help='ECCO Version 4 Model',
+    )
     # working data directory
-    parser.add_argument('--directory','-D',
-        type=pathlib.Path, default=pathlib.Path.cwd(),
-        help='Working data directory')
+    parser.add_argument(
+        '--directory',
+        '-D',
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
+        help='Working data directory',
+    )
     # start and end years to run for mean
-    parser.add_argument('--mean','-m',
-        metavar=('START','END'), type=int, nargs=2,
-        default=[2003,2007],
-        help='Start and end year range for mean')
+    parser.add_argument(
+        '--mean',
+        '-m',
+        metavar=('START', 'END'),
+        type=int,
+        nargs=2,
+        default=[2003, 2007],
+        help='Start and end year range for mean',
+    )
     # input and output data format (ascii, netCDF4, HDF5)
-    parser.add_argument('--format','-F',
-        type=str, default='netCDF4', choices=['ascii','netCDF4','HDF5'],
-        help='Input and output data format')
+    parser.add_argument(
+        '--format',
+        '-F',
+        type=str,
+        default='netCDF4',
+        choices=['ascii', 'netCDF4', 'HDF5'],
+        help='Input and output data format',
+    )
     # print information about each output file
-    parser.add_argument('--verbose','-V',
-        action='count', default=0,
-        help='Verbose output of processing run')
+    parser.add_argument(
+        '--verbose',
+        '-V',
+        action='count',
+        default=0,
+        help='Verbose output of processing run',
+    )
     # permissions mode of the local directories and files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='Permission mode of directories and files')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='Permission mode of directories and files',
+    )
     # return the parser
     return parser
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # for each ECCO Version 4 model
     for MODEL in args.model:
         # run program
-        ecco_mean_version4(args.directory, MODEL, RANGE=args.mean,
-            DATAFORM=args.format, VERBOSE=args.verbose, MODE=args.mode)
+        ecco_mean_version4(
+            args.directory,
+            MODEL,
+            RANGE=args.mean,
+            DATAFORM=args.format,
+            VERBOSE=args.verbose,
+            MODE=args.mode,
+        )
+
 
 # run main program
 if __name__ == '__main__':

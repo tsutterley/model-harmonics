@@ -1,6 +1,6 @@
-========================
-gldas_scaling_factors.py
-========================
+============================
+``gldas_scaling_factors.py``
+============================
 
 - Reads monthly GLDAS total water storage anomalies and monthly spherical harmonic coefficients :cite:p:`Wahr:1998hy`
 - Computes point scaling factors following :cite:t:`Landerer:2012kf`

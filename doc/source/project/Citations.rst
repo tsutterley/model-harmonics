@@ -33,25 +33,16 @@ Dependencies
 
 This software is also dependent on other Python packages:
 
-- `geoid-toolkit: Python utilities for calculating geoid heights from static gravity field coefficients <https://github.com/tsutterley/geoid-toolkit/>`_
-- `gravity-toolkit: Python tools for working with GRACE/GRACE-FO time-variable gravity data <https://github.com/tsutterley/gravity-toolkit>`_
-- `numpy: Scientific Computing Tools For Python <https://numpy.org>`_
-- `scipy: Scientific Tools for Python <https://docs.scipy.org/doc/>`_
-- `dateutil: powerful extensions to datetime <https://dateutil.readthedocs.io/en/stable/>`_
-- `PyYAML: YAML parser and emitter for Python <https://github.com/yaml/pyyaml>`_
-- `lxml: processing XML and HTML in Python <https://pypi.python.org/pypi/lxml>`_
-- `future: Compatibility layer between Python 2 and Python 3 <https://python-future.org/>`_
-- `matplotlib: Python 2D plotting library <https://matplotlib.org/>`_
-- `cartopy: Python package designed for geospatial data processing <https://scitools.org.uk/cartopy/docs/latest/>`_
-- `netCDF4: Python interface to the netCDF C library <https://unidata.github.io/netcdf4-python/>`_
-- `h5py: Python interface for Hierarchal Data Format 5 (HDF5) <https://www.h5py.org/>`_
+- `cdsapi: Python client libraries for the CDS Web API <https://pypi.org/project/cdsapi/>`_
+- `ecmwf-api-client: Python client libraries for the ECMWF Web API <https://software.ecmwf.int/wiki/display/WEBAPI/Web-API+Downloads>`_
 - `fiona: Python wrapper for vector data access functions from the OGR library <https://fiona.readthedocs.io/en/latest/manual.html>`_
-- `pygrib: Python interface for reading and writing GRIB data <https://pypi.python.org/pypi/pygrib>`_
+- `geoid-toolkit: Python utilities for calculating geoid heights from static gravity field coefficients <https://github.com/tsutterley/geoid-toolkit/>`_
+- `gravity-toolkit: Python tools for working with GRACE/GRACE-FO data <https://github.com/tsutterley/gravity-toolkit/>`_
+- `h5py: Python interface for Hierarchal Data Format 5 (HDF5) <https://www.h5py.org/>`_
+- `netCDF4: Python interface to the netCDF C library <https://unidata.github.io/netcdf4-python/>`_
 - `pyproj: Python interface to PROJ library <https://pypi.org/project/pyproj/>`_
 - `shapely: PostGIS-ish operations outside a database context for Python <http://toblerity.org/shapely/index.html>`_
 - `scikit-learn: Machine Learning in Python <https://scikit-learn.org/stable/index.html>`_
-- `cdsapi: Python client libraries for the CDS Web API <https://pypi.org/project/cdsapi/>`_
-- `ecmwf-api-client: Python client libraries for the ECMWF Web API <https://software.ecmwf.int/wiki/display/WEBAPI/Web-API+Downloads>`_
 
 Disclaimer
 ##########

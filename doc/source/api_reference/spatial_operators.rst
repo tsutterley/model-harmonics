@@ -1,6 +1,6 @@
-====================
-spatial_operators.py
-====================
+========================
+``spatial_operators.py``
+========================
 
 - Performs basic operations on spatial files
 

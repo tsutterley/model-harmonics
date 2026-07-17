@@ -1,6 +1,6 @@
-===========================
-reanalysis_mean_pressure.py
-===========================
+===============================
+``reanalysis_mean_pressure.py``
+===============================
 
 - Calculates the mean surface pressure fields from reanalysis
 

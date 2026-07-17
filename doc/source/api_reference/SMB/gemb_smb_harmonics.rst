@@ -1,6 +1,6 @@
-=====================
-gemb_smb_harmonics.py
-=====================
+=========================
+``gemb_smb_harmonics.py``
+=========================
 
 - Reads GEMB surface mass balance variables and converts to spherical harmonic coefficients :cite:p:`Wahr:1998hy`
 - Estimates the grid values as point masses for calculating the gravitational spherical harmonic coefficients

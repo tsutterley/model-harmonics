@@ -1,6 +1,6 @@
-=======================
-ecco_geoid_llc_tiles.py
-=======================
+===========================
+``ecco_geoid_llc_tiles.py``
+===========================
 
 - Calculates geoid heights for ECCO ocean model LLC tiles using model coefficients from the `GFZ International Centre for Global Earth Models (ICGEM) <http://icgem.gfz-potsdam.de/home>`_
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 ucar_rda_cfsr_surface.py
 Written by Tyler Sutterley (05/2023)
 
@@ -68,6 +68,7 @@ UPDATE HISTORY:
     Updated 12/2020: using time, spatial and utilities modules
     Written 08/2019
 """
+
 from __future__ import print_function
 
 import sys
@@ -87,10 +88,18 @@ import numpy as np
 import gravity_toolkit as gravtk
 import gravity_toolkit as mdlhmc
 
-# PURPOSE: sync local NCEP-CFSR files with UCAR/NCAR RDA server
-def ucar_rda_download(base_dir, links_list_file, YEARS=None,
-    ISENTROPIC=False, GZIP=False, TIMEOUT=None, LOG=False, MODE=None):
 
+# PURPOSE: sync local NCEP-CFSR files with UCAR/NCAR RDA server
+def ucar_rda_download(
+    base_dir,
+    links_list_file,
+    YEARS=None,
+    ISENTROPIC=False,
+    GZIP=False,
+    TIMEOUT=None,
+    LOG=False,
+    MODE=None,
+):
     # directory setup
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
     DIRECTORY = base_dir.joinpath('NCEP-CFSR')
@@ -100,7 +109,7 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
     # create log file with list of synchronized files (or print to terminal)
     if LOG:
         # format: UCAR_RDA_NCEP-CFSR_2002-04-01.log
-        today = time.strftime('%Y-%m-%d',time.localtime())
+        today = time.strftime('%Y-%m-%d', time.localtime())
         output_logfile = f'UCAR_RDA_NCEP-CFSR_{today}.log'
         LOGFILE = DIRECTORY.joinpath(output_logfile)
         fid = LOGFILE.open(mode='w', encoding='utf8')
@@ -115,20 +124,24 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
     # read the links list file
     links_list_file = pathlib.Path(links_list_file).expanduser().absolute()
     with links_list_file.open(mode='rb') as fileID:
-        lines = fileID.read().decode("utf-8-sig").encode("utf-8").splitlines()
+        lines = fileID.read().decode('utf-8-sig').encode('utf-8').splitlines()
 
     # regular expression pattern for finding netCDF4 files
     prefix = r'ipvh' if ISENTROPIC else r'pgbh'
     suffix = r'\.gz' if GZIP else r''
     regex_pattern = r'{0}(nl)?\.(.*?)\.({1})(\d{{2}})?\.(.*?)\.nc{2}'
     # compile regular expression operators
-    rx1=re.compile(regex_pattern.format(prefix,r'\d{4}',suffix).encode('utf-8'))
-    rx2=re.compile(rb'(http(s)?\:\/\/rda.ucar.edu\/dsrqst\/(.*?))\"', re.VERBOSE)
+    rx1 = re.compile(
+        regex_pattern.format(prefix, r'\d{4}', suffix).encode('utf-8')
+    )
+    rx2 = re.compile(
+        rb'(http(s)?\:\/\/rda.ucar.edu\/dsrqst\/(.*?))\"', re.VERBOSE
+    )
     # output arrays with year for each file
     valid_lines = []
     year = []
     # for each line in the links_list_file
-    for i,input_lines in enumerate(lines):
+    for i, input_lines in enumerate(lines):
         # extract filename from url
         if rx1.search(input_lines):
             match_object = rx1.search(input_lines)
@@ -136,7 +149,9 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
             year.append(match_object.group(3).decode('utf-8'))
         if rx2.search(input_lines):
             match_object = rx2.search(input_lines)
-            HOST=match_object.group(1).decode('utf-8').replace('http:','https:')
+            HOST = (
+                match_object.group(1).decode('utf-8').replace('http:', 'https:')
+            )
 
     # output variable names
     VARNAME = 'PRES_L1_Avg'
@@ -144,14 +159,16 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
     LATNAME = 'lat'
     TIMENAME = 'time'
     # output a regular grid
-    nlat,nlon = (361,720)
+    nlat, nlon = (361, 720)
 
     # for each unique date
     YEARS = np.unique(year).astype(np.float64) if (YEARS is None) else YEARS
     for YY in YEARS:
         # compile regular expression operators for finding files in year
-        rx = re.compile(regex_pattern.format(prefix,str(YY),suffix), re.VERBOSE)
-        remote_lines = [i for i,fi in enumerate(valid_lines) if rx.search(fi)]
+        rx = re.compile(
+            regex_pattern.format(prefix, str(YY), suffix), re.VERBOSE
+        )
+        remote_lines = [i for i, fi in enumerate(valid_lines) if rx.search(fi)]
         # create a list object for each month
         p_month = [[] for m in range(12)]
         # for each file in the year
@@ -160,35 +177,61 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
             logging.debug(valid_lines[i])
             # Create and submit request. There are a wide range of exceptions
             # local = DIRECTORY.joinpath(valid_lines[i])
-            response = gravtk.utilities.from_http([HOST,valid_lines[i]],
-                timeout=TIMEOUT, context=None, verbose=True, fid=fid, local=None)
+            response = gravtk.utilities.from_http(
+                [HOST, valid_lines[i]],
+                timeout=TIMEOUT,
+                context=None,
+                verbose=True,
+                fid=fid,
+                local=None,
+            )
             # extract information from monthly files
-            NL,OP,YEAR,MONTH,AUX = rx.findall(valid_lines[i]).pop()
+            NL, OP, YEAR, MONTH, AUX = rx.findall(valid_lines[i]).pop()
             # decompress file or convert stream to BytesIO object
             if GZIP:
                 fd = gzip.GzipFile(fileobj=io.BytesIO(response.read()))
             else:
                 fd = io.BytesIO(response.read()).seek(0)
             # open remote file with netCDF4
-            dinput = gravtk.spatial().from_netCDF4(fd, compression='bytes',
-                varname=VARNAME, latname=LATNAME, lonname=LONNAME,
-                timename=TIMENAME, verbose=False).transpose(axes=(1,2,0))
+            dinput = (
+                gravtk.spatial()
+                .from_netCDF4(
+                    fd,
+                    compression='bytes',
+                    varname=VARNAME,
+                    latname=LATNAME,
+                    lonname=LONNAME,
+                    timename=TIMENAME,
+                    verbose=False,
+                )
+                .transpose(axes=(1, 2, 0))
+            )
             # read variable for hours since start of file
-            epoch,to_secs = gravtk.time.parse_date_string(
-                dinput.attributes['time']['units'])
+            epoch, to_secs = gravtk.time.parse_date_string(
+                dinput.attributes['time']['units']
+            )
             # calculate the date in Julian Days
             JD = 2400000.5 + gravtk.time.convert_delta_time(
-                dinput.time*to_secs, epoch1=epoch,
-                epoch2=(1858,11,17,0,0,0), scale=1.0/86400.0)
+                dinput.time * to_secs,
+                epoch1=epoch,
+                epoch2=(1858, 11, 17, 0, 0, 0),
+                scale=1.0 / 86400.0,
+            )
             # convert from Julian days to calendar dates
-            Y,M,D,h,m,s = gravtk.time.convert_julian(JD,
-                FORMAT='tuple')
+            Y, M, D, h, m, s = gravtk.time.convert_julian(JD, FORMAT='tuple')
             # output delta time in hours since start of year
-            dinput.time = gravtk.time.convert_calendar_dates(Y,
-                M, D, hour=h, minute=m, second=s,
-                epoch=(YY,1,1,0,0,0), scale=24.0)
+            dinput.time = gravtk.time.convert_calendar_dates(
+                Y,
+                M,
+                D,
+                hour=h,
+                minute=m,
+                second=s,
+                epoch=(YY, 1, 1, 0, 0, 0),
+                scale=24.0,
+            )
             # for each month
-            for tt,mn in enumerate(M):
+            for tt, mn in enumerate(M):
                 # convert month number to variable indice
                 m1 = np.int64(mn - 1)
                 # extract data for the month
@@ -199,8 +242,8 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
         nmon = len(valid_months)
         # python dictionary with output data
         output = {}
-        output[VARNAME] = np.ma.zeros((nmon,nlat,nlon))
-        output[VARNAME].mask = np.ones((nmon,nlat,nlon),dtype=bool)
+        output[VARNAME] = np.ma.zeros((nmon, nlat, nlon))
+        output[VARNAME].mask = np.ones((nmon, nlat, nlon), dtype=bool)
         output[TIMENAME] = np.zeros((len(valid_months)))
         # copy dimension variables
         output[LATNAME] = dinput.lat.copy()
@@ -208,8 +251,8 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
         # for each valid month
         for m in valid_months:
             p_mean = gravtk.spatial().from_list(p_month[m]).mean()
-            output[VARNAME].data[m,:,:] = p_mean.data.copy()
-            output[VARNAME].mask[m,:,:] = p_mean.mask.copy()
+            output[VARNAME].data[m, :, :] = p_mean.data.copy()
+            output[VARNAME].mask[m, :, :] = p_mean.mask.copy()
             output[TIMENAME][m] = p_mean.time.copy()
         # output netCDF4 filename
         FILE = f'{prefix}.{OP}.{YY:4.0f}.nc'
@@ -218,10 +261,17 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
         TIME_LONGNAME = 'time'
         # output to netCDF4 file
         output_file = DIRECTORY.joinpath(FILE)
-        ncdf_model_write(output, dinput.fill_value, VARNAME=VARNAME,
-            LONNAME=LONNAME, LATNAME=LATNAME, TIMENAME=TIMENAME,
-            TIME_UNITS=TIME_UNITS, TIME_LONGNAME=TIME_LONGNAME,
-            FILENAME=output_file)
+        ncdf_model_write(
+            output,
+            dinput.fill_value,
+            VARNAME=VARNAME,
+            LONNAME=LONNAME,
+            LATNAME=LATNAME,
+            TIMENAME=TIMENAME,
+            TIME_UNITS=TIME_UNITS,
+            TIME_LONGNAME=TIME_LONGNAME,
+            FILENAME=output_file,
+        )
         # set permissions mode to MODE
         output_file.chmod(mode=MODE)
 
@@ -230,25 +280,43 @@ def ucar_rda_download(base_dir, links_list_file, YEARS=None,
         fid.close()
         LOGFILE.chmod(mode=MODE)
 
+
 # PURPOSE: write output model layer fields data to file
-def ncdf_model_write(dinput, fill_value, VARNAME=None, LONNAME=None,
-    LATNAME=None, TIMENAME=None, TIME_UNITS=None, TIME_LONGNAME=None,
-    FILENAME=None):
+def ncdf_model_write(
+    dinput,
+    fill_value,
+    VARNAME=None,
+    LONNAME=None,
+    LATNAME=None,
+    TIMENAME=None,
+    TIME_UNITS=None,
+    TIME_LONGNAME=None,
+    FILENAME=None,
+):
     # opening NetCDF file for writing
     FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
+    fileID = netCDF4.Dataset(FILENAME, 'w', format='NETCDF4')
 
     # Defining the NetCDF dimensions and creating dimension variables
     nc = {}
-    for key in [LONNAME,LATNAME,TIMENAME]:
+    for key in [LONNAME, LATNAME, TIMENAME]:
         fileID.createDimension(key, len(dinput[key]))
-        nc[key] = fileID.createVariable(key,dinput[key].dtype,(key,))
+        nc[key] = fileID.createVariable(key, dinput[key].dtype, (key,))
     # creating the surface NetCDF variables
-    nc[VARNAME] = fileID.createVariable(VARNAME, dinput[VARNAME].dtype,
-        (TIMENAME,LATNAME,LONNAME,), fill_value=fill_value, zlib=True)
+    nc[VARNAME] = fileID.createVariable(
+        VARNAME,
+        dinput[VARNAME].dtype,
+        (
+            TIMENAME,
+            LATNAME,
+            LONNAME,
+        ),
+        fill_value=fill_value,
+        zlib=True,
+    )
 
     # filling NetCDF variables
-    for key,val in dinput.items():
+    for key, val in dinput.items():
         nc[key][:] = np.copy(val)
 
     # Defining attributes for longitude and latitude
@@ -269,7 +337,7 @@ def ncdf_model_write(dinput, fill_value, VARNAME=None, LONNAME=None,
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
     # date created
-    fileID.date_created = time.strftime('%Y-%m-%d',time.localtime())
+    fileID.date_created = time.strftime('%Y-%m-%d', time.localtime())
 
     # Output NetCDF structure information
     logging.info(str(FILENAME))
@@ -277,6 +345,7 @@ def ncdf_model_write(dinput, fill_value, VARNAME=None, LONNAME=None,
 
     # Closing the NetCDF file
     fileID.close()
+
 
 # PURPOSE: create argument parser
 def arguments():
@@ -286,62 +355,105 @@ def arguments():
             """
     )
     # command line parameters
-    parser.add_argument('file',
-        type=pathlib.Path, nargs='+',
-        help='UCAR links list file')
+    parser.add_argument(
+        'file', type=pathlib.Path, nargs='+', help='UCAR links list file'
+    )
     # UCAR/NCAR RDA credentials
-    parser.add_argument('--user','-U',
-        type=str, default=os.environ.get('UCAR_RDA_USERNAME'),
-        help='Username for UCAR/NCAR RDA Login')
-    parser.add_argument('--password','-W',
-        type=str, default=os.environ.get('UCAR_RDA_PASSWORD'),
-        help='Password for UCAR/NCAR RDA Login')
-    parser.add_argument('--netrc','-N',
-        type=pathlib.Path, default=pathlib.Path.home().joinpath('.netrc'),
-        help='Path to .netrc file for authentication')
+    parser.add_argument(
+        '--user',
+        '-U',
+        type=str,
+        default=os.environ.get('UCAR_RDA_USERNAME'),
+        help='Username for UCAR/NCAR RDA Login',
+    )
+    parser.add_argument(
+        '--password',
+        '-W',
+        type=str,
+        default=os.environ.get('UCAR_RDA_PASSWORD'),
+        help='Password for UCAR/NCAR RDA Login',
+    )
+    parser.add_argument(
+        '--netrc',
+        '-N',
+        type=pathlib.Path,
+        default=pathlib.Path.home().joinpath('.netrc'),
+        help='Path to .netrc file for authentication',
+    )
     # working data directory
-    parser.add_argument('--directory','-D',
-        type=pathlib.Path, default=pathlib.Path.cwd(),
-        help='Working data directory')
+    parser.add_argument(
+        '--directory',
+        '-D',
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
+        help='Working data directory',
+    )
     # model years to download
-    parser.add_argument('--year','-Y',
-        type=int, nargs='+',
-        help='Years to download from input links file')
+    parser.add_argument(
+        '--year',
+        '-Y',
+        type=int,
+        nargs='+',
+        help='Years to download from input links file',
+    )
     # Download isentropic level data
-    parser.add_argument('--isentropic','-I',
-        default=False, action='store_true',
-        help='Input data is over isentropic levels')
+    parser.add_argument(
+        '--isentropic',
+        '-I',
+        default=False,
+        action='store_true',
+        help='Input data is over isentropic levels',
+    )
     # Download compressed data
-    parser.add_argument('--gzip','-G',
-        default=False, action='store_true',
-        help='Input data is compressed')
+    parser.add_argument(
+        '--gzip',
+        '-G',
+        default=False,
+        action='store_true',
+        help='Input data is compressed',
+    )
     # connection timeout
-    parser.add_argument('--timeout','-t',
-        type=int, default=360,
-        help='Timeout in seconds for blocking operations')
+    parser.add_argument(
+        '--timeout',
+        '-t',
+        type=int,
+        default=360,
+        help='Timeout in seconds for blocking operations',
+    )
     # Output log file in form
     # UCAR_RDA_NCEP-CFSR_2002-04-01.log
-    parser.add_argument('--log','-l',
-        default=False, action='store_true',
-        help='Output log file')
+    parser.add_argument(
+        '--log',
+        '-l',
+        default=False,
+        action='store_true',
+        help='Output log file',
+    )
     # permissions mode of the directories and files synced (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='Permission mode of directories and files synced')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='Permission mode of directories and files synced',
+    )
     # return the parser
     return parser
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # UCAR/NCAR RDA hostname
     HOST = 'rda.ucar.edu'
     # get UCAR/NCAR RDA credentials
     try:
-        args.user,_,args.password = netrc.netrc(args.netrc).authenticators(HOST)
+        args.user, _, args.password = netrc.netrc(args.netrc).authenticators(
+            HOST
+        )
     except:
         # check that UCAR/NCAR RDA credentials were entered
         if not args.user:
@@ -355,25 +467,40 @@ def main():
     # Build opener with cookie jar for storing cookies
     # This is used to store and return the session cookie given
     # to use by the data server
-    gravtk.utilities.build_opener(args.user, args.password,
-        password_manager=False, get_ca_certs=False, redirect=False,
-        authorization_header=False, urs=HOST)
+    gravtk.utilities.build_opener(
+        args.user,
+        args.password,
+        password_manager=False,
+        get_ca_certs=False,
+        redirect=False,
+        authorization_header=False,
+        urs=HOST,
+    )
     # post authorization header to retrieve cookies
     data = gravtk.utilities.urlencode(
         dict(email=args.user, passwd=args.password, action='login')
-        ).encode("utf-8")
+    ).encode('utf-8')
     request = gravtk.utilities.urllib2.Request(
-        'https://rda.ucar.edu/cgi-bin/login',data=data)
+        'https://rda.ucar.edu/cgi-bin/login', data=data
+    )
     response = gravtk.utilities.urllib2.urlopen(request, timeout=20)
     # All calls to urllib2.urlopen will now use handler
 
     # check that connection to UCAR RDA was successful
-    if (response.read().startswith(b'Authentication successful')):
+    if response.read().startswith(b'Authentication successful'):
         # for each links list file from UCAR/NCAR RDA
         for FILE in args.file:
-            ucar_rda_download(args.directory, FILE, YEARS=args.year,
-                ISENTROPIC=args.isentropic, GZIP=args.gzip, TIMEOUT=args.timeout,
-                LOG=args.log, MODE=args.mode)
+            ucar_rda_download(
+                args.directory,
+                FILE,
+                YEARS=args.year,
+                ISENTROPIC=args.isentropic,
+                GZIP=args.gzip,
+                TIMEOUT=args.timeout,
+                LOG=args.log,
+                MODE=args.mode,
+            )
+
 
 # run main program
 if __name__ == '__main__':

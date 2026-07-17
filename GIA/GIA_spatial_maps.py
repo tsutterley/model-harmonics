@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 GIA_spatial_maps.py
 Written by Tyler Sutterley (09/2023)
 Calculates spatial maps of Glacial Isostatic Adjustment (GIA)
@@ -78,6 +78,7 @@ UPDATE HISTORY:
     Updated 02/2014: general code updates to match other programs
     Written 05/2013
 """
+
 from __future__ import print_function
 
 import sys
@@ -91,6 +92,7 @@ import numpy as np
 import collections
 import gravity_toolkit as gravtk
 
+
 # PURPOSE: keep track of threads
 def info(args):
     logging.info(pathlib.Path(sys.argv[0]).name)
@@ -100,8 +102,10 @@ def info(args):
         logging.info(f'parent process: {os.getppid():d}')
     logging.info(f'process id: {os.getpid():d}')
 
+
 # PURPOSE: converts GIA spherial harmonics to spatial maps
-def GIA_spatial_maps(LMAX,
+def GIA_spatial_maps(
+    LMAX,
     LMIN=1,
     MMAX=None,
     RAD=0,
@@ -113,8 +117,8 @@ def GIA_spatial_maps(LMAX,
     BOUNDS=None,
     DATAFORM=None,
     OUTPUT_DIRECTORY=None,
-    MODE=0o775):
-
+    MODE=0o775,
+):
     # output attributes for spatial files
     attributes = collections.OrderedDict()
     attributes['product_type'] = 'gravity_field'
@@ -129,13 +133,13 @@ def GIA_spatial_maps(LMAX,
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')[DATAFORM]
 
     # Calculating the Gaussian smoothing for radius RAD
-    if (RAD != 0):
-        wt = 2.0*np.pi*gravtk.gauss_weights(RAD,LMAX)
+    if RAD != 0:
+        wt = 2.0 * np.pi * gravtk.gauss_weights(RAD, LMAX)
         gw_str = f'_r{RAD:0.0f}km'
         attributes['smoothing_radius'] = f'{RAD:0.0f} km'
     else:
         # else = 1
-        wt = np.ones((LMAX+1))
+        wt = np.ones((LMAX + 1))
         gw_str = ''
 
     # flag for spherical harmonic order
@@ -147,8 +151,9 @@ def GIA_spatial_maps(LMAX,
 
     # read arrays of kl, hl, and ll Love Numbers
     # these Love numbers are not used in the spatial calculation
-    LOVE = gravtk.load_love_numbers(LMAX,
-        LOVE_NUMBERS=0, REFERENCE='CF', FORMAT='class')
+    LOVE = gravtk.load_love_numbers(
+        LMAX, LOVE_NUMBERS=0, REFERENCE='CF', FORMAT='class'
+    )
     # do not include the elastic component in the unit coefficients
     factors = gravtk.units(lmax=LMAX).harmonic(*LOVE, include_elastic=False)
 
@@ -160,30 +165,30 @@ def GIA_spatial_maps(LMAX,
     # Output spatial data object
     grid = gravtk.spatial()
     # Output Degree Spacing
-    dlon,dlat = (DDEG[0],DDEG[0]) if (len(DDEG) == 1) else (DDEG[0],DDEG[1])
+    dlon, dlat = (DDEG[0], DDEG[0]) if (len(DDEG) == 1) else (DDEG[0], DDEG[1])
     # Output Degree Interval
-    if (INTERVAL == 1):
+    if INTERVAL == 1:
         # (-180:180,90:-90)
-        nlon = np.int64((360.0/dlon)+1.0)
-        nlat = np.int64((180.0/dlat)+1.0)
-        grid.lon = -180 + dlon*np.arange(0,nlon)
-        grid.lat = 90.0 - dlat*np.arange(0,nlat)
-    elif (INTERVAL == 2):
+        nlon = np.int64((360.0 / dlon) + 1.0)
+        nlat = np.int64((180.0 / dlat) + 1.0)
+        grid.lon = -180 + dlon * np.arange(0, nlon)
+        grid.lat = 90.0 - dlat * np.arange(0, nlat)
+    elif INTERVAL == 2:
         # (Degree spacing)/2
-        grid.lon = np.arange(-180+dlon/2.0,180+dlon/2.0,dlon)
-        grid.lat = np.arange(90.0-dlat/2.0,-90.0-dlat/2.0,-dlat)
+        grid.lon = np.arange(-180 + dlon / 2.0, 180 + dlon / 2.0, dlon)
+        grid.lat = np.arange(90.0 - dlat / 2.0, -90.0 - dlat / 2.0, -dlat)
         nlon = len(grid.lon)
         nlat = len(grid.lat)
-    elif (INTERVAL == 3):
+    elif INTERVAL == 3:
         # non-global grid set with BOUNDS parameter
-        minlon,maxlon,minlat,maxlat = BOUNDS.copy()
-        grid.lon = np.arange(minlon+dlon/2.0, maxlon+dlon/2.0, dlon)
-        grid.lat = np.arange(maxlat-dlat/2.0, minlat-dlat/2.0, -dlat)
+        minlon, maxlon, minlat, maxlat = BOUNDS.copy()
+        grid.lon = np.arange(minlon + dlon / 2.0, maxlon + dlon / 2.0, dlon)
+        grid.lat = np.arange(maxlat - dlat / 2.0, minlat - dlat / 2.0, -dlat)
         nlon = len(grid.lon)
         nlat = len(grid.lat)
 
     # Computing plms for converting to spatial domain
-    theta = (90.0-grid.lat)*np.pi/180.0
+    theta = np.radians(90.0 - grid.lat)
     PLM, dPLM = gravtk.plm_holmes(LMAX, np.cos(theta))
 
     # output spatial units
@@ -209,18 +214,30 @@ def GIA_spatial_maps(LMAX,
 
     # converting harmonics to truncated, smoothed coefficients in units
     # combining harmonics to calculate output spatial fields
-    Ylms = GIA_Ylms_rate.copy().convolve(dfactor*wt)
+    Ylms = GIA_Ylms_rate.copy().convolve(dfactor * wt)
     # convert spherical harmonics to output spatial grid
-    grid.data = gravtk.harmonic_summation(Ylms.clm, Ylms.slm,
-        grid.lon, grid.lat, LMIN=LMIN, LMAX=LMAX,
-        MMAX=MMAX, PLM=PLM).T
+    grid.data = gravtk.harmonic_summation(
+        Ylms.clm,
+        Ylms.slm,
+        grid.lon,
+        grid.lat,
+        LMIN=LMIN,
+        LMAX=LMAX,
+        MMAX=MMAX,
+        PLM=PLM,
+    ).T
     grid.mask = np.zeros_like(grid.data, dtype=bool)
 
     # output files to ascii, netCDF4 or HDF5
     FILE = f'{FILE_PREFIX}{units}_L{LMAX:d}{order_str}{gw_str}.{suffix}'
     OUTPUT_FILE = OUTPUT_DIRECTORY.joinpath(FILE)
-    grid.to_file(OUTPUT_FILE, format=DATAFORM, date=False,
-        units=f'{units_name} yr^1', longname=units_longname)
+    grid.to_file(
+        OUTPUT_FILE,
+        format=DATAFORM,
+        date=False,
+        units=f'{units_name} yr^1',
+        longname=units_longname,
+    )
     # set the permissions mode of the output files
     OUTPUT_FILE.chmod(mode=MODE)
     # add file to list
@@ -229,10 +246,11 @@ def GIA_spatial_maps(LMAX,
     # return the list of output files
     return output_files
 
+
 # PURPOSE: print a file log for the GIA spatial conversion
 def output_log_file(input_arguments, output_files):
     # format: GIA_spatial_run_2002-04-01_PID-70335.log
-    args = (time.strftime('%Y-%m-%d',time.localtime()), os.getpid())
+    args = (time.strftime('%Y-%m-%d', time.localtime()), os.getpid())
     LOGFILE = 'GIA_spatial_run_{0}_PID-{1:d}.log'.format(*args)
     # create a unique log and open the log file
     DIRECTORY = pathlib.Path(input_arguments.output_directory)
@@ -249,10 +267,11 @@ def output_log_file(input_arguments, output_files):
     # close the log file
     fid.close()
 
+
 # PURPOSE: print a error file log for the GIA spatial conversion
 def output_error_log_file(input_arguments):
     # format: GIA_spatial_failed_run_2002-04-01_PID-70335.log
-    args = (time.strftime('%Y-%m-%d',time.localtime()), os.getpid())
+    args = (time.strftime('%Y-%m-%d', time.localtime()), os.getpid())
     LOGFILE = 'GIA_spatial_failed_run_{0}_PID-{1:d}.log'.format(*args)
     # create a unique log and open the log file
     DIRECTORY = pathlib.Path(input_arguments.output_directory)
@@ -268,31 +287,43 @@ def output_error_log_file(input_arguments):
     # close the log file
     fid.close()
 
+
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
         description="""Calculates spatial maps of Glacial
             Isostatic Adjustment (GIA)
             """,
-        fromfile_prefix_chars="@"
+        fromfile_prefix_chars='@',
     )
-    parser.convert_arg_line_to_args = \
-        gravtk.utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # minimum spherical harmonic degree
-    parser.add_argument('--lmin',
-        type=int, default=1,
-        help='Minimum spherical harmonic degree')
+    parser.add_argument(
+        '--lmin', type=int, default=1, help='Minimum spherical harmonic degree'
+    )
     # maximum spherical harmonic degree and order
-    parser.add_argument('--lmax','-l',
-        type=int, default=60,
-        help='Maximum spherical harmonic degree')
-    parser.add_argument('--mmax','-m',
-        type=int, default=None,
-        help='Maximum spherical harmonic order')
+    parser.add_argument(
+        '--lmax',
+        '-l',
+        type=int,
+        default=60,
+        help='Maximum spherical harmonic degree',
+    )
+    parser.add_argument(
+        '--mmax',
+        '-m',
+        type=int,
+        default=None,
+        help='Maximum spherical harmonic order',
+    )
     # Gaussian smoothing radius (km)
-    parser.add_argument('--radius','-R',
-        type=float, default=0,
-        help='Gaussian smoothing radius (km)')
+    parser.add_argument(
+        '--radius',
+        '-R',
+        type=float,
+        default=0,
+        help='Gaussian smoothing radius (km)',
+    )
     # GIA model type list
     models = {}
     models['IJ05-R2'] = 'Ivins R2 GIA Models'
@@ -307,57 +338,102 @@ def arguments():
     models['netCDF4'] = 'reformatted GIA in netCDF4 format'
     models['HDF5'] = 'reformatted GIA in HDF5 format'
     # GIA model type
-    parser.add_argument('--gia','-G',
-        type=str, metavar='GIA', choices=models.keys(),
-        help='GIA model type to read')
+    parser.add_argument(
+        '--gia',
+        '-G',
+        type=str,
+        metavar='GIA',
+        choices=models.keys(),
+        help='GIA model type to read',
+    )
     # full path to GIA file
-    parser.add_argument('--gia-file',
-        type=pathlib.Path,
-        help='GIA file to read')
+    parser.add_argument(
+        '--gia-file', type=pathlib.Path, help='GIA file to read'
+    )
     # output units
-    parser.add_argument('--units','-U',
-        type=int, default=1, choices=[1,2,4,5,6],
-        help='Output units')
+    parser.add_argument(
+        '--units',
+        '-U',
+        type=int,
+        default=1,
+        choices=[1, 2, 4, 5, 6],
+        help='Output units',
+    )
     # output grid parameters
-    parser.add_argument('--spacing',
-        type=float, nargs='+', default=[0.5,0.5], metavar=('dlon','dlat'),
-        help='Spatial resolution of output data')
-    parser.add_argument('--interval',
-        type=int, default=2, choices=[1,2,3],
-        help=('Output grid interval '
-            '(1: global, 2: centered global, 3: non-global)'))
-    parser.add_argument('--bounds',
-        type=float, nargs=4, metavar=('lon_min','lon_max','lat_min','lat_max'),
-        help='Bounding box for non-global grid')
+    parser.add_argument(
+        '--spacing',
+        type=float,
+        nargs='+',
+        default=[0.5, 0.5],
+        metavar=('dlon', 'dlat'),
+        help='Spatial resolution of output data',
+    )
+    parser.add_argument(
+        '--interval',
+        type=int,
+        default=2,
+        choices=[1, 2, 3],
+        help=(
+            'Output grid interval '
+            '(1: global, 2: centered global, 3: non-global)'
+        ),
+    )
+    parser.add_argument(
+        '--bounds',
+        type=float,
+        nargs=4,
+        metavar=('lon_min', 'lon_max', 'lat_min', 'lat_max'),
+        help='Bounding box for non-global grid',
+    )
     # input data format (ascii, netCDF4, HDF5)
-    parser.add_argument('--format','-F',
-        type=str, default='netCDF4', choices=['ascii','netCDF4','HDF5'],
-        help='Input/output data format')
-    parser.add_argument('--output-directory','-O',
+    parser.add_argument(
+        '--format',
+        '-F',
+        type=str,
+        default='netCDF4',
+        choices=['ascii', 'netCDF4', 'HDF5'],
+        help='Input/output data format',
+    )
+    parser.add_argument(
+        '--output-directory',
+        '-O',
         type=pathlib.Path,
-        help='Output directory for spatial files')
+        help='Output directory for spatial files',
+    )
     # Output log file for each job in forms
     # GIA_spatial_run_2002-04-01_PID-00000.log
     # GIA_spatial_failed_run_2002-04-01_PID-00000.log
-    parser.add_argument('--log',
-        default=False, action='store_true',
-        help='Output log file for each job')
+    parser.add_argument(
+        '--log',
+        default=False,
+        action='store_true',
+        help='Output log file for each job',
+    )
     # print information about each input and output file
-    parser.add_argument('--verbose','-V',
-        action='count', default=0,
-        help='Verbose output of run')
+    parser.add_argument(
+        '--verbose',
+        '-V',
+        action='count',
+        default=0,
+        help='Verbose output of run',
+    )
     # permissions mode of the local directories and files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='Permissions mode of output files')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='Permissions mode of output files',
+    )
     # return the parser
     return parser
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
@@ -367,7 +443,8 @@ def main():
     try:
         info(args)
         # run algorithm with parameters
-        output_files = GIA_spatial_maps(args.lmax,
+        output_files = GIA_spatial_maps(
+            args.lmax,
             LMIN=args.lmin,
             MMAX=args.mmax,
             RAD=args.radius,
@@ -379,18 +456,20 @@ def main():
             BOUNDS=args.bounds,
             DATAFORM=args.format,
             OUTPUT_DIRECTORY=args.output_directory,
-            MODE=args.mode)
+            MODE=args.mode,
+        )
     except Exception as exc:
         # if there has been an error exception
         # print the type, value, and stack trace of the
         # current exception being handled
         logging.critical(f'process id {os.getpid():d} failed')
         logging.error(traceback.format_exc())
-        if args.log:# write failed job completion log file
+        if args.log:  # write failed job completion log file
             output_error_log_file(args)
     else:
-        if args.log:# write successful job completion log file
+        if args.log:  # write successful job completion log file
             output_log_file(args, output_files)
+
 
 # run main program
 if __name__ == '__main__':

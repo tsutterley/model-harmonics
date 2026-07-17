@@ -1,6 +1,6 @@
-===========================
-GIA_uplift_ICESat2_ATL15.py
-===========================
+===============================
+``GIA_uplift_ICESat2_ATL15.py``
+===============================
 
 - Calculates GIA-induced crustal uplift over polar stereographic grids for correcting ICESat-2 ATL15 gridded land ice height change data
 

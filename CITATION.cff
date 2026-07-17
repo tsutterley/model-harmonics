@@ -31,9 +31,9 @@ contributors:
     family-names: Lecomte
 
 contact:
-- family-names: Sutterley
-  given-names: Tyler C.
-  orcid: "https://orcid.org/0000-0002-6964-1194"
+  - family-names: Sutterley
+    given-names: Tyler C.
+    orcid: "https://orcid.org/0000-0002-6964-1194"
 
 identifiers:
   - type: doi

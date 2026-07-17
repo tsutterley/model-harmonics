@@ -1,6 +1,6 @@
-=====================
-gldas_read_monthly.py
-=====================
+=========================
+``gldas_read_monthly.py``
+=========================
 
 - Reads GLDAS monthly datafiles to calculate anomalies in total water storage from soil moisture, snow water equivalent and total canopy storage :cite:p:`Rodell:2004ke,Syed:2008ia`
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 GIA_uplift_ICESat2_ATL15.py
 Written by Tyler Sutterley (11/2023)
 Calculates GIA-induced crustal uplift over polar stereographic grids for
@@ -78,6 +78,7 @@ UPDATE HISTORY:
     Updated 08/2017: use clenshaw summation to calculate at each point
     Written 10/2016
 """
+
 from __future__ import print_function
 
 import sys
@@ -94,6 +95,7 @@ import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
 
+
 # PURPOSE: keep track of threads
 def info(args):
     logging.info(pathlib.Path(sys.argv[0]).name)
@@ -102,6 +104,7 @@ def info(args):
     if hasattr(os, 'getppid'):
         logging.info(f'parent process: {os.getppid():d}')
     logging.info(f'process id: {os.getpid():d}')
+
 
 # PURPOSE: read a variable group from ICESat-2 ATL15
 def read_ATL15(infile, group='delta_h', fields=None):
@@ -124,14 +127,18 @@ def read_ATL15(infile, group='delta_h', fields=None):
     # return the data and attributes
     return (ATL15, attributes)
 
+
 # PURPOSE: calculate spatial fields of GIA crustal uplift to correct
 # ICESat-2 ATL15 Gridded Land Ice Height Change data
-def calculate_GIA_uplift(filename, LMAX,
+def calculate_GIA_uplift(
+    filename,
+    LMAX,
     GIA=None,
     GIA_FILE=None,
     OUTPUT_FILE=None,
     ITERATIONS=1,
-    MODE=0o775):
+    MODE=0o775,
+):
     """
     Calculate spatial fields of GIA crustal uplift to correct
     ICESat-2 ATL15 Gridded Land Ice Height Change data following
@@ -180,7 +187,7 @@ def calculate_GIA_uplift(filename, LMAX,
         PRD, RGN, SCYC, ECYC, RES, RL, VERS = rx.findall(f.name).pop()
         DIRECTORY = pathlib.Path(f.parent).expanduser().absolute()
         # get ATL15 dimension variables from group
-        d, attrib = read_ATL15(f, group='delta_h', fields=['x','y','time'])
+        d, attrib = read_ATL15(f, group='delta_h', fields=['x', 'y', 'time'])
         # update the mosaic grid spacing
         mosaic.update_spacing(d['x'], d['y'])
         mosaic.update_bounds(d['x'], d['y'])
@@ -193,9 +200,9 @@ def calculate_GIA_uplift(filename, LMAX,
     ATL15['x'] = np.copy(mosaic.x)
     ATL15['y'] = np.copy(mosaic.y)
     ATL15['time'] = np.copy(d['time'])
-    valid_mask = np.zeros((nt,ny,nx), dtype=bool)
-    for key in ['delta_h','delta_h_sigma','ice_area']:
-        ATL15[key] = np.ma.zeros((nt,ny,nx))
+    valid_mask = np.zeros((nt, ny, nx), dtype=bool)
+    for key in ['delta_h', 'delta_h_sigma', 'ice_area']:
+        ATL15[key] = np.ma.zeros((nt, ny, nx))
     # iterate over each ATL15 file
     for f in filename:
         # get ATL15 variables from group
@@ -203,15 +210,18 @@ def calculate_GIA_uplift(filename, LMAX,
         # get the image coordinates of the input file
         iy, ix = mosaic.image_coordinates(d['x'], d['y'])
         valid_mask[:, iy, ix] |= True
-        for key in ['delta_h','delta_h_sigma','ice_area']:
+        for key in ['delta_h', 'delta_h_sigma', 'ice_area']:
             ATL15[key].fill_value = attrib[key]['_FillValue']
             ATL15[key][:, iy, ix] = d[key][...]
 
     # update masks for variables
-    for key in ['delta_h','delta_h_sigma','ice_area']:
+    for key in ['delta_h', 'delta_h_sigma', 'ice_area']:
         val = ATL15[key]
-        val.mask = (val.data == val.fill_value) | \
-            np.isnan(val.data) | np.logical_not(valid_mask)
+        val.mask = (
+            (val.data == val.fill_value)
+            | np.isnan(val.data)
+            | np.logical_not(valid_mask)
+        )
         val.data[val.mask] = val.fill_value
 
     # get attributes
@@ -229,9 +239,9 @@ def calculate_GIA_uplift(filename, LMAX,
     # read arrays of kl, hl, and ll Love Numbers
     # these Love numbers are not used in the GIA uplift calculation
     # but are a required input for the clenshaw summation
-    LOVE = gravtk.load_love_numbers(LMAX,
-        LOVE_NUMBERS=0, REFERENCE='CF',
-        FORMAT='class')
+    LOVE = gravtk.load_love_numbers(
+        LMAX, LOVE_NUMBERS=0, REFERENCE='CF', FORMAT='class'
+    )
 
     # input GIA spherical harmonic datafiles
     GIA_Ylms_rate = gravtk.gia(lmax=LMAX).from_GIA(GIA_FILE, GIA=GIA)
@@ -246,19 +256,19 @@ def calculate_GIA_uplift(filename, LMAX,
     # flattening of the ellipsoid
     flat = crs2.ellipsoid.inverse_flattening**-1
     # first numerical eccentricity
-    ecc1 = np.sqrt((2.0*flat - flat**2)*a_axis**2)/a_axis
+    ecc1 = np.sqrt((2.0 * flat - flat**2) * a_axis**2) / a_axis
 
     # convert from geodetic latitude to geocentric latitude
     # geodetic latitude in radians
-    latitude_geodetic_rad = np.pi*latitude_geodetic/180.0
+    latitude_geodetic_rad = np.radians(latitude_geodetic)
     # prime vertical radius of curvature
-    N = a_axis/np.sqrt(1.0 - ecc1**2.*np.sin(latitude_geodetic_rad)**2.)
+    N = a_axis / np.sqrt(1.0 - ecc1**2.0 * np.sin(latitude_geodetic_rad) ** 2.0)
     # calculate X, Y and Z from geodetic latitude and longitude
-    X = N * np.cos(latitude_geodetic_rad) * np.cos(np.pi*gridlon/180.0)
-    Y = N * np.cos(latitude_geodetic_rad) * np.sin(np.pi*gridlon/180.0)
+    X = N * np.cos(latitude_geodetic_rad) * np.cos(np.radians(gridlon))
+    Y = N * np.cos(latitude_geodetic_rad) * np.sin(np.radians(gridlon))
     Z = (N * (1.0 - ecc1**2.0)) * np.sin(latitude_geodetic_rad)
     # calculate geocentric latitude and convert to degrees
-    latitude_geocentric = 180.0*np.arctan(Z / np.sqrt(X**2.0 + Y**2.0))/np.pi
+    latitude_geocentric = np.degrees(np.arctan(Z / np.sqrt(X**2.0 + Y**2.0)))
 
     # output data and attributes dictionaries
     output_data = {}
@@ -266,12 +276,12 @@ def calculate_GIA_uplift(filename, LMAX,
     # x and y
     output_data['x'] = ATL15['x'].copy()
     output_data['y'] = ATL15['y'].copy()
-    for att_name in ['long_name','standard_name','units']:
+    for att_name in ['long_name', 'standard_name', 'units']:
         attributes['x'][att_name] = cs_to_cf[0][att_name]
         attributes['y'][att_name] = cs_to_cf[1][att_name]
 
     # find valid points (bare-ice, near-shore ocean or ground)
-    if (ITERATIONS > 1):
+    if ITERATIONS > 1:
         valid_mask = np.logical_not(ATL15['delta_h'].mask)
     else:
         valid_mask = np.ones_like(ATL15['delta_h'].mask, dtype=bool)
@@ -280,17 +290,24 @@ def calculate_GIA_uplift(filename, LMAX,
     nind = len(indy)
     # allocate for output GIA uplift
     output_data['dhdt_gia'] = np.empty((ny, nx))
-    output_data['dhdt_gia'][:,:] = fill_value
+    output_data['dhdt_gia'][:, :] = fill_value
     for i in range(ITERATIONS):
         ind = slice(i, nind, ITERATIONS)
         iY, iX = (indy[ind], indx[ind])
         # Converting GIA rates to crustal uplift (Wahr et al., 2000)
         # convert from cm to meters uplift
-        output_data['dhdt_gia'][iY,iX] = 0.01*gravtk.clenshaw_summation(
-            GIA_Ylms_rate.clm, GIA_Ylms_rate.slm,
-            gridlon[iY,iX], latitude_geocentric[iY,iX],
-            LMAX=LMAX, RAD=0, UNITS=6, LOVE=LOVE,
-            ASTYPE=np.float64, SCALE=1e-32)
+        output_data['dhdt_gia'][iY, iX] = 0.01 * gravtk.clenshaw_summation(
+            GIA_Ylms_rate.clm,
+            GIA_Ylms_rate.slm,
+            gridlon[iY, iX],
+            latitude_geocentric[iY, iX],
+            LMAX=LMAX,
+            RAD=0,
+            UNITS=6,
+            LOVE=LOVE,
+            ASTYPE=np.float64,
+            SCALE=1e-32,
+        )
 
     # GIA correction attributes
     attributes['dhdt_gia'] = {}
@@ -332,39 +349,46 @@ def calculate_GIA_uplift(filename, LMAX,
         nc['crs'].setncattr(att_name, att_val)
 
     # netCDF4 dimensions
-    for i,key in enumerate(dimensions):
+    for i, key in enumerate(dimensions):
         val = output_data[key]
         fileID.createDimension(key, len(val))
         nc[key] = fileID.createVariable(key, val.dtype, (key,))
         # filling netCDF4 dimension variables
         nc[key][:] = val
         # Defining attributes for variable
-        for att_name,att_val in attributes[key].items():
-            nc[key].setncattr(att_name,att_val)
+        for att_name, att_val in attributes[key].items():
+            nc[key].setncattr(att_name, att_val)
 
     # netCDF4 spatial variables
     variables = set(output_data.keys()) - set(dimensions)
     for key in sorted(variables):
         val = output_data[key]
         if '_FillValue' in attributes[key].keys():
-            nc[key] = fileID.createVariable(key, val.dtype, dims,
-                fill_value=attributes[key]['_FillValue'], zlib=True)
+            nc[key] = fileID.createVariable(
+                key,
+                val.dtype,
+                dims,
+                fill_value=attributes[key]['_FillValue'],
+                zlib=True,
+            )
             attributes[key].pop('_FillValue')
         elif val.shape:
-            nc[key] = fileID.createVariable(key, val.dtype, dims,
-                zlib=True)
+            nc[key] = fileID.createVariable(key, val.dtype, dims, zlib=True)
         else:
             nc[key] = fileID.createVariable(key, val.dtype, ())
         # filling netCDF4 variables
         nc[key][:] = val
         # Defining attributes for variable
-        for att_name,att_val in attributes[key].items():
+        for att_name, att_val in attributes[key].items():
             nc[key].setncattr(att_name, att_val)
 
     # add root level attributes
     fileID.setncattr('title', 'ATL15_GIA_Correction')
-    fileID.setncattr('summary', 'Glacial_Isostatic_Adjustment_Corrections_'
-        'for_NASA_ICESat-2_ATL15_Gridded_Land_Ice_Height_Change_data.')
+    fileID.setncattr(
+        'summary',
+        'Glacial_Isostatic_Adjustment_Corrections_'
+        'for_NASA_ICESat-2_ATL15_Gridded_Land_Ice_Height_Change_data.',
+    )
     fileID.setncattr('GDAL_AREA_OR_POINT', 'Area')
     fileID.setncattr('Conventions', 'CF-1.6')
     today = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
@@ -377,8 +401,8 @@ def calculate_GIA_uplift(filename, LMAX,
     fileID.setncattr('geospatial_lat_max', latitude_geodetic.max())
     fileID.setncattr('geospatial_lon_min', gridlon.min())
     fileID.setncattr('geospatial_lon_max', gridlon.max())
-    fileID.setncattr('geospatial_lat_units', "degrees_north")
-    fileID.setncattr('geospatial_lon_units', "degrees_east")
+    fileID.setncattr('geospatial_lat_units', 'degrees_north')
+    fileID.setncattr('geospatial_lon_units', 'degrees_east')
     # Output NetCDF structure information
     logging.info(str(OUTPUT_FILE))
     logging.info(list(fileID.variables.keys()))
@@ -387,6 +411,7 @@ def calculate_GIA_uplift(filename, LMAX,
     # change the permissions mode
     OUTPUT_FILE.chmod(mode=MODE)
 
+
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
@@ -394,18 +419,24 @@ def arguments():
             stereographic grids for correcting ICESat-2 ATL15 gridded
             land ice height change data
             """,
-        fromfile_prefix_chars="@"
+        fromfile_prefix_chars='@',
     )
-    parser.convert_arg_line_to_args = \
-        gravtk.utilities.convert_arg_line_to_args
+    parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
-    parser.add_argument('infile',
-        type=pathlib.Path, nargs='+',
-        help='ICESat-2 ATL15 file to run')
+    parser.add_argument(
+        'infile',
+        type=pathlib.Path,
+        nargs='+',
+        help='ICESat-2 ATL15 file to run',
+    )
     # maximum spherical harmonic degree and order
-    parser.add_argument('--lmax','-l',
-        type=int, default=60,
-        help='Maximum spherical harmonic degree')
+    parser.add_argument(
+        '--lmax',
+        '-l',
+        type=int,
+        default=60,
+        help='Maximum spherical harmonic degree',
+    )
     # GIA model type list
     models = {}
     models['IJ05-R2'] = 'Ivins R2 GIA Models'
@@ -420,45 +451,63 @@ def arguments():
     models['netCDF4'] = 'reformatted GIA in netCDF4 format'
     models['HDF5'] = 'reformatted GIA in HDF5 format'
     # GIA model type
-    parser.add_argument('--gia','-G',
-        type=str, metavar='GIA', choices=models.keys(),
-        help='GIA model type to read')
+    parser.add_argument(
+        '--gia',
+        '-G',
+        type=str,
+        metavar='GIA',
+        choices=models.keys(),
+        help='GIA model type to read',
+    )
     # full path to GIA file
-    parser.add_argument('--gia-file',
-        type=pathlib.Path,
-        help='GIA file to read')
+    parser.add_argument(
+        '--gia-file', type=pathlib.Path, help='GIA file to read'
+    )
     # output filename
-    parser.add_argument('--output-file','-O',
-        type=pathlib.Path,
-        help='Output filename')
+    parser.add_argument(
+        '--output-file', '-O', type=pathlib.Path, help='Output filename'
+    )
     # iterate over mask to solve for large matrices
-    parser.add_argument('--iterate','-I',
-        type=uint, default=1,
-        help='Iterations over mask to solve for large matrices')
+    parser.add_argument(
+        '--iterate',
+        '-I',
+        type=uint,
+        default=1,
+        help='Iterations over mask to solve for large matrices',
+    )
     # print information about each input and output file
-    parser.add_argument('--verbose','-V',
-        action='count', default=0,
-        help='Verbose output of run')
+    parser.add_argument(
+        '--verbose',
+        '-V',
+        action='count',
+        default=0,
+        help='Verbose output of run',
+    )
     # permissions mode of the local directories and files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='Permissions mode of output files')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='Permissions mode of output files',
+    )
     # return the parser
     return parser
 
+
 def uint(x):
-    """Argument parser type for positive integers
-    """
+    """Argument parser type for positive integers"""
     x = int(x)
-    if (x <= 0):
+    if x <= 0:
         raise argparse.ArgumentTypeError('must be a positive integer')
     return x
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
@@ -468,18 +517,22 @@ def main():
     try:
         info(args)
         # run algorithm with parameters
-        calculate_GIA_uplift(args.infile, args.lmax,
+        calculate_GIA_uplift(
+            args.infile,
+            args.lmax,
             GIA=args.gia,
             GIA_FILE=args.gia_file,
             OUTPUT_FILE=args.output_file,
             ITERATIONS=args.iterate,
-            MODE=args.mode)
+            MODE=args.mode,
+        )
     except Exception as exc:
         # if there has been an error exception
         # print the type, value, and stack trace of the
         # current exception being handled
         logging.critical(f'process id {os.getpid():d} failed')
         logging.error(traceback.format_exc())
+
 
 # run main program
 if __name__ == '__main__':

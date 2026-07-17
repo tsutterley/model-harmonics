@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 ecco_read_llc_tiles.py
 Written by Tyler Sutterley (05/2023)
 
@@ -59,6 +59,7 @@ UPDATE HISTORY:
     Updated 03/2021: automatically update years to run based on current time
     Written 02/2021
 """
+
 from __future__ import print_function
 
 import sys
@@ -72,18 +73,18 @@ import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
 
+
 # PURPOSE: read ECCO tiled ocean bottom pressure data and calculate mean
 def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
-
     # input and output subdirectories
     ddir = pathlib.Path(ddir).expanduser().absolute()
-    d1 = ddir.joinpath(f'ECCO-{MODEL}','nctiles_monthly')
-    d2 = ddir.joinpath(f'ECCO_{MODEL}_AveRmvd_OBP','nctiles_monthly')
+    d1 = ddir.joinpath(f'ECCO-{MODEL}', 'nctiles_monthly')
+    d2 = ddir.joinpath(f'ECCO_{MODEL}_AveRmvd_OBP', 'nctiles_monthly')
     # recursively create subdirectory if it doesn't exist
     d2.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # input variable names for each model
-    if (MODEL == 'V4r4'):
+    if MODEL == 'V4r4':
         LONNAME = 'XC'
         LATNAME = 'YC'
         ZNAME = 'Depth'
@@ -91,8 +92,8 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
         TIMENAME = 'time'
         AREANAME = 'rA'
         MASKNAME = 'maskC'
-        Nt,Nj,Ni = (13,90,90)
-    elif (MODEL == 'V5alpha'):
+        Nt, Nj, Ni = (13, 90, 90)
+    elif MODEL == 'V5alpha':
         LONNAME = 'XC'
         LATNAME = 'YC'
         ZNAME = 'Depth'
@@ -100,13 +101,19 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
         TIMENAME = 'time'
         AREANAME = 'rA'
         MASKNAME = 'maskC'
-        Nt,Nj,Ni = (13,270,270)
+        Nt, Nj, Ni = (13, 270, 270)
 
     # read ECCO tile grid file
-    invariant = ncdf_invariant(d1.joinpath('ECCO-GRID.nc'),
-        lon=LONNAME, lat=LATNAME, depth=ZNAME, area=AREANAME, mask=MASKNAME)
+    invariant = ncdf_invariant(
+        d1.joinpath('ECCO-GRID.nc'),
+        lon=LONNAME,
+        lat=LATNAME,
+        depth=ZNAME,
+        area=AREANAME,
+        mask=MASKNAME,
+    )
     # bad value
-    fill_value = -1e+10
+    fill_value = -1e10
     # model gamma and rhonil
     gamma = 9.81
     rhonil = 1029
@@ -154,43 +161,52 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
     attributes[VARNAME]['units'] = 'Pa'
 
     # read each input file
-    for t,input_file in enumerate(input_files):
+    for t, input_file in enumerate(input_files):
         # Open netCDF4 datafile for reading
         logging.debug(str(input_file))
         fileID = netCDF4.Dataset(input_file, mode='r')
         # time within netCDF files is days since epoch
         TIME = fileID.variables[TIMENAME][:].copy()
         time_string = fileID.variables[TIMENAME].units
-        epoch1,to_secs = gravtk.time.parse_date_string(time_string)
+        epoch1, to_secs = gravtk.time.parse_date_string(time_string)
         # read ocean bottom pressure anomalies for each month
-        for m,delta_time in enumerate(to_secs*TIME):
+        for m, delta_time in enumerate(to_secs * TIME):
             # convert from ocean bottom pressure anomalies to absolute
-            PHIBOT = fileID.variables[VARNAME][m,:,:,:].copy()
-            obp_tile = invariant['depth']*rhonil*gamma + PHIBOT*rhonil
+            PHIBOT = fileID.variables[VARNAME][m, :, :, :].copy()
+            obp_tile = invariant['depth'] * rhonil * gamma + PHIBOT * rhonil
 
             # output monthly tile data
             obp = {}
             # allocate for output anomaly data
-            obp[VARNAME] = np.ma.zeros((Nt,Nj,Ni),fill_value=fill_value)
-            obp[VARNAME].mask = np.logical_not(invariant['mask'][0,:,:,:]) | \
-                (invariant['depth'] == 0.0)
+            obp[VARNAME] = np.ma.zeros((Nt, Nj, Ni), fill_value=fill_value)
+            obp[VARNAME].mask = np.logical_not(
+                invariant['mask'][0, :, :, :]
+            ) | (invariant['depth'] == 0.0)
             # copy geolocation variables
             obp['lon'] = np.copy(invariant['lon'])
             obp['lat'] = np.copy(invariant['lat'])
             # copy grid variables
-            for key in ('i','j','tile'):
+            for key in ('i', 'j', 'tile'):
                 obp[key] = fileID.variables[key][:].copy()
 
             # calculate Julian day by converting to MJD and adding offset
-            JD = gravtk.time.convert_delta_time(delta_time,
-                epoch1=epoch1, epoch2=(1858,11,17,0,0,0),
-                scale=1.0/86400.0) + 2400000.5
+            JD = (
+                gravtk.time.convert_delta_time(
+                    delta_time,
+                    epoch1=epoch1,
+                    epoch2=(1858, 11, 17, 0, 0, 0),
+                    scale=1.0 / 86400.0,
+                )
+                + 2400000.5
+            )
             # convert from Julian days to calendar dates
-            YY,MM,DD,hh,mm,ss = gravtk.time.convert_julian(JD,
-                FORMAT='tuple')
+            YY, MM, DD, hh, mm, ss = gravtk.time.convert_julian(
+                JD, FORMAT='tuple'
+            )
             # convert from calendar dates to year-decimal
-            obp['time'], = gravtk.time.convert_calendar_decimal(
-                YY,MM,day=DD,hour=hh,minute=mm,second=ss)
+            (obp['time'],) = gravtk.time.convert_calendar_decimal(
+                YY, MM, day=DD, hour=hh, minute=mm, second=ss
+            )
 
             # global area average of each ocean bottom pressure map is removed
             # (Greatbatch correction) https://doi.org/10.1029/94JC00847
@@ -199,21 +215,21 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
             # for each tile
             for k in range(0, Nt):
                 # Grid point areas (m^2)
-                area = invariant['area'][k,:,:]
+                area = invariant['area'][k, :, :]
                 # calculate the tile point weight in newtons
-                newtons = obp_tile[k,:,:]*area
+                newtons = obp_tile[k, :, :] * area
                 # mask for tile
-                mask = np.logical_not(obp[VARNAME].mask[k,:,:])
+                mask = np.logical_not(obp[VARNAME].mask[k, :, :])
                 # finding ocean points at each lat
                 if np.count_nonzero(mask):
-                    indj,indi = np.nonzero(mask)
+                    indj, indi = np.nonzero(mask)
                     # total area
-                    total_area += np.sum(area[indj,indi])
+                    total_area += np.sum(area[indj, indi])
                     # total weight in newtons
-                    total_newton += np.sum(newtons[indj,indi])
+                    total_newton += np.sum(newtons[indj, indi])
             # remove global area average of each OBP map
-            ratio = (total_newton/total_area)
-            obp[VARNAME].data[:,:,:] = (obp_tile - ratio) - obp_mean
+            ratio = total_newton / total_area
+            obp[VARNAME].data[:, :, :] = (obp_tile - ratio) - obp_mean
             # replace invalid values with fill value
             obp[VARNAME].data[obp[VARNAME].mask] = obp[VARNAME].fill_value
             # output monthly absolute bottom pressure to file
@@ -224,15 +240,22 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
             f2 = f'ECCO_{MODEL}_AveRmvd_OBP_{YY:4.0f}_{MM:02.0f}.nc'
             output_file = d2.joinpath(f2)
             # netcdf (.nc)
-            ncdf_tile_write(obp, attributes, FILENAME=output_file,
-                LONNAME='lon', LATNAME='lat', TIMENAME=TIMENAME,
-                VARNAME=VARNAME)
+            ncdf_tile_write(
+                obp,
+                attributes,
+                FILENAME=output_file,
+                LONNAME='lon',
+                LATNAME='lat',
+                TIMENAME=TIMENAME,
+                VARNAME=VARNAME,
+            )
             # change the permissions mode of the output file to MODE
             output_file.chmod(mode=MODE)
 
     # close output file and change the permissions to MODE
     fid.close()
     output_average_file.chmod(mode=MODE)
+
 
 # PURPOSE: read ECCO invariant grid file
 def ncdf_invariant(invariant_file, **kwargs):
@@ -242,10 +265,11 @@ def ncdf_invariant(invariant_file, **kwargs):
     logging.debug(str(invariant_file))
     with netCDF4.Dataset(invariant_file, mode='r') as fileID:
         # extract latitude, longitude, depth, area and valid mask
-        for key,val in kwargs.items():
+        for key, val in kwargs.items():
             invariant[key] = fileID.variables[val][:].copy()
     # return the invariant parameters
     return invariant
+
 
 # PURPOSE: read ECCO mean ocean bottom pressure file
 def ncdf_mean(mean_file, VARNAME=None):
@@ -255,10 +279,17 @@ def ncdf_mean(mean_file, VARNAME=None):
         obp_mean = np.copy(fileID.variables[VARNAME][:].copy())
     return obp_mean
 
-# PURPOSE: write tiled data to a netCDF4 file
-def ncdf_tile_write(output, attributes, FILENAME=None, LONNAME=None,
-    LATNAME=None, TIMENAME=None, VARNAME=None):
 
+# PURPOSE: write tiled data to a netCDF4 file
+def ncdf_tile_write(
+    output,
+    attributes,
+    FILENAME=None,
+    LONNAME=None,
+    LATNAME=None,
+    TIMENAME=None,
+    VARNAME=None,
+):
     # opening NetCDF file for writing
     FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
     fileID = netCDF4.Dataset(FILENAME, mode='w')
@@ -266,29 +297,34 @@ def ncdf_tile_write(output, attributes, FILENAME=None, LONNAME=None,
     # python dictionary with NetCDF variables
     nc = {}
     # Defining the NetCDF dimensions and variables
-    for key in ('i','j','tile',TIMENAME):
+    for key in ('i', 'j', 'tile', TIMENAME):
         fileID.createDimension(key, len(np.atleast_1d(output[key])))
         nc[key] = fileID.createVariable(key, output[key].dtype, (key,))
         # filling NetCDF variables
         nc[key][:] = np.copy(output[key])
         # Defining attributes for variable
-        for att_name,att_val in attributes[key].items():
-            setattr(nc[key],att_name,att_val)
+        for att_name, att_val in attributes[key].items():
+            setattr(nc[key], att_name, att_val)
 
     # Defining the NetCDF variables
-    for key in (LONNAME,LATNAME,VARNAME):
-        if hasattr(output[key],'fill_value'):
-            nc[key] = fileID.createVariable(key, output[key].dtype,
-                ('tile','j','i'), fill_value=output[key].fill_value,
-                zlib=True)
+    for key in (LONNAME, LATNAME, VARNAME):
+        if hasattr(output[key], 'fill_value'):
+            nc[key] = fileID.createVariable(
+                key,
+                output[key].dtype,
+                ('tile', 'j', 'i'),
+                fill_value=output[key].fill_value,
+                zlib=True,
+            )
         else:
-            nc[key] = fileID.createVariable(key, output[key].dtype,
-                ('tile','j','i'))
+            nc[key] = fileID.createVariable(
+                key, output[key].dtype, ('tile', 'j', 'i')
+            )
         # filling NetCDF variables
         nc[key][:] = np.copy(output[key])
         # Defining attributes for variable
-        for att_name,att_val in attributes[key].items():
-            setattr(nc[key],att_name,att_val)
+        for att_name, att_val in attributes[key].items():
+            setattr(nc[key], att_name, att_val)
     # add attribute for date created
     fileID.date_created = datetime.datetime.now().isoformat()
     fileID.title = attributes['title']
@@ -302,6 +338,7 @@ def ncdf_tile_write(output, attributes, FILENAME=None, LONNAME=None,
     # Closing the NetCDF file
     fileID.close()
 
+
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
@@ -310,40 +347,67 @@ def arguments():
             """
     )
     # command line parameters
-    parser.add_argument('model',
-        type=str, nargs='+',
-        default=['V4r4','V5alpha'], choices=['V4r4','V5alpha'],
-        help='ECCO Version 4 or 5 Model')
+    parser.add_argument(
+        'model',
+        type=str,
+        nargs='+',
+        default=['V4r4', 'V5alpha'],
+        choices=['V4r4', 'V5alpha'],
+        help='ECCO Version 4 or 5 Model',
+    )
     # working data directory
-    parser.add_argument('--directory','-D',
-        type=pathlib.Path, default=pathlib.Path.cwd(),
-        help='Working data directory')
+    parser.add_argument(
+        '--directory',
+        '-D',
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
+        help='Working data directory',
+    )
     # years to run
     now = datetime.datetime.now()
-    parser.add_argument('--year','-Y',
-        type=int, nargs='+', default=range(2000,now.year+1),
-        help='Years of model outputs to run')
+    parser.add_argument(
+        '--year',
+        '-Y',
+        type=int,
+        nargs='+',
+        default=range(2000, now.year + 1),
+        help='Years of model outputs to run',
+    )
     # start and end years to run for mean
-    parser.add_argument('--mean','-m',
-        metavar=('START','END'), type=int, nargs=2,
-        default=[2003,2007],
-        help='Start and end year range for mean')
+    parser.add_argument(
+        '--mean',
+        '-m',
+        metavar=('START', 'END'),
+        type=int,
+        nargs=2,
+        default=[2003, 2007],
+        help='Start and end year range for mean',
+    )
     # print information about each output file
-    parser.add_argument('--verbose','-V',
-        action='count', default=0,
-        help='Verbose output of processing run')
+    parser.add_argument(
+        '--verbose',
+        '-V',
+        action='count',
+        default=0,
+        help='Verbose output of processing run',
+    )
     # permissions mode of the local directories and files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='Permission mode of directories and files')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='Permission mode of directories and files',
+    )
     # return the parser
     return parser
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
@@ -352,8 +416,10 @@ def main():
     # for each ECCO LLC tile model
     for MODEL in args.model:
         # run program
-        ecco_read_llc_tiles(args.directory, MODEL, args.year,
-            RANGE=args.mean, MODE=args.mode)
+        ecco_read_llc_tiles(
+            args.directory, MODEL, args.year, RANGE=args.mean, MODE=args.mode
+        )
+
 
 # run main program
 if __name__ == '__main__':

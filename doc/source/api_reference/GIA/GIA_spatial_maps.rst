@@ -1,6 +1,6 @@
-===================
-GIA_spatial_maps.py
-===================
+=======================
+``GIA_spatial_maps.py``
+=======================
 
 - Calculates spatial maps of Glacial Isostatic Adjustment (GIA)
 

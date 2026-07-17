@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-u"""
+"""
 reanalysis_monthly_pressure.py
 Written by Tyler Sutterley (05/2023)
 Reads daily atmospheric pressure fields from reanalysis and outputs monthly averages
@@ -45,6 +45,7 @@ UPDATE HISTORY:
     Updated 01/2020: changed year option to be specific years to run
     Written 03/2018
 """
+
 from __future__ import print_function
 
 import sys
@@ -58,15 +59,15 @@ import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
 
+
 # PURPOSE: read atmospheric surface pressure fields and calculate monthly mean
 def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
-
     # directory setup
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
     ddir = base_dir.joinpath(MODEL)
 
     # set model specific parameters
-    if (MODEL == 'NCEP-DOE-2'):
+    if MODEL == 'NCEP-DOE-2':
         # regular expression pattern for finding files
         regex_pattern = r'pres.sfc.({0:4d}).nc$'
         FILL_VALUE = 'missing_value'
@@ -88,18 +89,26 @@ def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
         rx = re.compile(regex_pattern.format(YEAR), re.VERBOSE)
         input_files = sorted([f for f in ddir.iterdir() if rx.match(f.name)])
         # for each input file
-        for i,input_file in enumerate(input_files):
+        for i, input_file in enumerate(input_files):
             # read input data
-            p = gravtk.spatial().from_netCDF4(input_file,
-                varname=VARNAME, timename=TIMENAME, lonname=LONNAME,
-                latname=LATNAME).transpose(axes=(1,2,0))
+            p = (
+                gravtk.spatial()
+                .from_netCDF4(
+                    input_file,
+                    varname=VARNAME,
+                    timename=TIMENAME,
+                    lonname=LONNAME,
+                    latname=LATNAME,
+                )
+                .transpose(axes=(1, 2, 0))
+            )
             p.fill_value = p.attributes['data'][FILL_VALUE]
             TIME_UNITS = p.attributes['time']['units']
             TIME_LONGNAME = p.attributes['time']['long_name']
             # iterate over months
-            for m in range(0,12):
+            for m in range(0, 12):
                 # for each day in the month
-                indices = np.arange(cumulative_days[m],cumulative_days[m+1])
+                indices = np.arange(cumulative_days[m], cumulative_days[m + 1])
                 try:
                     p_mean.append(p.mean(indices=indices.astype(np.int64)))
                 except:
@@ -108,7 +117,7 @@ def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
                     p_mean[m].month = m + 1
 
         # mean pressure for each month
-        p_month = gravtk.spatial().from_list(p_mean).transpose(axes=(2,0,1))
+        p_month = gravtk.spatial().from_list(p_mean).transpose(axes=(2, 0, 1))
         # convert to python dictionary for output to netCDF4
         dinput = {}
         dinput[VARNAME] = p_month.to_masked_array()
@@ -118,33 +127,57 @@ def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
 
         # save to file
         output_file = ddir.joinpath(output_file_format.format(YEAR))
-        ncdf_pressure_write(dinput, p.fill_value, FILENAME=output_file,
-            VARNAME=VARNAME, LONNAME=LONNAME, LATNAME=LATNAME,
-            TIMENAME=TIMENAME, TIME_UNITS=TIME_UNITS,
-            TIME_LONGNAME=TIME_LONGNAME)
+        ncdf_pressure_write(
+            dinput,
+            p.fill_value,
+            FILENAME=output_file,
+            VARNAME=VARNAME,
+            LONNAME=LONNAME,
+            LATNAME=LATNAME,
+            TIMENAME=TIMENAME,
+            TIME_UNITS=TIME_UNITS,
+            TIME_LONGNAME=TIME_LONGNAME,
+        )
         # set the permissions level of the output file to MODE
         output_file.chmod(mode=MODE)
 
-# PURPOSE: write output pressure fields data to file
-def ncdf_pressure_write(dinput, fill_value, FILENAME=None, VARNAME=None,
-    LONNAME=None, LATNAME=None, TIMENAME=None, TIME_UNITS=None,
-    TIME_LONGNAME=None):
 
+# PURPOSE: write output pressure fields data to file
+def ncdf_pressure_write(
+    dinput,
+    fill_value,
+    FILENAME=None,
+    VARNAME=None,
+    LONNAME=None,
+    LATNAME=None,
+    TIMENAME=None,
+    TIME_UNITS=None,
+    TIME_LONGNAME=None,
+):
     # opening netCDF4 file for writing
     FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME, 'w', format="NETCDF4")
+    fileID = netCDF4.Dataset(FILENAME, 'w', format='NETCDF4')
 
     # Defining the netCDF4 dimensions
     # defining the netCDF4 variables
     nc = {}
-    for key in [LONNAME,LATNAME,TIMENAME]:
+    for key in [LONNAME, LATNAME, TIMENAME]:
         fileID.createDimension(key, len(dinput[key]))
-        nc[key] = fileID.createVariable(key, dinput[key].dtype,(key,))
+        nc[key] = fileID.createVariable(key, dinput[key].dtype, (key,))
     # defining the main netCDF4 variable
-    nc[VARNAME] = fileID.createVariable(VARNAME, dinput[VARNAME].dtype,
-        (TIMENAME,LATNAME,LONNAME,), fill_value=fill_value, zlib=True)
+    nc[VARNAME] = fileID.createVariable(
+        VARNAME,
+        dinput[VARNAME].dtype,
+        (
+            TIMENAME,
+            LATNAME,
+            LONNAME,
+        ),
+        fill_value=fill_value,
+        zlib=True,
+    )
     # filling netCDF4 variables
-    for key,val in dinput.items():
+    for key, val in dinput.items():
         nc[key][:] = np.copy(val)
 
     # Defining attributes for longitude and latitude
@@ -172,46 +205,69 @@ def ncdf_pressure_write(dinput, fill_value, FILENAME=None, VARNAME=None,
     # Closing the NetCDF file
     fileID.close()
 
+
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
         description="""Reads daily atmospheric pressure fields
             from reanalysis and outputs monthly averages
             """,
-        fromfile_prefix_chars="@"
+        fromfile_prefix_chars='@',
     )
     parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
     choices = ['NCEP-DOE-2']
-    parser.add_argument('model',
-        type=str, nargs='+',
-        default=['NCEP-DOE-2'], choices=choices,
-        help='Reanalysis Model')
+    parser.add_argument(
+        'model',
+        type=str,
+        nargs='+',
+        default=['NCEP-DOE-2'],
+        choices=choices,
+        help='Reanalysis Model',
+    )
     # working data directory
-    parser.add_argument('--directory','-D',
-        type=pathlib.Path, default=pathlib.Path.cwd(),
-        help='Working data directory')
+    parser.add_argument(
+        '--directory',
+        '-D',
+        type=pathlib.Path,
+        default=pathlib.Path.cwd(),
+        help='Working data directory',
+    )
     # years to run
     now = datetime.datetime.now()
-    parser.add_argument('--year','-Y',
-        type=int, nargs='+', default=range(2000,now.year+1),
-        help='Years of model outputs to run')
+    parser.add_argument(
+        '--year',
+        '-Y',
+        type=int,
+        nargs='+',
+        default=range(2000, now.year + 1),
+        help='Years of model outputs to run',
+    )
     # print information about each input and output file
-    parser.add_argument('--verbose','-V',
-        action='count', default=0,
-        help='Verbose output of processing run')
+    parser.add_argument(
+        '--verbose',
+        '-V',
+        action='count',
+        default=0,
+        help='Verbose output of processing run',
+    )
     # permissions mode of the local directories and files (number in octal)
-    parser.add_argument('--mode','-M',
-        type=lambda x: int(x,base=8), default=0o775,
-        help='Permission mode of directories and files')
+    parser.add_argument(
+        '--mode',
+        '-M',
+        type=lambda x: int(x, base=8),
+        default=0o775,
+        help='Permission mode of directories and files',
+    )
     # return the parser
     return parser
+
 
 # This is the main part of the program that calls the individual functions
 def main():
     # Read the system arguments listed after the program
     parser = arguments()
-    args,_ = parser.parse_known_args()
+    args, _ = parser.parse_known_args()
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
@@ -220,8 +276,10 @@ def main():
     # for each reanalysis model
     for MODEL in args.model:
         # run program
-        reanalysis_monthly_pressure(args.directory, MODEL, args.year,
-            MODE=args.mode)
+        reanalysis_monthly_pressure(
+            args.directory, MODEL, args.year, MODE=args.mode
+        )
+
 
 # run main program
 if __name__ == '__main__':

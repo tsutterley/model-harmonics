@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 greens_kernel.py
-Written by Tyler Sutterley (11/2024)
+Written by Tyler Sutterley (05/2026)
 
 Calculate a Green's function kernel for a given set of Love Numbers
 
@@ -16,6 +16,10 @@ OPTIONS:
     SPACING: Grid spacing in x and y directions (meters)
     WIDTH: Grid width in x and y directions (meters)
     LOVE: List of Love Numbers kl, hl, and ll
+    VARIABLE: Variable to calculate Green's function
+
+        - 'u': vertical displacement (m/kg)
+        - 'v': horizontal displacement (m/kg)
 
 OUTPUTS:
     X: X-coordinates of the kernel (meters)
@@ -33,6 +37,7 @@ PROGRAM DEPENDENCIES:
     legendre_polynomials.py: computes fully normalized Legendre polynomials
 
 UPDATE HISTORY:
+    Updated 05/2026: added option to calculate horizontal displacement kernel
     Updated 11/2024: use bessel function for points within cutoff distance
     Written 11/2024
 """
@@ -41,7 +46,8 @@ import numpy as np
 import scipy.special
 import gravity_toolkit as gravtk
 
-def greens_kernel(LMAX, SPACING=[], WIDTH=[], LOVE=None):
+
+def greens_kernel(LMAX, SPACING=[], WIDTH=[], LOVE=None, **kwargs):
     """
     Calculate the Green's function for a given set of Love Numbers
     following :cite:t:`Farrell:1972cm,Farrell:1973ui,Longman:1962ev`
@@ -56,6 +62,11 @@ def greens_kernel(LMAX, SPACING=[], WIDTH=[], LOVE=None):
         Grid width in x and y directions
     LOVE: list or None, default None
         List of Love Numbers kl, hl, and ll
+    VARIABLE: str, default 'u'
+        Variable to calculate Green's function
+
+        - 'u': vertical displacement
+        - 'v': horizontal displacement
 
     Returns
     -------
@@ -66,58 +77,66 @@ def greens_kernel(LMAX, SPACING=[], WIDTH=[], LOVE=None):
     G: numpy.ndarray
         Green's function kernel
     """
+    # set default keyword arguments
+    kwargs.setdefault('VARIABLE', 'u')
     # get Earth parameters
     # radius of the Earth in meters
-    rad_e = gravtk.units().rad_e/100.0
+    rad_e = gravtk.units().rad_e / 100.0
     # average density of the Earth in kg/m^3
-    rho_e = gravtk.units().rho_e*1000.0
+    rho_e = gravtk.units().rho_e * 1000.0
     # scale factor to convert a mass load to uplift
-    scale = 3.0/(4.0*np.pi*rho_e*rad_e**2)
+    scale = 3.0 / (4.0 * np.pi * rho_e * rad_e**2)
     # verify values are close to expected (a/M_e)
-    assert np.isclose(scale, 6.371e6/5.972e24)
+    if not np.isclose(scale, 6.371e6 / 5.972e24):
+        raise ValueError(f'Unexpected scale factor: {scale}')
     # extract arrays of kl, hl, and ll Love Numbers
     hl, kl, ll = LOVE
     # spherical harmonic degrees
-    l = np.arange(LMAX+1)
+    l = np.arange(LMAX + 1)
     # scale used to originally normalize the Legendre polynomials
-    norm = np.sqrt(2.0*l + 1)
+    norm = np.sqrt(2.0 * l + 1)
     # grid spacing
-    dx,dy = np.broadcast_to(np.atleast_1d(SPACING),(2,))
-    cutoff = np.sqrt(dx*dy)
+    dx, dy = np.broadcast_to(np.atleast_1d(SPACING), (2,))
+    cutoff = np.sqrt(dx * dy)
     # grid width
-    W = np.broadcast_to(np.atleast_1d(WIDTH),(2,))
+    W = np.broadcast_to(np.atleast_1d(WIDTH), (2,))
     # centered coordinates
-    X = np.arange(0, W[0] + dx, dx) - W[0]/2.0
-    Y = np.arange(0, W[1] + dy, dy) - W[1]/2.0
+    X = np.arange(0, W[0] + dx, dx) - W[0] / 2.0
+    Y = np.arange(0, W[1] + dy, dy) - W[1] / 2.0
     # create a grid of coordinates
     gridx, gridy = np.meshgrid(X, Y)
     # calculate distance from central point
     D = np.sqrt(gridx**2 + gridy**2)
     # allocate for output Green's function
-    nx = np.int64(W[0]//dx) + 1
-    ny = np.int64(W[1]//dy) + 1
+    nx = np.int64(W[0] // dx) + 1
+    ny = np.int64(W[1] // dy) + 1
     G = np.zeros((ny, nx))
     # calculate Green's function for each point
-    for i,x in enumerate(X):
-        for j,y in enumerate(Y):
+    for i, x in enumerate(X):
+        for j, y in enumerate(Y):
             # check if distance is within cutoff
-            if (D[j,i] < cutoff):
+            if D[j, i] < cutoff:
                 # adjustment to potentially avoid singularity
                 # equivalent radius of a disc load
-                radius = np.sqrt(dx*dy/np.pi)
+                radius = np.sqrt(dx * dy / np.pi)
                 # calculate distance at one half grid spacing
-                alpha = 0.5*radius/rad_e
+                alpha = 0.5 * radius / rad_e
                 # Bessel function up to LMAX
                 # multiply by 2.0 to account for the adjustment
-                Pl = 2.0*scipy.special.jv(0, (l + 0.5)*alpha)
+                Pl = 2.0 * scipy.special.j0((l + 0.5) * alpha)
+                dPl = 2.0 * scipy.special.j1((l + 0.5) * alpha)
             else:
                 # angular distance from central point
-                alpha = np.cos(D[j,i]/rad_e)
+                alpha = np.cos(D[j, i] / rad_e)
                 # Legendre polynomials up to LMAX
-                Ptemp,_ = gravtk.legendre_polynomials(LMAX, alpha)
+                P, dP = gravtk.legendre_polynomials(LMAX, alpha)
                 # unnormalizing Legendre polynomials
-                Pl = np.squeeze(Ptemp)/norm
+                Pl = np.squeeze(P) / norm
+                dPl = np.squeeze(dP) / norm
             # calculate Green's function
-            G[j,i] = scale*np.sum(hl*Pl)
+            if kwargs['VARIABLE'] == 'u':
+                G[j, i] = scale * np.sum(hl * Pl)
+            elif kwargs['VARIABLE'] == 'v':
+                G[j, i] = scale * np.sum(ll * dPl)
     # return the Green's function and the coordinates
     return (X, Y, G)

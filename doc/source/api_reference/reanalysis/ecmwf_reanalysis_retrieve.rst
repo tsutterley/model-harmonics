@@ -1,6 +1,6 @@
-============================
-ecmwf_reanalysis_retrieve.py
-============================
+================================
+``ecmwf_reanalysis_retrieve.py``
+================================
 
 - Retrieves ERA-Interim reanalysis netCDF4 datasets from the ECMWF Web API
 

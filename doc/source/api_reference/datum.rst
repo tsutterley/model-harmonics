@@ -1,6 +1,6 @@
-=====
-datum
-=====
+=========
+``datum``
+=========
 
 - Gravitational and ellipsoidal parameters :cite:p:`HofmannWellenhof:2006hy,Petit:2010tp`
 

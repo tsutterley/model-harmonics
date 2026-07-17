@@ -1,6 +1,6 @@
-=====================
-gesdisc_merra_sync.py
-=====================
+=========================
+``gesdisc_merra_sync.py``
+=========================
 
 - Syncs MERRA-2 surface mass balance (SMB) related products from the Goddard Earth Sciences Data and Information Server Center (GES DISC)
 - ``tavgM_2d_int`` (Vertically Integrated Diagnostics) collection:

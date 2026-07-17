@@ -1,6 +1,6 @@
-=========
-utilities
-=========
+=============
+``utilities``
+=============
 
 Download and management utilities for syncing time and auxiliary files
 

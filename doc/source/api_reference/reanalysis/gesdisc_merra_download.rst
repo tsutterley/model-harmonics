@@ -1,6 +1,6 @@
-=========================
-gesdisc_merra_download.py
-=========================
+=============================
+``gesdisc_merra_download.py``
+=============================
 
 - Downloads MERRA-2 products using a links list provided by the Goddard Earth Sciences Data and Information Server Center (GES DISC)
 

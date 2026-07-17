@@ -1,6 +1,6 @@
-===================================
-reanalysis_atmospheric_harmonics.py
-===================================
+=======================================
+``reanalysis_atmospheric_harmonics.py``
+=======================================
 
 - Reads atmospheric geopotential heights fields from reanalysis and calculates sets of spherical harmonics using a 3D geometry :cite:p:`Boy:2005el,Swenson:2002kf`
 

@@ -1,6 +1,6 @@
-================
-jpl_ecco_sync.py
-================
+====================
+``jpl_ecco_sync.py``
+====================
 
 - Syncs ECCO Near Real-Time model outputs from the `NASA JPL ECCO Drive server <https://ecco.jpl.nasa.gov/drive/files/NearRealTime/Readme>`_
 
