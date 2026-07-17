@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 gen_atmosphere_stokes.py
-Written by Tyler Sutterley (03/2023)
+Written by Tyler Sutterley (07/2026)
 Calculates spherical harmonic fields from 3D atmospheric geopotential
     height and pressure difference fields
 
@@ -27,6 +27,7 @@ OPTIONS:
     MMAX: Upper bound of Spherical Harmonic Orders (default = LMAX)
     ELLIPSOID: reference ellipsoid name
     GEOID: geoid height
+    WEIGHT: custom latitudinal weighting function for gridded data
     PLM: input Legendre polynomials
     LOVE: input load Love numbers up to degree LMAX (hl,kl,ll)
     METHOD: method of integrating over pressure levels
@@ -91,6 +92,7 @@ def gen_atmosphere_stokes(
     MMAX=None,
     ELLIPSOID=None,
     GEOID=None,
+    WEIGHT=None,
     PLM=None,
     LOVE=None,
     METHOD='BC05',
@@ -114,9 +116,11 @@ def gen_atmosphere_stokes(
     MMAX: int or NoneType, default None
         Upper bound of Spherical Harmonic Orders
     ELLIPSOID: str or NoneType, default None
-        reference ellipsoid name
+        Reference ellipsoid name
     GEOID: np.ndarray or NoneType, default None
-        geoid height
+        Geoid height
+    WEIGHT: np.ndarray or NoneType, default None
+        Custom latitudinal weighting function for gridded data
     PLM: np.ndarray or NoneType, default None
         Legendre polynomials
     LOVE: tuple or NoneType, default None
@@ -146,10 +150,6 @@ def gen_atmosphere_stokes(
 
     # number of pressure levels, longitudes and latitudes
     nlevels, nlat, nlon = np.shape(GPH)
-    # grid step size in radians
-    dphi = np.radians(np.abs(lon[1] - lon[0]))
-    dth = np.radians(np.abs(lat[1] - lat[0]))
-
     # calculate longitudes and colatitudes in radians
     phi = np.radians(np.squeeze(lon))
     th = np.radians(90.0 - np.squeeze(lat))
@@ -174,9 +174,18 @@ def gen_atmosphere_stokes(
     # SH Degree dependent factors with indirect loading components
     factors = gravtk.units(lmax=LMAX, a_axis=100.0 * a_axis, flat=flat)
     dfactor = factors.spatial(*LOVE).mmwe
-    # Multiplying sin(th) with differentials of theta and phi
-    # to calculate the integration factor at each latitude
-    int_fact = np.sin(th) * dphi * dth
+    # use an integration factor for gridded data or
+    # calculate from sin(theta)*dtheta*dphi
+    int_fact = np.zeros((nlat))
+    if WEIGHT is not None:
+        # Weighting function for integrating gridded data
+        int_fact[:] = np.broadcast_to(np.atleast_1d(WEIGHT), nlat)
+    else:
+        # Multiplying sin(th) with differentials of theta and phi
+        # to calculate the integration factor at each latitude
+        dphi = np.abs(phi[1] - phi[0])
+        dth = np.abs(th[1] - th[0])
+        int_fact[:] = np.sin(th) * dphi * dth
 
     # Calculating cos/sin of phi arrays
     # output [m,phi]
