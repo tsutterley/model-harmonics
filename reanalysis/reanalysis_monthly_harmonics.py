@@ -387,7 +387,7 @@ def reanalysis_monthly_harmonics(
             if REDISTRIBUTE and WEIGHT:
                 # calculate area of each grid cell
                 W = np.kron(np.ones((1, nlon)), weight[:, np.newaxis])
-                AREA = M * N * W * dphi
+                AREA = M * N * W
                 # calculate total area of oceanic points
                 TOTAL_AREA = np.sum(AREA[ii, jj])
                 # evenly redistribute pressure over oceanic points

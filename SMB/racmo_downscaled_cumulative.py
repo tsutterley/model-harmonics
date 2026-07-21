@@ -834,6 +834,8 @@ def arguments():
     # 5.0: RACMO2.3p2/FGRN055/DS1km
     # 6.0: RACMO2.3p2/FGRN055/DS1km
     # 6.0: RACMO2.3p2/XANT27/DS2km
+    # 6.1: RACMO2.3p2/FGRN055/DS1km
+    # 6.1: RACMO2.3p2/ANT27/DS2km
     parser.add_argument(
         '--version',
         '-v',

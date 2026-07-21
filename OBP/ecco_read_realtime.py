@@ -255,7 +255,7 @@ def ecco_read_realtime(
                         1.0 - e12 * np.cos(theta) ** 2, 1.5
                     )
                     # calculate area of each grid cell
-                    area = (M * dth) * (N * np.sin(theta) * dphi)
+                    area = (M * dth[k]) * (N * np.sin(theta) * dphi)
                     # calculate the grid point weight in newtons
                     newtons = obp.data[k, :, t] * area
                     # finding ocean points at each lat

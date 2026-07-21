@@ -258,8 +258,8 @@ def calculate_GIA_uplift(
     flat = crs2.ellipsoid.inverse_flattening**-1
     # calculate geocentric latitude and convert to degrees
     latitude_geocentric = mdlhmc.spatial.geocentric_latitude(
-        latitude_geodetic,
         gridlon,
+        latitude_geodetic,
         a_axis=a_axis,
         flat=flat,
     )

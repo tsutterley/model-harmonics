@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 ucar_gdex_jra3q_surface.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (07/2026)
 
 Downloads JRA-3Q surface analysis products provided by the
     NCAR/UCAR Geoscience Data Exchange (GDEX)
@@ -31,7 +31,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
-    Written 07/2025
+    Written 07/2026
 """
 
 from __future__ import print_function
