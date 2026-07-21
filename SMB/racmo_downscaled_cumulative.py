@@ -16,8 +16,10 @@ COMMAND LINE OPTIONS:
             4.0: RACMO2.3p2/FGRN055/DS1km
             5.0: RACMO2.3p2/FGRN055/DS1km
             6.0: RACMO2.3p2/FGRN055/DS1km
+            6.1: RACMO2.3p2/FGRN055/DS1km
         ais:
             6.0: RACMO2.3/XANT27/DS2km
+            6.1: RACMO2.3/ANT27/DS2km
     --product: RACMO product to calculate
         SMB: Surface Mass Balance
         PRECIP: Precipitation
@@ -33,6 +35,7 @@ PROGRAM DEPENDENCIES:
     time.py: utilities for calculating time operations
 
 UPDATE HISTORY:
+    Updated 07/2026: added version 6.1 for Greenland and Antarctica
     Updated 06/2024: added version 6.0 for Greenland and Antarctica
         RACMO2.3p2/FGRN055/DS1km for 1958-2023
         RACMO2.3p2/XANT27/DS2km for 1979-2023
@@ -56,7 +59,6 @@ import sys
 import re
 import uuid
 import gzip
-import pyproj
 import logging
 import netCDF4
 import pathlib
@@ -110,7 +112,7 @@ def get_dimensions(input_dir, VERSION, PRODUCT, GZIP=False):
     # regular expression operator for finding variables
     regex = re.compile(VARIABLE, re.VERBOSE | re.IGNORECASE)
     # if reading yearly files or compressed files
-    if VERSION in ('1.0', '4.0', '5.0', '6.0'):
+    if VERSION in ('1.0', '4.0', '5.0', '6.0', '6.1'):
         # find input files
         pattern = rf'{VARIABLE}.(\d+).BN_(.*?).MM.nc(\.gz)?'
         rx = re.compile(pattern, re.VERBOSE | re.IGNORECASE)
@@ -243,6 +245,31 @@ def yearly_file_cumulative(
         ii, jj = np.nonzero((promicemask >= 1) & (promicemask <= 3))
         dinput['MASK'] = np.zeros((ny, nx), dtype=np.int8)
         dinput['MASK'][ii, jj] = 1
+    elif (VERSION == '6.1') and (REGION.lower() == 'gris'):
+        f1 = f'GrIS_topo_icemask_lsm_lon_lat_1km.nc{gz}'
+        input_mask_file = input_dir.parents[1].joinpath(f1)
+        if GZIP:
+            # read bytes from compressed file
+            fd = gzip.open(str(input_mask_file), 'rb')
+            # read netCDF file for topography and ice classes from bytes
+            fileID = netCDF4.Dataset(
+                uuid.uuid4().hex, mode='r', memory=fd.read()
+            )
+        else:
+            # read netCDF file for topography and ice classes
+            fileID = netCDF4.Dataset(input_mask_file, mode='r')
+        # Getting the data from each netCDF variable
+        dinput['LON'] = np.array(fileID.variables['LON'][:, :])
+        dinput['LAT'] = np.array(fileID.variables['LAT'][:, :])
+        dinput['x'] = np.array(fileID.variables['x'][:])
+        dinput['y'] = np.array(fileID.variables['y'][:])
+        promicemask = np.array(fileID.variables['Promicemask'][:, :])
+        # close the compressed file objects
+        fd.close() if GZIP else fileID.close()
+        # find ice sheet points from promicemask that valid
+        ii, jj = np.nonzero((promicemask >= 1) & (promicemask <= 3))
+        dinput['MASK'] = np.zeros((ny, nx), dtype=np.int8)
+        dinput['MASK'][ii, jj] = 1
 
     # for each file of interest
     for t in range(n_files):
@@ -268,9 +295,9 @@ def yearly_file_cumulative(
             dinput['MASK'][:, :] = fileID.variables['icemask'][:, :].astype(
                 np.int8
             )
-        elif VERSION == '6.0':
+        elif (VERSION == '6.0') or (VERSION == '6.1' and REGION == 'ais'):
             # extract coordinates
-            if ERA5_3h:
+            if ERA5_3h or (VERSION == '6.1' and REGION == 'ais'):
                 dinput['x'][:] = fileID.variables['x'][:].copy()
                 dinput['y'][:] = fileID.variables['y'][:].copy()
             else:
@@ -651,8 +678,10 @@ def racmo_downscaled_cumulative(
                 - ``4.0``: RACMO2.3p2/FGRN055/DS1km
                 - ``5.0``: RACMO2.3p2/FGRN055/DS1km
                 - ``6.0``: RACMO2.3p2/FGRN055/DS1km
+                - ``6.1``: RACMO2.3p2/FGRN055/DS1km
             - ``'ais'``:
                 - ``6.0``: RACMO2.3/XANT27/DS2km
+                - ``6.1``: RACMO2.3/ANT27/DS2km
     PRODUCT: str
         RACMO product to calculate
 
@@ -716,6 +745,18 @@ def racmo_downscaled_cumulative(
         var = input_products[PRODUCT]
         VARNAME = var if (PRODUCT == 'SMB') else f'{var}corr'
         input_dir = base_dir.joinpath('AIS-2km')
+        file_type = 'yearly'
+    elif (VERSION == '6.1') and (REGION == 'gris'):
+        RACMO_MODEL = ['FGRN055', '2.3p2', 'DS1km']
+        var = input_products[PRODUCT]
+        VARNAME = var if (PRODUCT == 'SMB') else f'{var}corr'
+        input_dir = base_dir.joinpath('GrIS-1km', 'Monthly-1km', var.lower())
+        file_type = 'yearly'
+    elif (VERSION == '6.1') and (REGION == 'ais'):
+        RACMO_MODEL = ['ANT27', '2.3p2', 'DS2km']
+        var = input_products[PRODUCT]
+        VARNAME = var if (PRODUCT == 'SMB') else f'{var}corr'
+        input_dir = base_dir.joinpath('AIS-2km', 'Monthly-2km', var.lower())
         file_type = 'yearly'
 
     # read mean from netCDF4 file
@@ -793,13 +834,11 @@ def arguments():
     # 5.0: RACMO2.3p2/FGRN055/DS1km
     # 6.0: RACMO2.3p2/FGRN055/DS1km
     # 6.0: RACMO2.3p2/XANT27/DS2km
-    choices = ['1.0', '2.0', '3.0', '4.0', '5.0', '6.0']
     parser.add_argument(
         '--version',
         '-v',
         type=str,
         default='6.0',
-        choices=choices,
         help='Downscaled RACMO Version',
     )
     # Products to calculate cumulative

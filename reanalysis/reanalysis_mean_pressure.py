@@ -12,6 +12,7 @@ INPUTS:
     NCEP-DOE-2: https://www.esrl.noaa.gov/psd/data/gridded/data.ncep.reanalysis2.html
     NCEP-CFSR: https://rda.ucar.edu/datasets/ds093.1/
     JRA-55: http://jra.kishou.go.jp/JRA-55/index_en.html
+    JRA-3Q: https://www.data.jma.go.jp/jra/html/JRA-3Q/index_en.html
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
@@ -47,6 +48,7 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 07/2026: added JRA-3Q reanalysis to list of models
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -164,6 +166,20 @@ def reanalysis_mean_pressure(
         ZNAME = 'GP_GDS0_SFC'
         LONNAME = 'g0_lon_1'
         LATNAME = 'g0_lat_0'
+        TIMENAME = 'time'
+    elif MODEL == 'JRA-3Q':
+        # invariant parameters file
+        input_invariant_file = (
+            'jra3q.tl479_surf.0_3_4.gp-sfc-cn-gauss.1947090100_1947090100.nc'
+        )
+        # regular expression pattern for finding files
+        regex_pattern = r'jra3q\.anl_surf\.pres-sfc-an-gauss\.({0})(\d+).nc$'
+        # output file format
+        output_file_format = 'jra3q.mean.pres-sfc-an-gauss.{0:4d}-{1:4d}.nc'
+        VARNAME = 'pres-sfc-an-gauss'
+        ZNAME = 'gp-sfc-cn-gauss'
+        LONNAME = 'lon'
+        LATNAME = 'lat'
         TIMENAME = 'time'
 
     # read model orography for dimensions
@@ -292,6 +308,7 @@ def arguments():
         'NCEP-DOE-2',
         'NCEP-CFSR',
         'JRA-55',
+        'JRA-3Q',
     ]
     parser.add_argument(
         'model',

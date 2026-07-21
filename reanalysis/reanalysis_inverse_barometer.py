@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 reanalysis_inverse_barometer.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (07/2026)
 Reads hourly mean sea level pressure fields from reanalysis and
     calculates the inverse-barometer response
 
@@ -38,6 +38,7 @@ REFERENCES:
         https://doi.org/10.1007/978-3-211-33545-1
 
 UPDATE HISTORY:
+    Updated 07/2026: use authalic area for the grid cell areas
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: use full path to output file in verbose logging
     Updated 12/2022: single implicit import of spherical harmonic tools
@@ -174,28 +175,21 @@ def reanalysis_inverse_barometer(
     # calculate colatitude
     gridtheta = np.radians(90.0 - gridlat)
 
-    # ellipsoidal parameters of WGS84 ellipsoid
-    # semimajor axis of the ellipsoid [m]
-    a_axis = 6378137.0
-    # flattening of the ellipsoid
-    flat = 1.0 / 298.257223563
-    # semiminor axis of the ellipsoid [m]
-    b_axis = (1.0 - flat) * a_axis
-    # calculate grid areas globally
-    AREA = (
-        dphi
-        * dth
-        * np.sin(gridtheta)
-        * np.sqrt(
-            (a_axis**2)
-            * (b_axis**2)
-            * (
-                (np.sin(gridtheta) ** 2) * (np.cos(gridphi) ** 2)
-                + (np.sin(gridtheta) ** 2) * (np.sin(gridphi) ** 2)
-            )
-            + (a_axis**4) * (np.cos(gridtheta) ** 2)
-        )
-    )
+    # get reference parameters for ellipsoid
+    ellipsoid_params = mdlhmc.datum(ellipsoid='WGS84')
+    # semimajor and semiminor axes of the ellipsoid [m]
+    a_axis = ellipsoid_params.a_axis
+    # first numerical eccentricity
+    ecc1 = ellipsoid_params.ecc1
+    e12 = ecc1**2.0
+    # convert from geodetic latitude to geocentric latitude
+    # radius of curvature in prime vertical direction (east-west)
+    N = a_axis / np.sqrt(1.0 - e12 * np.cos(gridtheta) ** 2.0)
+    # radius of curvature in meridional direction (north-south)
+    M = a_axis * (1.0 - e12) / (1.0 - e12 * np.cos(gridtheta) ** 2) ** 1.5
+    # calculate area of each grid cell
+    AREA = (M * dth) * (N * np.sin(gridtheta) * dphi)
+
     # read land-sea mask to find ocean values
     # ocean pressure points will be based on reanalysis mask
     MASK = ncdf_landmask(ddir.joinpath(input_mask_file), MASKNAME, OCEAN)

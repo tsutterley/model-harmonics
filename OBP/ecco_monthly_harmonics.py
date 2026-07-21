@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 ecco_monthly_harmonics.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (07/2026)
 Reads monthly ECCO ocean bottom pressure anomalies and converts to
     spherical harmonic coefficients
 
@@ -65,6 +65,8 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 07/2026: interpolate EGM2008 from full resolution to ECCO grid
+        use to_cartesian function to get the XYZ coordinates
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
         updated inputs to spatial from_ascii function
@@ -153,7 +155,6 @@ def ecco_monthly_harmonics(
         LAT_MAX = 78.5
         extent = [0.5, 359.5, -LAT_MAX, LAT_MAX]
         input_depth_file = ddir.joinpath('depth.nc')
-        input_geoid_file = ddir.joinpath('egm_2008.nc')
         # indices to read
         indices = np.arange(1, 2 * LAT_MAX + 2).astype(np.int64)
     elif MODEL in ('Cube92',):
@@ -164,7 +165,6 @@ def ecco_monthly_harmonics(
         # grid extent
         extent = [0.125, 359.875, -89.875, 89.875]
         input_depth_file = ddir.joinpath('DEPTH.2020.1440x720.nc')
-        input_geoid_file = ddir.joinpath('EGM_2008.1440x720.nc')
         # indices to read (all)
         indices = Ellipsis
     elif MODEL in ('V4r3', 'V4r4'):
@@ -175,7 +175,6 @@ def ecco_monthly_harmonics(
         # grid extent
         extent = [-179.75, 179.75, -89.75, 89.75]
         input_depth_file = ddir.joinpath('DEPTH.2020.720x360.nc')
-        input_geoid_file = ddir.joinpath('EGM_2008.720x360.nc')
         # indices to read (all)
         indices = Ellipsis
 
@@ -195,34 +194,24 @@ def ecco_monthly_harmonics(
     # create mesh grids of datasets
     gridlon, gridlat = np.meshgrid(glon, glat)
 
-    # read geoid and depth to calculate bathymetry
+    # read depth to calculate bathymetry
     depth = ncdf_depth(input_depth_file, indices=indices)
-    geoid_undulation, gridstep = ncdf_geoid(input_geoid_file, indices=indices)
+    # interpolate geoid undulation from EGM2008 to the ECCO grid
+    geoid_undulation = geoidtk.interpolate.geoid_height(
+        glon, glat, model='EGM2008', tide_system='mean_tide'
+    )
     bathymetry = geoid_undulation - depth
 
     # Earth Parameters
     ellipsoid_params = mdlhmc.datum(ellipsoid='WGS84')
     # semimajor axis of ellipsoid [m]
     a_axis = ellipsoid_params.a_axis
-    # first numerical eccentricity
-    ecc1 = ellipsoid_params.ecc1
-    # convert from geodetic latitude to geocentric latitude
-    # geodetic latitude in radians
-    latitude_geodetic_rad = np.radians(gridlat)
-    # prime vertical radius of curvature
-    N = a_axis / np.sqrt(1.0 - ecc1**2.0 * np.sin(latitude_geodetic_rad) ** 2.0)
-    # calculate X, Y and Z from geodetic latitude and longitude
-    X = (
-        (N + bathymetry)
-        * np.cos(latitude_geodetic_rad)
-        * np.cos(np.radians(gridlon))
+    # ellipsoidal flattening
+    flat = ellipsoid_params.flat
+    # convert to cartesian coordinates and calculate radius of each point
+    X, Y, Z = geoidtk.spatial.to_cartesian(
+        gridlon, gridlat, h=bathymetry, a_axis=a_axis, flat=flat
     )
-    Y = (
-        (N + bathymetry)
-        * np.cos(latitude_geodetic_rad)
-        * np.sin(np.radians(gridlon))
-    )
-    Z = (N * (1.0 - ecc1**2.0) + bathymetry) * np.sin(latitude_geodetic_rad)
     R = np.sqrt(X**2.0 + Y**2.0 + Z**2.0)
     # calculate geocentric latitude and convert to degrees
     latitude_geocentric = np.degrees(np.arctan(Z / np.sqrt(X**2.0 + Y**2.0)))
@@ -293,7 +282,6 @@ def ecco_monthly_harmonics(
         # attributes for input files
         attributes['lineage'] = []
         attributes['lineage'].append(input_depth_file.name)
-        attributes['lineage'].append(input_geoid_file.name)
         attributes['lineage'].append(input_file.name)
         # add attributes to output harmonics
         obp_Ylms.attributes['ROOT'] = attributes
@@ -348,15 +336,6 @@ def ncdf_depth(FILENAME, indices=Ellipsis):
         fill_value = fileID.variables['depth']._FillValue
         depth[depth == fill_value] = 0.0
     return depth
-
-
-# PURPOSE: read geoid height netCDF4 files from read_gfz_geoid_grids.py
-def ncdf_geoid(FILENAME, indices=Ellipsis):
-    logging.debug(str(FILENAME))
-    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
-        geoid_undulation = np.array(fileID.variables['geoid'][indices, :])
-        gridstep = [float(s) for s in fileID.gridstep.split(',')]
-    return (geoid_undulation, np.squeeze(gridstep))
 
 
 # PURPOSE: create argument parser
