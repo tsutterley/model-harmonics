@@ -284,6 +284,7 @@ def reanalysis_monthly_harmonics(
     # output subdirectory
     args = (MODEL.upper(), LMAX, order_str, ocean_str)
     output_dir = ddir.joinpath('{0}_CLM_L{1:d}{2}{3}'.format(*args))
+    output_dir.mkdir(mode=MODE, parents=True, exist_ok=True)
     # attributes for output files
     attributes = {}
     # attributes for output files
@@ -297,6 +298,8 @@ def reanalysis_monthly_harmonics(
         mean_file, VARNAME, LONNAME, LATNAME
     )
     nlat, nlon = np.shape(mean_pressure)
+    # required order of dimensions
+    dimensions = [TIMENAME, LATNAME, LONNAME]
     # calculate colatitude
     theta = np.radians(90.0 - lat)
     # calculate meshgrid from latitude and longitude
@@ -359,6 +362,10 @@ def reanalysis_monthly_harmonics(
                 pressure = ncdf_expver(fileID, VARNAME)
             else:
                 pressure = fileID.variables[VARNAME][:].copy()
+            # reorder dimensions to match the required order
+            dims = fileID.variables[VARNAME].dimensions
+            order = [dims.index(d) for d in dimensions]
+            pressure = pressure.transpose(order)
             # read weights for non-uniform (e.g. gaussian) grids
             # or use standard weights for uniform grids
             if WEIGHT is not None:
@@ -516,6 +523,7 @@ def arguments():
         'NCEP-DOE-2',
         'NCEP-CFSR',
         'JRA-55',
+        'JRA-3Q',
     ]
     parser.add_argument(
         'model',

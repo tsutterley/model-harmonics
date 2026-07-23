@@ -31,6 +31,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 07/2026: output using gravity_toolkit spatial class
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: use full path to output file in verbose logging
     Updated 12/2022: single implicit import of spherical harmonic tools
@@ -48,10 +49,8 @@ UPDATE HISTORY:
 
 from __future__ import print_function
 
-import sys
 import re
 import logging
-import netCDF4
 import pathlib
 import argparse
 import datetime
@@ -66,6 +65,8 @@ def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
     ddir = base_dir.joinpath(MODEL)
 
+    # field mapping for different products
+    field_mapping = {}
     # set model specific parameters
     if MODEL == 'NCEP-DOE-2':
         # regular expression pattern for finding files
@@ -73,10 +74,10 @@ def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
         FILL_VALUE = 'missing_value'
         # output file format
         output_file_format = 'pres.sfc.mon.mean.{0:4d}.nc'
-        VARNAME = 'pres'
-        LONNAME = 'lon'
-        LATNAME = 'lat'
-        TIMENAME = 'time'
+        field_mapping['data'] = 'pres'
+        field_mapping['lon'] = 'lon'
+        field_mapping['lat'] = 'lat'
+        field_mapping['time'] = 'time'
 
     # for each year
     for YEAR in YEARS:
@@ -91,20 +92,13 @@ def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
         # for each input file
         for i, input_file in enumerate(input_files):
             # read input data
-            p = (
-                gravtk.spatial()
-                .from_netCDF4(
-                    input_file,
-                    varname=VARNAME,
-                    timename=TIMENAME,
-                    lonname=LONNAME,
-                    latname=LATNAME,
-                )
-                .transpose(axes=(1, 2, 0))
+            p = gravtk.spatial().from_netCDF4(
+                input_file,
+                field_mapping=field_mapping,
             )
+            # reorder dimensions to match the required order
+            p = p.transpose(axes=(1, 2, 0))
             p.fill_value = p.attributes['data'][FILL_VALUE]
-            TIME_UNITS = p.attributes['time']['units']
-            TIME_LONGNAME = p.attributes['time']['long_name']
             # iterate over months
             for m in range(0, 12):
                 # for each day in the month
@@ -117,93 +111,25 @@ def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
                     p_mean[m].month = m + 1
 
         # mean pressure for each month
-        p_month = gravtk.spatial().from_list(p_mean).transpose(axes=(2, 0, 1))
-        # convert to python dictionary for output to netCDF4
-        dinput = {}
-        dinput[VARNAME] = p_month.to_masked_array()
-        dinput[LATNAME] = np.copy(p_month.lat)
-        dinput[LONNAME] = np.copy(p_month.lon)
-        dinput[TIMENAME] = np.copy(p_month.time)
-
+        p_month = gravtk.spatial().from_list(p_mean)
+        # copy global attributes from input file
+        p_month.attributes = p.attributes
+        # copy attributes for each output field
+        for field, key in field_mapping.items():
+            p_month.attributes[key] = p.attributes.get(field)
         # save to file
-        output_file = ddir.joinpath(output_file_format.format(YEAR))
-        ncdf_pressure_write(
-            dinput,
-            p.fill_value,
-            FILENAME=output_file,
-            VARNAME=VARNAME,
-            LONNAME=LONNAME,
-            LATNAME=LATNAME,
-            TIMENAME=TIMENAME,
-            TIME_UNITS=TIME_UNITS,
-            TIME_LONGNAME=TIME_LONGNAME,
+        filename = output_file_format.format(YEAR)
+        output = ddir.joinpath(filename)
+        logging.info(f'\t{output}')
+        # write monthly data to netCDF4 file
+        p_month.to_netCDF4(
+            output,
+            field_mapping=field_mapping,
+            attributes=p_month.attributes,
+            clobber=True,
         )
         # set the permissions level of the output file to MODE
-        output_file.chmod(mode=MODE)
-
-
-# PURPOSE: write output pressure fields data to file
-def ncdf_pressure_write(
-    dinput,
-    fill_value,
-    FILENAME=None,
-    VARNAME=None,
-    LONNAME=None,
-    LATNAME=None,
-    TIMENAME=None,
-    TIME_UNITS=None,
-    TIME_LONGNAME=None,
-):
-    # opening netCDF4 file for writing
-    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME, 'w', format='NETCDF4')
-
-    # Defining the netCDF4 dimensions
-    # defining the netCDF4 variables
-    nc = {}
-    for key in [LONNAME, LATNAME, TIMENAME]:
-        fileID.createDimension(key, len(dinput[key]))
-        nc[key] = fileID.createVariable(key, dinput[key].dtype, (key,))
-    # defining the main netCDF4 variable
-    nc[VARNAME] = fileID.createVariable(
-        VARNAME,
-        dinput[VARNAME].dtype,
-        (
-            TIMENAME,
-            LATNAME,
-            LONNAME,
-        ),
-        fill_value=fill_value,
-        zlib=True,
-    )
-    # filling netCDF4 variables
-    for key, val in dinput.items():
-        nc[key][:] = np.copy(val)
-
-    # Defining attributes for longitude and latitude
-    nc[LONNAME].long_name = 'longitude'
-    nc[LONNAME].units = 'degrees_east'
-    nc[LATNAME].long_name = 'latitude'
-    nc[LATNAME].units = 'degrees_north'
-    # Defining attributes for time
-    nc[TIMENAME].units = TIME_UNITS
-    nc[TIMENAME].long_name = TIME_LONGNAME
-    # Defining attributes for pressure
-    nc[VARNAME].units = 'Pa'
-    nc[VARNAME].long_name = 'mean_surface_pressure'
-    # add software information
-    fileID.software_reference = mdlhmc.version.project_name
-    fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
-    # date created
-    fileID.date_created = datetime.datetime.now().isoformat()
-
-    # Output NetCDF structure information
-    logging.info(str(FILENAME))
-    logging.info(list(fileID.variables.keys()))
-
-    # Closing the NetCDF file
-    fileID.close()
+        output.chmod(mode=MODE)
 
 
 # PURPOSE: create argument parser

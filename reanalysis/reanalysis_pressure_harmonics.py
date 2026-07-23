@@ -324,6 +324,8 @@ def reanalysis_pressure_harmonics(
         mean_file, VARNAME, LONNAME, LATNAME
     )
     nlat, nlon = np.shape(mean_pressure)
+    # required order of dimensions
+    dimensions = [TIMENAME, LATNAME, LONNAME]
     # calculate colatitude
     theta = np.radians(90.0 - lat)
     # calculate meshgrid from latitude and longitude
@@ -417,6 +419,10 @@ def reanalysis_pressure_harmonics(
                 pressure = ncdf_expver(fileID, VARNAME)
             else:
                 pressure = fileID.variables[VARNAME][:].copy()
+            # reorder dimensions to match the required order
+            dims = fileID.variables[VARNAME].dimensions
+            order = [dims.index(d) for d in dimensions]
+            pressure = pressure.transpose(order)
             # read weights for non-uniform (e.g. gaussian) grids
             # or use standard weights for uniform grids
             if WEIGHT is not None:

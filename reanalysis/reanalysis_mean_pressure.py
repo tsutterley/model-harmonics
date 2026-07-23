@@ -187,6 +187,8 @@ def reanalysis_mean_pressure(
         ddir.joinpath(input_invariant_file), LONNAME, LATNAME, ZNAME
     )
     nlat, nlon = np.shape(geopotential)
+    # required order of dimensions
+    dimensions = [TIMENAME, LATNAME, LONNAME]
     # read each reanalysis pressure field and calculate mean
     regex_years = r'|'.join([rf'{Y:4d}' for Y in range(RANGE[0], RANGE[1] + 1)])
     rx = re.compile(regex_pattern.format(regex_years))
@@ -209,6 +211,10 @@ def reanalysis_mean_pressure(
                 pressure = ncdf_expver(fileID, VARNAME)
             else:
                 pressure = fileID.variables[VARNAME][:].copy()
+            # reorder dimensions to match the required order
+            dims = fileID.variables[VARNAME].dimensions
+            order = [dims.index(d) for d in dimensions]
+            pressure = pressure.transpose(order)
             # use output fill value
             p_mean.fill_value = fileID.variables[VARNAME]._FillValue
             # convert time to Modified Julian Days

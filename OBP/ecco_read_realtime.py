@@ -241,28 +241,29 @@ def ecco_read_realtime(
             obp_anomaly.time = gravtk.time.convert_calendar_decimal(
                 YY, MM, day=DD, hour=hh, minute=mm, second=ss
             )
+
+            # colatitude in radians
+            theta = np.radians(90.0 - obp.lat)
+            # radius of curvature in prime vertical direction (east-west)
+            N = a_axis / np.sqrt(1.0 - e12 * np.cos(theta) ** 2.0)
+            # radius of curvature in meridional direction (north-south)
+            M = (a_axis * (1.0 - e12)) / np.power(
+                1.0 - e12 * np.cos(theta) ** 2, 1.5
+            )
+            # calculate area of grid cells
+            area = (M * dth) * (N * np.sin(theta) * dphi)
             for t in range(0, nt):
                 # the global area average of each OBP map is removed
                 total_area = 0.0
                 total_newton = 0.0
                 for k in range(0, nlat):
-                    # Grid point areas (ellipsoidal)
-                    theta = np.radians(90.0 - obp.lat[k])
-                    # radius of curvature in prime vertical direction (east-west)
-                    N = a_axis / np.sqrt(1.0 - e12 * np.cos(theta) ** 2.0)
-                    # radius of curvature in meridional direction (north-south)
-                    M = (a_axis * (1.0 - e12)) / np.power(
-                        1.0 - e12 * np.cos(theta) ** 2, 1.5
-                    )
-                    # calculate area of each grid cell
-                    area = (M * dth[k]) * (N * np.sin(theta) * dphi)
                     # calculate the grid point weight in newtons
-                    newtons = obp.data[k, :, t] * area
+                    newtons = obp.data[k, :, t] * area[k]
                     # finding ocean points at each lat
                     (ocean_points,) = np.nonzero(~obp.mask[k, :, t])
-                    # total area
-                    total_area += np.sum(area[ocean_points])
-                    # total weight
+                    # total area of ocean points for latitude band
+                    total_area += area[k] * len(ocean_points)
+                    # total weight in newtons
                     total_newton += np.sum(newtons[ocean_points])
                 # remove global area average of each OBP map
                 ratio = total_newton / total_area
