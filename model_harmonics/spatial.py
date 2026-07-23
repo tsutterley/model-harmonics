@@ -10,6 +10,7 @@ PYTHON DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 07/2026: add HTML representations of mosaic and raster classes
+        add geocentric_radius function to calculate the radius at coordinates
     Updated 09/2025: use importlib to attempt to import dependencies
     Updated 06/2024: added function for calculating latitude and longitude
     Updated 04/2024: changed polar stereographic area function to scale_factors
@@ -517,10 +518,55 @@ class mosaic:
 _wgs84 = datum(ellipsoid='WGS84', units='CGS')
 
 
+# PURPOSE: calculate the radius of an ellipsoid at a given location
+def geocentric_radius(
+    lon: np.ndarray,
+    lat: np.ndarray,
+    h: np.ndarray = 0.0,
+    a_axis: float = _wgs84.a_axis,
+    flat: float = _wgs84.flat,
+):
+    """
+    Calculates the radius of an ellipsoid at a given location
+    :cite:p:`Snyder:1982gf`
+
+    Parameters
+    ----------
+    lon: np.ndarray,
+        longitude (degrees east)
+    lat: np.ndarray,
+        geodetic latitude (degrees north)
+    h: np.ndarray, default 0.0
+        height above the ellipsoid (meters)
+    a_axis: float, default 6378137.0
+        semimajor axis of the ellipsoid
+    flat: float, default 1.0/298.257223563
+        ellipsoidal flattening
+
+    Returns
+    -------
+    radius: np.ndarray
+        radius of the ellipsoid at coordinates (meters)
+    """
+    # first numerical eccentricity
+    ecc1 = np.sqrt((2.0 * flat - flat**2) * a_axis**2) / a_axis
+    # geodetic latitude in radians
+    latitude_geodetic_rad = np.radians(lat)
+    # prime vertical radius of curvature
+    N = a_axis / np.sqrt(1.0 - ecc1**2.0 * np.sin(latitude_geodetic_rad) ** 2.0)
+    # calculate X, Y and Z from geodetic latitude and longitude
+    X = (N + h) * np.cos(latitude_geodetic_rad) * np.cos(np.radians(lon))
+    Y = (N + h) * np.cos(latitude_geodetic_rad) * np.sin(np.radians(lon))
+    Z = (N * (1.0 - ecc1**2.0) + h) * np.sin(latitude_geodetic_rad)
+    # calculate radius of the ellipsoid at coordinates
+    return np.sqrt(X**2.0 + Y**2.0 + Z**2.0)
+
+
 # PURPOSE: calculate the geocentric latitudes
 def geocentric_latitude(
     lon: np.ndarray,
     lat: np.ndarray,
+    h: np.ndarray = 0.0,
     a_axis: float = _wgs84.a_axis,
     flat: float = _wgs84.flat,
 ):
@@ -534,6 +580,8 @@ def geocentric_latitude(
         longitude (degrees east)
     lat: np.ndarray,
         geodetic latitude (degrees north)
+    h: np.ndarray, default 0.0
+        height above the ellipsoid (meters)
     a_axis: float, default 6378137.0
         semimajor axis of the ellipsoid
     flat: float, default 1.0/298.257223563
@@ -551,9 +599,9 @@ def geocentric_latitude(
     # prime vertical radius of curvature
     N = a_axis / np.sqrt(1.0 - ecc1**2.0 * np.sin(latitude_geodetic_rad) ** 2.0)
     # calculate X, Y and Z from geodetic latitude and longitude
-    X = N * np.cos(latitude_geodetic_rad) * np.cos(np.radians(lon))
-    Y = N * np.cos(latitude_geodetic_rad) * np.sin(np.radians(lon))
-    Z = (N * (1.0 - ecc1**2.0)) * np.sin(latitude_geodetic_rad)
+    X = (N + h) * np.cos(latitude_geodetic_rad) * np.cos(np.radians(lon))
+    Y = (N + h) * np.cos(latitude_geodetic_rad) * np.sin(np.radians(lon))
+    Z = (N * (1.0 - ecc1**2.0) + h) * np.sin(latitude_geodetic_rad)
     # calculate geocentric latitude and convert to degrees
     return np.degrees(np.arctan(Z / np.sqrt(X**2.0 + Y**2.0)))
 

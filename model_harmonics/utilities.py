@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 utilities.py
-Written by Tyler Sutterley (10/2024)
+Written by Tyler Sutterley (07/2026)
 Download and management utilities for syncing time and auxiliary files
 Adds additional modules to the gravity_toolkit utilities
 
@@ -10,6 +10,7 @@ PYTHON DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 07/2026: add functions to list from UCAR GDEX filelist servers
     Updated 10/2024: update CMR search utility to replace deprecated scrolling
         https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html
     Updated 11/2023: updated ssl context to fix deprecation error
@@ -189,6 +190,84 @@ def gesdisc_list(
             lastmod = [lastmod[indice] for indice in i]
         # return the list of column names and last modified times
         return (colnames, lastmod)
+
+
+def ucar_list(
+    HOST: str | list,
+    tdclass: str = 'File Name',
+    timeout: int | None = None,
+    context: ssl.SSLContext = _default_ssl_context,
+    parser=lxml.etree.HTMLParser(),
+    format: str = '%Y-%m-%d',
+    pattern: str = '',
+    sort: bool = False,
+):
+    """
+    List a directory on UCAR GDEX filelist servers
+
+    Parameters
+    ----------
+    HOST: str or list
+        remote http host path
+    tdclass: str, default "File Name"
+        class for HTML cell elements
+    timeout: int or NoneType, default None
+        timeout in seconds for blocking operations
+    context: obj, default model_harmonics.utilities._default_ssl_context
+        SSL context for ``urllib`` opener object
+    parser: obj, default lxml.etree.HTMLParser()
+        HTML parser for ``lxml``
+    format: str, default '%Y-%m-%d'
+        format for input time string
+    pattern: str, default ''
+        regular expression pattern for reducing list
+    sort: bool, default False
+        sort output list
+
+    Returns
+    -------
+    colnames: list
+        column names in a directory
+    collastmod: list
+        last modification times for items in the directory
+    """
+    # verify inputs for remote http host
+    if isinstance(HOST, str):
+        HOST = url_split(HOST)
+    # try listing from http
+    try:
+        # Create and submit request.
+        request = urllib2.Request(posixpath.join(*HOST))
+        response = urllib2.urlopen(request, timeout=timeout, context=context)
+    except (urllib2.HTTPError, urllib2.URLError):
+        raise Exception('List error from {0}'.format(posixpath.join(*HOST)))
+    else:
+        # read and parse request for files (column names and modified times)
+        tree = lxml.etree.parse(response, parser)
+        # columns are in 'File Name' cells
+        # column links do not have target attributes (used for metadata)
+        colnames = tree.xpath(
+            f'//td[@class="{tdclass}"]//a[not(@target)]/@href'
+        )
+        # get the Unix timestamp value for a modification time
+        collastmod = [
+            get_unix_time(i, format=format)
+            for i in tree.xpath('//td[@class="Date Archived"]/text()')
+        ]
+        # reduce using regular expression pattern
+        if pattern:
+            i = [i for i, f in enumerate(colnames) if re.search(pattern, f)]
+            # reduce list of column names and last modified times
+            colnames = [colnames[indice] for indice in i]
+            collastmod = [collastmod[indice] for indice in i]
+        # sort the list
+        if sort:
+            i = [i for i, j in sorted(enumerate(colnames), key=lambda i: i[1])]
+            # sort list of column names and last modified times
+            colnames = [colnames[indice] for indice in i]
+            collastmod = [collastmod[indice] for indice in i]
+        # return the list of column names and last modified times
+        return (colnames, collastmod)
 
 
 # PURPOSE: filter the CMR json response for desired data files

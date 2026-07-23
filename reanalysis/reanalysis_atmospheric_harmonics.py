@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 reanalysis_atmospheric_harmonics.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (07/2026)
 Reads atmospheric geopotential heights fields from reanalysis and calculates
     sets of spherical harmonics using a 3D geometry
 
@@ -70,6 +70,8 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 07/2026: use authalic area for the grid cell areas
+        interpolate EGM2008 from full resolution to reanalysis grid
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
     Updated 02/2023: use love numbers class with additional attributes
@@ -112,6 +114,7 @@ import datetime
 import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
+import geoid_toolkit as geoidtk
 
 
 # PURPOSE: read atmospheric 3D geopotential height fields
@@ -137,8 +140,6 @@ def reanalysis_atmospheric_harmonics(
     if MODEL == 'ERA-Interim':
         # invariant parameters file
         input_invariant_file = 'ERA-Interim-Invariant-Parameters.nc'
-        # geoid file from read_gfz_geoid_grids.py
-        input_geoid_file = 'ERA-Interim-EGM2008-geoid.nc'
         # input land-sea mask for ocean redistribution
         input_mask_file = 'ERA-Interim-Invariant-Parameters.nc'
         # regular expression pattern for finding files
@@ -158,8 +159,6 @@ def reanalysis_atmospheric_harmonics(
     elif MODEL == 'ERA5':
         # invariant parameters file
         input_invariant_file = 'ERA5-Invariant-Parameters.nc'
-        # geoid file from read_gfz_geoid_grids.py
-        input_geoid_file = 'ERA5-EGM2008-geoid.nc'
         # input land-sea mask for ocean redistribution
         input_mask_file = 'ERA5-Invariant-Parameters.nc'
         # regular expression pattern for finding files
@@ -179,8 +178,6 @@ def reanalysis_atmospheric_harmonics(
     elif MODEL == 'MERRA-2':
         # invariant parameters file
         input_invariant_file = 'MERRA2_101.const_2d_asm_Nx.00000000.nc4'
-        # geoid file form read_gfz_geoid_grids.py
-        input_geoid_file = 'MERRA2_101.EGM2008_Nx.00000000.nc4'
         # input land-sea mask for ocean redistribution
         input_mask_file = 'MERRA2_101.const_2d_asm_Nx.00000000.nc4'
         # regular expression pattern for finding files
@@ -241,42 +238,34 @@ def reanalysis_atmospheric_harmonics(
 
     # calculate Legendre polynomials
     PLM, dPLM = gravtk.plm_holmes(LMAX, np.cos(theta))
-    # read geoid heights and grid step size
-    geoid, gridstep = ncdf_geoid(ddir.joinpath(input_geoid_file))
-    nlat, nlon = np.shape(geoid)
+    # interpolate geoid heights
+    geoid = geoidtk.interpolate.geoid_height(
+        lon, lat, model='EGM2008', tide_system='mean_tide'
+    )
 
     # get reference parameters for ellipsoid
     ellipsoid_params = mdlhmc.datum(ellipsoid=ELLIPSOID)
     # semimajor and semiminor axes of the ellipsoid [m]
     a_axis = ellipsoid_params.a_axis
     b_axis = ellipsoid_params.b_axis
+    # first numerical eccentricity
+    ecc1 = ellipsoid_params.ecc1
+    e12 = ecc1**2.0
+    # convert from geodetic latitude to geocentric latitude
+    # radius of curvature in prime vertical direction (east-west)
+    N = a_axis / np.sqrt(1.0 - e12 * np.cos(gridtheta) ** 2.0)
+    # radius of curvature in meridional direction (north-south)
+    M = a_axis * (1.0 - e12) / (1.0 - e12 * np.cos(gridtheta) ** 2) ** 1.5
 
     # step size in radians
-    if np.ndim(gridstep) == 0:
-        dphi = np.radians(gridstep)
-        dth = np.radians(gridstep)
-    else:  # dlon ne dlat
-        dphi = np.radians(gridstep[0])
-        dth = np.radians(gridstep[1])
-    # calculate grid areas globally
-    AREA = (
-        dphi
-        * dth
-        * np.sin(gridtheta)
-        * np.sqrt(
-            (a_axis**2)
-            * (b_axis**2)
-            * (
-                (np.sin(gridtheta) ** 2) * (np.cos(gridphi) ** 2)
-                + (np.sin(gridtheta) ** 2) * (np.sin(gridphi) ** 2)
-            )
-            + (a_axis**4) * (np.cos(gridtheta) ** 2)
-        )
-    )
+    dphi = np.radians(np.abs(lon[1] - lon[0]))
+    dth = np.radians(np.abs(lat[1] - lat[0]))
 
     # get indices of land-sea mask if redistributing oceanic points
     if REDISTRIBUTE:
         ii, jj = ncdf_landmask(ddir.joinpath(input_mask_file), MASKNAME, OCEAN)
+        # calculate area of each grid cell
+        AREA = (M * dth) * (N * np.sin(gridtheta) * dphi)
         # calculate total area of oceanic points
         TOTAL_AREA = np.sum(AREA[ii, jj])
 
@@ -330,7 +319,6 @@ def reanalysis_atmospheric_harmonics(
         # attributes for input files
         attributes['lineage'] = []
         attributes['lineage'].append(input_invariant_file)
-        attributes['lineage'].append(input_geoid_file)
         attributes['lineage'].append(input_file.name)
 
         # iterate over Julian days

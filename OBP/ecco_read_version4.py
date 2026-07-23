@@ -132,6 +132,7 @@ def ecco_read_version4(
     dth = np.radians(dlat)
     # bad value
     fill_value = -1e10
+
     # model gamma and rhonil
     gamma = 9.81
     rhonil = 1029
@@ -140,6 +141,8 @@ def ecco_read_version4(
     # semimajor and semiminor axes of the ellipsoid [m]
     a_axis = ellipsoid_params.a_axis
     b_axis = ellipsoid_params.b_axis
+    # square of first numerical eccentricity
+    e12 = ellipsoid_params.ecc1**2.0
 
     # read depth data from ecco_depth_version4.py
     input_depth_file = ddir.joinpath('DEPTH.2020.720x360.nc')
@@ -179,6 +182,15 @@ def ecco_read_version4(
             .from_HDF5(d1.joinpath(mean_file), date=False)
             .squeeze()
         )
+
+    # colatitude in radians
+    theta = np.radians(90.0 - obp_mean.lat)
+    # radius of curvature in prime vertical direction (east-west)
+    N = a_axis / np.sqrt(1.0 - e12 * np.cos(theta) ** 2.0)
+    # radius of curvature in meridional direction (north-south)
+    M = (a_axis * (1.0 - e12)) / np.power(1.0 - e12 * np.cos(theta) ** 2, 1.5)
+    # calculate area of grid cells
+    area = (M * dth) * (N * np.sin(theta) * dphi)
 
     # output average ocean bottom pressure to file
     output_average_file = d1.joinpath(f'ECCO_{MODEL}_Global_Average_OBP.txt')
@@ -228,9 +240,6 @@ def ecco_read_version4(
             # calculate dimension variables
             obp_anomaly.lon = np.arange(extent[0], extent[1] + dlon, dlon)
             obp_anomaly.lat = np.arange(extent[2], extent[3] + dlat, dlat)
-            # convert grid latitude and longitude to radians
-            theta = np.radians(90.0 - obp_anomaly.lat)
-            phi = np.radians(obp_anomaly.lon)
             # calculate Julian day by converting to MJD and adding offset
             JD = (
                 gravtk.time.convert_delta_time(
@@ -255,30 +264,16 @@ def ecco_read_version4(
             total_area = 0.0
             total_newton = 0.0
             for k in range(0, nlat):
-                # Grid point areas (ellipsoidal)
-                area = (
-                    np.sin(theta[k])
-                    * np.sqrt(
-                        (a_axis**2)
-                        * (b_axis**2)
-                        * (
-                            (np.sin(theta[k]) ** 2) * (np.cos(phi) ** 2)
-                            + (np.sin(theta[k]) ** 2) * (np.sin(phi) ** 2)
-                        )
-                        + (a_axis**4) * (np.cos(theta[k]) ** 2)
-                    )
-                    * dphi
-                    * dth
-                )
                 # calculate the grid point weight in newtons
-                newtons = obp.data[k, :] * area
+                newtons = obp.data[k, :] * area[k]
                 # finding ocean points at each lat
-                if np.count_nonzero(~obp.mask[k, :]):
-                    (ocean_points,) = np.nonzero(~obp.mask[k, :])
-                    # total area
-                    total_area += np.sum(area[ocean_points])
-                    # total weight in newtons
-                    total_newton += np.sum(newtons[ocean_points])
+                (ocean_points,) = np.nonzero(~obp.mask[k, :])
+                if not np.any(ocean_points):
+                    continue
+                # total area of ocean points for latitude band
+                total_area += area[k] * len(ocean_points)
+                # total weight in newtons
+                total_newton += np.sum(newtons[ocean_points])
             # remove global area average of each OBP map
             ratio = total_newton / total_area
             # Calculating Departures from the mean field

@@ -124,7 +124,7 @@ def racmo_downscaled_harmonics(
     elif VERSION == '2.0':
         var = input_products[VARIABLE]
         VARNAME = var if VARIABLE in ('SMB', 'PRECIP') else f'{var}corr'
-    elif VERSION in ('3.0', '4.0', '5.0', '6.0'):
+    elif VERSION in ('3.0', '4.0', '5.0', '6.0', '6.1'):
         var = input_products[VARIABLE]
         VARNAME = var if (VARIABLE == 'SMB') else f'{var}corr'
 

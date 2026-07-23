@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 reanalysis_monthly_harmonics.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (07/2026)
 Reads atmospheric surface pressure fields from reanalysis and calculates sets of
     spherical harmonics using a thin-layer 2D spherical geometry
 
@@ -13,6 +13,7 @@ INPUTS:
     NCEP-DOE-2: https://www.esrl.noaa.gov/psd/data/gridded/data.ncep.reanalysis2.html
     NCEP-CFSR: https://rda.ucar.edu/datasets/ds093.1/
     JRA-55: http://jra.kishou.go.jp/JRA-55/index_en.html
+    JRA-3Q: https://www.data.jma.go.jp/jra/html/JRA-3Q/index_en.html
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
@@ -72,6 +73,8 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 07/2026: added JRA-3Q reanalysis to list of models
+        use authalic area for the grid cell areas
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
     Updated 02/2023: use love numbers class with additional attributes
@@ -150,6 +153,8 @@ def reanalysis_monthly_harmonics(
         LATNAME = 'latitude'
         TIMENAME = 'time'
         ELLIPSOID = 'WGS84'
+        # use standard weights for equirectangular grids
+        WEIGHT = None
         # land-sea mask variable name and value of oceanic points
         MASKNAME = 'lsm'
         OCEAN = 0
@@ -166,6 +171,8 @@ def reanalysis_monthly_harmonics(
         LATNAME = 'latitude'
         TIMENAME = 'time'
         ELLIPSOID = 'WGS84'
+        # use standard weights for equirectangular grids
+        WEIGHT = None
         # land-sea mask variable name and value of oceanic points
         MASKNAME = 'lsm'
         OCEAN = 0
@@ -184,6 +191,8 @@ def reanalysis_monthly_harmonics(
         LATNAME = 'lat'
         TIMENAME = 'time'
         ELLIPSOID = 'WGS84'
+        # use standard weights for equirectangular grids
+        WEIGHT = None
         # land-sea mask variable name and value of oceanic points
         MASKNAME = 'FROCEAN'
         OCEAN = 1
@@ -200,6 +209,8 @@ def reanalysis_monthly_harmonics(
         LATNAME = 'lat'
         TIMENAME = 'time'
         ELLIPSOID = 'WGS84'
+        # use standard weights for equirectangular grids
+        WEIGHT = None
         # land-sea mask variable name and value of oceanic points
         MASKNAME = 'land'
         OCEAN = 0
@@ -217,6 +228,8 @@ def reanalysis_monthly_harmonics(
         LATNAME = 'lat'
         TIMENAME = 'time'
         ELLIPSOID = 'WGS84'
+        # use standard weights for equirectangular grids
+        WEIGHT = None
         # land-sea mask variable name and value of oceanic points
         MASKNAME = 'LAND_L1'
         OCEAN = 0
@@ -234,8 +247,29 @@ def reanalysis_monthly_harmonics(
         LATNAME = 'g0_lat_0'
         TIMENAME = 'time'
         ELLIPSOID = 'WGS84'
+        # use standard weights for equirectangular grids
+        WEIGHT = None
         # land-sea mask variable name and value of oceanic points
         MASKNAME = 'LAND_GDS0_SFC'
+        OCEAN = 0
+        GRAVITY = 9.80665
+    elif MODEL == 'JRA-3Q':
+        # mean file from calculate_mean_pressure.py
+        input_mean_file = 'jra3q.mean.pres-sfc-an-gauss.{0:4d}-{1:4d}.nc'
+        # input land-sea mask for ocean redistribution
+        input_mask_file = (
+            'jra3q.tl479_land.2_0_0.land-sfc-cn-gauss.1947090100_1947090100.nc'
+        )
+        # regular expression pattern for finding files
+        regex_pattern = r'jra3q\.anl_surf\.pres-sfc-an-gauss\.({0})(\d+).nc$'
+        VARNAME = 'pres-sfc-an-gauss'
+        LONNAME = 'lon'
+        LATNAME = 'lat'
+        TIMENAME = 'time'
+        ELLIPSOID = 'WGS84'
+        WEIGHT = 'weight'
+        # land-sea mask variable name and value of oceanic points
+        MASKNAME = 'land-sfc-cn-gauss'
         OCEAN = 0
         GRAVITY = 9.80665
 
@@ -250,6 +284,7 @@ def reanalysis_monthly_harmonics(
     # output subdirectory
     args = (MODEL.upper(), LMAX, order_str, ocean_str)
     output_dir = ddir.joinpath('{0}_CLM_L{1:d}{2}{3}'.format(*args))
+    output_dir.mkdir(mode=MODE, parents=True, exist_ok=True)
     # attributes for output files
     attributes = {}
     # attributes for output files
@@ -263,6 +298,8 @@ def reanalysis_monthly_harmonics(
         mean_file, VARNAME, LONNAME, LATNAME
     )
     nlat, nlon = np.shape(mean_pressure)
+    # required order of dimensions
+    dimensions = [TIMENAME, LATNAME, LONNAME]
     # calculate colatitude
     theta = np.radians(90.0 - lat)
     # calculate meshgrid from latitude and longitude
@@ -281,6 +318,14 @@ def reanalysis_monthly_harmonics(
     # semimajor and semiminor axes of the ellipsoid [m]
     a_axis = ellipsoid_params.a_axis
     b_axis = ellipsoid_params.b_axis
+    # first numerical eccentricity
+    ecc1 = ellipsoid_params.ecc1
+    e12 = ecc1**2.0
+    # convert from geodetic latitude to geocentric latitude
+    # radius of curvature in prime vertical direction (east-west)
+    N = a_axis / np.sqrt(1.0 - e12 * np.cos(gridtheta) ** 2.0)
+    # radius of curvature in meridional direction (north-south)
+    M = a_axis * (1.0 - e12) / (1.0 - e12 * np.cos(gridtheta) ** 2) ** 1.5
 
     # step size in radians
     gridstep = np.zeros((2))
@@ -288,27 +333,10 @@ def reanalysis_monthly_harmonics(
     gridstep[1] = np.abs(lat[1] - lat[0])
     dphi = np.radians(gridstep[0])
     dth = np.radians(gridstep[1])
-    # calculate grid areas globally
-    AREA = (
-        dphi
-        * dth
-        * np.sin(gridtheta)
-        * np.sqrt(
-            (a_axis**2)
-            * (b_axis**2)
-            * (
-                (np.sin(gridtheta) ** 2) * (np.cos(gridphi) ** 2)
-                + (np.sin(gridtheta) ** 2) * (np.sin(gridphi) ** 2)
-            )
-            + (a_axis**4) * (np.cos(gridtheta) ** 2)
-        )
-    )
 
     # get indices of land-sea mask if redistributing oceanic points
     if REDISTRIBUTE:
         ii, jj = ncdf_landmask(ddir.joinpath(input_mask_file), MASKNAME, OCEAN)
-        # calculate total area of oceanic points
-        TOTAL_AREA = np.sum(AREA[ii, jj])
 
     # read each reanalysis pressure field and convert to spherical harmonics
     regex_years = r'\d{4}' if (YEARS is None) else '|'.join(map(str, YEARS))
@@ -334,6 +362,16 @@ def reanalysis_monthly_harmonics(
                 pressure = ncdf_expver(fileID, VARNAME)
             else:
                 pressure = fileID.variables[VARNAME][:].copy()
+            # reorder dimensions to match the required order
+            dims = fileID.variables[VARNAME].dimensions
+            order = [dims.index(d) for d in dimensions]
+            pressure = pressure.transpose(order)
+            # read weights for non-uniform (e.g. gaussian) grids
+            # or use standard weights for uniform grids
+            if WEIGHT is not None:
+                weight = dphi * fileID.variables[WEIGHT][:].copy()
+            else:
+                weight = np.sin(theta) * dphi * dth
             # convert time to Modified Julian Days
             delta_time = np.copy(fileID.variables[TIMENAME][:])
             date_string = fileID.variables[TIMENAME].units
@@ -353,11 +391,32 @@ def reanalysis_monthly_harmonics(
             # calculate pressure/gravity ratio for month
             PG = (pressure[t, :, :] - mean_pressure[:, :]) / GRAVITY
             # if redistributing oceanic pressure values
-            if REDISTRIBUTE:
+            if REDISTRIBUTE and WEIGHT:
+                # calculate area of each grid cell
+                W = np.kron(np.ones((1, nlon)), weight[:, np.newaxis])
+                AREA = M * N * W
+                # calculate total area of oceanic points
+                TOTAL_AREA = np.sum(AREA[ii, jj])
+                # evenly redistribute pressure over oceanic points
+                PG[ii, jj] = np.sum(PG[ii, jj] * AREA[ii, jj]) / TOTAL_AREA
+            elif REDISTRIBUTE:
+                # calculate area of each grid cell
+                AREA = (M * dth) * (N * np.sin(gridtheta) * dphi)
+                # calculate total area of oceanic points
+                TOTAL_AREA = np.sum(AREA[ii, jj])
+                # evenly redistribute pressure over oceanic points
                 PG[ii, jj] = np.sum(PG[ii, jj] * AREA[ii, jj]) / TOTAL_AREA
             # calculate pressure harmonics from pressure/gravity ratio
             Ylms = gravtk.gen_stokes(
-                PG, lon, lat, LMAX=LMAX, MMAX=MMAX, UNITS=3, PLM=PLM, LOVE=LOVE
+                PG,
+                lon,
+                lat,
+                LMAX=LMAX,
+                MMAX=MMAX,
+                UNITS=3,
+                WEIGHT=weight,
+                PLM=PLM,
+                LOVE=LOVE,
             )
             # convert julian dates to calendar then to year-decimal
             YY, MM, DD, hh, mm, ss = gravtk.time.convert_julian(
@@ -464,6 +523,7 @@ def arguments():
         'NCEP-DOE-2',
         'NCEP-CFSR',
         'JRA-55',
+        'JRA-3Q',
     ]
     parser.add_argument(
         'model',

@@ -62,6 +62,7 @@ API Reference
     ./reanalysis/gesdisc_merra_monthly.rst
     ./reanalysis/gesdisc_merra_subset.rst
     ./reanalysis/noaa_cdc_ncep_ftp.rst
+    ./reanalysis/ucar_gdex_jra3q_surface.rst
     ./reanalysis/ucar_rda_cfsr_surface.rst
     ./reanalysis/ucar_rda_jra55_surface.rst
     ./reanalysis/model_level_coefficients.rst

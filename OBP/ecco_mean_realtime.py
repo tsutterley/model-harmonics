@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 ecco_mean_realtime.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (07/2026)
 
 Reads 12-hour ECCO ocean bottom pressure data from JPL
 Calculates multi-annual means on an equirectangular grid
@@ -49,6 +49,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 07/2026: use authalic area for the grid cell areas
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -113,6 +114,12 @@ def ecco_mean_realtime(
     flat = 1.0 / 298.26  # flattening of the ellipsoid
     # semiminor axis of the ellipsoid
     b_axis = (1.0 - flat) * a_axis  # [m]
+    # Linear eccentricity
+    ecc = np.sqrt((2.0 * flat - flat**2) * a_axis**2)
+    # First numerical eccentricity
+    ecc1 = ecc / a_axis
+    e12 = ecc1**2.0
+
     # output grid spacing
     LAT_MAX = 78.5
     dlon, dlat = (1.0, 1.0)
@@ -201,35 +208,29 @@ def ecco_mean_realtime(
             obp_interp.time = gravtk.time.convert_calendar_decimal(
                 YY, MM, day=DD, hour=hh, minute=mm, second=ss
             )
+
+            # colatitude in radians
+            theta = np.radians(90.0 - obp.lat)
+            # radius of curvature in prime vertical direction (east-west)
+            N = a_axis / np.sqrt(1.0 - e12 * np.cos(theta) ** 2.0)
+            # radius of curvature in meridional direction (north-south)
+            M = (a_axis * (1.0 - e12)) / np.power(
+                1.0 - e12 * np.cos(theta) ** 2, 1.5
+            )
+            # calculate area of grid cells
+            area = (M * dth) * (N * np.sin(theta) * dphi)
             for t in range(0, nt):
                 # the global area average of each OBP map is removed
                 total_area = 0.0
                 total_newton = 0.0
                 for k in range(0, nlat):
-                    # Grid point areas (ellipsoidal)
-                    theta = np.radians(90.0 - obp.lat[k])
-                    phi = np.radians(obp.lon)
-                    area = (
-                        np.sin(theta)
-                        * np.sqrt(
-                            (a_axis**2)
-                            * (b_axis**2)
-                            * (
-                                (np.sin(theta) ** 2) * (np.cos(phi) ** 2)
-                                + (np.sin(theta) ** 2) * (np.sin(phi) ** 2)
-                            )
-                            + (a_axis**4) * (np.cos(theta) ** 2)
-                        )
-                        * dphi
-                        * dth[k]
-                    )
                     # calculate the grid point weight in newtons
-                    newtons = obp.data[k, :, t] * area
+                    newtons = obp.data[k, :, t] * area[k]
                     # finding ocean points at each lat
                     (ocean_points,) = np.nonzero(~obp.mask[k, :, t])
-                    # total area
-                    total_area += np.sum(area[ocean_points])
-                    # total weight
+                    # total area of ocean points for latitude band
+                    total_area += area[k] * len(ocean_points)
+                    # total weight in newtons
                     total_newton += np.sum(newtons[ocean_points])
                 # remove global area average of each OBP map
                 ratio = total_newton / total_area

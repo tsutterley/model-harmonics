@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 GIA_uplift_ICESat2_ATL15.py
-Written by Tyler Sutterley (11/2023)
+Written by Tyler Sutterley (07/2026)
 Calculates GIA-induced crustal uplift over polar stereographic grids for
     correcting ICESat-2 ATL15 gridded land ice height change data
 Calculated directly from GIA spherical harmonics
@@ -58,6 +58,7 @@ REFERENCE:
         Bollettino di Geodesia e Scienze (1982)
 
 UPDATE HISTORY:
+    Updated 07/2026: use geocentric_latitude function to get the latitudes
     Updated 11/2023: can mosaic Release-3 ATL15 granules into a single grid
     Updated 09/2023: simplify input arguments
     Updated 05/2023: use pathlib to define and operate on paths
@@ -255,20 +256,13 @@ def calculate_GIA_uplift(
     a_axis = crs2.ellipsoid.semi_major_metre
     # flattening of the ellipsoid
     flat = crs2.ellipsoid.inverse_flattening**-1
-    # first numerical eccentricity
-    ecc1 = np.sqrt((2.0 * flat - flat**2) * a_axis**2) / a_axis
-
-    # convert from geodetic latitude to geocentric latitude
-    # geodetic latitude in radians
-    latitude_geodetic_rad = np.radians(latitude_geodetic)
-    # prime vertical radius of curvature
-    N = a_axis / np.sqrt(1.0 - ecc1**2.0 * np.sin(latitude_geodetic_rad) ** 2.0)
-    # calculate X, Y and Z from geodetic latitude and longitude
-    X = N * np.cos(latitude_geodetic_rad) * np.cos(np.radians(gridlon))
-    Y = N * np.cos(latitude_geodetic_rad) * np.sin(np.radians(gridlon))
-    Z = (N * (1.0 - ecc1**2.0)) * np.sin(latitude_geodetic_rad)
     # calculate geocentric latitude and convert to degrees
-    latitude_geocentric = np.degrees(np.arctan(Z / np.sqrt(X**2.0 + Y**2.0)))
+    latitude_geocentric = mdlhmc.spatial.geocentric_latitude(
+        gridlon,
+        latitude_geodetic,
+        a_axis=a_axis,
+        flat=flat,
+    )
 
     # output data and attributes dictionaries
     output_data = {}
