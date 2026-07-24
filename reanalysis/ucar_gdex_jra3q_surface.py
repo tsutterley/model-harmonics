@@ -9,9 +9,6 @@ Downloads JRA-3Q surface analysis products provided by the
 JRA-3Q: Japanese Reanalysis for Three Quarters of a Century
     https://gdex.ucar.edu/datasets/d640000
 
-CALLING SEQUENCE:
-    python ucar_gdex_jra3q_surface.py
-
 COMMAND LINE OPTIONS:
     --help: list the command line options
     -D X, --directory X: Working data directory
@@ -83,6 +80,7 @@ def ucar_gdex_download(
 
     # UCAR GDEX host
     HOST = 'https://gdex.ucar.edu/'
+    dataset_id = 'd640000'
     # field mapping for different products
     field_mapping = {}
     field_mapping['lon'] = 'lon'
@@ -91,22 +89,22 @@ def ucar_gdex_download(
     # parameters for surface pressure products
     if PRODUCT == 'anl_surf':
         product_id = '7'
-        invariant_id = '19'
-        field_mapping['data'] = 'pres-sfc-an-gauss'
+        invariant_ids = ['18', '19']
+        field_mapping['data'] = f'{VARIABLE}-an-gauss'
         field_mapping['points'] = (
             'original_number_of_grid_points_per_latitude_circle'
         )
         field_mapping['weight'] = 'weight'
     elif PRODUCT == 'anl_surf125':
         product_id = '25'
-        invariant_id = '41'
-        field_mapping['data'] = 'pres-sfc-an-ll125'
+        invariant_ids = ['40', '41']
+        field_mapping['data'] = f'{VARIABLE}-an-ll125'
     # netCDF4 variable name for the requested product
     varname = field_mapping['data']
 
     # find data directories for year
     dirs, _ = mdlhmc.utilities.ucar_list(
-        [HOST, 'datasets', 'd640000', 'filelist', product_id],
+        [HOST, 'datasets', dataset_id, 'filelist', product_id],
         tdclass='Group Name',
         timeout=TIMEOUT,
     )
@@ -149,9 +147,10 @@ def ucar_gdex_download(
             )
             # calculate monthly mean
             mean = dinput.transpose(axes=(1, 2, 0)).mean()
-            # copy additional fields
-            mean.weight = dinput.weight.copy()
-            mean.points = dinput.points.copy()
+            # copy additional fields for gaussian grid product
+            if PRODUCT == 'anl_surf':
+                mean.weight = dinput.weight.copy()
+                mean.points = dinput.points.copy()
             # copy global attributes from input file
             mean.attributes.update(dinput.attributes)
             # copy attributes for each output field
@@ -180,10 +179,16 @@ def ucar_gdex_download(
     # if retrieving the model invariant parameters
     if INVARIANT:
         # find invariant data files
-        cols, mods = mdlhmc.utilities.ucar_list(
-            [HOST, 'datasets', 'd640000', 'filelist', invariant_id],
-            timeout=TIMEOUT,
-        )
+        cols = []
+        mods = []
+        # for each invariant parameter in the list of ids
+        for invariant_id in invariant_ids:
+            colnames, colmods = mdlhmc.utilities.ucar_list(
+                [HOST, 'datasets', dataset_id, 'filelist', invariant_id],
+                timeout=TIMEOUT,
+            )
+            cols.extend(colnames)
+            mods.extend(colmods)
         # for each file in the list of files
         for colname, collastmod in zip(cols, mods):
             # download file from UCAR GDEX server

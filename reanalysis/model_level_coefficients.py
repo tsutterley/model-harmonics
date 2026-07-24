@@ -18,11 +18,13 @@ MERRA-2 coefficients:
 https://gmao.gsfc.nasa.gov/pubs/docs/Bosilovich785.pdf
 http://wiki.seas.harvard.edu/geos-chem/index.php/GEOS-Chem_vertical_grids
 
-INPUTS:
-    Reanalysis model to run
-    ERA-Interim: http://apps.ecmwf.int/datasets/data/interim-full-moda
-    ERA5: http://apps.ecmwf.int/data-catalogues/era5/?class=ea
-    MERRA-2: https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/
+Reanalysis models:
+    ERA-Interim:
+        http://apps.ecmwf.int/datasets/data/interim-full-moda
+    ERA5:
+        http://apps.ecmwf.int/data-catalogues/era5/?class=ea
+    MERRA-2:
+        https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory

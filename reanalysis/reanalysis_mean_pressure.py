@@ -1,18 +1,25 @@
 #!/usr/bin/env python
 """
 reanalysis_mean_pressure.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (07/2026)
 Calculates the mean surface pressure fields from reanalysis
 
-INPUTS:
-    Reanalysis model to run
-    ERA-Interim: http://apps.ecmwf.int/datasets/data/interim-full-moda
-    ERA5: http://apps.ecmwf.int/data-catalogues/era5/?class=ea
-    MERRA-2: https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/
-    NCEP-DOE-2: https://www.esrl.noaa.gov/psd/data/gridded/data.ncep.reanalysis2.html
-    NCEP-CFSR: https://rda.ucar.edu/datasets/ds093.1/
-    JRA-55: http://jra.kishou.go.jp/JRA-55/index_en.html
-    JRA-3Q: https://www.data.jma.go.jp/jra/html/JRA-3Q/index_en.html
+Reanalysis models:
+    ERA-Interim:
+        http://apps.ecmwf.int/datasets/data/interim-full-moda
+    ERA5:
+        http://apps.ecmwf.int/data-catalogues/era5/?class=ea
+    MERRA-2:
+        https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/
+    NCEP-DOE-2:
+        https://psl.noaa.gov/data/gridded/data.ncep.Reanalysis2.html
+    NCEP-CFSR:
+        https://gdex.ucar.edu/datasets/d093002/
+        https://gdex.ucar.edu/datasets/d094002/
+    JRA-55:
+        http://jra.kishou.go.jp/JRA-55/index_en.html
+    JRA-3Q:
+        https://www.data.jma.go.jp/jra/html/JRA-3Q/index_en.html
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
@@ -49,6 +56,7 @@ REFERENCES:
 
 UPDATE HISTORY:
     Updated 07/2026: added JRA-3Q reanalysis to list of models
+        changed variable names for JRA-55 and NCEP-CFSR reanalysis
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -147,11 +155,11 @@ def reanalysis_mean_pressure(
         # invariant parameters file
         input_invariant_file = 'hgt.gdas.nc'
         # regular expression pattern for finding files
-        regex_pattern = r'pgbh.gdas.({0}).nc$'
+        regex_pattern = r'splanl.gdas.({0})(\d+).nc$'
         # output file format
-        output_file_format = 'pgbh.mean.gdas.{0:4d}-{1:4d}.nc'
-        VARNAME = 'PRES_L1_Avg'
-        ZNAME = 'HGT_L1_Avg'
+        output_file_format = 'splanl.mean.gdas.{0:4d}-{1:4d}.nc'
+        VARNAME = 'ave_sp'
+        ZNAME = 'orog'
         LONNAME = 'lon'
         LATNAME = 'lat'
         TIMENAME = 'time'
@@ -159,13 +167,13 @@ def reanalysis_mean_pressure(
         # invariant parameters file
         input_invariant_file = 'll125.006_gp.2000.nc'
         # regular expression pattern for finding files
-        regex_pattern = r'anl_surf125\.001_pres\.({0}).nc$'
+        regex_pattern = r'anl_surf125\.001_pres\.({0})(\d+).nc$'
         # output file format
         output_file_format = 'anl_surf.001_pres.mean.{0:4d}-{1:4d}.nc'
-        VARNAME = 'Pressure_surface'
-        ZNAME = 'GP_GDS0_SFC'
-        LONNAME = 'g0_lon_1'
-        LATNAME = 'g0_lat_0'
+        VARNAME = 'sp'
+        ZNAME = 'z'
+        LONNAME = 'lon'
+        LATNAME = 'lat'
         TIMENAME = 'time'
     elif MODEL == 'JRA-3Q':
         # invariant parameters file

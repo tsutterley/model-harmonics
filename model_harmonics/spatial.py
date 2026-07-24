@@ -11,6 +11,7 @@ PYTHON DEPENDENCIES:
 UPDATE HISTORY:
     Updated 07/2026: add HTML representations of mosaic and raster classes
         add geocentric_radius function to calculate the radius at coordinates
+        add grib class for reading GRIB formatted data from reanalysis products
     Updated 09/2025: use importlib to attempt to import dependencies
     Updated 06/2024: added function for calculating latitude and longitude
     Updated 04/2024: changed polar stereographic area function to scale_factors
@@ -24,6 +25,7 @@ UPDATE HISTORY:
     Written 10/2022
 """
 
+import io
 import copy
 import uuid
 import logging
@@ -37,7 +39,138 @@ osgeo = gravtk.utilities.import_dependency('osgeo')
 osgeo.gdal = gravtk.utilities.import_dependency('osgeo.gdal')
 osgeo.osr = gravtk.utilities.import_dependency('osgeo.osr')
 osgeo.gdalconst = gravtk.utilities.import_dependency('osgeo.gdalconst')
+pygrib = gravtk.utilities.import_dependency('pygrib')
 pyproj = gravtk.utilities.import_dependency('pyproj')
+
+
+# PURPOSE: additional routines for the spatial module
+# adding support for reading GRIB data
+class grib(gravtk.spatial):
+    """
+    Inheritance of ``spatial`` class for reading GRIB data
+
+    Attributes
+    ----------
+    data: np.ndarray
+        spatial grid data
+    mask: np.ndarray
+        spatial grid mask
+    lon: np.ndarray
+        grid longitudes
+    lat: np.ndarray
+        grid latitudes
+    fill_value: float or NoneType, default None
+        invalid value for spatial grid data
+    attributes: dict
+        attributes of spatial variables
+    """
+
+    # inherit spatial class to read more data types
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def from_file(self, filename, **kwargs):
+        """
+        Read data from a GRIB file
+
+        Parameters
+        ----------
+        filename: str
+            full path of input GRIB file
+        varname: str or NoneType, default None
+            variable name to read from the GRIB file
+        kwargs: dict
+            additional keyword arguments for selecting GRIB messages
+        """
+        # get variable name to read
+        varname = kwargs.pop('varname', None)
+        # set filename
+        if isinstance(filename, io.IOBase):
+            self.filename = io.BufferedReader(filename)
+        else:
+            self.case_insensitive_filename(filename)
+        # Open the GRIB file for reading
+        logging.info(self.filename)
+        fileID = pygrib.open(self.filename)
+        # output attributes dictionary
+        self.attributes['ROOT'] = {}
+        # list of variable attributes
+        attributes_list = [
+            'cfName',
+            'cfVarName',
+            'missingValue',
+            'name',
+            'parameterName',
+            'parameterUnits',
+            'shortName',
+            'units',
+        ]
+        # get dimensions and fill value
+        grb = fileID.message(1)
+        lat, lon = grb.latlons()
+        self.fill_value = grb.missingValue
+        # lon and lat are matrices
+        self.lat = lat[:, 0]
+        self.lon = lon[0, :]
+        # dimensions shape
+        nlat = len(self.lat)
+        nlon = len(self.lon)
+        # get projection information from GRIB message
+        crs = pyproj.CRS.from_user_input(grb.projparams)
+        # read messages
+        if varname is not None:
+            # read message with variable name
+            fileID.seek(0)
+            group = fileID.select(name=varname, **kwargs)
+            nmessages = len(group)
+        else:
+            # read all messages
+            group = fileID.select(**kwargs)
+            nmessages = fileID.messages
+        # allocate array for data
+        self.data = np.zeros((nlat, nlon, nmessages))
+        self.time = np.zeros((nmessages))
+        self.month = np.zeros((nmessages), dtype=np.int64)
+        for i, grb in enumerate(group):
+            # get data values for message
+            self.data[:, :, i] = grb['values']
+            # save times as modified julian days (MJD)
+            self.time[i] = grb.julianDay - 2400000.5
+            # assign GRACE month from time
+            self.month[i] = gravtk.time.calendar_to_grace(
+                grb.year, month=grb.month
+            )
+        # set projection attributes
+        self.attributes['ROOT']['projection'] = crs.to_proj4()
+        self.attributes['ROOT']['wkt'] = crs.to_wkt()
+        # set coordinate reference system (CRS) attributes
+        cs_to_cf = crs.cs_to_cf()
+        for i, key in enumerate(['lon', 'lat']):
+            self.attributes[key] = {}
+            for att_name, att_val in cs_to_cf[i].items():
+                self.attributes[key][att_name] = att_val
+        # set attributes of input variable
+        self.attributes['data'] = {}
+        for attr in attributes_list:
+            # try getting the attribute
+            try:
+                self.attributes['data'][attr] = getattr(grb, attr)
+            except (KeyError, ValueError, AttributeError, RuntimeError):
+                pass
+        # set attribute of times
+        self.attributes['time'] = {}
+        self.attributes['time']['units'] = 'days since 1858-11-17 00:00:00'
+        self.attributes['time']['long_name'] = 'Modified Julian Day'
+        self.attributes['time']['calendar'] = 'standard'
+        # set mask with invalid values (0 is falsy)
+        self.mask = np.zeros((nlat, nlon, nmessages), dtype=bool)
+        if self.fill_value or (self.fill_value == 0):
+            # mask invalid values
+            self.mask[:] = self.data == self.fill_value
+        # close the dataset
+        fileID.close()
+        self.update_mask()
+        return self
 
 
 # PURPOSE: additional routines for the spatial module

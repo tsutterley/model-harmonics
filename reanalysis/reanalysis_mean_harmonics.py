@@ -5,11 +5,13 @@ Written by Tyler Sutterley (07/2026)
 Reads atmospheric geopotential heights fields from reanalysis and calculates
     a multi-annual mean set of spherical harmonics using a 3D geometry
 
-INPUTS:
-    Reanalysis model to run
-    ERA-Interim: http://apps.ecmwf.int/datasets/data/interim-full-moda
-    ERA5: http://apps.ecmwf.int/data-catalogues/era5/?class=ea
-    MERRA-2: https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/
+Reanalysis models:
+    ERA-Interim:
+        http://apps.ecmwf.int/datasets/data/interim-full-moda
+    ERA5:
+        http://apps.ecmwf.int/data-catalogues/era5/?class=ea
+    MERRA-2:
+        https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory

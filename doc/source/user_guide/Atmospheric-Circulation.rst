@@ -28,13 +28,14 @@ NCEP
 `NCEP-DOE-2 <https://www.esrl.noaa.gov/psd/data/gridded/data.ncep.reanalysis2.html>`_ is computed by the National Centers for Environmental Prediction (NCEP) and is available starting from 1979.
 NCEP-DOE-2 outputs are downloaded using the :py:mod:`noaa_cdc_ncep_ftp.py` program.
 `NCEP-CFSR <https://cfs.ncep.noaa.gov/>`_ is computed by the National Centers for Environmental Prediction (NCEP) and is available starting from 1979 with Version 2 available from 2011 onward.
-NCEP-CFSR outputs are downloaded using the :py:mod:`ucar_rda_cfsr_surface.py` program.
+Both versions of NCEP-CFSR outputs are downloaded using the :py:mod:`ucar_gdex_cfsr_surface.py` program.
 
 JRA
 ----
 
 `JRA-55 <http://jra.kishou.go.jp/JRA-55/index_en.html>`_ is computed by the Japan Meteorological Agency (JMA) and is available starting from 1958.
-JRA-55 outputs are downloaded using the :py:mod:`ucar_rda_jra55_surface.py` program.
+`JRA-3Q <https://www.data.jma.go.jp/jra/html/JRA-3Q/index_en.html>`_ is the successor to JRA-55 and covers three quarters of a century :cite:p:`Kosaka:2024ib`.
+JRA-55 and JRA-3Q outputs are downloaded using the :py:mod:`ucar_gdex_jra55_surface.py` and :py:mod:`ucar_gdex_jra3q_surface.py` programs.
 
 Background
 ==========

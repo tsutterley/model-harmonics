@@ -5,15 +5,22 @@ Written by Tyler Sutterley (07/2026)
 Reads atmospheric surface pressure fields from reanalysis and calculates sets of
     spherical harmonics using a thin-layer 2D geometry with realistic earth
 
-INPUTS:
-    Reanalysis model to run
-    ERA-Interim: http://apps.ecmwf.int/datasets/data/interim-full-moda
-    ERA5: http://apps.ecmwf.int/data-catalogues/era5/?class=ea
-    MERRA-2: https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/
-    NCEP-DOE-2: https://www.esrl.noaa.gov/psd/data/gridded/data.ncep.reanalysis2.html
-    NCEP-CFSR: https://rda.ucar.edu/datasets/ds093.1/
-    JRA-55: http://jra.kishou.go.jp/JRA-55/index_en.html
-    JRA-3Q: https://www.data.jma.go.jp/jra/html/JRA-3Q/index_en.html
+Reanalysis models:
+    ERA-Interim:
+        http://apps.ecmwf.int/datasets/data/interim-full-moda
+    ERA5:
+        http://apps.ecmwf.int/data-catalogues/era5/?class=ea
+    MERRA-2:
+        https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/
+    NCEP-DOE-2:
+        https://psl.noaa.gov/data/gridded/data.ncep.Reanalysis2.html
+    NCEP-CFSR:
+        https://gdex.ucar.edu/datasets/d093002/
+        https://gdex.ucar.edu/datasets/d094002/
+    JRA-55:
+        http://jra.kishou.go.jp/JRA-55/index_en.html
+    JRA-3Q:
+        https://www.data.jma.go.jp/jra/html/JRA-3Q/index_en.html
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
@@ -77,6 +84,7 @@ UPDATE HISTORY:
     Updated 07/2026: added JRA-3Q reanalysis to list of models
         use authalic area for the grid cell areas
         interpolate EGM2008 from full resolution to reanalysis grid
+        changed variable names for JRA-55 and NCEP-CFSR reanalysis
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
     Updated 02/2023: use love numbers class with additional attributes
@@ -234,15 +242,15 @@ def reanalysis_pressure_harmonics(
         GRAVITY = 1.0
     elif MODEL == 'NCEP-CFSR':
         # mean file from calculate_mean_pressure.py
-        input_mean_file = 'pgbh.mean.gdas.{0:4d}-{1:4d}.nc'
+        input_mean_file = 'splanl.mean.gdas.{0:4d}-{1:4d}.nc'
         # invariant parameters file
         input_invariant_file = 'hgt.gdas.nc'
         # input land-sea mask for ocean redistribution
         input_mask_file = 'land.gdas.nc'
         # regular expression pattern for finding files
-        regex_pattern = r'pgbh.gdas.({0}).nc$'
-        VARNAME = 'PRES_L1_Avg'
-        ZNAME = 'HGT_L1_Avg'
+        regex_pattern = r'splanl.gdas.({0})(\d+).nc$'
+        VARNAME = 'ave_sp'
+        ZNAME = 'orog'
         LONNAME = 'lon'
         LATNAME = 'lat'
         TIMENAME = 'time'
@@ -250,7 +258,7 @@ def reanalysis_pressure_harmonics(
         # use standard weights for equirectangular grids
         WEIGHT = None
         # land-sea mask variable name and value of oceanic points
-        MASKNAME = 'LAND_L1'
+        MASKNAME = 'lsm'
         OCEAN = 0
         # NCEP-CFSR reanalysis geopotential heights are already in meters
         GRAVITY = 1.0
@@ -262,17 +270,17 @@ def reanalysis_pressure_harmonics(
         # input land-sea mask for ocean redistribution
         input_mask_file = 'll125.081_land.2000.nc'
         # regular expression pattern for finding files
-        regex_pattern = r'anl_surf125\.001_pres\.({0}).nc$'
-        VARNAME = 'Pressure_surface'
-        ZNAME = 'GP_GDS0_SFC'
-        LONNAME = 'g0_lon_1'
-        LATNAME = 'g0_lat_0'
+        regex_pattern = r'anl_surf125\.001_pres\.({0})(\d+).nc$'
+        VARNAME = 'sp'
+        ZNAME = 'z'
+        LONNAME = 'lon'
+        LATNAME = 'lat'
         TIMENAME = 'time'
         ELLIPSOID = 'WGS84'
         # use standard weights for equirectangular grids
         WEIGHT = None
         # land-sea mask variable name and value of oceanic points
-        MASKNAME = 'LAND_GDS0_SFC'
+        MASKNAME = 'lsm'
         OCEAN = 0
         GRAVITY = 9.80665
     elif MODEL == 'JRA-3Q':

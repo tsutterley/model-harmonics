@@ -130,8 +130,11 @@ def get_dimensions(input_dir, VERSION, PRODUCT, GZIP=False):
             fileID = netCDF4.Dataset(infiles[0], mode='r')
         # shape of the input data matrix
         (ncvar,) = [v for v in fileID.variables.keys() if regex.match(v)]
-        nm, ny, nx = fileID.variables[ncvar].shape
+        _, ny, nx = fileID.variables[ncvar].shape
+        # close the (compressed) file objects
         fileID.close()
+        if GZIP:
+            fd.close()
     elif VERSION in ('2.0', '3.0'):
         # if reading bytes from compressed file or netcdf file directly
         gz = '.gz' if GZIP else ''
@@ -155,7 +158,10 @@ def get_dimensions(input_dir, VERSION, PRODUCT, GZIP=False):
         # shape of the input data matrix
         (ncvar,) = [v for v in fileID.variables.keys() if regex.match(v)]
         nt, ny, nx = fileID.variables[ncvar].shape
-        fd.close() if GZIP else fileID.close()
+        # close the (compressed) file objects
+        fileID.close()
+        if GZIP:
+            fd.close()
     # return the data dimensions
     return (nt, ny, nx)
 
@@ -239,8 +245,10 @@ def yearly_file_cumulative(
         dinput['y'] = np.array(fileID.variables['y'][:])
         promicemask = np.array(fileID.variables['Promicemask'][:, :])
         topography = np.array(fileID.variables['Topography'][:, :])
-        # close the compressed file objects
-        fd.close() if GZIP else fileID.close()
+        # close the (compressed) file objects
+        fileID.close()
+        if GZIP:
+            fd.close()
         # find ice sheet points from promicemask that valid
         ii, jj = np.nonzero((promicemask >= 1) & (promicemask <= 3))
         dinput['MASK'] = np.zeros((ny, nx), dtype=np.int8)
@@ -264,8 +272,10 @@ def yearly_file_cumulative(
         dinput['x'] = np.array(fileID.variables['x'][:])
         dinput['y'] = np.array(fileID.variables['y'][:])
         promicemask = np.array(fileID.variables['Promicemask'][:, :])
-        # close the compressed file objects
-        fd.close() if GZIP else fileID.close()
+        # close the (compressed) file objects
+        fileID.close()
+        if GZIP:
+            fd.close()
         # find ice sheet points from promicemask that valid
         ii, jj = np.nonzero((promicemask >= 1) & (promicemask <= 3))
         dinput['MASK'] = np.zeros((ny, nx), dtype=np.int8)
@@ -350,8 +360,10 @@ def yearly_file_cumulative(
             dinput[VARIABLE][c, :, :] = CUMULATIVE.copy()
             # add to counter
             c += 1
-        # close the NetCDF file
+        # close the (compressed) file objects
         fileID.close()
+        if GZIP:
+            fd.close()
 
     # return the cumulative anomalies
     return dinput
@@ -417,8 +429,10 @@ def compressed_file_cumulative(
     dinput['y'] = np.array(fileID.variables['y'][:])
     promicemask = np.array(fileID.variables['Promicemask'][:, :])
     topography = np.array(fileID.variables['Topography'][:, :])
-    # close the compressed file objects
-    fd.close() if GZIP else fileID.close()
+    # close the (compressed) file objects
+    fileID.close()
+    if GZIP:
+        fd.close()
 
     # file format for each version
     file_format = {}
@@ -474,8 +488,10 @@ def compressed_file_cumulative(
         CUMULATIVE += fileID.variables[VARNAME][t, :, :].copy() - MEAN
         dinput[VARNAME][t, :, :] = CUMULATIVE.copy()
 
-    # close the compressed file objects
-    fd.close() if GZIP else fileID.close()
+    # close the (compressed) file objects
+    fileID.close()
+    if GZIP:
+        fd.close()
 
     # return the cumulative anomalies
     return dinput

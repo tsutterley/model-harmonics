@@ -4,7 +4,7 @@
 
 Functions for reading, writing and processing spatial data
 
-- Extends the `GRACE/GRACE-FO <https://github.com/tsutterley/gravity-toolkit/blob/main/gravity_toolkit/spatial.py>`_ ``gravity_toolkit.spatial`` module adding raster support
+- Extends the `GRACE/GRACE-FO <https://github.com/tsutterley/gravity-toolkit/blob/main/gravity_toolkit/spatial.py>`_ ``gravity_toolkit.spatial`` module
 
 `Source code`__
 
@@ -13,6 +13,9 @@ Functions for reading, writing and processing spatial data
 
 General Methods
 ===============
+
+.. autoclass:: model_harmonics.spatial.grib
+   :members:
 
 .. autoclass:: model_harmonics.spatial.raster
    :members:

@@ -4,9 +4,9 @@ reanalysis_monthly_pressure.py
 Written by Tyler Sutterley (05/2023)
 Reads daily atmospheric pressure fields from reanalysis and outputs monthly averages
 
-INPUTS:
-    Reanalysis model to run
-    NCEP-DOE-2: https://www.esrl.noaa.gov/psd/data/gridded/data.ncep.reanalysis2.html
+Reanalysis models:
+    NCEP-DOE-2:
+        https://psl.noaa.gov/data/gridded/data.ncep.Reanalysis2.html
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
