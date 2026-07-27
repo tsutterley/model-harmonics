@@ -185,7 +185,7 @@ def ecco_llc_tile_harmonics(
     )
     R = np.sqrt(X**2.0 + Y**2.0 + Z**2.0)
     # calculate geocentric latitude and convert to degrees
-    latitude_geocentric = np.degrees(np.arctan(Z / np.sqrt(X**2.0 + Y**2.0)))
+    latitude_geocentric = np.degrees(np.arctan(Z / np.hypot(X, Y)))
 
     # calculate normal gravity at latitudes and bathymetry
     gamma_h, dgamma_dh = geoidtk.norm_gravity(

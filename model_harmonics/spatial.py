@@ -736,7 +736,7 @@ def geocentric_latitude(
     Y = (N + h) * np.cos(latitude_geodetic_rad) * np.sin(np.radians(lon))
     Z = (N * (1.0 - ecc1**2.0) + h) * np.sin(latitude_geodetic_rad)
     # calculate geocentric latitude and convert to degrees
-    return np.degrees(np.arctan(Z / np.sqrt(X**2.0 + Y**2.0)))
+    return np.degrees(np.arctan(Z / np.hypot(X, Y)))
 
 
 def scale_factors(

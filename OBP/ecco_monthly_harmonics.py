@@ -214,7 +214,7 @@ def ecco_monthly_harmonics(
     )
     R = np.sqrt(X**2.0 + Y**2.0 + Z**2.0)
     # calculate geocentric latitude and convert to degrees
-    latitude_geocentric = np.degrees(np.arctan(Z / np.sqrt(X**2.0 + Y**2.0)))
+    latitude_geocentric = np.degrees(np.arctan(Z / np.hypot(X, Y)))
     # colatitude in radians
     theta = np.radians(90.0 - latitude_geocentric)
 
