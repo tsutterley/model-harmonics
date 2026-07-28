@@ -58,7 +58,6 @@ API Reference
 
     ./reanalysis/cds_reanalysis_retrieve.rst
     ./reanalysis/ecmwf_reanalysis_retrieve.rst
-    ./reanalysis/gesdisc_merra_download.rst
     ./reanalysis/gesdisc_merra_monthly.rst
     ./reanalysis/gesdisc_merra_subset.rst
     ./reanalysis/noaa_cdc_ncep_ftp.rst

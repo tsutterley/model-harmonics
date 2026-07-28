@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 reanalysis_geopotential_heights.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (07/2026)
 Reads temperature and specific humidity data to calculate geopotential height
     and pressure difference fields at half levels from reanalysis
 
@@ -30,6 +30,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 07/2026: use struct dictionary to define netCDF4 parameters
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: use full path to output file in verbose logging
     Updated 12/2022: single implicit import of spherical harmonic tools
@@ -118,7 +119,7 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
         DIFFNAME = 'dp'
         LONNAME = 'longitude'
         LATNAME = 'latitude'
-        TIMENAME = 'time'
+        TIMENAME = 'valid_time'
         LEVELNAME = 'lvl'
         ANAME, BNAME = ('a_half', 'b_half')
         AINTERFACE, BINTERFACE = ('a_interface', 'b_interface')
@@ -132,9 +133,9 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
         # coordinate parameters file
         input_coordinate_file = 'MERRA2_101.Coords_Nx.00000000.nc'
         # regular expression pattern for finding files
-        regex_pattern = r'MERRA2_(\d+).instM_3d_ana_Nv.({0})(\d{{2}}).SUB.nc$'
+        regex_pattern = r'MERRA2_(\d+).tavgM_3d_ana_Nv.({0})(\d{{2}}).SUB.nc$'
         # output file format
-        output_file_format = 'MERRA2_{0}.GPH_levels.{1}{2}.SUB.nc'
+        output_file_format = 'MERRA2_{0}.tavgM_3d_PHIS.{1}{2}.SUB.nc'
         SURFNAME = 'PHIS'
         ZNAME = 'PHIS'
         VARNAME = 'PS'
@@ -151,6 +152,42 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
         TIME_LONGNAME = 'Time'
         UNITS = 'm+2 s-2'
         GRAVITY = 1.0
+
+    # dictionary defining output structure
+    struct = dict(
+        dimensions=(TIMENAME, LATNAME, LONNAME),
+        variables={
+            ZNAME: (TIMENAME, LEVELNAME, LATNAME, LONNAME),
+            DIFFNAME: (TIMENAME, LEVELNAME, LATNAME, LONNAME),
+        },
+    )
+    # dictionary defining file-level and variable attributes
+    attributes = dict(ROOT={})
+    attributes[LONNAME] = dict(
+        long_name='Longitude',
+        units='degrees_east',
+    )
+    attributes[LATNAME] = dict(
+        long_name='Latitude',
+        units='degrees_north',
+    )
+    attributes[TIMENAME] = dict(
+        long_name=TIME_LONGNAME,
+    )
+    # Defining attributes for model levels
+    attributes[LEVELNAME] = dict(
+        long_name='Model_Level_Number',
+    )
+    # Defining attributes for geopotential height
+    attributes[ZNAME] = dict(
+        long_name='Geopotential_Heights_on_Model_Levels',
+        units=UNITS,
+    )
+    # Defining attributes for pressure differences
+    attributes[DIFFNAME] = dict(
+        long_name='Pressure_Differences_between_Levels',
+        units='Pa',
+    )
 
     # read model orography for dimensions
     geopotential, lon, lat = ncdf_invariant(
@@ -181,17 +218,17 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
         ntime, nlevels, nlat, nlon = fid1.variables[TNAME].shape
         # invalid value
         fill_value = fid1.variables[TNAME]._FillValue
-        # save output variables into a python dictionary.
+        # dictionary with output variables and dimensions
         dinput = {}
-        dinput[ZNAME] = np.zeros((ntime, nlevels, nlat, nlon), dtype=np.float32)
-        dinput[DIFFNAME] = np.zeros(
-            (ntime, nlevels, nlat, nlon), dtype=np.float32
-        )
+        # allocate for output variables
+        for var in struct['variables'].keys():
+            dinput[var] = np.zeros((ntime, nlevels, nlat, nlon), dtype='f')
         # model levels in reverse order
         dinput[LEVELNAME] = lev[::-1].copy()
         # extract time and time units
         dinput[TIMENAME] = np.copy(fid1.variables[TIMENAME][:])
-        TIME_UNITS = fid1.variables[TIMENAME].units
+        attributes[TIMENAME]['units'] = fid1.variables[TIMENAME].units
+        # copy latitude and longitude
         dinput[LONNAME] = lon.copy()
         dinput[LATNAME] = lat.copy()
 
@@ -228,43 +265,37 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
             geopotential_height = np.empty((nlat, nlon), dtype=np.float32)
             # start with surface geopotential converted to units (m^2/s^2)
             geopotential_height[:, :] = geopotential * GRAVITY
+            # surface pressure for time t
+            SP = surface_pressure[t, :, :]
             # Integrate the model layers in the atmosphere
             for k in range(nlevels):
+                # specific humidity and temperature for level k and time t
+                T = t_time[k, :, :]
+                QV = q_time[k, :, :]
                 # calculate virtual temperature
-                virtual_temp = (1.0 + 0.609133 * q_time[k, :, :]) * t_time[
-                    k, :, :
-                ]
+                Tv = (1.0 + 0.609133 * QV) * T
                 # calculate numerator and denominator for pressure ratio
-                Pnum = A[k] + B[k] * surface_pressure[t, :, :]
+                Pnum = A[k] + B[k] * SP
                 if (k + 1) == nlevels:
                     Pdom = 0.1
                 else:
-                    Pdom = A[k + 1] + B[k + 1] * surface_pressure[t, :, :]
+                    Pdom = A[k + 1] + B[k + 1] * SP
                 # add level to geopotential_levels
-                geopotential_height[:, :] += (
-                    R_dry * virtual_temp * np.log(Pnum / Pdom)
-                )
+                geopotential_height[:, :] += R_dry * Tv * np.log(Pnum / Pdom)
                 # save level to output variable and convert to output units
                 dinput[ZNAME][t, k, :, :] = geopotential_height / GRAVITY
                 # calculate pressure difference between levels (at interfaces)
-                Plower = AI[k] + BI[k] * surface_pressure[t, :, :]
-                Pupper = AI[k + 1] + BI[k + 1] * surface_pressure[t, :, :]
+                Plower = AI[k] + BI[k] * SP
+                Pupper = AI[k + 1] + BI[k + 1] * SP
                 dinput[DIFFNAME][t, k, :, :] = Pupper - Plower
 
         # save to file
         ncdf_geopotential_write(
             dinput,
+            attributes,
             fill_value,
+            struct,
             FILENAME=output_file,
-            ZNAME=ZNAME,
-            LEVELNAME=LEVELNAME,
-            DIFFNAME=DIFFNAME,
-            LONNAME=LONNAME,
-            LATNAME=LATNAME,
-            TIMENAME=TIMENAME,
-            TIME_UNITS=TIME_UNITS,
-            TIME_LONGNAME=TIME_LONGNAME,
-            UNITS=UNITS,
         )
         # set the permissions level of the output file to MODE
         output_file.chmod(mode=MODE)
@@ -345,93 +376,52 @@ def ncdf_coordinates(FILENAME, LEVELNAME, ANAME, BNAME, AINTERFACE, BINTERFACE):
 
 # PURPOSE: write output geopotential fields data to file
 def ncdf_geopotential_write(
-    dinput,
+    output,
+    attributes,
     fill_value,
+    struct,
     FILENAME=None,
-    ZNAME=None,
-    DIFFNAME=None,
-    LEVELNAME=None,
-    LONNAME=None,
-    LATNAME=None,
-    TIMENAME=None,
-    TIME_UNITS=None,
-    TIME_LONGNAME=None,
-    UNITS=None,
 ):
     # opening NetCDF file for writing
     FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
     fileID = netCDF4.Dataset(FILENAME, 'w', format='NETCDF4')
 
-    # Defining the NetCDF dimensions
-    for key in [LONNAME, LATNAME, TIMENAME, LEVELNAME]:
-        fileID.createDimension(key, len(dinput[key]))
-
-    # defining the NetCDF variables
+    # dictionary with NetCDF4 variable objects
     nc = {}
-    nc[LATNAME] = fileID.createVariable(
-        LATNAME, dinput[LATNAME].dtype, (LATNAME,)
-    )
-    nc[LONNAME] = fileID.createVariable(
-        LONNAME, dinput[LONNAME].dtype, (LONNAME,)
-    )
-    nc[TIMENAME] = fileID.createVariable(
-        TIMENAME, dinput[TIMENAME].dtype, (TIMENAME,)
-    )
-    nc[LEVELNAME] = fileID.createVariable(
-        LEVELNAME, dinput[LEVELNAME].dtype, (LEVELNAME,)
-    )
-    nc[DIFFNAME] = fileID.createVariable(
-        DIFFNAME,
-        dinput[DIFFNAME].dtype,
-        (
-            TIMENAME,
-            LEVELNAME,
-            LATNAME,
-            LONNAME,
-        ),
-        fill_value=fill_value,
-        zlib=True,
-    )
-    nc[ZNAME] = fileID.createVariable(
-        ZNAME,
-        dinput[ZNAME].dtype,
-        (
-            TIMENAME,
-            LEVELNAME,
-            LATNAME,
-            LONNAME,
-        ),
-        fill_value=fill_value,
-        zlib=True,
-    )
-    # filling NetCDF variables
-    for key, val in dinput.items():
-        nc[key][:] = dinput[key].copy()
-        dinput[key] = None
+    # defining the NetCDF4 dimensions
+    for dim in struct['dimensions']:
+        fileID.createDimension(dim, len(output[dim]))
+        nc[dim] = fileID.createVariable(dim, output[dim].dtype, (dim,))
+        # add data to NetCDF4 dimension variable
+        nc[dim][:] = output[dim].copy()
+        # set netCDF4 attributes for dimensions
+        for att_name, att_val in attributes[dim].items():
+            nc[dim].setncattr(att_name, att_val)
 
-    # Defining attributes for longitude and latitude
-    nc[LONNAME].long_name = 'Longitude'
-    nc[LONNAME].units = 'degrees_east'
-    nc[LATNAME].long_name = 'Latitude'
-    nc[LATNAME].units = 'degrees_north'
-    # Defining attributes for time
-    nc[TIMENAME].units = TIME_UNITS
-    nc[TIMENAME].long_name = TIME_LONGNAME
-    # Defining attributes for model levels
-    nc[LEVELNAME].long_name = 'Model_Level_Number'
-    # Defining attributes for geopotential height
-    nc[ZNAME].long_name = 'Geopotential_Heights_on_Model_Levels'
-    nc[ZNAME].units = UNITS
-    # Defining attributes for pressure differences
-    nc[DIFFNAME].long_name = 'Pressure_Differences_between_Levels'
-    nc[DIFFNAME].units = 'Pa'
+    # defining the NetCDF4 variables
+    for var, dimensions in struct['variables'].items():
+        nc[var] = fileID.createVariable(
+            var,
+            output[var].dtype,
+            dimensions,
+            fill_value=fill_value,
+            zlib=True,
+        )
+        # add data to NetCDF4 variable
+        nc[var][:] = output[var].copy()
+        # set netCDF4 attributes for variables
+        for att_name, att_val in attributes[var].items():
+            nc[var].setncattr(att_name, att_val)
 
+    # Defining file-level attributes
+    for att_name, att_val in attributes['ROOT'].items():
+        fileID.setncattr(att_name, att_val)
+    # add attribute for date created
+    fileID.date_created = time.strftime('%Y-%m-%d', time.localtime())
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
     fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
-    # date created
-    fileID.date_created = time.strftime('%Y-%m-%d', time.localtime())
 
     # Output NetCDF structure information
     logging.info(str(FILENAME))

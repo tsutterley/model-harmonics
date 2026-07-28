@@ -170,7 +170,7 @@ def reanalysis_atmospheric_harmonics(
         DIFFNAME = 'dp'
         LONNAME = 'longitude'
         LATNAME = 'latitude'
-        TIMENAME = 'time'
+        TIMENAME = 'valid_time'
         LEVELNAME = 'lvl'
         ELLIPSOID = 'WGS84'
         # land-sea mask variable name and value of oceanic points
@@ -184,7 +184,7 @@ def reanalysis_atmospheric_harmonics(
         input_mask_file = 'MERRA2_101.const_2d_asm_Nx.00000000.nc4'
         # regular expression pattern for finding files
         # calculated from calculate_geopotential_heights.py
-        regex_pattern = r'MERRA2_\d{{3}}.GPH_levels.({0})(\d{{2}}).SUB.nc$'
+        regex_pattern = r'MERRA2_\d{{3}}.tavgM_3d_PHIS.({0})(\d{{2}}).SUB.nc$'
         ZNAME = 'PHIS'
         DIFFNAME = 'dP'
         LONNAME = 'lon'
@@ -378,14 +378,13 @@ def reanalysis_atmospheric_harmonics(
 
     # output file format for spherical harmonic data
     args = (MODEL.upper(), LMAX, order_str, suffix[DATAFORM])
-    output_regex = re.compile(r'{0}_CLM_L{1:d}{2}_(\d+).{3}'.format(*args))
+    pattern = r'{0}_CLM_L{1:d}{2}_(\d+).{3}'.format(*args)
+    regex = re.compile(pattern, re.VERBOSE)
     # find all output harmonic files (not just ones created in run)
-    output_files = [
-        f for f in output_dir.iterdir() if re.match(output_regex, f.name)
-    ]
+    output_files = [f for f in output_dir.iterdir() if regex.match(f.name)]
     for fi in sorted(output_files):
         # extract GRACE month
-        (grace_month,) = np.array(re.findall(output_regex, fi.name), dtype=int)
+        (grace_month,) = np.array(regex.findall(fi.name), dtype=int)
         YY, MM = gravtk.time.grace_to_calendar(grace_month)
         (tdec,) = gravtk.time.convert_calendar_decimal(YY, MM)
         # print date, GRACE month and calendar month to date file

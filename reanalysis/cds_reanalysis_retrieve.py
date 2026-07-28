@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-cds_reanalysis_retrieve.py (05/2023)
+cds_reanalysis_retrieve.py (07/2026)
 Retrieves ERA5 reanalysis netCDF4 datasets from the CDS Web API
 https://cds.climate.copernicus.eu/user/register
 https://cds.climate.copernicus.eu/cdsapp/#!/terms/licence-to-use-copernicus-products
@@ -35,6 +35,7 @@ PYTHON DEPENDENCIES:
         https://pypi.org/project/cdsapi/
 
 UPDATE HISTORY:
+    Updated 07/2026: add geopotential to invariant parameters to retrieve
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -62,7 +63,7 @@ import pathlib
 import argparse
 
 
-# PURPOSE: retrieve ERA5 level data for a set of years from CDS server
+# PURPOSE: retrieve ECMWF data using the CDS Web API
 def cds_reanalysis_retrieve(
     base_dir, server, YEAR, SURFACE=[], LEVEL=False, INVARIANT=True, MODE=0o775
 ):
@@ -164,6 +165,7 @@ def cds_reanalysis_retrieve(
                 'variable': [
                     'angle_of_sub_gridscale_orography',
                     'anisotropy_of_sub_gridscale_orography',
+                    'geopotential',
                     'land_sea_mask',
                     'orography',
                     'slope_of_sub_gridscale_orography',
@@ -230,8 +232,9 @@ def arguments():
         '--surface',
         '-S',
         type=str,
-        nargs='+',
+        nargs='?',
         choices=choices,
+        const=[],
         default=['SP'],
         help='Retrieve model surface variables',
     )

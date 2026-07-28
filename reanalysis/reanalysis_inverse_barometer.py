@@ -40,7 +40,8 @@ REFERENCES:
         https://doi.org/10.1007/978-3-211-33545-1
 
 UPDATE HISTORY:
-    Updated 07/2026: use authalic area for the grid cell areas
+    Updated 07/2026: use struct dictionary to define netCDF4 parameters
+        use authalic area for the grid cell areas
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: use full path to output file in verbose logging
     Updated 12/2022: single implicit import of spherical harmonic tools
@@ -108,7 +109,7 @@ def reanalysis_inverse_barometer(
         VARNAME = 'msl'
         LONNAME = 'longitude'
         LATNAME = 'latitude'
-        TIMENAME = 'time'
+        TIMENAME = 'valid_time'
         IBNAME = 'ib'
         UNITS = 'm'
         # hours since 1900-01-01 00:00:0.0
@@ -159,6 +160,32 @@ def reanalysis_inverse_barometer(
         # land-sea mask variable name and value of oceanic points
         MASKNAME = 'FROCEAN'
         OCEAN = 1
+
+    # dictionary defining output structure
+    struct = dict(
+        dimensions=(TIMENAME, LATNAME, LONNAME),
+        variables={
+            IBNAME: (TIMENAME, LATNAME, LONNAME),
+        },
+    )
+    # dictionary defining file-level and variable attributes
+    attributes = dict(ROOT={})
+    attributes[LONNAME] = dict(
+        long_name='Longitude',
+        units='degrees_east',
+    )
+    attributes[LATNAME] = dict(
+        long_name='Latitude',
+        units='degrees_north',
+    )
+    attributes[TIMENAME] = dict(
+        long_name=TIME_LONGNAME,
+    )
+    attributes[IBNAME] = dict(
+        long_name='Instantaneous_inverse_barometer_(IB)_response',
+        units=UNITS,
+        density=DENSITY,
+    )
 
     # read mean pressure field
     mean_file = ddir.joinpath(input_mean_file.format(*RANGE))
@@ -237,6 +264,7 @@ def reanalysis_inverse_barometer(
             dinput = {}
             dinput[TIMENAME] = np.copy(fileID.variables[TIMENAME][:])
             TIME_UNITS = fileID.variables[TIMENAME].units
+            attributes[TIMENAME]['units'] = TIME_UNITS
             # copy latitude and longitude
             dinput[LONNAME] = lon.copy()
             dinput[LATNAME] = lat.copy()
@@ -274,16 +302,10 @@ def reanalysis_inverse_barometer(
             # output to file
             ncdf_IB_write(
                 dinput,
+                attributes,
                 fill_value,
+                struct,
                 FILENAME=output_file,
-                IBNAME=IBNAME,
-                LONNAME=LONNAME,
-                LATNAME=LATNAME,
-                TIMENAME=TIMENAME,
-                TIME_UNITS=TIME_UNITS,
-                TIME_LONGNAME=TIME_LONGNAME,
-                UNITS=UNITS,
-                DENSITY=DENSITY,
             )
             # change permissions mode
             output_file.chmod(mode=MODE)
@@ -291,65 +313,46 @@ def reanalysis_inverse_barometer(
 
 # PURPOSE: write output inverse barometer fields data to file
 def ncdf_IB_write(
-    dinput,
+    output,
+    attributes,
     fill_value,
+    struct,
     FILENAME=None,
-    IBNAME=None,
-    LONNAME=None,
-    LATNAME=None,
-    TIMENAME=None,
-    TIME_UNITS=None,
-    TIME_LONGNAME=None,
-    UNITS=None,
-    DENSITY=None,
 ):
     # opening NetCDF file for writing
     FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
     fileID = netCDF4.Dataset(FILENAME, 'w', format='NETCDF4')
 
-    # Defining the NetCDF dimensions
-    for key in [LONNAME, LATNAME, TIMENAME]:
-        fileID.createDimension(key, len(dinput[key]))
-
-    # defining the NetCDF variables
+    # dictionary with NetCDF4 variable objects
     nc = {}
-    nc[LATNAME] = fileID.createVariable(
-        LATNAME, dinput[LATNAME].dtype, (LATNAME,)
-    )
-    nc[LONNAME] = fileID.createVariable(
-        LONNAME, dinput[LONNAME].dtype, (LONNAME,)
-    )
-    nc[TIMENAME] = fileID.createVariable(
-        TIMENAME, dinput[TIMENAME].dtype, (TIMENAME,)
-    )
-    nc[IBNAME] = fileID.createVariable(
-        IBNAME,
-        dinput[IBNAME].dtype,
-        (
-            TIMENAME,
-            LATNAME,
-            LONNAME,
-        ),
-        fill_value=fill_value,
-        zlib=True,
-    )
-    # filling NetCDF variables
-    for key, val in dinput.items():
-        nc[key][:] = val.copy()
+    # defining the NetCDF4 dimensions
+    for dim in struct['dimensions']:
+        fileID.createDimension(dim, len(output[dim]))
+        nc[dim] = fileID.createVariable(dim, output[dim].dtype, (dim,))
+        # add data to NetCDF4 dimension variable
+        nc[dim][:] = output[dim].copy()
+        # set netCDF4 attributes for dimensions
+        for att_name, att_val in attributes[dim].items():
+            nc[dim].setncattr(att_name, att_val)
 
-    # Defining attributes for longitude and latitude
-    nc[LONNAME].long_name = 'Longitude'
-    nc[LONNAME].units = 'degrees_east'
-    nc[LATNAME].long_name = 'Latitude'
-    nc[LATNAME].units = 'degrees_north'
-    # Defining attributes for time
-    nc[TIMENAME].units = TIME_UNITS
-    nc[TIMENAME].long_name = TIME_LONGNAME
-    # Defining attributes for inverse barometer effect
-    nc[IBNAME].long_name = 'Instantaneous_inverse_barometer_(IB)_response'
-    nc[IBNAME].units = UNITS
-    nc[IBNAME].density = DENSITY
+    # defining the NetCDF4 variables
+    for var, dimensions in struct['variables'].items():
+        nc[var] = fileID.createVariable(
+            var,
+            output[var].dtype,
+            dimensions,
+            fill_value=fill_value,
+            zlib=True,
+        )
+        # add data to NetCDF4 variable
+        nc[var][:] = output[var].copy()
+        # set netCDF4 attributes for variables
+        for att_name, att_val in attributes[var].items():
+            nc[var].setncattr(att_name, att_val)
 
+    # Defining file-level attributes
+    for att_name, att_val in attributes['ROOT'].items():
+        fileID.setncattr(att_name, att_val)
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version

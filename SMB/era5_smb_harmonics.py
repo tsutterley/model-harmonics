@@ -259,13 +259,13 @@ def era5_smb_harmonics(
     fid2 = output_index_file.open(mode='w', encoding='utf8')
     # find all available output files
     args = (LMAX, order_str, suffix[DATAFORM])
-    output_pattern = r'ERA5_CUMUL_P-E_CLM_L{0:d}{1}_([-]?\d+).{2}'
-    output_regex = re.compile(output_pattern.format(*args), re.VERBOSE)
+    pattern = r'ERA5_CUMUL_P-E_CLM_L{0:d}{1}_([-]?\d+).{2}'.format(*args)
+    regex = re.compile(pattern, re.VERBOSE)
     # find all output harmonic files (not just ones created in run)
-    output_files = [f for f in d2.iterdir() if re.match(output_regex, f.name)]
+    output_files = [f for f in d2.iterdir() if regex.match(f.name)]
     for fi in sorted(output_files):
         # extract GRACE month
-        (grace_month,) = np.array(re.findall(output_regex, fi.name), dtype=int)
+        (grace_month,) = np.array(regex.findall(fi.name), dtype=int)
         YY, MM = gravtk.time.grace_to_calendar(grace_month)
         (tdec,) = gravtk.time.convert_calendar_decimal(YY, MM)
         # print date, GRACE month and calendar month to date file

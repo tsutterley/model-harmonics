@@ -126,7 +126,7 @@ def reanalysis_mean_pressure(
         ZNAME = 'z'
         LONNAME = 'longitude'
         LATNAME = 'latitude'
-        TIMENAME = 'time'
+        TIMENAME = 'valid_time'
     elif MODEL == 'MERRA-2':
         # invariant parameters file
         input_invariant_file = 'MERRA2_101.const_2d_asm_Nx.00000000.nc4'

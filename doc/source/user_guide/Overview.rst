@@ -48,7 +48,7 @@ Components
 .. toctree::
     :hidden:
     :maxdepth: 1
-    :numbered:
+    :numbered: 3
 
     ./Atmospheric-Circulation.rst
     ./Ocean-Bottom-Pressure.rst

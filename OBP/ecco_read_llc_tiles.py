@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 ecco_read_llc_tiles.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (07/2026)
 
 Calculates monthly ocean bottom pressure anomalies from ECCO LLC tiles
 https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/nctiles_monthly
@@ -50,6 +50,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 07/2026: use struct dictionary to define netCDF4 parameters
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -92,6 +93,7 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
         TIMENAME = 'time'
         AREANAME = 'rA'
         MASKNAME = 'maskC'
+        # output dimensions
         Nt, Nj, Ni = (13, 90, 90)
     elif MODEL == 'V5alpha':
         LONNAME = 'XC'
@@ -101,6 +103,7 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
         TIMENAME = 'time'
         AREANAME = 'rA'
         MASKNAME = 'maskC'
+        # output dimensions
         Nt, Nj, Ni = (13, 270, 270)
 
     # read ECCO tile grid file
@@ -112,6 +115,8 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
         area=AREANAME,
         mask=MASKNAME,
     )
+    # valid values from mask and depth
+    valid = invariant['mask'][0, :, :, :] & (invariant['depth'] > 0.0)
     # bad value
     fill_value = -1e10
     # model gamma and rhonil
@@ -132,10 +137,20 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
     # find input files
     input_files = sorted([f for f in d1.iterdir() if rx1.match(f.name)])
 
-    # Defining output attributes
-    attributes = {}
+    # dictionary defining output structure
+    struct = dict(
+        dimensions=(TIMENAME, 'tile', 'j', 'i'),
+        variables={
+            'lat': ('tile', 'j', 'i'),
+            'lon': ('tile', 'j', 'i'),
+            VARNAME: ('tile', 'j', 'i'),
+        },
+    )
+
+    # dictionary defining file-level and variable attributes
+    attributes = dict(ROOT={})
     TITLE = f'Ocean_Bottom_Pressure_Anomalies_from_ECCO_{MODEL}_Model'
-    attributes['title'] = TITLE
+    attributes['ROOT']['title'] = TITLE
     # dimension attributes
     attributes['i'] = {}
     attributes['i']['long_name'] = 'x-dimension of the t grid'
@@ -179,9 +194,7 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
             obp = {}
             # allocate for output anomaly data
             obp[VARNAME] = np.ma.zeros((Nt, Nj, Ni), fill_value=fill_value)
-            obp[VARNAME].mask = np.logical_not(
-                invariant['mask'][0, :, :, :]
-            ) | (invariant['depth'] == 0.0)
+            obp[VARNAME].mask = np.logical_not(valid)
             # copy geolocation variables
             obp['lon'] = np.copy(invariant['lon'])
             obp['lat'] = np.copy(invariant['lat'])
@@ -190,14 +203,11 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
                 obp[key] = fileID.variables[key][:].copy()
 
             # calculate Julian day by converting to MJD and adding offset
-            JD = (
-                gravtk.time.convert_delta_time(
-                    delta_time,
-                    epoch1=epoch1,
-                    epoch2=(1858, 11, 17, 0, 0, 0),
-                    scale=1.0 / 86400.0,
-                )
-                + 2400000.5
+            JD = 2400000.5 + gravtk.time.convert_delta_time(
+                delta_time,
+                epoch1=epoch1,
+                epoch2=(1858, 11, 17, 0, 0, 0),
+                scale=1.0 / 86400.0,
             )
             # convert from Julian days to calendar dates
             YY, MM, DD, hh, mm, ss = gravtk.time.convert_julian(
@@ -218,11 +228,9 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
                 area = invariant['area'][k, :, :]
                 # calculate the tile point weight in newtons
                 newtons = obp_tile[k, :, :] * area
-                # mask for tile
-                mask = np.logical_not(obp[VARNAME].mask[k, :, :])
-                # finding ocean points at each lat
-                if np.count_nonzero(mask):
-                    indj, indi = np.nonzero(mask)
+                # finding ocean points in tile
+                if np.count_nonzero(valid[k, :, :]):
+                    indj, indi = np.nonzero(valid[k, :, :])
                     # total area
                     total_area += np.sum(area[indj, indi])
                     # total weight in newtons
@@ -243,11 +251,9 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
             ncdf_tile_write(
                 obp,
                 attributes,
+                fill_value,
+                struct,
                 FILENAME=output_file,
-                LONNAME='lon',
-                LATNAME='lat',
-                TIMENAME=TIMENAME,
-                VARNAME=VARNAME,
             )
             # change the permissions mode of the output file to MODE
             output_file.chmod(mode=MODE)
@@ -284,57 +290,61 @@ def ncdf_mean(mean_file, VARNAME=None):
 def ncdf_tile_write(
     output,
     attributes,
+    struct,
     FILENAME=None,
-    LONNAME=None,
-    LATNAME=None,
-    TIMENAME=None,
-    VARNAME=None,
 ):
-    # opening NetCDF file for writing
+    # opening NetCDF4 file for writing
     FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME, mode='w')
+    fileID = netCDF4.Dataset(FILENAME, 'w', format='NETCDF4')
 
-    # python dictionary with NetCDF variables
+    # dictionary with NetCDF4 variable objects
     nc = {}
-    # Defining the NetCDF dimensions and variables
-    for key in ('i', 'j', 'tile', TIMENAME):
-        fileID.createDimension(key, len(np.atleast_1d(output[key])))
-        nc[key] = fileID.createVariable(key, output[key].dtype, (key,))
-        # filling NetCDF variables
-        nc[key][:] = np.copy(output[key])
-        # Defining attributes for variable
-        for att_name, att_val in attributes[key].items():
-            setattr(nc[key], att_name, att_val)
+    # defining the NetCDF4 dimensions
+    for dim in struct['dimensions']:
+        fileID.createDimension(dim, len(output[dim]))
+        nc[dim] = fileID.createVariable(dim, output[dim].dtype, (dim,))
+        # add data to NetCDF4 dimension variable
+        nc[dim][:] = output[dim].copy()
+        # set netCDF4 attributes for dimensions
+        for att_name, att_val in attributes[dim].items():
+            nc[dim].setncattr(att_name, att_val)
 
-    # Defining the NetCDF variables
-    for key in (LONNAME, LATNAME, VARNAME):
-        if hasattr(output[key], 'fill_value'):
-            nc[key] = fileID.createVariable(
-                key,
-                output[key].dtype,
-                ('tile', 'j', 'i'),
-                fill_value=output[key].fill_value,
+    # defining the NetCDF4 variables
+    for var, dimensions in struct['variables'].items():
+        if hasattr(output[var], 'fill_value'):
+            nc[var] = fileID.createVariable(
+                var,
+                output[var].dtype,
+                dimensions,
+                fill_value=output[var].fill_value,
                 zlib=True,
             )
         else:
-            nc[key] = fileID.createVariable(
-                key, output[key].dtype, ('tile', 'j', 'i')
+            nc[var] = fileID.createVariable(
+                var,
+                output[var].dtype,
+                dimensions,
             )
-        # filling NetCDF variables
-        nc[key][:] = np.copy(output[key])
-        # Defining attributes for variable
-        for att_name, att_val in attributes[key].items():
-            setattr(nc[key], att_name, att_val)
+        # add data to NetCDF4 variable
+        nc[var][:] = output[var].copy()
+        # set netCDF4 attributes for variables
+        for att_name, att_val in attributes[var].items():
+            nc[var].setncattr(att_name, att_val)
+
+    # Defining file-level attributes
+    for att_name, att_val in attributes['ROOT'].items():
+        fileID.setncattr(att_name, att_val)
     # add attribute for date created
     fileID.date_created = datetime.datetime.now().isoformat()
-    fileID.title = attributes['title']
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
     fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
+
     # Output NetCDF structure information
     logging.info(str(FILENAME))
     logging.info(list(fileID.variables.keys()))
+
     # Closing the NetCDF file
     fileID.close()
 

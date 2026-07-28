@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 ecco_geoid_llc_tiles.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (07/2026)
 
 Calculates geoid heights for ECCO ocean model LLC tiles using model
     coefficients from the GFZ International Centre for Global Earth
@@ -41,6 +41,8 @@ PROGRAM DEPENDENCIES:
     gauss_weights.py: Computes Gaussian weights as a function of degree
 
 UPDATE HISTORY:
+    Updated 07/2026: output using a mean tide permanent tide system
+        use struct dictionary to define output netCDF4 parameters
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -92,9 +94,9 @@ def ecco_geoid_llc_tiles(
     # bad value
     fill_value = -1e10
 
-    # read gravity model spherical harmonics
+    # read gravity model spherical harmonics (mean tide)
     GEOID = pathlib.Path(GEOID).expanduser().absolute()
-    Ylms = geoidtk.read_ICGEM_harmonics(GEOID, LMAX=LMAX)
+    Ylms = geoidtk.read_ICGEM_harmonics(GEOID, LMAX=LMAX, TIDE='mean_tide')
     # extract parameters
     R = np.float64(Ylms['radius'])
     GM = np.float64(Ylms['earth_gravity_constant'])
@@ -122,12 +124,25 @@ def ecco_geoid_llc_tiles(
     # replace invalid data with fill value
     output['geoid'].data[output['geoid'].mask] = output['geoid'].fill_value
 
+    # dictionary defining output structure
+    VARNAME = 'geoid'
+    struct = dict(
+        dimensions=('tile', 'j', 'i'),
+        variables={
+            'lat': ('tile', 'j', 'i'),
+            'lon': ('tile', 'j', 'i'),
+            VARNAME: ('tile', 'j', 'i'),
+        },
+    )
+
     # Defining output attributes
-    attributes = {}
-    attributes['title'] = GEOID.name
-    attributes['radius'] = Ylms['radius']
-    attributes['earth_gravity_constant'] = Ylms['earth_gravity_constant']
-    attributes['max_degree'] = str(LMAX)
+    attributes = dict(ROOT={})
+    attributes['ROOT']['title'] = GEOID.name
+    attributes['ROOT']['radius'] = Ylms['radius']
+    attributes['ROOT']['earth_gravity_constant'] = Ylms[
+        'earth_gravity_constant'
+    ]
+    attributes['ROOT']['max_degree'] = str(LMAX)
     # dimension attributes
     attributes['i'] = {}
     attributes['i']['long_name'] = 'x-dimension of the t grid'
@@ -148,19 +163,20 @@ def ecco_geoid_llc_tiles(
     attributes['geoid'] = {}
     attributes['geoid']['long_name'] = 'geoidal_undulation'
     attributes['geoid']['units'] = 'meter'
-    attributes['geoid']['reference'] = (
-        'https://doi.org/10.5194/essd-11-647-2019'
-    )
+    icgem = 'https://doi.org/10.5194/essd-11-647-2019'
+    attributes['geoid']['reference'] = icgem
+    attributes['geoid']['source'] = Ylms['modelname']
+    attributes['geoid']['tide_system'] = Ylms['tide_system']
+    attributes['geoid']['earth_radius'] = R
+    attributes['geoid']['earth_gravity_constant'] = GM
 
     # netcdf (.nc)
     output_file = pathlib.Path(output_file).expanduser().absolute()
     ncdf_tile_write(
         output,
         attributes,
+        struct,
         FILENAME=output_file,
-        LONNAME='lon',
-        LATNAME='lat',
-        VARNAME='geoid',
     )
     # change the permissions mode of the output file to MODE
     output_file.chmod(mode=MODE)
@@ -181,56 +197,63 @@ def ncdf_invariant(invariant_file, **kwargs):
 
 # PURPOSE: write tiled data to a netCDF4 file
 def ncdf_tile_write(
-    output, attributes, FILENAME=None, LONNAME=None, LATNAME=None, VARNAME=None
+    output,
+    attributes,
+    struct,
+    FILENAME=None,
 ):
-    # opening NetCDF file for writing
+    # opening NetCDF4 file for writing
     FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME, 'w')
+    fileID = netCDF4.Dataset(FILENAME, 'w', format='NETCDF4')
 
-    # python dictionary with NetCDF variables
+    # dictionary with NetCDF4 variable objects
     nc = {}
-    # Defining the NetCDF dimensions and variables
-    for key in ('i', 'j', 'tile'):
-        fileID.createDimension(key, len(np.atleast_1d(output[key])))
-        nc[key] = fileID.createVariable(key, output[key].dtype, (key,))
-        # filling NetCDF variables
-        nc[key][:] = np.copy(output[key])
-        # Defining attributes for variable
-        for att_name, att_val in attributes[key].items():
-            setattr(nc[key], att_name, att_val)
+    # defining the NetCDF4 dimensions
+    for dim in struct['dimensions']:
+        fileID.createDimension(dim, len(output[dim]))
+        nc[dim] = fileID.createVariable(dim, output[dim].dtype, (dim,))
+        # add data to NetCDF4 dimension variable
+        nc[dim][:] = output[dim].copy()
+        # set netCDF4 attributes for dimensions
+        for att_name, att_val in attributes[dim].items():
+            nc[dim].setncattr(att_name, att_val)
 
-    # Defining the NetCDF variables
-    for key in (LONNAME, LATNAME, VARNAME):
-        if hasattr(output[key], 'fill_value'):
-            nc[key] = fileID.createVariable(
-                key,
-                output[key].dtype,
-                ('tile', 'j', 'i'),
-                fill_value=output[key].fill_value,
+    # defining the NetCDF4 variables
+    for var, dimensions in struct['variables'].items():
+        if hasattr(output[var], 'fill_value'):
+            nc[var] = fileID.createVariable(
+                var,
+                output[var].dtype,
+                dimensions,
+                fill_value=output[var].fill_value,
                 zlib=True,
             )
         else:
-            nc[key] = fileID.createVariable(
-                key, output[key].dtype, ('tile', 'j', 'i')
+            nc[var] = fileID.createVariable(
+                var,
+                output[var].dtype,
+                dimensions,
             )
-        # filling NetCDF variables
-        nc[key][:] = np.copy(output[key])
-        # Defining attributes for variable
-        for att_name, att_val in attributes[key].items():
-            setattr(nc[key], att_name, att_val)
+        # add data to NetCDF4 variable
+        nc[var][:] = output[var].copy()
+        # set netCDF4 attributes for variables
+        for att_name, att_val in attributes[var].items():
+            nc[var].setncattr(att_name, att_val)
+
+    # Defining file-level attributes
+    for att_name, att_val in attributes['ROOT'].items():
+        fileID.setncattr(att_name, att_val)
     # add attribute for date created
     fileID.date_created = datetime.datetime.now().isoformat()
-    fileID.title = attributes['title']
-    fileID.radius = attributes['radius']
-    fileID.earth_gravity_constant = attributes['earth_gravity_constant']
-    fileID.max_degree = attributes['max_degree']
     # add software information
     fileID.software_reference = mdlhmc.version.project_name
     fileID.software_version = mdlhmc.version.full_version
     fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
+
     # Output NetCDF structure information
     logging.info(str(FILENAME))
     logging.info(list(fileID.variables.keys()))
+
     # Closing the NetCDF file
     fileID.close()
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 gesdisc_merra_subset.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (07/2026)
 
 Subsets monthly MERRA-2 products for specific variables from the
     Goddard Earth Sciences Data and Information Server Center (GES DISC)
@@ -29,6 +29,7 @@ COMMAND LINE OPTIONS:
     -v X, --version X: MERRA-2 version
     -Y X, --year X: years to sync
     -V X, --variables X: variables to subset
+    -I, --invariant: Retrieve model invariant parameters
     -t X, --timeout X: Timeout in seconds for blocking operations
     -F, --flatten: Do not create subdirectories
     -l, --log: output log of files downloaded
@@ -52,6 +53,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 07/2026: added invariant option to get model parameters
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: added option for defining the GESDISC API hostname
     Updated 12/2022: single implicit import of spherical harmonic tools
@@ -84,6 +86,7 @@ def gesdisc_merra_subset(
     VERSION=None,
     YEARS=None,
     VARIABLES=None,
+    INVARIANT=False,
     TIMEOUT=None,
     FLATTEN=False,
     LOG=False,
@@ -161,6 +164,29 @@ def gesdisc_merra_subset(
                     CLOBBER=CLOBBER,
                     MODE=0o775,
                 )
+
+    # download invariant data
+    if INVARIANT:
+        # query for data
+        ids, urls, mtimes = mdlhmc.utilities.cmr(
+            'M2C0NXASM',
+            version=VERSION,
+            provider='GES_DISC',
+            verbose=True,
+        )
+        # for each granule
+        for id, url, mtime in zip(ids, urls, mtimes):
+            # build filename for output
+            local_file = DIRECTORY.joinpath(id)
+            # copy subsetted file and update modified dates
+            http_pull_file(
+                url,
+                mtime,
+                local_file,
+                TIMEOUT=TIMEOUT,
+                CLOBBER=CLOBBER,
+                MODE=0o775,
+            )
 
     # close log file and set permissions level to MODE
     if LOG:
@@ -272,7 +298,11 @@ def arguments():
     )
     # MERRA-2 version
     parser.add_argument(
-        '--version', '-v', type=str, default='5.12.4', help='MERRA-2 version'
+        '--version',
+        '-v',
+        type=str,
+        default='5.12.4',
+        help='MERRA-2 version',
     )
     # years to download
     now = time.gmtime()
@@ -289,8 +319,17 @@ def arguments():
         '--variables',
         '-V',
         type=str,
+        default=['PS'],
         nargs='+',
         help='Variables to subset from product',
+    )
+    # retrieve the model invariant parameters
+    parser.add_argument(
+        '--invariant',
+        '-I',
+        default=False,
+        action='store_true',
+        help='Retrieve model invariant parameters',
     )
     # connection timeout
     parser.add_argument(
@@ -378,6 +417,7 @@ def main():
             VERSION=args.version,
             YEARS=args.year,
             VARIABLES=args.variables,
+            INVARIANT=args.invariant,
             TIMEOUT=args.timeout,
             FLATTEN=args.flatten,
             LOG=args.log,

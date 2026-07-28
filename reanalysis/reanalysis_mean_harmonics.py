@@ -169,7 +169,7 @@ def reanalysis_mean_harmonics(
         DIFFNAME = 'dp'
         LONNAME = 'longitude'
         LATNAME = 'latitude'
-        TIMENAME = 'time'
+        TIMENAME = 'valid_time'
         ELLIPSOID = 'WGS84'
         # land-sea mask variable name and value of oceanic points
         MASKNAME = 'lsm'
@@ -182,7 +182,7 @@ def reanalysis_mean_harmonics(
         input_mask_file = 'MERRA2_101.const_2d_asm_Nx.00000000.nc4'
         # regular expression pattern for finding files
         # calculated from calculate_geopotential_heights.py
-        regex_pattern = r'MERRA2_\d{{3}}.GPH_levels.({0})(\d{{2}}).SUB.nc$'
+        regex_pattern = r'MERRA2_\d{{3}}.tavgM_3d_PHIS.({0})(\d{{2}}).SUB.nc$'
         ZNAME = 'PHIS'
         DIFFNAME = 'dP'
         LONNAME = 'lon'

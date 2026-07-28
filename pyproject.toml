@@ -27,7 +27,7 @@ readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = "~=3.6"
 dependencies = [
     "cdsapi",
-    "ecmwf-api-client",
+    "ecmwf-datastores-client",
     "fiona",
     "geoid-toolkit",
     "gravity-toolkit",
@@ -157,7 +157,7 @@ description = "Run flake8 to check for compilation errors"
 
 [tool.pixi.dependencies]
 cdsapi = "*"
-ecmwf-api-client = "*"
+ecmwf-datastores-client = "*"
 fiona = "*"
 h5py = "*"
 netcdf4 = "*"

@@ -187,13 +187,13 @@ def seismic_monthly_harmonics(
 
     # output file format for spherical harmonic data
     args = (mv, LMAX, order_str, suffix)
-    regex_pattern = r'seismic_mv{0}_CLM_L{1:d}{2}_(\d+).{3}'
-    output_regex = re.compile(regex_pattern.format(*args))
+    pattern = r'seismic_mv{0}_CLM_L{1:d}{2}_(\d+).{3}'.format(*args)
+    regex = re.compile(pattern, re.VERBOSE)
     # find all output harmonic files (not just ones created in run)
-    output_files = [f for f in ddir.iterdir() if re.match(output_regex, f.name)]
+    output_files = [f for f in ddir.iterdir() if regex.match(f.name)]
     for fi in sorted(output_files):
         # extract GRACE month
-        (grace_month,) = np.array(re.findall(output_regex, fi.name), dtype=int)
+        (grace_month,) = np.array(regex.findall(fi.name), dtype=int)
         YY, MM = gravtk.time.grace_to_calendar(grace_month)
         (tdec,) = gravtk.time.convert_calendar_decimal(YY, MM)
         # print date, GRACE month and calendar month to date file

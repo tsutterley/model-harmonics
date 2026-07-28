@@ -177,7 +177,7 @@ def reanalysis_monthly_harmonics(
         VARNAME = 'sp'
         LONNAME = 'longitude'
         LATNAME = 'latitude'
-        TIMENAME = 'time'
+        TIMENAME = 'valid_time'
         ELLIPSOID = 'WGS84'
         # use standard weights for equirectangular grids
         WEIGHT = None
@@ -452,14 +452,13 @@ def reanalysis_monthly_harmonics(
 
     # output file format for spherical harmonic data
     args = (MODEL.upper(), LMAX, order_str, suffix[DATAFORM])
-    output_regex = re.compile(r'{0}_CLM_L{1:d}{2}_(\d+).{3}'.format(*args))
+    pattern = r'{0}_CLM_L{1:d}{2}_(\d+).{3}'.format(*args)
+    regex = re.compile(pattern, re.VERBOSE)
     # find all output harmonic files (not just ones created in run)
-    output_files = [
-        f for f in output_dir.iterdir() if re.match(output_regex, f.name)
-    ]
+    output_files = [f for f in output_dir.iterdir() if regex.match(f.name)]
     for fi in sorted(output_files):
         # extract GRACE month
-        (grace_month,) = np.array(re.findall(output_regex, fi.name), dtype=int)
+        (grace_month,) = np.array(regex.findall(fi.name), dtype=int)
         YY, MM = gravtk.time.grace_to_calendar(grace_month)
         (tdec,) = gravtk.time.convert_calendar_decimal(YY, MM)
         # print date, GRACE month and calendar month to date file

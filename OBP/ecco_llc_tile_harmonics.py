@@ -279,18 +279,13 @@ def ecco_llc_tile_harmonics(
     fid2 = output_index_file.open(mode='w', encoding='utf8')
     # find all available output files
     args = (MODEL, LMAX, suffix[DATAFORM])
-    output_regex = r'ECCO_{0}_AveRmvd_OBP_CLM_L{1:d}_([-]?\d+).{2}'.format(
-        *args
-    )
+    pattern = r'ECCO_{0}_AveRmvd_OBP_CLM_L{1:d}_([-]?\d+).{2}'.format(*args)
+    regex = re.compile(pattern, re.VERBOSE)
     # find all output harmonic files (not just ones created in run)
-    output_files = [
-        fi for fi in d2.iterdir() if re.match(output_regex, fi.name)
-    ]
+    output_files = [fi for fi in d2.iterdir() if regex.match(fi.name)]
     for fi in sorted(output_files):
         # extract GRACE month
-        (grace_month,) = np.array(
-            re.findall(output_regex, fi.name), dtype=np.int64
-        )
+        (grace_month,) = np.array(regex.findall(fi.name), dtype=int)
         YY, MM = gravtk.time.grace_to_calendar(grace_month)
         (tdec,) = gravtk.time.convert_calendar_decimal(YY, MM)
         # print date, GRACE month and calendar month to date file
