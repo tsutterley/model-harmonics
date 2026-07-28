@@ -11,6 +11,7 @@ PYTHON DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 07/2026: add functions to list from UCAR GDEX filelist servers
+        add function to get package data path
     Updated 10/2024: update CMR search utility to replace deprecated scrolling
         https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html
     Updated 11/2023: updated ssl context to fix deprecation error
@@ -29,6 +30,26 @@ UPDATE HISTORY:
 # extend gravity_toolkit utilities
 from __future__ import annotations
 from gravity_toolkit.utilities import *
+
+
+# PURPOSE: get absolute path within a package from a relative path
+def get_data_path(relpath: list | str | pathlib.Path):
+    """
+    Get the absolute path within a package from a relative path
+
+    Parameters
+    ----------
+    relpath: list, str or pathlib.Path
+        relative path
+    """
+    # current file path
+    filename = inspect.getframeinfo(inspect.currentframe()).filename
+    filepath = pathlib.Path(filename).absolute().parent
+    if isinstance(relpath, list):
+        # use *splat operator to extract from list
+        return filepath.joinpath(*relpath)
+    elif isinstance(relpath, str):
+        return filepath.joinpath(relpath)
 
 
 # PURPOSE: get the git hash value

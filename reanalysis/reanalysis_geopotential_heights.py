@@ -131,7 +131,7 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
         # invariant parameters file
         input_invariant_file = 'MERRA2_101.const_2d_asm_Nx.00000000.nc4'
         # coordinate parameters file
-        input_coordinate_file = 'MERRA2_101.Coords_Nx.00000000.nc'
+        input_coordinate_file = 'MERRA2_101.const_3d_coords_Nx.00000000.nc4'
         # regular expression pattern for finding files
         regex_pattern = r'MERRA2_(\d+).tavgM_3d_ana_Nv.({0})(\d{{2}}).SUB.nc$'
         # output file format

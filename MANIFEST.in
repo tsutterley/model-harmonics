@@ -1,3 +1,4 @@
+graft model_harmonics/data
 prune .github*
 prune doc*
 prune notebooks*
