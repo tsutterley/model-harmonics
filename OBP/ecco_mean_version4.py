@@ -172,13 +172,10 @@ def ecco_mean_version4(
         field_mapping = gravtk.spatial().default_field_mapping(
             [LONNAME, LATNAME, VARNAME, TIMENAME]
         )
-        PHIBOT = (
-            gravtk.spatial(fill_value=np.nan)
-            .from_netCDF4(
-                input_file, verbose=VERBOSE, field_mapping=field_mapping
-            )
-            .transpose(axes=(1, 2, 0))
+        PHIBOT = gravtk.spatial(fill_value=np.nan).from_netCDF4(
+            input_file, verbose=VERBOSE, field_mapping=field_mapping
         )
+        PHIBOT = PHIBOT.transpose(axes=(1, 2, 0))
         PHIBOT.replace_invalid(fill_value)
         # time within netCDF files is days since epoch
         time_string = PHIBOT.attributes['time']['units']
@@ -199,14 +196,11 @@ def ecco_mean_version4(
             obp.update_mask()
 
             # calculate Julian day by converting to MJD and adding offset
-            JD = (
-                gravtk.time.convert_delta_time(
-                    delta_time,
-                    epoch1=epoch1,
-                    epoch2=(1858, 11, 17, 0, 0, 0),
-                    scale=1.0 / 86400.0,
-                )
-                + 2400000.5
+            JD = 2400000.5 + gravtk.time.convert_delta_time(
+                delta_time,
+                epoch1=epoch1,
+                epoch2=(1858, 11, 17, 0, 0, 0),
+                scale=1.0 / 86400.0,
             )
             # convert from Julian days to calendar dates
             YY, MM, DD, hh, mm, ss = gravtk.time.convert_julian(

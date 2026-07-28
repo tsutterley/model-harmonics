@@ -12,6 +12,7 @@ UPDATE HISTORY:
     Updated 07/2026: add HTML representations of mosaic and raster classes
         add geocentric_radius function to calculate the radius at coordinates
         add grib class for reading GRIB formatted data from reanalysis products
+        updated scale factors for case where reference latitude is at the pole
     Updated 09/2025: use importlib to attempt to import dependencies
     Updated 06/2024: added function for calculating latitude and longitude
     Updated 04/2024: changed polar stereographic area function to scale_factors
@@ -266,26 +267,27 @@ class raster(gravtk.spatial):
         bsize = ds.RasterCount
         # get geotiff info
         info_geotiff = ds.GetGeoTransform()
+        # get pixel spacing
+        dx = info_geotiff[1]
+        dy = info_geotiff[5]
         # calculate image extents
         xmin = info_geotiff[0]
         ymax = info_geotiff[3]
-        xmax = xmin + (xsize - 1) * info_geotiff[1]
-        ymin = ymax + (ysize - 1) * info_geotiff[5]
+        xmax = xmin + (xsize - 1) * dx
+        ymin = ymax + (ysize - 1) * dy
         # x and y pixel center coordinates (converted from upper left)
-        x = xmin + info_geotiff[1] / 2.0 + np.arange(xsize) * info_geotiff[1]
-        y = ymax + info_geotiff[5] / 2.0 + np.arange(ysize) * info_geotiff[5]
+        x = xmin + dx / 2.0 + np.arange(xsize) * dx
+        y = ymax + dy / 2.0 + np.arange(ysize) * dy
         # if reducing to specified bounds
         if kwargs['bounds'] is not None:
             # reduced x and y limits
             xlimits = (kwargs['bounds'][0], kwargs['bounds'][1])
             ylimits = (kwargs['bounds'][2], kwargs['bounds'][3])
             # Specify offset and rows and columns to read
-            xoffset = int((xlimits[0] - xmin) / info_geotiff[1])
-            yoffset = int((ymax - ylimits[1]) / np.abs(info_geotiff[5]))
-            xcount = int((xlimits[1] - xlimits[0]) / info_geotiff[1]) + 1
-            ycount = (
-                int((ylimits[1] - ylimits[0]) / np.abs(info_geotiff[5])) + 1
-            )
+            xoffset = int((xlimits[0] - xmin) / dx)
+            yoffset = int((ymax - ylimits[1]) / np.abs(dy))
+            xcount = int((xlimits[1] - xlimits[0]) / dx) + 1
+            ycount = int((ylimits[1] - ylimits[0]) / np.abs(dy)) + 1
             # reduced x and y pixel center coordinates
             self.x = x[slice(xoffset, xoffset + xcount, None)]
             self.y = y[slice(yoffset, yoffset + ycount, None)]
@@ -294,10 +296,10 @@ class raster(gravtk.spatial):
                 xoff=xoffset, yoff=yoffset, xsize=xcount, ysize=ycount
             )
             # reduced image extent (converted back to upper left)
-            xmin = np.min(self.x) - info_geotiff[1] / 2.0
-            xmax = np.max(self.x) - info_geotiff[1] / 2.0
-            ymin = np.min(self.y) - info_geotiff[5] / 2.0
-            ymax = np.max(self.y) - info_geotiff[5] / 2.0
+            xmin = np.min(self.x) - dx / 2.0
+            xmax = np.max(self.x) - dx / 2.0
+            ymin = np.min(self.y) - dy / 2.0
+            ymax = np.max(self.y) - dy / 2.0
         else:
             # x and y pixel center coordinates
             self.x = np.copy(x)
@@ -592,13 +594,11 @@ class mosaic:
         """Dimensions of the mosaic"""
         dims = [None, None]
         # calculate y dimensions with new extents
-        dims[0] = (
-            np.int64((self.extent[3] - self.extent[2]) / self.spacing[1]) + 1
-        )
+        yptp = self.extent[3] - self.extent[2]
+        dims[0] = np.int64(yptp / self.spacing[1]) + 1
         # calculate x dimensions with new extents
-        dims[1] = (
-            np.int64((self.extent[1] - self.extent[0]) / self.spacing[0]) + 1
-        )
+        xptp = self.extent[1] - self.extent[0]
+        dims[1] = np.int64(xptp / self.spacing[0]) + 1
         return dims
 
     @property
@@ -769,42 +769,52 @@ def scale_factors(
     scale: np.ndarray
         scaling factors at input latitudes
     """
-    assert metric.lower() in ['distance', 'area'], 'Unknown metric'
-    # convert latitude from degrees to positive radians
-    theta = np.radians(np.abs(lat))
-    # convert reference latitude from degrees to positive radians
-    theta_ref = np.radians(np.abs(reference_latitude))
+    if metric.lower() not in ['distance', 'area']:
+        raise ValueError('Unknown metric')
+    # power for scaling factors
+    power = 1.0 if metric.lower() == 'distance' else 2.0
+    # convert latitude to positive radians
+    phi = np.radians(np.abs(lat))
+    # convert reference latitude to positive radians
+    phi_ref = np.radians(np.abs(reference_latitude))
     # square of the eccentricity of the ellipsoid
     # ecc2 = (1-b**2/a**2) = 2.0*flat - flat^2
     ecc2 = 2.0 * flat - flat**2
     # eccentricity of the ellipsoid
     ecc = np.sqrt(ecc2)
-    # calculate ratio at input latitudes
-    m = np.cos(theta) / np.sqrt(1.0 - ecc2 * np.sin(theta) ** 2)
-    t = np.tan(np.pi / 4.0 - theta / 2.0) / (
-        (1.0 - ecc * np.sin(theta)) / (1.0 + ecc * np.sin(theta))
-    ) ** (ecc / 2.0)
-    # calculate ratio at reference latitude
-    mref = np.cos(theta_ref) / np.sqrt(1.0 - ecc2 * np.sin(theta_ref) ** 2)
-    tref = np.tan(np.pi / 4.0 - theta_ref / 2.0) / (
-        (1.0 - ecc * np.sin(theta_ref)) / (1.0 + ecc * np.sin(theta_ref))
-    ) ** (ecc / 2.0)
-    # distance scaling
-    k = (mref / m) * (t / tref)
-    kp = (
-        0.5
-        * mref
-        * np.sqrt(((1.0 + ecc) ** (1.0 + ecc)) * ((1.0 - ecc) ** (1.0 - ecc)))
-        / tref
+    # get p values following equations 17.33 and 17.35
+    p = np.sqrt(np.power(1.0 + ecc, 1.0 + ecc) * np.power(1.0 - ecc, 1.0 - ecc))
+    # calculate m factors using equation 12.15
+    m = np.cos(phi) / np.sqrt(1.0 - ecc2 * np.sin(phi) ** 2)
+    m_ref = np.cos(phi_ref) / np.sqrt(1.0 - ecc2 * np.sin(phi_ref) ** 2)
+    # calculate t factors using equation 13.9
+    t = np.tan(np.pi / 4.0 - phi / 2.0) / np.power(
+        (1.0 - ecc * np.sin(phi)) / (1.0 + ecc * np.sin(phi)), ecc / 2.0
     )
-    if metric.lower() == 'distance':
-        # distance scaling
-        scale = np.where(np.isclose(theta, np.pi / 2.0), 1.0 / kp, 1.0 / k)
-    elif metric.lower() == 'area':
-        # area scaling
+    t_ref = np.tan(np.pi / 4.0 - phi_ref / 2.0) / np.power(
+        (1.0 - ecc * np.sin(phi_ref)) / (1.0 + ecc * np.sin(phi_ref)), ecc / 2.0
+    )
+    # calculate scaling factors following Snyder (1982)
+    # ignore divide by zero and invalid value warnings
+    with np.errstate(divide='ignore', invalid='ignore'):
+        # check if reference latitude is at the pole
+        if np.isclose(phi_ref, np.pi / 2.0):
+            # equations 17.32 and 17.33
+            k = 2.0 * t / (p * m)
+            # at the pole (true scale)
+            k_pole = 1.0
+        else:
+            # equations 17.32 and 17.34
+            k = (m_ref / m) * (t / t_ref)
+            # at the pole from equation 17.35
+            k_pole = 0.5 * m_ref * p / t_ref
+        # distance and area scaling factors with special case at the pole
         scale = np.where(
-            np.isclose(theta, np.pi / 2.0), 1.0 / (kp**2), 1.0 / (k**2)
+            np.isclose(phi, np.pi / 2.0),
+            np.power(1.0 / k_pole, power),
+            np.power(1.0 / k, power),
         )
+    # return the scaling factors
     return scale
 
 
