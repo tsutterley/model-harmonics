@@ -51,6 +51,7 @@ PROGRAM DEPENDENCIES:
 UPDATE HISTORY:
     Updated 07/2026: use numpy summation to calculate daily averages
         added axis to variable attributes to attempt to retrieve
+        use diurnalAggregation (FLAGS=1) to get daily means from GES DISC
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: use full path to output file in verbose logging
     Updated 12/2022: single implicit import of spherical harmonic tools
@@ -232,6 +233,7 @@ def gesdisc_merra_monthly(
                     url,
                     host='https://goldsmr5.gesdisc.eosdis.nasa.gov',
                     variables=struct['variables'].keys(),
+                    FLAGS='1',
                 )
                 # Create and submit request. There are a wide range of exceptions
                 # that can be thrown here, including HTTPError and URLError.

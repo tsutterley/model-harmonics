@@ -11,6 +11,7 @@ PYTHON DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 07/2026: add functions to list from UCAR GDEX filelist servers
+        verbose output of GES DISC on-the-fly subsetting request URLs
         add function to get package data path
     Updated 10/2024: update CMR search utility to replace deprecated scrolling
         https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html
@@ -544,4 +545,5 @@ def build_request(
     kwargs['VARIABLES'] = ','.join(variables)
     # return the formatted request url
     request_url = api_host + urlencode(kwargs)
+    logging.info(f'GES DISC OTF request={request_url}')
     return request_url
