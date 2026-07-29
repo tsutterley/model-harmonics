@@ -69,14 +69,11 @@ def read_era5_variables(era5_flux_file):
         # convert time from netCDF4 units to Julian Days
         date_string = fileID.variables['time'].units
         epoch, to_secs = gravtk.time.parse_date_string(date_string)
-        dinput['time'] = (
-            gravtk.time.convert_delta_time(
-                to_secs * fileID.variables['time'][:],
-                epoch1=epoch,
-                epoch2=(1858, 11, 17, 0, 0, 0),
-                scale=1.0 / 86400.0,
-            )
-            + 2400000.5
+        dinput['time'] = 2400000.5 + gravtk.time.convert_delta_time(
+            to_secs * fileID.variables['time'][:],
+            epoch1=epoch,
+            epoch2=(1858, 11, 17, 0, 0, 0),
+            scale=1.0 / 86400.0,
         )
         # read each variable of interest in ERA5 flux file
         for key in ['tp', 'e']:
@@ -85,11 +82,10 @@ def read_era5_variables(era5_flux_file):
             if fileID.variables[key].ndim == 4:
                 dinput[key] = ncdf_expver(fileID, key)
             else:
-                dinput[key] = np.ma.array(
-                    fileID.variables[key][:].squeeze(),
-                    fill_value=fileID.variables[key]._FillValue,
-                )
-            dinput[key].mask = dinput[key].data == dinput[key].fill_value
+                dinput[key] = (fileID.variables[key][:].squeeze(),)
+            # update mask variable
+            fill_value = fileID.variables[key]._FillValue
+            dinput[key] = np.ma.masked_equal(dinput[key], fill_value)
     # return the output variables
     return dinput
 
@@ -98,18 +94,14 @@ def read_era5_variables(era5_flux_file):
 # ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
 def ncdf_expver(fileID, VARNAME):
     ntime, nexp, nlat, nlon = fileID.variables[VARNAME].shape
-    fill_value = fileID.variables[VARNAME]._FillValue
     # reduced output
-    output = np.ma.zeros((ntime, nlat, nlon))
-    output.fill_value = fill_value
+    output = np.zeros((ntime, nlat, nlon))
     for t in range(ntime):
         # iterate over expver slices to find valid outputs
         for j in range(nexp):
             # check if any are valid for expver
             if np.any(fileID.variables[VARNAME][t, j, :, :]):
                 output[t, :, :] = fileID.variables[VARNAME][t, j, :, :]
-    # update mask variable
-    output.mask = output.data == output.fill_value
     # return the reduced output variable
     return output
 

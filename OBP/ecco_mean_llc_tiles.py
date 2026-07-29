@@ -229,8 +229,7 @@ def ecco_mean_llc_tiles(ddir, MODEL, RANGE=None, MODE=0o775):
             count += 1.0
 
     # convert from totals to means
-    indt, indj, indi = np.nonzero(valid)
-    output[VARNAME].data[indt, indj, indi] /= count
+    output[VARNAME].data[:, :, :] /= count
     output['time'] /= count
     # replace invalid values with fill value
     output[VARNAME].data[output[VARNAME].mask] = output[VARNAME].fill_value

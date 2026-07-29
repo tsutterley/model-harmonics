@@ -334,14 +334,11 @@ def yearly_file_cumulative(
         date_string = fileID.variables['time'].units
         epoch, to_secs = gravtk.time.parse_date_string(date_string)
         # calculate time array in Julian days
-        JD = (
-            gravtk.time.convert_delta_time(
-                delta_time * to_secs,
-                epoch1=epoch,
-                epoch2=(1858, 11, 17, 0, 0, 0),
-                scale=1.0 / 86400.0,
-            )
-            + 2400000.5
+        JD = 2400000.5 + gravtk.time.convert_delta_time(
+            to_secs * delta_time,
+            epoch1=epoch,
+            epoch2=(1858, 11, 17, 0, 0, 0),
+            scale=1.0 / 86400.0,
         )
         # for each month
         for m in range(12):
@@ -464,14 +461,11 @@ def compressed_file_cumulative(
     date_string = fileID.variables['time'].units
     epoch, to_secs = gravtk.time.parse_date_string(date_string)
     # calculate time array in Julian days
-    JD = (
-        gravtk.time.convert_delta_time(
-            delta_time * to_secs,
-            epoch1=epoch,
-            epoch2=(1858, 11, 17, 0, 0, 0),
-            scale=1.0 / 86400.0,
-        )
-        + 2400000.5
+    JD = 2400000.5 + gravtk.time.convert_delta_time(
+        to_secs * delta_time,
+        epoch1=epoch,
+        epoch2=(1858, 11, 17, 0, 0, 0),
+        scale=1.0 / 86400.0,
     )
     # convert from Julian days to calendar dates
     YY, MM, DD, hh, mm, ss = gravtk.time.convert_julian(JD, format='tuple')

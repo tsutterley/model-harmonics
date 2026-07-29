@@ -427,6 +427,9 @@ def reanalysis_pressure_harmonics(
                 pressure = ncdf_expver(fileID, VARNAME)
             else:
                 pressure = fileID.variables[VARNAME][:].copy()
+            # update mask variable
+            fill_value = fileID.variables[VARNAME]._FillValue
+            pressure = np.ma.masked_equal(pressure, fill_value)
             # reorder dimensions to match the required order
             dims = fileID.variables[VARNAME].dimensions
             order = [dims.index(d) for d in dimensions]
@@ -547,18 +550,14 @@ def ncdf_mean_pressure(FILENAME, VARNAME, LONNAME, LATNAME):
 # ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
 def ncdf_expver(fileID, VARNAME):
     ntime, nexp, nlat, nlon = fileID.variables[VARNAME].shape
-    fill_value = fileID.variables[VARNAME]._FillValue
     # reduced surface pressure output
-    pressure = np.ma.zeros((ntime, nlat, nlon))
-    pressure.fill_value = fill_value
+    pressure = np.zeros((ntime, nlat, nlon))
     for t in range(ntime):
         # iterate over expver slices to find valid outputs
         for j in range(nexp):
             # check if any are valid for expver
             if np.any(fileID.variables[VARNAME][t, j, :, :]):
                 pressure[t, :, :] = fileID.variables[VARNAME][t, j, :, :]
-    # update mask variable
-    pressure.mask = pressure.data == pressure.fill_value
     # return the reduced pressure variable
     return pressure
 

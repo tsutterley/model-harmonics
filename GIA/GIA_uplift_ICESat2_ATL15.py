@@ -212,7 +212,7 @@ def calculate_GIA_uplift(
         iy, ix = mosaic.image_coordinates(d['x'], d['y'])
         valid_mask[:, iy, ix] |= True
         for key in ['delta_h', 'delta_h_sigma', 'ice_area']:
-            ATL15[key].fill_value = attrib[key]['_FillValue']
+            ATL15[key].set_fill_value(attrib[key]['_FillValue'])
             ATL15[key][:, iy, ix] = d[key][...]
 
     # update masks for variables

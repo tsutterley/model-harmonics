@@ -233,8 +233,7 @@ def ecco_mean_version4(
             count += 1.0
 
     # convert from totals to means
-    indy, indx = np.nonzero(~obp_mean.mask)
-    obp_mean.data[indy, indx] /= count
+    obp_mean.scale(1.0 / count)
     obp_mean.update_mask()
     obp_mean.time /= count
 

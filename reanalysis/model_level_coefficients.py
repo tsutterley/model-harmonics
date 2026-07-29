@@ -214,7 +214,7 @@ def arguments():
             """
     )
     # command line parameters
-    choices = ['ERA5', 'MERRA-2']
+    choices = ['ERA-Interim', 'ERA5', 'JRA-3Q', 'MERRA-2']
     parser.add_argument(
         'model',
         type=str,

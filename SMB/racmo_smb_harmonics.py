@@ -155,14 +155,11 @@ def racmo_smb_harmonics(
     time_string = fileID.variables['time'].units
     epoch1, to_secs = gravtk.time.parse_date_string(time_string)
     # calculate Julian day by converting to MJD and adding offset
-    JD = (
-        gravtk.time.convert_delta_time(
-            TIME * to_secs,
-            epoch1=epoch1,
-            epoch2=(1858, 11, 17, 0, 0, 0),
-            scale=1.0 / 86400.0,
-        )
-        + 2400000.5
+    JD = 2400000.5 + gravtk.time.convert_delta_time(
+        TIME * to_secs,
+        epoch1=epoch1,
+        epoch2=(1858, 11, 17, 0, 0, 0),
+        scale=1.0 / 86400.0,
     )
     # convert from Julian days to calendar dates
     YY, MM, DD, hh, mm, ss = gravtk.time.convert_julian(JD, FORMAT='tuple')

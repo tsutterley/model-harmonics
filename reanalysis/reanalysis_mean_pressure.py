@@ -219,12 +219,13 @@ def reanalysis_mean_pressure(
                 pressure = ncdf_expver(fileID, VARNAME)
             else:
                 pressure = fileID.variables[VARNAME][:].copy()
+            # replace invalid values with fill value
+            fill_value = fileID.variables[VARNAME]._FillValue
+            pressure = np.ma.masked_equal(pressure, fill_value)
             # reorder dimensions to match the required order
             dims = fileID.variables[VARNAME].dimensions
             order = [dims.index(d) for d in dimensions]
             pressure = pressure.transpose(order)
-            # use output fill value
-            p_mean.fill_value = fileID.variables[VARNAME]._FillValue
             # convert time to Modified Julian Days
             delta_time = np.copy(fileID.variables[TIMENAME][:])
             date_string = fileID.variables[TIMENAME].units
@@ -250,9 +251,10 @@ def reanalysis_mean_pressure(
             )
             count += 1
 
+    # use output fill value
+    p_mean.replace_invalid(fill_value)
     # calculate mean pressure by dividing by count
-    indy, indx = np.nonzero(np.logical_not(p_mean.mask))
-    p_mean.data[indy, indx] /= count
+    p_mean.scale(1.0 / count)
     p_mean.update_mask()
     p_mean.time /= np.float64(count)
 
@@ -279,18 +281,14 @@ def reanalysis_mean_pressure(
 # ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
 def ncdf_expver(fileID, VARNAME):
     ntime, nexp, nlat, nlon = fileID.variables[VARNAME].shape
-    fill_value = fileID.variables[VARNAME]._FillValue
     # reduced surface pressure output
-    pressure = np.ma.zeros((ntime, nlat, nlon))
-    pressure.fill_value = fill_value
+    pressure = np.zeros((ntime, nlat, nlon))
     for t in range(ntime):
         # iterate over expver slices to find valid outputs
         for j in range(nexp):
             # check if any are valid for expver
             if np.any(fileID.variables[VARNAME][t, j, :, :]):
                 pressure[t, :, :] = fileID.variables[VARNAME][t, j, :, :]
-    # update mask variable
-    pressure.mask = pressure.data == pressure.fill_value
     # return the reduced pressure variable
     return pressure
 

@@ -222,7 +222,8 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
         dinput = {}
         # allocate for output variables
         for var in struct['variables'].keys():
-            dinput[var] = np.zeros((ntime, nlevels, nlat, nlon), dtype='f')
+            dinput[var] = np.ma.zeros((ntime, nlevels, nlat, nlon), dtype='f')
+            dinput[var].set_fill_value(fill_value)
         # model levels in reverse order
         dinput[LEVELNAME] = lev[::-1].copy()
         # extract time and time units
@@ -261,6 +262,9 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
                 # reverse layers so bottom=0
                 t_time = fid1.variables[TNAME][t, ::-1, :, :]
                 q_time = fid1.variables[QNAME][t, ::-1, :, :]
+            # convert to masked arrays
+            t_time = np.ma.masked_equal(t_time, fill_value)
+            q_time = np.ma.masked_equal(q_time, fill_value)
             # calculate geopotential over model levels
             geopotential_height = np.empty((nlat, nlon), dtype=np.float32)
             # start with surface geopotential converted to units (m^2/s^2)
@@ -288,12 +292,13 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
                 Plower = AI[k] + BI[k] * SP
                 Pupper = AI[k + 1] + BI[k + 1] * SP
                 dinput[DIFFNAME][t, k, :, :] = Pupper - Plower
-
+        # replace invalid values with fill_value
+        for var in struct['variables'].keys():
+            dinput[var].data[dinput[var].mask] = dinput[var].fill_value
         # save to file
         ncdf_geopotential_write(
             dinput,
             attributes,
-            fill_value,
             struct,
             FILENAME=output_file,
         )
@@ -331,22 +336,17 @@ def calculate_specific_humidity(P, T, RH):
 # ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
 def ncdf_expver(fileID, slice, TNAME, QNAME):
     ntime, nexp, nlevel, nlat, nlon = fileID.variables[TNAME].shape
-    fill_value = fileID.variables[TNAME]._FillValue
     # reduced temperature and specific humidity for time
-    temperature = np.ma.zeros((nlevel, nlat, nlon))
-    temperature.fill_value = fill_value
-    humidity = np.ma.zeros((nlevel, nlat, nlon))
-    humidity.fill_value = fill_value
+    temperature = np.zeros((nlevel, nlat, nlon))
+    humidity = np.zeros((nlevel, nlat, nlon))
     # iterate over expver slices to find valid outputs
     for j in range(nexp):
         # check if any are valid for expver
-        if np.any(fileID.variables[TNAME][slice, j, :, :, :]):
+        if np.any(fileID.variables[TNAME][slice, j, :]):
             # reverse layers so bottom=0
-            temperature[:, :, :] = fileID.variables[TNAME][slice, j, ::-1, :, :]
-            humidity[:, :, :] = fileID.variables[QNAME][slice, j, ::-1, :, :]
-    # update mask variables
-    temperature.mask = temperature.data == temperature.fill_value
-    humidity.mask = humidity.data == humidity.fill_value
+            temperature = np.flipud(fileID.variables[TNAME][slice, j, :])
+            humidity = np.flipud(fileID.variables[QNAME][slice, j, :])
+            break
     # return the reduced temperature and specific humidity variables
     return (temperature, humidity)
 
@@ -378,7 +378,6 @@ def ncdf_coordinates(FILENAME, LEVELNAME, ANAME, BNAME, AINTERFACE, BINTERFACE):
 def ncdf_geopotential_write(
     output,
     attributes,
-    fill_value,
     struct,
     FILENAME=None,
 ):
@@ -400,13 +399,20 @@ def ncdf_geopotential_write(
 
     # defining the NetCDF4 variables
     for var, dimensions in struct['variables'].items():
-        nc[var] = fileID.createVariable(
-            var,
-            output[var].dtype,
-            dimensions,
-            fill_value=fill_value,
-            zlib=True,
-        )
+        if hasattr(output[var], 'fill_value'):
+            nc[var] = fileID.createVariable(
+                var,
+                output[var].dtype,
+                dimensions,
+                fill_value=output[var].fill_value,
+                zlib=True,
+            )
+        else:
+            nc[var] = fileID.createVariable(
+                var,
+                output[var].dtype,
+                dimensions,
+            )
         # add data to NetCDF4 variable
         nc[var][:] = output[var].copy()
         # set netCDF4 attributes for variables

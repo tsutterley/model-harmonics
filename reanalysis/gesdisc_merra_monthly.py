@@ -275,7 +275,7 @@ def gesdisc_merra_monthly(
                     fileID[TIMENAME], variable_attributes
                 )
                 # update time units attribute
-                attributes['time']['units'] = time_units
+                attributes[TIMENAME]['units'] = time_units
                 # for each variable
                 for var in struct['variables'].keys():
                     # surface pressure
@@ -297,17 +297,18 @@ def gesdisc_merra_monthly(
                 attributes['ROOT'] = ncdf_attributes(fileID, root_attributes)
                 # close the input file from remote url
                 fileID.close()
-            # calculate mean from totals
+
+            # calculate mean time
             dinput[TIMENAME] /= count[TIMENAME]
+            # calculate mean of each variable
             for var in struct['variables'].keys():
                 # find valid values
-                valid = count[var] > 0
-                valid_indices = np.nonzero(valid)
+                count[var] = np.ma.masked_equal(count[var], 0)
                 # calculate mean fields from totals
-                dinput[var][valid_indices] /= count[var][valid_indices]
-                # replace points where no values with fill_value
-                complementary_indices = np.nonzero(~valid)
-                dinput[var][complementary_indices] = fill_value
+                dinput[var] = dinput[var] / count[var]
+                dinput[var].set_fill_value(fill_value)
+                dinput[var].data[dinput[var].mask] = fill_value
+
             # output to netCDF4 file (replace hour variable with monthly)
             DATASET = update_attribute(DATASET)
             FILE = f'MERRA2_{MOD}.{DATASET}.{YY}{MM}.SUB.nc'
@@ -315,7 +316,6 @@ def gesdisc_merra_monthly(
             ncdf_model_write(
                 dinput,
                 attributes,
-                fill_value,
                 struct,
                 FILENAME=local_file,
             )
@@ -357,7 +357,6 @@ def update_attribute(name):
 def ncdf_model_write(
     output,
     attributes,
-    fill_value,
     struct,
     FILENAME=None,
 ):
@@ -379,13 +378,20 @@ def ncdf_model_write(
 
     # defining the NetCDF4 variables
     for var, dimensions in struct['variables'].items():
-        nc[var] = fileID.createVariable(
-            var,
-            output[var].dtype,
-            dimensions,
-            fill_value=fill_value,
-            zlib=True,
-        )
+        if hasattr(output[var], 'fill_value'):
+            nc[var] = fileID.createVariable(
+                var,
+                output[var].dtype,
+                dimensions,
+                fill_value=output[var].fill_value,
+                zlib=True,
+            )
+        else:
+            nc[var] = fileID.createVariable(
+                var,
+                output[var].dtype,
+                dimensions,
+            )
         # add data to NetCDF4 variable
         nc[var][:] = output[var].copy()
         # set netCDF4 attributes for variables

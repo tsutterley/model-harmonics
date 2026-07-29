@@ -199,11 +199,11 @@ def merra_hybrid_cumulative(
     # for each variable
     for v in VARIABLES:
         # copy data and remove singleton dimensions
-        DATA = np.ma.array(fileID.variables[v][:]).squeeze()
-        # invalid data value
-        DATA.fill_value = np.float64(fileID.variables[v]._FillValue)
         # set masks
-        DATA.mask = DATA.data == DATA.fill_value
+        DATA = np.ma.masked_equal(
+            fileID.variables[v][:].squeeze(),
+            fileID.variables[v]._FillValue,
+        )
         # get each attribute for variable if applicable
         attrs[v] = {}
         for att_name in ['units', 'long_name', 'standard_name', 'comment']:

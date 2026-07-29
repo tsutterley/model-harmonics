@@ -170,14 +170,11 @@ def ecco_mean_realtime(
             # calculate Julian day by converting to MJD and adding offset
             time_string = obp.attributes['time']['units']
             epoch1, to_secs = gravtk.time.parse_date_string(time_string)
-            JD = (
-                gravtk.time.convert_delta_time(
-                    obp.time * to_secs,
-                    epoch1=epoch1,
-                    epoch2=(1858, 11, 17, 0, 0, 0),
-                    scale=1.0 / 86400.0,
-                )
-                + 2400000.5
+            JD = 2400000.5 + gravtk.time.convert_delta_time(
+                obp.time * to_secs,
+                epoch1=epoch1,
+                epoch2=(1858, 11, 17, 0, 0, 0),
+                scale=1.0 / 86400.0,
             )
             # convert from Julian days to calendar dates
             YY, MM, DD, hh, mm, ss = gravtk.time.convert_julian(
@@ -286,8 +283,7 @@ def ecco_mean_realtime(
                 count += 1.0
 
     # convert from totals to means
-    indy, indx = np.nonzero(~obp_mean.mask)
-    obp_mean.data[indy, indx] /= count
+    obp_mean.scale(1.0 / count)
     obp_mean.update_mask()
     obp_mean.time /= count
 

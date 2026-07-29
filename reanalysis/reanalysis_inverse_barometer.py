@@ -299,11 +299,12 @@ def reanalysis_inverse_barometer(
                 pressure, AveRmvd = (None, None)
             # calculate inverse barometer response
             dinput[IBNAME] = -SLP * (DENSITY * gs) ** -1
+            # replace masks
+            dinput[IBNAME].data[dinput[IBNAME].mask] = fill_value
             # output to file
             ncdf_IB_write(
                 dinput,
                 attributes,
-                fill_value,
                 struct,
                 FILENAME=output_file,
             )
@@ -315,7 +316,6 @@ def reanalysis_inverse_barometer(
 def ncdf_IB_write(
     output,
     attributes,
-    fill_value,
     struct,
     FILENAME=None,
 ):
@@ -337,13 +337,20 @@ def ncdf_IB_write(
 
     # defining the NetCDF4 variables
     for var, dimensions in struct['variables'].items():
-        nc[var] = fileID.createVariable(
-            var,
-            output[var].dtype,
-            dimensions,
-            fill_value=fill_value,
-            zlib=True,
-        )
+        if hasattr(output[var], 'fill_value'):
+            nc[var] = fileID.createVariable(
+                var,
+                output[var].dtype,
+                dimensions,
+                fill_value=output[var].fill_value,
+                zlib=True,
+            )
+        else:
+            nc[var] = fileID.createVariable(
+                var,
+                output[var].dtype,
+                dimensions,
+            )
         # add data to NetCDF4 variable
         nc[var][:] = output[var].copy()
         # set netCDF4 attributes for variables

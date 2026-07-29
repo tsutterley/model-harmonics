@@ -203,8 +203,8 @@ def jpl_ecco_cube92_sync(
                     .squeeze()
                 )
                 # replace fill value with missing value attribute
-                dinput.fill_value = dinput.attributes['data']['missing_value']
-                dinput.update_mask()
+                fill_value = dinput.attributes['data']['missing_value']
+                dinput.replace_invalid(fill_value)
                 # get variable longname attribute from daily file
                 kwargs['longname'] = dinput.attributes['data']['long_name']
                 # append to daily list

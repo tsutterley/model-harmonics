@@ -241,14 +241,11 @@ def ecco_read_version4(
             obp_anomaly.lon = np.arange(extent[0], extent[1] + dlon, dlon)
             obp_anomaly.lat = np.arange(extent[2], extent[3] + dlat, dlat)
             # calculate Julian day by converting to MJD and adding offset
-            JD = (
-                gravtk.time.convert_delta_time(
-                    delta_time,
-                    epoch1=epoch1,
-                    epoch2=(1858, 11, 17, 0, 0, 0),
-                    scale=1.0 / 86400.0,
-                )
-                + 2400000.5
+            JD = 2400000.5 + gravtk.time.convert_delta_time(
+                delta_time * to_secs,
+                epoch1=epoch1,
+                epoch2=(1858, 11, 17, 0, 0, 0),
+                scale=1.0 / 86400.0,
             )
             # convert from Julian days to calendar dates
             YY, MM, DD, hh, mm, ss = gravtk.time.convert_julian(

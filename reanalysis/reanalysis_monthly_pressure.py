@@ -98,7 +98,7 @@ def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
             )
             # reorder dimensions to match the required order
             p = p.transpose(axes=(1, 2, 0))
-            p.fill_value = p.attributes['data'][FILL_VALUE]
+            p.replace_invalid(p.attributes['data'][FILL_VALUE])
             # iterate over months
             for m in range(0, 12):
                 # for each day in the month

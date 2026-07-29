@@ -2,7 +2,7 @@
 ``ucar_gdex_jra3q_surface.py``
 ==============================
 
-- Downloads JRA-3Q products provided by the `NCAR/UCAR Geoscience Data Exchange (GDEX) <https://gdex.ucar.edu/>`_
+- Downloads JRA-3Q surface analysis products provided by the `NCAR/UCAR Geoscience Data Exchange (GDEX) <https://gdex.ucar.edu/>`_
 - Combines 6-hour model outputs into monthly averages
 
 `Source code`__

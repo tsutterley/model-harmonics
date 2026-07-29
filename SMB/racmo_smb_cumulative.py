@@ -156,14 +156,11 @@ def racmo_smb_cumulative(
     date_string = attrs['time']['units']
     epoch1, to_secs = gravtk.time.parse_date_string(date_string)
     # calculate Julian day by converting to MJD and adding offset
-    JD = (
-        gravtk.time.convert_delta_time(
-            fd['time'] * to_secs,
-            epoch1=epoch1,
-            epoch2=(1858, 11, 17, 0, 0, 0),
-            scale=1.0 / 86400.0,
-        )
-        + 2400000.5
+    JD = 2400000.5 + gravtk.time.convert_delta_time(
+        fd['time'] * to_secs,
+        epoch1=epoch1,
+        epoch2=(1858, 11, 17, 0, 0, 0),
+        scale=1.0 / 86400.0,
     )
     # convert from Julian days to calendar dates
     YY, MM, DD, hh, mm, ss = gravtk.time.convert_julian(JD, FORMAT='tuple')
@@ -173,11 +170,7 @@ def racmo_smb_cumulative(
     )
 
     # copy data to masked array
-    DATA = np.ma.array(fd[PRODUCT].copy())
-    # invalid data value
-    DATA.fill_value = np.float64(attrs[PRODUCT]['_FillValue'])
-    # set masks
-    DATA.mask = DATA.data == DATA.fill_value
+    DATA = np.ma.masked_equal(fd[PRODUCT].copy(), attrs[PRODUCT]['_FillValue'])
     # input shape of RACMO data
     nt, ny, nx = np.shape(DATA)
 
