@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 gesdisc_merra_monthly.py
-Written by Tyler Sutterley (07/2026)
+Written by Tyler Sutterley (08/2026)
 
 Creates monthly MERRA-2 3D model level products syncing data from the
     Goddard Earth Sciences Data and Information Server Center (GES DISC)
@@ -49,6 +49,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 08/2026: change formatting and output of file logs
     Updated 07/2026: use numpy summation to calculate daily averages
         added axis to variable attributes to attempt to retrieve
         use diurnalAggregation (FLAGS=1) to get daily means from GES DISC
@@ -110,22 +111,31 @@ def gesdisc_merra_monthly(
     DIRECTORY.mkdir(mode=MODE, parents=True, exist_ok=True)
 
     # create log file with list of synchronized files (or print to terminal)
-    loglevel = logging.INFO if VERBOSE else logging.CRITICAL
     if LOG:
         # format: NASA_GESDISC_MERRA2_monthly_2002-04-01.log
         today = time.strftime('%Y-%m-%d', time.localtime())
         output_logfile = f'NASA_GESDISC_MERRA2_monthly_{today}.log'
-        LOGFILE = DIRECTORY.joinpath(output_logfile)
-        fid = LOGFILE.open(mode='w', encoding='utf8')
-        logging.basicConfig(stream=fid, level=loglevel)
-        logging.info(f'NASA MERRA-2 Sync Log ({today})')
-        PRODUCT = f'{SHORTNAME}.{VERSION}'
-        logging.info(f'PRODUCT: {PRODUCT}')
+        LOGFILE = gravtk.utilities.get_cache_path(output_logfile)
+        # create a unique log and open the log file
+        fid1 = gravtk.utilities.create_unique_file(LOGFILE, mode='x')
+        # build logger for outputting to log file
+        logger = gravtk.utilities.build_logger(
+            __name__,
+            level=logging.INFO,
+            stream=fid1,
+            format='%(message)s (%(levelname)s)',
+        )
+        logger.info(f'NASA MERRA-2 Sync Log ({today})')
+        logger.info(f'Filename: {pathlib.Path(sys.argv[0]).name}')
     else:
-        # standard output (terminal output)
-        fid = sys.stdout
-        logging.basicConfig(stream=fid, level=loglevel)
+        # build logger for standard output (terminal output)
+        fid1 = sys.stdout
+        logger = gravtk.utilities.build_logger(
+            __name__, level=logging.INFO, stream=fid1
+        )
 
+    # log the product and version
+    logger.info(f'Product: {SHORTNAME}.{VERSION}')
     # regular expression for grouping months from daily data
     regex_pattern = r'MERRA2_(\d+).(.*?).(\d{4})(\d{2})(\d{2})(.*?).nc[4]?$'
     rx1 = re.compile(regex_pattern, re.VERBOSE)
@@ -255,7 +265,7 @@ def gesdisc_merra_monthly(
                     timeout=TIMEOUT,
                     context=None,
                     verbose=VERBOSE,
-                    fid=fid,
+                    fid=fid1,
                 )
                 response.seek(0)
                 # open remote file with netCDF4
@@ -339,23 +349,32 @@ def gesdisc_merra_monthly(
 
     # close log file and set permissions level to MODE
     if LOG:
-        fid.close()
-        LOGFILE.chmod(mode=MODE)
+        fid1.close()
+        os.chmod(fid1.name, mode=MODE)
 
 
-# PURPOSE: get attributes for a variable
+# PURPOSE: get attributes for netCDF4 files and variable
 def ncdf_attributes(nc, attributes_list):
-    # output dictionary of attributes for variable
+    # get logger
+    logger = logging.getLogger(__name__)
+    # output dictionary of attributes
     attributes = {}
     # for each attribute to try to get
     for att_name in attributes_list:
+        rx = re.compile(att_name, re.IGNORECASE)
         try:
-            att_val = nc.getncattr(att_name)
+            # use case-insensitive regex to find attribute name
+            (ncattr,) = [s for s in nc.ncattrs() if rx.match(s)]
+            att_val = nc.getncattr(ncattr)
         except Exception as exc:
-            logging.debug(f'Attribute {att_name} not found in {nc.name}')
-            pass
-        else:
-            attributes[att_name] = update_attribute(att_val)
+            ncvar = getattr(nc, 'name', 'ROOT')
+            logger.debug(f'Attribute {att_name} not found in {ncvar}')
+            continue
+        # strip whitespace for string attributes
+        if isinstance(att_val, str):
+            att_val = update_attribute(att_val.strip())
+        # add attribute to dictionary
+        attributes[att_name] = att_val
     # return the dictionary of attributes
     return attributes
 

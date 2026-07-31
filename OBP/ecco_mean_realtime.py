@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 ecco_mean_realtime.py
-Written by Tyler Sutterley (07/2026)
+Written by Tyler Sutterley (08/2026)
 
 Reads 12-hour ECCO ocean bottom pressure data from JPL
 Calculates multi-annual means on an equirectangular grid
@@ -49,6 +49,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 08/2026: fixes for typing error with numpy updates
     Updated 07/2026: use authalic area for the grid cell areas
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
@@ -92,7 +93,7 @@ def ecco_mean_realtime(
 ):
     # create logger for verbosity level
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[VERBOSE])
+    logger = gravtk.utilities.build_logger(__name__, level=loglevels[VERBOSE])
 
     # set up regular expression for finding directories to run from RANGE
     regex_years = r'|'.join([rf'{y:d}' for y in range(RANGE[0], RANGE[1] + 1)])
@@ -275,7 +276,7 @@ def ecco_mean_realtime(
 
             # Calculating the monthly averages
             # data files cover the first 10 days of the next year
-            (ind_start_year,) = np.nonzero(YY == YY[0])
+            ind_start_year = np.flatnonzero(YY == YY[0])
             for t, ind in enumerate(ind_start_year):
                 obp_mean.data += obp_interp.data[:, :, ind]
                 obp_mean.mask |= obp_interp.mask[:, :, ind]
@@ -324,6 +325,7 @@ def arguments():
         'model',
         type=str,
         nargs='+',
+        metavar='MODEL',
         default=['kf080i', 'dr080i'],
         choices=['kf080i', 'dr080i'],
         help='ECCO Near Real-Time Model',

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 ucar_gdex_jra3q_surface.py
-Written by Tyler Sutterley (07/2026)
+Written by Tyler Sutterley (08/2026)
 
 Downloads JRA-3Q surface analysis products provided by the
     NCAR/UCAR Geoscience Data Exchange (GDEX)
@@ -39,6 +39,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 08/2026: change formatting and output of file logs
     Written 07/2026
 """
 
@@ -46,14 +47,12 @@ from __future__ import print_function
 
 import sys
 import os
-import io
 import re
 import copy
 import time
 import logging
 import pathlib
 import argparse
-import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
 
@@ -77,17 +76,28 @@ def ucar_gdex_download(
 
     # create log file with list of synchronized files (or print to terminal)
     if LOG:
+        # output to log file
         # format: UCAR_GDEX_JRA-3Q_2002-04-01.log
         today = time.strftime('%Y-%m-%d', time.localtime())
         output_logfile = f'UCAR_GDEX_JRA-3Q_{today}.log'
-        LOGFILE = DIRECTORY.joinpath(output_logfile)
-        fid = LOGFILE.open(mode='w', encoding='utf8')
-        logging.basicConfig(stream=fid, level=logging.INFO)
-        logging.info(f'UCAR JRA-3Q Sync Log ({today})')
+        LOGFILE = gravtk.utilities.get_cache_path(output_logfile)
+        # create a unique log and open the log file
+        fid1 = gravtk.utilities.create_unique_file(LOGFILE, mode='x')
+        # build logger for outputting to log file
+        logger = gravtk.utilities.build_logger(
+            __name__,
+            level=logging.INFO,
+            stream=fid1,
+            format='%(message)s (%(levelname)s)',
+        )
+        logger.info(f'UCAR JRA-3Q Sync Log ({today})')
+        logger.info(f'Filename: {pathlib.Path(sys.argv[0]).name}')
     else:
-        # standard output (terminal output)
-        fid = sys.stdout
-        logging.basicConfig(stream=fid, level=logging.INFO)
+        # build logger for standard output (terminal output)
+        fid1 = sys.stdout
+        logger = gravtk.utilities.build_logger(
+            __name__, level=logging.INFO, stream=fid1
+        )
 
     # UCAR GDEX host
     HOST = 'https://gdex.ucar.edu/'
@@ -138,7 +148,7 @@ def ucar_gdex_download(
         # for each file in the list of files
         for colname, collastmod in zip(cols, mods):
             # download file from UCAR GDEX server
-            logging.debug(colname)
+            logger.debug(colname)
             fileparts = mdlhmc.utilities.url_split(colname)
             # create and submit request for file
             buffer = mdlhmc.utilities.from_http(
@@ -146,7 +156,7 @@ def ucar_gdex_download(
                 timeout=TIMEOUT,
                 local=None,
                 verbose=True,
-                fid=fid,
+                fid=fid1,
                 mode=MODE,
             )
             # open remote file with netCDF4
@@ -178,7 +188,7 @@ def ucar_gdex_download(
             # output filename
             filename = f'jra3q.{PRODUCT}.{varname}.{datetime}.nc'
             output_file = DIRECTORY.joinpath(filename)
-            logging.info(f'\t{output_file}')
+            logger.info(f'\t{output_file}')
             # write mean to netCDF4 file
             mean.to_netCDF4(
                 output_file,
@@ -205,7 +215,7 @@ def ucar_gdex_download(
         # for each file in the list of files
         for colname, collastmod in zip(cols, mods):
             # download file from UCAR GDEX server
-            logging.debug(colname)
+            logger.debug(colname)
             fileparts = mdlhmc.utilities.url_split(colname)
             # output filename for local storage
             output_file = DIRECTORY.joinpath(fileparts[-1])
@@ -215,7 +225,7 @@ def ucar_gdex_download(
                 timeout=TIMEOUT,
                 local=output_file,
                 verbose=True,
-                fid=fid,
+                fid=fid1,
                 mode=MODE,
             )
             # keep remote modification time of file
@@ -223,8 +233,8 @@ def ucar_gdex_download(
 
     # close log file and set permissions level to MODE
     if LOG:
-        fid.close()
-        LOGFILE.chmod(mode=MODE)
+        fid1.close()
+        os.chmod(fid1.name, mode=MODE)
 
 
 # PURPOSE: create argument parser
@@ -248,6 +258,7 @@ def arguments():
         '--product',
         '-p',
         type=str,
+        metavar='PRODUCT',
         default='anl_surf',
         choices=['anl_surf', 'anl_surf125'],
         help='JRA-3Q surface analysis product',
@@ -272,6 +283,7 @@ def arguments():
         '-v',
         type=str,
         nargs='+',
+        metavar='VARIABLE',
         choices=choices,
         default=['pres-sfc'],
         help='JRA-3Q surface analysis variable',

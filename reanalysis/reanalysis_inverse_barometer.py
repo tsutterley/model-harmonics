@@ -55,6 +55,7 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
+import os
 import re
 import logging
 import netCDF4
@@ -66,29 +67,23 @@ import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
 
 
-# PURPOSE: read land sea mask to get indices of oceanic values
-def ncdf_landmask(FILENAME, MASKNAME, OCEAN):
-    logging.debug(str(FILENAME))
-    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
-        landsea = np.squeeze(fileID.variables[MASKNAME][:].copy())
-    return landsea == OCEAN
-
-
-# PURPOSE: read reanalysis mean sea level pressure
-def ncdf_mean_pressure(FILENAME, VARNAME, LONNAME, LATNAME):
-    logging.debug(str(FILENAME))
-    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
-        # extract pressure and remove singleton dimensions
-        mean_pressure = np.array(fileID.variables[VARNAME][:].squeeze())
-        longitude = fileID.variables[LONNAME][:].squeeze()
-        latitude = fileID.variables[LATNAME][:].squeeze()
-    return (mean_pressure, longitude, latitude)
+# PURPOSE: keep track of threads
+def info(args):
+    logger = logging.getLogger(__name__)
+    logger.info(pathlib.Path(sys.argv[0]).name)
+    logger.info(args)
+    logger.info(f'module name: {__name__}')
+    if hasattr(os, 'getppid'):
+        logger.info(f'parent process: {os.getppid():d}')
+    logger.info(f'process id: {os.getpid():d}')
 
 
 # PURPOSE:  calculate the instantaneous inverse barometer response
 def reanalysis_inverse_barometer(
     base_dir, MODEL, YEAR=None, RANGE=None, DENSITY=None, MODE=0o775
 ):
+    # get logger
+    logger = logging.getLogger(__name__)
     # directory setup
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
     ddir = base_dir.joinpath(MODEL)
@@ -311,6 +306,29 @@ def reanalysis_inverse_barometer(
             output_file.chmod(mode=MODE)
 
 
+# PURPOSE: read land sea mask to get indices of oceanic values
+def ncdf_landmask(FILENAME, MASKNAME, OCEAN):
+    # get logger
+    logger = logging.getLogger(__name__)
+    logger.debug(str(FILENAME))
+    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
+        landsea = np.squeeze(fileID.variables[MASKNAME][:].copy())
+    return landsea == OCEAN
+
+
+# PURPOSE: read reanalysis mean sea level pressure
+def ncdf_mean_pressure(FILENAME, VARNAME, LONNAME, LATNAME):
+    # get logger
+    logger = logging.getLogger(__name__)
+    logger.debug(str(FILENAME))
+    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
+        # extract pressure and remove singleton dimensions
+        mean_pressure = np.array(fileID.variables[VARNAME][:].squeeze())
+        longitude = fileID.variables[LONNAME][:].squeeze()
+        latitude = fileID.variables[LATNAME][:].squeeze()
+    return (mean_pressure, longitude, latitude)
+
+
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
@@ -327,6 +345,7 @@ def arguments():
         'model',
         type=str,
         nargs='+',
+        metavar='MODEL',
         default=['ERA5', 'MERRA-2'],
         choices=choices,
         help='Reanalysis Model',
@@ -397,7 +416,9 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = gravtk.utilities.build_logger(
+        __name__, level=loglevels[args.verbose]
+    )
 
     # for each reanalysis model
     for MODEL in args.model:

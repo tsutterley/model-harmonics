@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 era5_land_mask_arctic.py
-Written by Tyler Sutterley (09/2023)
+Written by Tyler Sutterley (07/2026)
 
 Creates a mask for ERA5-Land data for Greenland, Svalbard, Iceland and
     the Russian High Arctic defined by a set of shapefiles
@@ -28,6 +28,7 @@ PYTHON DEPENDENCIES:
         https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 07/2026: output using structured dictionary with netCDF4 parameters
     Updated 09/2025: use importlib to attempt to import dependencies
     Written 04/2025
 """
@@ -35,7 +36,6 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import time
 import pyproj
 import logging
 import netCDF4
@@ -43,6 +43,7 @@ import pathlib
 import argparse
 import numpy as np
 import model_harmonics as mdlhmc
+from gravity_toolkit.utilities import build_logger
 
 # attempt imports
 fiona = mdlhmc.utilities.import_dependency('fiona')
@@ -53,9 +54,10 @@ shapely.geometry = mdlhmc.utilities.import_dependency('shapely.geometry')
 
 # PURPOSE: read shapefile to find points within a specified region
 def read_shapefile(input_shapefile, AREA=None, BUFFER=None):
+    # get logger
+    logger = logging.getLogger(__name__)
     # reading shapefile
-    input_shapefile = pathlib.Path(input_shapefile).expanduser().absolute()
-    logging.debug(str(input_shapefile))
+    logger.debug(str(input_shapefile))
     shape = fiona.open(str(input_shapefile))
     # create projection object from shapefile
     crs = pyproj.CRS.from_string(shape.crs['init'])
@@ -83,6 +85,8 @@ def read_shapefile(input_shapefile, AREA=None, BUFFER=None):
 def era5_land_mask_arctic(
     base_dir, SHAPEFILES=None, AREA=None, BUFFER=None, MODE=0o775
 ):
+    # get logger
+    logger = logging.getLogger(__name__)
     # directory models
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
     # ERA5-land products
@@ -104,6 +108,28 @@ def era5_land_mask_arctic(
         dinput['longitude'] = fileID.variables['longitude'][:]
         dinput['time'] = fileID.variables['time'][:]
 
+    # dictionary describing the output netCDF4 structure
+    struct = dict(
+        dimensions=('time', 'latitude', 'longitude'),
+        variables={
+            'mask': ('time', 'latitude', 'longitude'),
+        },
+    )
+    # list of input files for provenance
+    lineage = []
+    lineage.append(input_file.name)
+    # netCDF4 attributes for output files
+    attributes = dict(ROOT={})
+    reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
+    attributes['ROOT']['reference'] = reference
+    attributes['ROOT']['title'] = 'ERA5-Land Arctic land-sea mask'
+    attributes['longitude'] = dict(long_name='longitude', units='degrees_east')
+    attributes['latitude'] = dict(long_name='latitude', units='degrees_north')
+    attributes['time'] = dict(
+        long_name='time', units='hours since 1900-01-01 00:00:00.0'
+    )
+    attributes['mask'] = dict(long_name='land_sea_mask')
+
     # create meshgrid of lat and long
     gridlon, gridlat = np.meshgrid(dinput['longitude'], dinput['latitude'])
     gridlon = np.where(gridlon > 180, gridlon - 360.0, gridlon)
@@ -122,7 +148,9 @@ def era5_land_mask_arctic(
     # iterate over shapefiles
     for i, SHAPEFILE in enumerate(SHAPEFILES):
         # read shapefile to find points within region
+        SHAPEFILE = pathlib.Path(SHAPEFILE).expanduser().absolute()
         poly_obj, crs2 = read_shapefile(SHAPEFILE, AREA=AREA, BUFFER=BUFFER)
+        lineage.append(SHAPEFILE.name)
         # pyproj transformer for converting from latitude/longitude
         # to projection of input shapefile
         transformer = pyproj.Transformer.from_crs(crs1, crs2, always_xy=True)
@@ -142,62 +170,10 @@ def era5_land_mask_arctic(
     dinput['mask'] = np.zeros((ntime, nlat, nlon), dtype=np.uint8)
     dinput['mask'][0, ii, jj] = intersection_mask[:]
     # write to output netCDF4 (.nc)
-    ncdf_mask_write(dinput, FILENAME=output_file)
+    attributes['ROOT']['lineage'] = lineage
+    mdlhmc.spatial.to_netCDF4(output_file, dinput, attributes, struct)
     # change the permission level to MODE
     output_file.chmod(mode=MODE)
-
-
-# PURPOSE: write land sea mask to netCDF4 file
-def ncdf_mask_write(output_data, FILENAME=None):
-    # opening NetCDF file for writing
-    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME, 'w', format='NETCDF4')
-
-    # python dictionary with the NetCDF4 data variables
-    nc = {}
-    # Defining the NetCDF4 dimensions
-    TIMENAME, LATNAME, LONNAME = ('time', 'latitude', 'longitude')
-    for key in [TIMENAME, LONNAME, LATNAME]:
-        fileID.createDimension(key, len(output_data[key]))
-        nc[key] = fileID.createVariable(key, output_data[key].dtype, (key,))
-    # create the NetCDF4 data variables
-    nc['mask'] = fileID.createVariable(
-        'mask',
-        output_data['mask'].dtype,
-        (
-            TIMENAME,
-            LATNAME,
-            LONNAME,
-        ),
-        fill_value=0,
-        zlib=True,
-    )
-    # filling NetCDF variables
-    for key, val in output_data.items():
-        nc[key][:] = np.copy(val)
-
-    # Defining attributes
-    nc[TIMENAME].long_name = 'time'
-    nc[TIMENAME].units = 'hours since 1900-01-01 00:00:00.0'
-    nc[LONNAME].long_name = 'longitude'
-    nc[LONNAME].units = 'degrees_east'
-    nc[LATNAME].long_name = 'latitude'
-    nc[LATNAME].units = 'degrees_north'
-    nc['mask'].long_name = 'land_sea_mask'
-
-    # add software information
-    fileID.software_reference = mdlhmc.version.project_name
-    fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
-    # date created
-    fileID.date_created = time.strftime('%Y-%m-%d', time.localtime())
-
-    # Output NetCDF structure information
-    logging.info(str(FILENAME))
-    logging.info(list(fileID.variables.keys()))
-
-    # Closing the NetCDF file
-    fileID.close()
 
 
 # PURPOSE: create argument parser
@@ -270,7 +246,7 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = build_logger(__name__, level=loglevels[args.verbose])
 
     # run program
     era5_land_mask_arctic(

@@ -99,16 +99,19 @@ import model_harmonics as mdlhmc
 
 # PURPOSE: keep track of threads
 def info(args):
-    logging.info(pathlib.Path(sys.argv[0]).name)
-    logging.info(args)
-    logging.info(f'module name: {__name__}')
+    logger = logging.getLogger(__name__)
+    logger.info(pathlib.Path(sys.argv[0]).name)
+    logger.info(args)
+    logger.info(f'module name: {__name__}')
     if hasattr(os, 'getppid'):
-        logging.info(f'parent process: {os.getppid():d}')
-    logging.info(f'process id: {os.getpid():d}')
+        logger.info(f'parent process: {os.getppid():d}')
+    logger.info(f'process id: {os.getpid():d}')
 
 
 # PURPOSE: read a variable group from ICESat-2 ATL15
 def read_ATL15(infile, group='delta_h', fields=None):
+    # get logger
+    logger = logging.getLogger(__name__)
     # dictionary with ATL15 variables
     ATL15 = {}
     attributes = {}
@@ -117,8 +120,8 @@ def read_ATL15(infile, group='delta_h', fields=None):
         # check if reading from root group or sub-group
         ncf = fileID.groups[group] if group else fileID
         # netCDF4 structure information
-        logging.debug(fileID.filepath())
-        logging.debug(list(ncf.variables.keys()))
+        logger.debug(fileID.filepath())
+        logger.debug(list(ncf.variables.keys()))
         for key in fields or ncf.variables.keys():
             val = ncf.variables[key]
             ATL15[key] = val[:]
@@ -272,6 +275,7 @@ def calculate_GIA_uplift(
         dimensions=('y', 'x'),
         variables={
             'dhdt_gia': ('y', 'x'),
+            'crs': (),
         },
     )
     # file-level attributes
@@ -468,7 +472,9 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = gravtk.utilities.build_logger(
+        __name__, level=loglevels[args.verbose]
+    )
 
     # try to run the analysis with listed parameters
     try:
@@ -487,8 +493,8 @@ def main():
         # if there has been an error exception
         # print the type, value, and stack trace of the
         # current exception being handled
-        logging.critical(f'process id {os.getpid():d} failed')
-        logging.error(traceback.format_exc())
+        logger.critical(f'process id {os.getpid():d} failed')
+        logger.error(traceback.format_exc())
 
 
 # run main program

@@ -233,8 +233,10 @@ def arguments():
         '--surface',
         '-S',
         type=str,
-        nargs='+',
+        nargs='?',
+        metavar='VARIABLE',
         choices=choices,
+        const=[],
         default=['SP'],
         help='Retrieve model surface variables',
     )

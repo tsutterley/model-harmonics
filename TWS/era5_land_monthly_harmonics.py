@@ -72,15 +72,28 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
+import os
 import re
 import logging
 import netCDF4
 import pathlib
 import argparse
 import datetime
+import traceback
 import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
+
+
+# PURPOSE: keep track of threads
+def info(args):
+    logger = logging.getLogger(__name__)
+    logger.info(pathlib.Path(sys.argv[0]).name)
+    logger.info(args)
+    logger.info(f'module name: {__name__}')
+    if hasattr(os, 'getppid'):
+        logger.info(f'parent process: {os.getppid():d}')
+    logger.info(f'process id: {os.getpid():d}')
 
 
 # PURPOSE: convert ERA5-Land terrestrial water storage data to spherical harmonics
@@ -95,6 +108,8 @@ def era5_land_monthly_harmonics(
     DATAFORM=None,
     MODE=0o775,
 ):
+    # get logger
+    logger = logging.getLogger(__name__)
     # directory models
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
     # ERA5-land products
@@ -134,7 +149,7 @@ def era5_land_monthly_harmonics(
     if MASKS:
         # read masks for reducing regions before converting to harmonics
         for mask_file in MASKS:
-            logging.debug(str(mask_file))
+            logger.debug(str(mask_file))
             mask_file = pathlib.Path(mask_file).expanduser().absolute()
             with netCDF4.Dataset(mask_file, mode='r') as fileID:
                 combined_mask |= fileID.variables['mask'][:].astype(bool)
@@ -142,7 +157,7 @@ def era5_land_monthly_harmonics(
         # use default masks for reducing regions before converting to harmonics
         # read Permafrost index file
         permafrost_file = ddir.joinpath(f'cpfrost.nc')
-        logging.debug(str(permafrost_file))
+        logger.debug(str(permafrost_file))
         with netCDF4.Dataset(permafrost_file, mode='r') as fileID:
             fileID.set_auto_mask(False)
             permafrost_index = fileID.variables['pf'][0, :, :].copy()
@@ -155,7 +170,7 @@ def era5_land_monthly_harmonics(
             combined_mask |= permafrost_index == invalid_keys
         # read Arctic mask file
         arctic_file = ddir.joinpath('carctic.nc')
-        logging.debug(str(arctic_file))
+        logger.debug(str(arctic_file))
         with netCDF4.Dataset(arctic_file, mode='r') as fileID:
             fileID.set_auto_mask(False)
             arctic_mask = fileID.variables['mask'][0, :, :].copy()
@@ -163,7 +178,7 @@ def era5_land_monthly_harmonics(
         combined_mask |= arctic_mask > 0
         # read Glacier mask file
         glacier_file = ddir.joinpath(f'cicecap.nc')
-        logging.debug(str(glacier_file))
+        logger.debug(str(glacier_file))
         with netCDF4.Dataset(glacier_file, mode='r') as fileID:
             glacier_mask = fileID.variables['si10'][0, :, :].copy()
         # glacier mask
@@ -206,6 +221,8 @@ def era5_land_monthly_harmonics(
     rx = re.compile(r'{0}-TWS-({1})-(\d+)\.{2}$'.format(*args))
     FILES = sorted([f for f in ddir.iterdir() if rx.match(f.name)])
 
+    # list of output files
+    output_list = []
     # for each input file
     for t, FILE in enumerate(FILES[:-1]):
         # extract year and month from file
@@ -262,6 +279,8 @@ def era5_land_monthly_harmonics(
         era5_land_Ylms.to_file(output_file, format=DATAFORM)
         # change the permissions mode of the output file to MODE
         output_file.chmod(mode=MODE)
+        # append output file to list of output files
+        output_list.append(output_file)
 
     # Output date ascii file
     output_date_file = output_dir.joinpath(f'{MODEL}_TWS_DATES.txt')
@@ -293,6 +312,8 @@ def era5_land_monthly_harmonics(
     # set the permissions level of the output date and index files to MODE
     output_date_file.chmod(mode=MODE)
     output_index_file.chmod(mode=MODE)
+    # return the list of output files
+    return output_list
 
 
 # PURPOSE: create argument parser
@@ -377,6 +398,15 @@ def arguments():
         choices=['ascii', 'netCDF4', 'HDF5'],
         help='Input and output data format',
     )
+    # Output log file for each job in forms
+    # validrun_2002-04-01T00:00:00_PID-00000.log
+    # failedrun_2002-04-01T00:00:00_PID-00000.log
+    parser.add_argument(
+        '--log',
+        default=False,
+        action='store_true',
+        help='Output log file for each job',
+    )
     # print information about each input and output file
     parser.add_argument(
         '--verbose',
@@ -405,20 +435,46 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
-
-    # run program
-    era5_land_monthly_harmonics(
-        args.directory,
-        args.year,
-        MASKS=args.mask,
-        LMAX=args.lmax,
-        MMAX=args.mmax,
-        LOVE_NUMBERS=args.love,
-        REFERENCE=args.reference,
-        DATAFORM=args.format,
-        MODE=args.mode,
+    logger = gravtk.utilities.build_logger(
+        __name__, level=loglevels[args.verbose]
     )
+
+    # run program with parameters
+    try:
+        info(args)
+        output_files = era5_land_monthly_harmonics(
+            args.directory,
+            args.year,
+            MASKS=args.mask,
+            LMAX=args.lmax,
+            MMAX=args.mmax,
+            LOVE_NUMBERS=args.love,
+            REFERENCE=args.reference,
+            DATAFORM=args.format,
+            MODE=args.mode,
+        )
+    except:
+        # if there has been an error exception
+        # print the type, value, and stack trace of the
+        # current exception being handled
+        logger.critical(f'process id {os.getpid():d} failed')
+        logger.error(traceback.format_exc())
+        if args.log:  # write failed job completion log file
+            logfile = gravtk.utilities.create_log_file(
+                'failedrun',
+                filename=pathlib.Path(sys.argv[0]).name,
+                arguments=vars(args),
+            )
+            logger.info(logfile)
+    else:
+        if args.log:  # write successful job completion log file
+            logfile = gravtk.utilities.create_log_file(
+                'validrun',
+                filename=pathlib.Path(sys.argv[0]).name,
+                arguments=vars(args),
+                output=output_files,
+            )
+            logger.info(logfile)
 
 
 # run main program

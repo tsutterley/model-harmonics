@@ -120,11 +120,13 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
+import os
 import re
 import logging
 import netCDF4
 import pathlib
 import argparse
+import traceback
 import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
@@ -136,6 +138,17 @@ gldas_products['CLSM'] = 'GLDAS Catchment Land Surface Model (CLSM)'
 gldas_products['MOS'] = 'GLDAS Mosaic model'
 gldas_products['NOAH'] = 'GLDAS Noah model'
 gldas_products['VIC'] = 'GLDAS Variable Infiltration Capacity (VIC) model'
+
+
+# PURPOSE: keep track of threads
+def info(args):
+    logger = logging.getLogger(__name__)
+    logger.info(pathlib.Path(sys.argv[0]).name)
+    logger.info(args)
+    logger.info(f'module name: {__name__}')
+    if hasattr(os, 'getppid'):
+        logger.info(f'parent process: {os.getppid():d}')
+    logger.info(f'process id: {os.getpid():d}')
 
 
 # PURPOSE: read GLDAS terrestrial water storage data and spherical harmonics
@@ -158,6 +171,8 @@ def gldas_scaling_factors(
     DATAFORM=None,
     MODE=0o775,
 ):
+    # get logger
+    logger = logging.getLogger(__name__)
     # Version flags
     V1, V2 = (f'_V{VERSION}', '') if (VERSION == '1') else ('', f'.{VERSION}')
     # use GLDAS monthly products
@@ -204,7 +219,7 @@ def gldas_scaling_factors(
     if MASKS:
         # read masks for reducing regions before converting to harmonics
         for mask_file in MASKS:
-            logging.debug(str(mask_file))
+            logger.debug(str(mask_file))
             mask_file = pathlib.Path(mask_file).expanduser().absolute()
             fileID = netCDF4.Dataset(mask_file, mode='r')
             combined_mask |= fileID.variables['mask'][:].astype(bool)
@@ -214,7 +229,7 @@ def gldas_scaling_factors(
         # mask combining vegetation index, permafrost index and Arctic mask
         # read vegetation index file
         vegetation_file = base_dir.joinpath(f'modmodis_domveg20_{SPACING}.nc')
-        logging.debug(str(vegetation_file))
+        logger.debug(str(vegetation_file))
         with netCDF4.Dataset(vegetation_file, mode='r') as fileID:
             vegetation_index = fileID.variables['index'][:].copy()
         # 0: missing value
@@ -228,7 +243,7 @@ def gldas_scaling_factors(
             combined_mask |= vegetation_index == invalid_keys
         # read Permafrost index file
         permafrost_file = base_dir.joinpath(f'permafrost_mod44w_{SPACING}.nc')
-        logging.debug(str(permafrost_file))
+        logger.debug(str(permafrost_file))
         with netCDF4.Dataset(permafrost_file, mode='r') as fileID:
             permafrost_index = fileID.variables['mask'][:]
         # 1: Continuous Permafrost
@@ -240,7 +255,7 @@ def gldas_scaling_factors(
             combined_mask |= permafrost_index == invalid_keys
         # read Arctic mask file
         arctic_file = base_dir.joinpath(f'arcticmask_mod44w_{SPACING}.nc')
-        logging.debug(str(arctic_file))
+        logger.debug(str(arctic_file))
         with netCDF4.Dataset(arctic_file, mode='r') as fileID:
             arctic_mask = fileID.variables['mask'][:].astype(bool)
         # arctic mask
@@ -441,6 +456,8 @@ def gldas_scaling_factors(
         )
     # change the permissions mode of the output file
     output_file.chmod(mode=MODE)
+    # return the output file
+    return output_file
 
 
 # PURPOSE: create argument parser
@@ -601,6 +618,15 @@ def arguments():
         choices=['ascii', 'netCDF4', 'HDF5'],
         help='Input and output data format',
     )
+    # Output log file for each job in forms
+    # validrun_2002-04-01T00:00:00_PID-00000.log
+    # failedrun_2002-04-01T00:00:00_PID-00000.log
+    parser.add_argument(
+        '--log',
+        default=False,
+        action='store_true',
+        help='Output log file for each job',
+    )
     # print information about each input and output file
     parser.add_argument(
         '--verbose',
@@ -629,28 +655,57 @@ def main():
 
     # create logger for verbosity level
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = gravtk.utilities.build_logger(
+        __name__, level=loglevels[args.verbose]
+    )
 
+    # log the command line parameters
+    info(args)
     # for each GLDAS model
     for MODEL in args.model:
-        # run program
-        gldas_scaling_factors(
-            args.directory,
-            MODEL,
-            args.start,
-            args.end,
-            args.missing,
-            VERSION=args.version,
-            SPACING=args.spacing,
-            LMAX=args.lmax,
-            MMAX=args.mmax,
-            RAD=args.radius,
-            DESTRIPE=args.destripe,
-            LOVE_NUMBERS=args.love,
-            REFERENCE=args.reference,
-            DATAFORM=args.format,
-            MODE=args.mode,
-        )
+        # run program with parameters
+        try:
+            output_file = gldas_scaling_factors(
+                args.directory,
+                MODEL,
+                args.start,
+                args.end,
+                args.missing,
+                VERSION=args.version,
+                SPACING=args.spacing,
+                LMAX=args.lmax,
+                MMAX=args.mmax,
+                RAD=args.radius,
+                DESTRIPE=args.destripe,
+                LOVE_NUMBERS=args.love,
+                REFERENCE=args.reference,
+                DATAFORM=args.format,
+                MODE=args.mode,
+            )
+        except:
+            # if there has been an error exception
+            # print the type, value, and stack trace of the
+            # current exception being handled
+            logger.critical(f'process id {os.getpid():d} failed')
+            logger.error(traceback.format_exc())
+            if args.log:  # write failed job completion log file
+                logfile = gravtk.utilities.create_log_file(
+                    'failedrun',
+                    filename=pathlib.Path(sys.argv[0]).name,
+                    arguments=vars(args),
+                    model=MODEL,
+                )
+                logger.info(logfile)
+        else:
+            if args.log:  # write successful job completion log file
+                logfile = gravtk.utilities.create_log_file(
+                    'validrun',
+                    filename=pathlib.Path(sys.argv[0]).name,
+                    arguments=vars(args),
+                    output=output_file,
+                    model=MODEL,
+                )
+                logger.info(logfile)
 
 
 # run main program

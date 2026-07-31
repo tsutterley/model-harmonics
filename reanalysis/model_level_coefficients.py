@@ -20,6 +20,10 @@ https://gmao.gsfc.nasa.gov/pubs/docs/Bosilovich785.pdf
 http://wiki.seas.harvard.edu/geos-chem/index.php/GEOS-Chem_vertical_grids
 https://geos-chem.readthedocs.io/en/latest/supplemental-guides/vertical-grids.html
 
+JRA-3Q coefficients:
+https://www.data.jma.go.jp/jra/html/JRA-3Q/document/JRA-3Q_TL479_format_v1_en.pdf
+https://osdata.gdex.ucar.edu/web/datasets/d640000/docs/JRA-3Q_TL479_format_en.pdf
+
 Reanalysis models:
     ERA-Interim:
         http://apps.ecmwf.int/datasets/data/interim-full-moda
@@ -27,6 +31,9 @@ Reanalysis models:
         http://apps.ecmwf.int/data-catalogues/era5/?class=ea
     MERRA-2:
         https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/
+    JRA-3Q:
+        https://gdex.ucar.edu/datasets/d640000/
+        https://www.data.jma.go.jp/jra/html/JRA-3Q/index_en.html
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
@@ -45,6 +52,7 @@ REFERENCES:
 
 UPDATE HISTORY:
     Updated 07/2026: use struct dictionary to define netCDF4 parameters
+        add JRA-3Q reanalysis to list of optional models to run
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -69,6 +77,8 @@ def model_level_coefficients(base_dir, MODEL, MODE=0o775):
     ddir = base_dir.joinpath(MODEL)
     ddir.mkdir(mode=MODE, parents=True, exist_ok=True)
 
+    # create output dictionary with variables
+    output = {}
     # model parameters
     # input and output files
     # output name for half-levels and interfaces
@@ -82,9 +92,17 @@ def model_level_coefficients(base_dir, MODEL, MODE=0o775):
         # output level names
         INTERFACE = 'intf'
         LEVELNAME = 'lvl'
+        ANAME, BNAME = ('a_half', 'b_half')
+        AINTERFACE, BINTERFACE = ('a_interface', 'b_interface')
+        # extract levels
+        output[INTERFACE] = dinput[:, 0]
+        output[LEVELNAME] = 0.5 + dinput[0:-1, 0]
         # extract A and B coefficients
-        Ap = dinput[:, 1]
-        Bp = dinput[:, 2]
+        output[AINTERFACE] = dinput[:, 1]
+        output[BINTERFACE] = dinput[:, 2]
+        # calculate half-level A and B coefficients from interfaces
+        output[ANAME] = (dinput[1:, 1] + dinput[:-1, 1]) / 2.0
+        output[BNAME] = (dinput[1:, 2] + dinput[:-1, 2]) / 2.0
     elif MODEL == 'MERRA-2':
         # input and output coordinate files
         input_file = get_data_path(['data', 'GMAO_72-level_vertical_grid.csv'])
@@ -96,32 +114,51 @@ def model_level_coefficients(base_dir, MODEL, MODE=0o775):
         # output level names
         INTERFACE = 'intf'
         LEVELNAME = 'lev'
+        ANAME, BNAME = ('a_half', 'b_half')
+        AINTERFACE, BINTERFACE = ('a_interface', 'b_interface')
+        # extract levels
+        output[INTERFACE] = dinput[:, 0]
+        output[LEVELNAME] = 0.5 + dinput[0:-1, 0]
         # extract A and B coefficients
         # convert units from millibars to pascals
         # Ap [pascals] for 72 levels (73 edges)
         # Bp [unitless] for 72 levels (73 edges)
-        Ap = 100.0 * dinput[:, 1]
-        Bp = dinput[:, 2]
-
-    # create output dictionary with variables
-    output = {}
-    # interfaces and half-levels
-    output[INTERFACE] = dinput[:, 0]
-    output[LEVELNAME] = 0.5 + dinput[0:-1, 0]
-    # add A and B coefficients to output dictionary
-    output['a_interface'] = Ap
-    output['b_interface'] = Bp
-    output['a_half'] = (Ap[1:] + Ap[:-1]) / 2.0
-    output['b_half'] = (Bp[1:] + Bp[:-1]) / 2.0
+        output[AINTERFACE] = 100.0 * dinput[:, 1]
+        output[BINTERFACE] = dinput[:, 2]
+        # calculate half-level A and B coefficients from interfaces
+        output[ANAME] = 100.0 * (dinput[1:, 1] + dinput[:-1, 1]) / 2.0
+        output[BNAME] = (dinput[1:, 2] + dinput[:-1, 2]) / 2.0
+    elif MODEL == 'JRA-3Q':
+        # input and output coordinate files
+        input_file = get_data_path(['data', 'jra3q.mdl-hyb.coefficients.csv'])
+        filename = 'jra3q.mdl-hyb.coefficients.nc'
+        # read input file
+        dinput = np.loadtxt(input_file, delimiter=',', skiprows=1)
+        # invert so top-of-atmosphere == layer 1
+        dinput = np.flipud(dinput)
+        # output level names
+        INTERFACE = 'hybrid_level'
+        LEVELNAME = 'hybrid_half_level'
+        ANAME, BNAME = ('a_hybrid_half_level', 'b_hybrid_half_level')
+        AINTERFACE, BINTERFACE = ('a_hybrid_level', 'b_hybrid_level')
+        # extract levels
+        output[INTERFACE] = dinput[:-1, 5]
+        output[LEVELNAME] = dinput[:, 3]
+        # extract  half-level A and B coefficients
+        output[ANAME] = dinput[:, 1]
+        output[BNAME] = dinput[:, 2]
+        # calculate A and B coefficients from half-levels
+        output[AINTERFACE] = (dinput[1:, 1] + dinput[:-1, 1]) / 2.0
+        output[BINTERFACE] = (dinput[1:, 2] + dinput[:-1, 2]) / 2.0
 
     # dictionary defining output structure
     struct = dict(
         dimensions=(LEVELNAME, INTERFACE),
         variables={
-            'a_half': (LEVELNAME,),
-            'b_half': (LEVELNAME,),
-            'a_interface': (INTERFACE,),
-            'b_interface': (INTERFACE,),
+            ANAME: (LEVELNAME,),
+            BNAME: (LEVELNAME,),
+            AINTERFACE: (INTERFACE,),
+            BINTERFACE: (INTERFACE,),
         },
     )
 
@@ -139,19 +176,19 @@ def model_level_coefficients(base_dir, MODEL, MODE=0o775):
         long_name='Model Level Interfaces',
         units='1',
     )
-    attributes['a_half'] = dict(
+    attributes[ANAME] = dict(
         long_name='A coefficients for model levels',
         units='Pa',
     )
-    attributes['b_half'] = dict(
+    attributes[BNAME] = dict(
         long_name='B coefficients for model levels',
         units='1',
     )
-    attributes['a_interface'] = dict(
+    attributes[AINTERFACE] = dict(
         long_name='A coefficients at model level interfaces',
         units='Pa',
     )
-    attributes['b_interface'] = dict(
+    attributes[BINTERFACE] = dict(
         long_name='B coefficients at model level interfaces',
         units='1',
     )
@@ -176,6 +213,7 @@ def arguments():
         'model',
         type=str,
         nargs='+',
+        metavar='MODEL',
         default=['ERA5', 'MERRA-2'],
         choices=choices,
         help='Reanalysis Model',

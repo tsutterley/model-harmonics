@@ -57,11 +57,13 @@ import gravity_toolkit as gravtk
 
 # PURPOSE: read variables from ERA5 P-E files
 def read_era5_variables(era5_flux_file):
+    # get logger
+    logger = logging.getLogger(__name__)
     # python dictionary of output variables
     dinput = {}
     # read each variable of interest in ERA5 flux file
     era5_flux_file = pathlib.Path(era5_flux_file).expanduser().absolute()
-    logging.debug(str(era5_flux_file))
+    logger.debug(str(era5_flux_file))
     with netCDF4.Dataset(era5_flux_file, mode='r') as fileID:
         # extract geolocation variables
         dinput['latitude'] = fileID.variables['latitude'][:].copy()
@@ -112,7 +114,7 @@ def era5_smb_cumulative(
 ):
     # create logger for verbosity level
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[VERBOSE])
+    logger = gravtk.utilities.build_logger(__name__, level=loglevels[VERBOSE])
 
     # ERA5 output cumulative subdirectory
     DIRECTORY = pathlib.Path(DIRECTORY).expanduser().absolute()

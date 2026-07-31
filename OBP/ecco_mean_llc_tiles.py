@@ -67,7 +67,6 @@ import re
 import logging
 import netCDF4
 import pathlib
-import datetime
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
@@ -76,6 +75,8 @@ import model_harmonics as mdlhmc
 
 # PURPOSE: read ECCO tiled ocean bottom pressure data and calculate mean
 def ecco_mean_llc_tiles(ddir, MODEL, RANGE=None, MODE=0o775):
+    # get logger
+    logger = logging.getLogger(__name__)
     # input and output subdirectories
     ddir = pathlib.Path(ddir).expanduser().absolute()
     DIRECTORY = ddir.joinpath(f'ECCO-{MODEL}', 'nctiles_monthly')
@@ -178,7 +179,7 @@ def ecco_mean_llc_tiles(ddir, MODEL, RANGE=None, MODE=0o775):
     # read each input file
     for t, input_file in enumerate(input_files):
         # Open netCDF4 datafile for reading
-        logging.debug(str(input_file))
+        logger.debug(str(input_file))
         fileID = netCDF4.Dataset(input_file, mode='r')
         # copy grid variables
         for key in ('i', 'j', 'tile'):
@@ -247,10 +248,12 @@ def ecco_mean_llc_tiles(ddir, MODEL, RANGE=None, MODE=0o775):
 
 # PURPOSE: read ECCO invariant grid file
 def ncdf_invariant(invariant_file, **kwargs):
+    # get logger
+    logger = logging.getLogger(__name__)
     # output dictionary with invariant parameters
     invariant = {}
     # open netCDF4 file for reading
-    logging.debug(str(invariant_file))
+    logger.debug(str(invariant_file))
     with netCDF4.Dataset(invariant_file, mode='r') as fileID:
         # extract latitude, longitude, depth, area and valid mask
         for key, val in kwargs.items():
@@ -321,7 +324,9 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = gravtk.utilities.build_logger(
+        __name__, level=loglevels[args.verbose]
+    )
 
     # for each ECCO LLC tile model
     for MODEL in args.model:

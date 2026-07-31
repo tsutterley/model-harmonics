@@ -61,6 +61,8 @@ import model_harmonics as mdlhmc
 
 # PURPOSE: read atmospheric surface pressure fields and calculate monthly mean
 def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
+    # get logger
+    logger = logging.getLogger(__name__)
     # directory setup
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
     ddir = base_dir.joinpath(MODEL)
@@ -120,7 +122,7 @@ def reanalysis_monthly_pressure(base_dir, MODEL, YEARS, MODE=0o775):
         # save to file
         filename = output_file_format.format(YEAR)
         output = ddir.joinpath(filename)
-        logging.info(f'\t{output}')
+        logger.info(f'\t{output}')
         # write monthly data to netCDF4 file
         p_month.to_netCDF4(
             output,
@@ -147,6 +149,7 @@ def arguments():
         'model',
         type=str,
         nargs='+',
+        metavar='MODEL',
         default=['NCEP-DOE-2'],
         choices=choices,
         help='Reanalysis Model',
@@ -197,7 +200,9 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = gravtk.utilities.build_logger(
+        __name__, level=loglevels[args.verbose]
+    )
 
     # for each reanalysis model
     for MODEL in args.model:

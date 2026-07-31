@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 ucar_gdex_jra55_surface.py
-Written by Tyler Sutterley (07/2026)
+Written by Tyler Sutterley (08/2026)
 
 Downloads 6-Hourly 1.25 Degree Surface Analysis Fields provided by the
     NCAR/UCAR Geoscience Data Exchange (GDEX)
@@ -35,6 +35,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 08/2026: change formatting and output of file logs
     Updated 07/2026: converted to use the NCAR/UCAR Geoscience Data Exchange
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: debug-level logging for lines within download file
@@ -86,17 +87,28 @@ def ucar_gdex_download(
 
     # create log file with list of synchronized files (or print to terminal)
     if LOG:
+        # output to log file
         # format: UCAR_GDEX_JRA-55_2002-04-01.log
         today = time.strftime('%Y-%m-%d', time.localtime())
         output_logfile = f'UCAR_GDEX_JRA-55_{today}.log'
-        LOGFILE = DIRECTORY.joinpath(output_logfile)
-        fid = LOGFILE.open(mode='w', encoding='utf8')
-        logging.basicConfig(stream=fid, level=logging.INFO)
-        logging.info(f'UCAR JRA-55 Sync Log ({today})')
+        LOGFILE = gravtk.utilities.get_cache_path(output_logfile)
+        # create a unique log and open the log file
+        fid1 = gravtk.utilities.create_unique_file(LOGFILE, mode='x')
+        # build logger for outputting to log file
+        logger = gravtk.utilities.build_logger(
+            __name__,
+            level=logging.INFO,
+            stream=fid1,
+            format='%(message)s (%(levelname)s)',
+        )
+        logger.info(f'UCAR JRA-55 Sync Log ({today})')
+        logger.info(f'Filename: {pathlib.Path(sys.argv[0]).name}')
     else:
-        # standard output (terminal output)
-        fid = sys.stdout
-        logging.basicConfig(stream=fid, level=logging.INFO)
+        # build logger for standard output (terminal output)
+        fid1 = sys.stdout
+        logger = gravtk.utilities.build_logger(
+            __name__, level=logging.INFO, stream=fid1
+        )
 
     # UCAR GDEX host
     HOST = 'https://gdex.ucar.edu/'
@@ -131,14 +143,14 @@ def ucar_gdex_download(
     # for each file in the list of files
     for colname, collastmod in zip(cols, mods):
         # download file from UCAR GDEX server
-        logging.debug(colname)
+        logger.debug(colname)
         # create and submit request for file
         buffer = mdlhmc.utilities.from_http(
             colname,
             timeout=TIMEOUT,
             local=None,
             verbose=True,
-            fid=fid,
+            fid=fid1,
             mode=MODE,
         )
         # open remote file with pygrib
@@ -166,7 +178,7 @@ def ucar_gdex_download(
             # output filename
             filename = f'{PRODUCT}.{VARIABLE}.{datetime}.nc'
             local_file = DIRECTORY.joinpath(filename)
-            logging.info(f'\t{local_file}')
+            logger.info(f'\t{local_file}')
             # write mean to netCDF4 file
             mean.to_netCDF4(
                 local_file,
@@ -190,14 +202,14 @@ def ucar_gdex_download(
         # for each file in the list of files
         for colname, collastmod in zip(cols, mods):
             # download file from UCAR GDEX server
-            logging.debug(colname)
+            logger.debug(colname)
             # create and submit request for file
             buffer = mdlhmc.utilities.from_http(
                 colname,
                 timeout=TIMEOUT,
                 local=None,
                 verbose=True,
-                fid=fid,
+                fid=fid1,
                 mode=MODE,
             )
             # open remote file with pygrib
@@ -207,7 +219,7 @@ def ucar_gdex_download(
             # output filename
             fileparts = mdlhmc.utilities.url_split(colname)
             output = DIRECTORY.joinpath(f'{fileparts[-1]}.nc')
-            logging.info(f'\t{output}')
+            logger.info(f'\t{output}')
             # write invariant data to netCDF4 file
             dinput.to_netCDF4(
                 output,
@@ -220,8 +232,8 @@ def ucar_gdex_download(
 
     # close log file and set permissions level to MODE
     if LOG:
-        fid.close()
-        LOGFILE.chmod(mode=MODE)
+        fid1.close()
+        os.chmod(fid1.name, mode=MODE)
 
 
 # PURPOSE: create argument parser

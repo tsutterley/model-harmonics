@@ -339,6 +339,7 @@ def arguments():
         'model',
         type=str,
         nargs='+',
+        metavar='MODEL',
         default=['V5alpha'],
         choices=['V4r4', 'V5alpha'],
         help='ECCO Version 4 or 5 Model',
@@ -436,7 +437,9 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = gravtk.utilities.build_logger(
+        __name__, level=loglevels[args.verbose]
+    )
 
     # for each ECCO model
     for MODEL in args.model:

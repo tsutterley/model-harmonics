@@ -107,16 +107,29 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
+import os
 import re
 import logging
 import pathlib
 import netCDF4
 import argparse
 import datetime
+import traceback
 import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
 import geoid_toolkit as geoidtk
+
+
+# PURPOSE: keep track of threads
+def info(args):
+    logger = logging.getLogger(__name__)
+    logger.info(pathlib.Path(sys.argv[0]).name)
+    logger.info(args)
+    logger.info(f'module name: {__name__}')
+    if hasattr(os, 'getppid'):
+        logger.info(f'parent process: {os.getppid():d}')
+    logger.info(f'process id: {os.getpid():d}')
 
 
 # PURPOSE: convert monthly ECCO OBP data to spherical harmonics
@@ -242,10 +255,12 @@ def ecco_monthly_harmonics(
     rx = re.compile(r'ECCO_{0}_AveRmvd_OBP_({1})_(\d+).{2}$'.format(*args))
 
     # find input ECCO OBP files
-    input_files = sorted([f for f in d1.iterdir() if rx.match(f.name)])
+    input_list = sorted([f for f in d1.iterdir() if rx.match(f.name)])
 
+    # list of output files
+    output_list = []
     # for each input file
-    for t, input_file in enumerate(input_files):
+    for t, input_file in enumerate(input_list):
         # extract dates from file
         year, month = np.array(rx.findall(input_file.name).pop(), dtype=int)
         # read input data file
@@ -288,6 +303,8 @@ def ecco_monthly_harmonics(
         obp_Ylms.to_file(output_file, format=DATAFORM)
         # change the permissions mode of the output file to MODE
         output_file.chmod(mode=MODE)
+        # append to list of output files
+        output_list.append(output_file)
 
     # Output date ascii file
     output_date_file = d2.joinpath(f'ECCO_{MODEL}_OBP_DATES.txt')
@@ -319,17 +336,8 @@ def ecco_monthly_harmonics(
     # set the permissions level of the output date and index files to MODE
     output_date_file.chmod(mode=MODE)
     output_index_file.chmod(mode=MODE)
-
-
-# PURPOSE: read ECCO2 depth file
-# ftp://mit.ecco-group.org/ecco_for_las/grid_fields/
-def ncdf_depth(FILENAME, indices=Ellipsis):
-    logging.debug(str(FILENAME))
-    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
-        depth = np.array(fileID.variables['depth'][indices, :])
-        fill_value = fileID.variables['depth']._FillValue
-        depth[depth == fill_value] = 0.0
-    return depth
+    # return the list of output files
+    return output_list
 
 
 # PURPOSE: create argument parser
@@ -346,6 +354,7 @@ def arguments():
         'model',
         type=str,
         nargs='+',
+        metavar='MODEL',
         default=['kf080i', 'dr080i'],
         choices=['kf080i', 'dr080i', 'Cube92', 'V4r3', 'V4r4'],
         help='ECCO Model',
@@ -415,6 +424,15 @@ def arguments():
         choices=['ascii', 'netCDF4', 'HDF5'],
         help='Input and output data format',
     )
+    # Output log file for each job in forms
+    # validrun_2002-04-01T00:00:00_PID-00000.log
+    # failedrun_2002-04-01T00:00:00_PID-00000.log
+    parser.add_argument(
+        '--log',
+        default=False,
+        action='store_true',
+        help='Output log file for each job',
+    )
     # print information about each input and output file
     parser.add_argument(
         '--verbose',
@@ -443,22 +461,51 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = gravtk.utilities.build_logger(
+        __name__, level=loglevels[args.verbose]
+    )
 
+    # log the command line parameters
+    info(args)
     # for each ECCO model
     for MODEL in args.model:
-        # run program
-        ecco_monthly_harmonics(
-            args.directory,
-            MODEL,
-            args.year,
-            LMAX=args.lmax,
-            MMAX=args.mmax,
-            LOVE_NUMBERS=args.love,
-            REFERENCE=args.reference,
-            DATAFORM=args.format,
-            MODE=args.mode,
-        )
+        # run program with parameters
+        try:
+            output_files = ecco_monthly_harmonics(
+                args.directory,
+                MODEL,
+                args.year,
+                LMAX=args.lmax,
+                MMAX=args.mmax,
+                LOVE_NUMBERS=args.love,
+                REFERENCE=args.reference,
+                DATAFORM=args.format,
+                MODE=args.mode,
+            )
+        except:
+            # if there has been an error exception
+            # print the type, value, and stack trace of the
+            # current exception being handled
+            logger.critical(f'process id {os.getpid():d} failed')
+            logger.error(traceback.format_exc())
+            if args.log:  # write failed job completion log file
+                logfile = gravtk.utilities.create_log_file(
+                    'failedrun',
+                    filename=pathlib.Path(sys.argv[0]).name,
+                    arguments=vars(args),
+                    model=MODEL,
+                )
+                logger.info(logfile)
+        else:
+            if args.log:  # write successful job completion log file
+                logfile = gravtk.utilities.create_log_file(
+                    'validrun',
+                    filename=pathlib.Path(sys.argv[0]).name,
+                    arguments=vars(args),
+                    output=output_files,
+                    model=MODEL,
+                )
+                logger.info(logfile)
 
 
 # run main program

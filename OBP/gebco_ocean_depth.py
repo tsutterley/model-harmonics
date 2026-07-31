@@ -44,7 +44,7 @@ import pathlib
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
-from model_harmonics.utilities import get_data_path
+import model_harmonics as mdlhmc
 
 
 # PURPOSE: interpolate GEBCO bathymetry to model grids
@@ -64,12 +64,31 @@ def gebco_ocean_depth(ddir, FILE, SPACING=[0.5, 0.5], MODE=0o775):
     )
     bathymetry.data = extend_matrix(bathymetry.data, 1)
     bathymetry.lon = extend_array(bathymetry.lon, 1)
+    # verify validity of bathymetry data and mask invalid values
+    bathymetry.mask |= np.isnan(bathymetry.data)
+    bathymetry.mask |= bathymetry.data >= 0.0
     bathymetry.update_mask()
     # convert to meshgrids
     gridlon, gridlat = np.meshgrid(bathymetry.lon, bathymetry.lat)
     # find valid bathymetry points
-    valid = np.logical_not(bathymetry.mask).astype('i')
-    valid_indices = np.nonzero((bathymetry.data < 0.0) & valid)
+    valid = np.logical_not(bathymetry.mask)
+    # calculate grid spacing in radians
+    dphi, dth = np.radians(bathymetry.spacing)
+
+    # get reference parameters for WGS84 ellipsoid
+    ellipsoid_params = mdlhmc.datum(ellipsoid='WGS84')
+    # semimajor axis of the ellipsoid [m]
+    a_axis = ellipsoid_params.a_axis
+    # square of first numerical eccentricity
+    e12 = ellipsoid_params.ecc1**2.0
+    # colatitude in radians
+    theta = np.radians(90.0 - bathymetry.lat)
+    # radius of curvature in prime vertical direction (east-west)
+    N = a_axis / np.sqrt(1.0 - e12 * np.cos(theta) ** 2.0)
+    # radius of curvature in meridional direction (north-south)
+    M = (a_axis * (1.0 - e12)) / np.power(1.0 - e12 * np.cos(theta) ** 2, 1.5)
+    # calculate area of grid cells
+    area = (M * dth) * (N * np.sin(theta) * dphi)
 
     # grid spacing
     dx, dy = np.broadcast_to(np.atleast_1d(SPACING), (2,))
@@ -91,14 +110,20 @@ def gebco_ocean_depth(ddir, FILE, SPACING=[0.5, 0.5], MODE=0o775):
     interp.lat = np.arange(extent[2], extent[3] + dy, dy)
     interp.data = np.zeros((nlat, nlon))
     interp.mask = np.ones((nlat, nlon), dtype=bool)
-    # calculate sum of valid bathymetry points
-    indy = ((gridlat[valid_indices] - ymin) // dy).astype('i')
-    indx = ((gridlon[valid_indices] - xmin) // dx).astype('i')
-    # convert from bathymetry to depth (increasing below ocean surface)
-    interp.data[indy, indx] = -(
-        np.sum(bathymetry.data[valid_indices]) / np.sum(valid[valid_indices])
-    )
-    interp.mask[indy, indx] = False
+    for j, lat in enumerate(interp.lat):
+        for i, lon in enumerate(interp.lon):
+            # find valid bathymetry points within grid cell
+            ilon = np.abs(gridlon - lon) <= (dx / 2.0)
+            ilat = np.abs(gridlat - lat) <= (dy / 2.0)
+            if not np.any(ilon & ilat & valid):
+                continue
+            # calculate the area-weighted mean of grid cell bathymetries
+            jj, ii = np.nonzero(ilon & ilat & valid)
+            total_weighted = np.sum(bathymetry.data[jj, ii] * area[jj, ii])
+            total_area = np.sum(area[jj, ii])
+            # convert from bathymetry to depth and assign to grid
+            interp.data[j, i] = -(total_weighted / total_area)
+            interp.mask[j, i] = np.all(bathymetry.mask[jj, ii])
     # update the mask
     interp.update_mask()
 
@@ -161,7 +186,7 @@ def arguments():
         '--directory',
         '-D',
         type=pathlib.Path,
-        default=get_data_path('data'),
+        default=mdlhmc.utilities.get_data_path('data'),
         help='Working data directory',
     )
     # output grid parameters
@@ -193,7 +218,12 @@ def main():
     args, _ = parser.parse_known_args()
 
     # run program
-    gebco_ocean_depth(args.file, SPACING=args.spacing, MODE=args.mode)
+    gebco_ocean_depth(
+        args.directory,
+        args.file,
+        SPACING=args.spacing,
+        MODE=args.mode,
+    )
 
 
 # run main program

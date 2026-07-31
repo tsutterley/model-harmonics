@@ -82,10 +82,12 @@ import gravity_toolkit as gravtk
 
 # PURPOSE: read variables from MERRA-2 tavgM_2d_int and tavgM_2d_glc files
 def read_merra_variables(merra_flux_file, merra_ice_surface_file):
+    # get logger
+    logger = logging.getLogger(__name__)
     # python dictionary of output variables
     dinput = {}
     # read each variable of interest in MERRA-2 flux file
-    logging.debug(str(merra_flux_file))
+    logger.debug(str(merra_flux_file))
     with netCDF4.Dataset(merra_flux_file, mode='r') as fid1:
         # extract geolocation variables
         dinput['lon'] = fid1.variables['lon'][:].copy()
@@ -108,7 +110,7 @@ def read_merra_variables(merra_flux_file, merra_ice_surface_file):
             )
             dinput[key].mask = dinput[key].data == dinput[key].fill_value
     # read each variable of interest in MERRA-2 ice surface file
-    logging.debug(str(merra_ice_surface_file))
+    logger.debug(str(merra_ice_surface_file))
     with netCDF4.Dataset(merra_ice_surface_file, 'r') as fid2:
         for key in ['RUNOFF', 'WESNSC']:
             # Getting the data from each NetCDF variable of interest
@@ -126,7 +128,7 @@ def merra_smb_mean(
 ):
     # create logger for verbosity level
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[VERBOSE])
+    logger = gravtk.utilities.build_logger(__name__, level=loglevels[VERBOSE])
 
     # MERRA-2 product subdirectories
     P1 = DIRECTORY.joinpath('M2TMNXINT.5.12.4')

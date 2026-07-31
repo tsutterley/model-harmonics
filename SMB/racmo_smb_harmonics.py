@@ -76,6 +76,7 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
+import os
 import re
 import copy
 import gzip
@@ -84,9 +85,21 @@ import logging
 import netCDF4
 import pathlib
 import argparse
+import traceback
 import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
+
+
+# PURPOSE: keep track of threads
+def info(args):
+    logger = logging.getLogger(__name__)
+    logger.info(pathlib.Path(sys.argv[0]).name)
+    logger.info(args)
+    logger.info(f'module name: {__name__}')
+    if hasattr(os, 'getppid'):
+        logger.info(f'parent process: {os.getppid():d}')
+    logger.info(f'process id: {os.getpid():d}')
 
 
 # PURPOSE: convert RACMO surface mass balance products to spherical harmonics
@@ -102,6 +115,8 @@ def racmo_smb_harmonics(
     GZIP=False,
     MODE=0o775,
 ):
+    # get logger
+    logger = logging.getLogger(__name__)
     # get reference parameters for ellipsoid
     ellipsoid_params = mdlhmc.datum(ellipsoid='WGS84')
     # semimajor axis of ellipsoid [cm]
@@ -138,8 +153,8 @@ def racmo_smb_harmonics(
         fileID = netCDF4.Dataset(model_file, mode='r')
 
     # Output NetCDF file information
-    logging.info(str(model_file))
-    logging.info(list(fileID.variables.keys()))
+    logger.info(str(model_file))
+    logger.info(list(fileID.variables.keys()))
 
     # Get data from each netCDF variable and remove singleton dimensions
     fd = {}
@@ -186,7 +201,7 @@ def racmo_smb_harmonics(
         fd['mask'] = np.zeros((ny, nx), dtype=bool)
     # read masks for reducing regions before converting to harmonics
     for mask_file in MASKS:
-        logging.info(mask_file)
+        logger.info(mask_file)
         fileID = netCDF4.Dataset(mask_file, 'r')
         fd['mask'] |= fileID.variables['maskgrounded2d'][:].astype(bool)
         fileID.close()
@@ -276,6 +291,8 @@ def racmo_smb_harmonics(
     Ylms.to_file(output_file, format=DATAFORM, date=True)
     # change the permissions mode of the output file to MODE
     output_file.chmod(mode=MODE)
+    # return the output file
+    return output_file
 
 
 # PURPOSE: create argument parser
@@ -367,6 +384,15 @@ def arguments():
         choices=['ascii', 'netCDF4', 'HDF5'],
         help='Input and output data format',
     )
+    # Output log file for each job in forms
+    # validrun_2002-04-01T00:00:00_PID-00000.log
+    # failedrun_2002-04-01T00:00:00_PID-00000.log
+    parser.add_argument(
+        '--log',
+        default=False,
+        action='store_true',
+        help='Output log file for each job',
+    )
     # print information about each input and output file
     parser.add_argument(
         '--verbose',
@@ -395,20 +421,46 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
-
-    # run program
-    racmo_smb_harmonics(
-        args.infile,
-        args.product,
-        MASKS=args.mask,
-        LMAX=args.lmax,
-        MMAX=args.mmax,
-        LOVE_NUMBERS=args.love,
-        REFERENCE=args.reference,
-        DATAFORM=args.format,
-        MODE=args.mode,
+    logger = gravtk.utilities.build_logger(
+        __name__, level=loglevels[args.verbose]
     )
+
+    # run program with parameters
+    try:
+        info(args)
+        output_file = racmo_smb_harmonics(
+            args.infile,
+            args.product,
+            MASKS=args.mask,
+            LMAX=args.lmax,
+            MMAX=args.mmax,
+            LOVE_NUMBERS=args.love,
+            REFERENCE=args.reference,
+            DATAFORM=args.format,
+            MODE=args.mode,
+        )
+    except:
+        # if there has been an error exception
+        # print the type, value, and stack trace of the
+        # current exception being handled
+        logger.critical(f'process id {os.getpid():d} failed')
+        logger.error(traceback.format_exc())
+        if args.log:  # write failed job completion log file
+            logfile = gravtk.utilities.create_log_file(
+                'failedrun',
+                filename=pathlib.Path(sys.argv[0]).name,
+                arguments=vars(args),
+            )
+            logger.info(logfile)
+    else:
+        if args.log:  # write successful job completion log file
+            logfile = gravtk.utilities.create_log_file(
+                'validrun',
+                filename=pathlib.Path(sys.argv[0]).name,
+                arguments=vars(args),
+                output=output_file,
+            )
+            logger.info(logfile)
 
 
 # run main program

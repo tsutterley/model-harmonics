@@ -36,6 +36,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 07/2026: added version 6.1 for Greenland and Antarctica
+        output using structured dictionary with netCDF4 parameters
     Updated 06/2024: added version 6.0 for Greenland and Antarctica
         RACMO2.3p2/FGRN055/DS1km for 1958-2023
         RACMO2.3p2/XANT27/DS2km for 1979-2023
@@ -82,6 +83,35 @@ input_products['PRECIP'] = 'precip'
 input_products['RUNOFF'] = 'runoff'
 input_products['SNOWMELT'] = 'snowmelt'
 input_products['REFREEZE'] = 'refreeze'
+
+# dictionary defining the spatial reference system for each region
+crs = dict(gris={}, ais={})
+# Greenland (EPSG:3413)
+crs['gris']['standard_name'] = 'Polar_Stereographic'
+crs['gris']['grid_mapping_name'] = 'polar_stereographic'
+crs['gris']['straight_vertical_longitude_from_pole'] = -45.0
+crs['gris']['latitude_of_projection_origin'] = 90.0
+crs['gris']['standard_parallel'] = 70.0
+crs['gris']['scale_factor_at_projection_origin'] = 1.0
+crs['gris']['false_easting'] = 0.0
+crs['gris']['false_northing'] = 0.0
+crs['gris']['semi_major_axis'] = 6378.137
+crs['gris']['semi_minor_axis'] = 6356.752
+crs['gris']['inverse_flattening'] = 298.257223563
+crs['gris']['spatial_epsg'] = '3413'
+# Antarctica (EPSG:3031)
+crs['ais']['standard_name'] = 'Polar_Stereographic'
+crs['ais']['grid_mapping_name'] = 'polar_stereographic'
+crs['ais']['straight_vertical_longitude_from_pole'] = 0.0
+crs['ais']['latitude_of_projection_origin'] = -90.0
+crs['ais']['standard_parallel'] = -71.0
+crs['ais']['scale_factor_at_projection_origin'] = 1.0
+crs['ais']['false_easting'] = 0.0
+crs['ais']['false_northing'] = 0.0
+crs['ais']['semi_major_axis'] = 6378.137
+crs['ais']['semi_minor_axis'] = 6356.752
+crs['ais']['inverse_flattening'] = 298.257223563
+crs['ais']['spatial_epsg'] = '3031'
 
 
 # PURPOSE: get the dimensions for the input data matrices
@@ -194,6 +224,8 @@ def yearly_file_cumulative(
     GZIP: bool, default False
         netCDF data files are compressed
     """
+    # get logger
+    logger = logging.getLogger(__name__)
     # verify input directory
     input_dir = pathlib.Path(input_dir).expanduser().absolute()
     # names within netCDF4 files
@@ -213,6 +245,15 @@ def yearly_file_cumulative(
     c = 0
     # allocate for all data
     dinput = {}
+    # dictionary defining file-level and variable attributes
+    attributes = dict(ROOT={})
+    attributes_list = ['long_name', 'units', 'standard_name', 'axis']
+
+    # create variable and attributes for projection
+    dinput['Polar_Stereographic'] = np.byte()
+    # add projection attributes to dictionary
+    attributes['Polar_Stereographic'] = crs[REGION]
+    # create variables for coordinates and attributes
     dinput['LON'] = np.zeros((ny, nx))
     dinput['LAT'] = np.zeros((ny, nx))
     dinput['x'] = np.zeros((nx))
@@ -225,9 +266,23 @@ def yearly_file_cumulative(
     # if reading bytes from compressed file or netcdf file directly
     gz = '.gz' if GZIP else ''
     # input area file with ice mask and model topography
-    if VERSION in ('4.0', '5.0'):
-        f1 = f'Icemask_Topo_Iceclasses_lon_lat_average_1km_GrIS.nc{gz}'
-        input_mask_file = input_dir.joinpath(f1)
+    use_icemask = False
+    use_icemask |= VERSION in ('4.0', '5.0')
+    use_icemask |= (VERSION == '6.1') and (REGION.lower() == 'gris')
+    if use_icemask:
+        if VERSION in ('4.0', '5.0'):
+            # input area file with ice mask and model topography
+            f1 = f'Icemask_Topo_Iceclasses_lon_lat_average_1km_GrIS.nc{gz}'
+            # full path to input mask file
+            input_mask_file = input_dir.joinpath(f1)
+        elif (VERSION == '6.1') and (REGION.lower() == 'gris'):
+            # input area file with ice mask and model topography
+            f1 = f'GrIS_topo_icemask_lsm_lon_lat_1km.nc{gz}'
+            # full path to input mask file
+            input_mask_file = input_dir.parents[1].joinpath(f1)
+        # log the input mask file
+        logger.debug(str(input_mask_file))
+        # read netCDF file for topography and ice classes
         if GZIP:
             # read bytes from compressed file
             fd = gzip.open(input_mask_file, 'rb')
@@ -238,51 +293,29 @@ def yearly_file_cumulative(
         else:
             # read netCDF file for topography and ice classes
             fileID = netCDF4.Dataset(input_mask_file, mode='r')
-        # Getting the data from each netCDF variable
-        dinput['LON'] = np.array(fileID.variables['LON'][:, :])
-        dinput['LAT'] = np.array(fileID.variables['LAT'][:, :])
-        dinput['x'] = np.array(fileID.variables['x'][:])
-        dinput['y'] = np.array(fileID.variables['y'][:])
-        promicemask = np.array(fileID.variables['Promicemask'][:, :])
-        topography = np.array(fileID.variables['Topography'][:, :])
-        # close the (compressed) file objects
-        fileID.close()
-        if GZIP:
-            fd.close()
-        # find ice sheet points from promicemask that valid
-        ii, jj = np.nonzero((promicemask >= 1) & (promicemask <= 3))
-        dinput['MASK'] = np.zeros((ny, nx), dtype=np.int8)
-        dinput['MASK'][ii, jj] = 1
-    elif (VERSION == '6.1') and (REGION.lower() == 'gris'):
-        f1 = f'GrIS_topo_icemask_lsm_lon_lat_1km.nc{gz}'
-        input_mask_file = input_dir.parents[1].joinpath(f1)
-        if GZIP:
-            # read bytes from compressed file
-            fd = gzip.open(str(input_mask_file), 'rb')
-            # read netCDF file for topography and ice classes from bytes
-            fileID = netCDF4.Dataset(
-                uuid.uuid4().hex, mode='r', memory=fd.read()
+        # get coordinate data from each netCDF variable
+        for var in ['LON', 'LAT', 'x', 'y']:
+            dinput[var] = np.array(fileID.variables[var][:])
+            attributes[var] = ncdf_attributes(
+                fileID.variables[var], attributes_list
             )
-        else:
-            # read netCDF file for topography and ice classes
-            fileID = netCDF4.Dataset(input_mask_file, mode='r')
-        # Getting the data from each netCDF variable
-        dinput['LON'] = np.array(fileID.variables['LON'][:, :])
-        dinput['LAT'] = np.array(fileID.variables['LAT'][:, :])
-        dinput['x'] = np.array(fileID.variables['x'][:])
-        dinput['y'] = np.array(fileID.variables['y'][:])
-        promicemask = np.array(fileID.variables['Promicemask'][:, :])
+            attributes[var]['grid_mapping'] = 'Polar_Stereographic'
+        # find ice sheet points from promicemask that valid
+        promicemask = fileID.variables['Promicemask'][:, :].copy()
         # close the (compressed) file objects
         fileID.close()
         if GZIP:
             fd.close()
         # find ice sheet points from promicemask that valid
         ii, jj = np.nonzero((promicemask >= 1) & (promicemask <= 3))
+        # create ice mask for output
         dinput['MASK'] = np.zeros((ny, nx), dtype=np.int8)
         dinput['MASK'][ii, jj] = 1
 
     # for each file of interest
     for t in range(n_files):
+        # log the input file
+        logger.debug(str(input_files[t]))
         # Open the NetCDF file for reading
         if GZIP:
             # read bytes from compressed file
@@ -298,37 +331,43 @@ def yearly_file_cumulative(
         ERA5_3h = re.search(r'ERA5_3h', input_files[t].name)
         # Getting the data from each netCDF variable
         if VERSION == '1.0':
-            dinput['LON'][:, :] = fileID.variables['LON'][:, :].copy()
-            dinput['LAT'][:, :] = fileID.variables['LAT'][:, :].copy()
-            dinput['x'][:] = fileID.variables['x'][:].copy()
-            dinput['y'][:] = fileID.variables['y'][:].copy()
-            dinput['MASK'][:, :] = fileID.variables['icemask'][:, :].astype(
-                np.int8
-            )
+            # get coordinate data from each netCDF variable
+            for var in ['LON', 'LAT', 'x', 'y']:
+                dinput[var] = np.array(fileID.variables[var][:])
+                attributes[var] = ncdf_attributes(
+                    fileID.variables[var], attributes_list
+                )
+                attributes[var]['grid_mapping'] = 'Polar_Stereographic'
+            icemask = fileID.variables['icemask'][:, :]
+            dinput['MASK'][:, :] = icemask.astype(np.int8)
         elif (VERSION == '6.0') or (VERSION == '6.1' and REGION == 'ais'):
             # extract coordinates
             if ERA5_3h or (VERSION == '6.1' and REGION == 'ais'):
-                dinput['x'][:] = fileID.variables['x'][:].copy()
-                dinput['y'][:] = fileID.variables['y'][:].copy()
+                for dim in ['x', 'y']:
+                    dinput[dim][:] = fileID.variables[dim][:].copy()
+                    attributes[dim] = ncdf_attributes(
+                        fileID.variables[dim], attributes_list
+                    )
             else:
-                dinput['x'][:] = fileID.variables['lon'][:].copy()
-                dinput['y'][:] = fileID.variables['lat'][:].copy()
+                for dim, var in zip(['x', 'y'], ['lon', 'lat']):
+                    dinput[dim][:] = fileID.variables[var][:].copy()
+                    attributes[dim] = ncdf_attributes(
+                        fileID.variables[var], attributes_list
+                    )
+            # coordianate reference system
             EPSG = 3413 if REGION == 'gris' else 3031
             # convert from edges to centers
             dx = np.diff(dinput['x'])[0]
             dy = np.diff(dinput['y'])[0]
             # calculate latitude and longitude of grid cells
-            dinput['LON'][:, :], dinput['LAT'][:, :] = (
-                mdlhmc.spatial.get_latlon(
-                    dinput['x'] - dx / 2.0,
-                    dinput['y'] - dy / 2.0,
-                    srs_epsg=EPSG,
-                )
+            dinput['LON'], dinput['LAT'] = mdlhmc.spatial.get_latlon(
+                dinput['x'] - dx / 2.0, dinput['y'] - dy / 2.0, srs_epsg=EPSG
             )
             # find variable of interest
             (ncvar,) = [v for v in fileID.variables.keys() if regex.match(v)]
             valid = np.any(fileID.variables[ncvar], axis=0)
             dinput['MASK'] = valid.astype(np.int8)
+
         # calculate dates from delta times
         delta_time = fileID.variables['time'][:].copy()
         date_string = fileID.variables['time'].units
@@ -363,7 +402,7 @@ def yearly_file_cumulative(
             fd.close()
 
     # return the cumulative anomalies
-    return dinput
+    return dinput, attributes
 
 
 # PURPOSE: read compressed netCDF4 files and calculate cumulative anomalies
@@ -393,6 +432,8 @@ def compressed_file_cumulative(
     GZIP: bool, default False
         netCDF data files are compressed
     """
+    # get logger
+    logger = logging.getLogger(__name__)
     # verify input directory
     input_dir = pathlib.Path(input_dir).expanduser().absolute()
     # names within netCDF4 files
@@ -408,9 +449,19 @@ def compressed_file_cumulative(
     # allocate for all data
     dinput = {}
 
+    # dictionary defining file-level and variable attributes
+    attributes = dict(ROOT={})
+    attributes_list = ['long_name', 'units', 'standard_name', 'axis']
+
+    # create variable and attributes for projection
+    dinput['Polar_Stereographic'] = np.byte()
+    # add projection attributes to dictionary
+    attributes['Polar_Stereographic'] = crs[REGION]
+
     # input area file with ice mask and model topography
     f1 = f'Icemask_Topo_Iceclasses_lon_lat_average_1km_GrIS.nc{gz}'
     input_mask_file = input_dir.joinpath(f1)
+    logger.debug(str(input_mask_file))
     if GZIP:
         # read bytes from compressed file
         fd = gzip.open(input_mask_file, 'rb')
@@ -420,12 +471,15 @@ def compressed_file_cumulative(
         # read netCDF file for topography and ice classes
         fileID = netCDF4.Dataset(input_mask_file, mode='r')
     # Getting the data from each netCDF variable
-    dinput['LON'] = np.array(fileID.variables['LON'][:, :])
-    dinput['LAT'] = np.array(fileID.variables['LAT'][:, :])
-    dinput['x'] = np.array(fileID.variables['x'][:])
-    dinput['y'] = np.array(fileID.variables['y'][:])
-    promicemask = np.array(fileID.variables['Promicemask'][:, :])
-    topography = np.array(fileID.variables['Topography'][:, :])
+    for var in ['LON', 'LAT', 'x', 'y']:
+        dinput[var] = np.array(fileID.variables[var][:])
+        attributes[var] = ncdf_attributes(
+            fileID.variables[var], attributes_list
+        )
+        attributes[var]['grid_mapping'] = 'Polar_Stereographic'
+    # find ice sheet points from promicemask that valid
+    promicemask = fileID.variables['Promicemask'][:, :].copy()
+
     # close the (compressed) file objects
     fileID.close()
     if GZIP:
@@ -439,6 +493,7 @@ def compressed_file_cumulative(
     # input dataset for variable
     f2 = file_format[VERSION].format(VARIABLE.lower(), gz)
     input_file = input_dir.joinpath(f2)
+    logger.debug(str(input_file))
     if GZIP:
         # read bytes from compressed file
         fd = gzip.open(input_file, 'rb')
@@ -454,6 +509,7 @@ def compressed_file_cumulative(
     ii, jj = np.nonzero((promicemask >= 1) & (promicemask <= 3))
     dinput['MASK'] = np.zeros((ny, nx), dtype=np.int8)
     dinput['MASK'][ii, jj] = 1
+    attributes['MASK']['grid_mapping'] = 'Polar_Stereographic'
 
     # calculate dates from delta times
     # Months since 1958-01-15 at 00:00:00
@@ -477,6 +533,11 @@ def compressed_file_cumulative(
     # calculate cumulative
     CUMULATIVE = np.zeros((ny, nx))
     dinput[VARNAME] = np.zeros((nt, ny, nx))
+    # get attributes for variable of interest
+    attributes[VARNAME] = ncdf_attributes(
+        fileID.variables[VARNAME], attributes_list
+    )
+    attributes[VARNAME]['grid_mapping'] = 'Polar_Stereographic'
     for t in range(nt):
         # extract data and add to total cumulative matrix
         CUMULATIVE += fileID.variables[VARNAME][t, :, :].copy() - MEAN
@@ -488,172 +549,33 @@ def compressed_file_cumulative(
         fd.close()
 
     # return the cumulative anomalies
-    return dinput
+    return dinput, attributes
 
 
-# PURPOSE: write RACMO downscaled data to netCDF4
-def ncdf_racmo(
-    dinput,
-    FILENAME=None,
-    REGION=None,
-    UNITS=None,
-    LONGNAME=None,
-    VARNAME=None,
-    LONNAME=None,
-    LATNAME=None,
-    XNAME=None,
-    YNAME=None,
-    TIMENAME=None,
-    MASKNAME=None,
-    TIME_UNITS='years',
-    TIME_LONGNAME='Date_in_Decimal_Years',
-    TITLE=None,
-    CLOBBER=False,
-):
-    # setting NetCDF clobber attribute
-    if CLOBBER:
-        clobber = 'w'
-    else:
-        clobber = 'a'
-
-    # opening NetCDF file for writing
-    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME, clobber, format='NETCDF4')
-
-    # Dimensions of parameters
-    n_time = 1 if (np.ndim(dinput[TIMENAME]) == 0) else len(dinput[TIMENAME])
-    # Defining the NetCDF dimensions
-    fileID.createDimension(XNAME, len(dinput[XNAME]))
-    fileID.createDimension(YNAME, len(dinput[YNAME]))
-    fileID.createDimension(TIMENAME, n_time)
-
-    # python dictionary with netCDF4 variables
-    nc = {}
-
-    # create variable and attributes for projection
-    if REGION in ('gris',):
-        crs = fileID.createVariable('Polar_Stereographic', np.byte, ())
-        crs.standard_name = 'Polar_Stereographic'
-        crs.grid_mapping_name = 'polar_stereographic'
-        crs.straight_vertical_longitude_from_pole = -45.0
-        crs.latitude_of_projection_origin = 90.0
-        crs.standard_parallel = 70.0
-        crs.scale_factor_at_projection_origin = 1.0
-        crs.false_easting = 0.0
-        crs.false_northing = 0.0
-        crs.semi_major_axis = 6378.137
-        crs.semi_minor_axis = 6356.752
-        crs.inverse_flattening = 298.257223563
-        crs.spatial_epsg = '3413'
-    elif REGION in ('ais',):
-        crs = fileID.createVariable('Polar_Stereographic', np.byte, ())
-        crs.standard_name = 'Polar_Stereographic'
-        crs.grid_mapping_name = 'polar_stereographic'
-        crs.straight_vertical_longitude_from_pole = 0.0
-        crs.latitude_of_projection_origin = -90.0
-        crs.standard_parallel = -71.0
-        crs.scale_factor_at_projection_origin = 1.0
-        crs.false_easting = 0.0
-        crs.false_northing = 0.0
-        crs.semi_major_axis = 6378.137
-        crs.semi_minor_axis = 6356.752
-        crs.inverse_flattening = 298.257223563
-        crs.spatial_epsg = '3031'
-
-    # defining the NetCDF variables
-    nc[XNAME] = fileID.createVariable(XNAME, dinput[XNAME].dtype, (XNAME,))
-    nc[YNAME] = fileID.createVariable(YNAME, dinput[YNAME].dtype, (YNAME,))
-    nc[TIMENAME] = fileID.createVariable(
-        TIMENAME, dinput[TIMENAME].dtype, (TIMENAME,)
-    )
-    nc[LONNAME] = fileID.createVariable(
-        LONNAME,
-        dinput[LONNAME].dtype,
-        (
-            YNAME,
-            XNAME,
-        ),
-    )
-    nc[LATNAME] = fileID.createVariable(
-        LATNAME,
-        dinput[LATNAME].dtype,
-        (
-            YNAME,
-            XNAME,
-        ),
-    )
-    nc[MASKNAME] = fileID.createVariable(
-        MASKNAME,
-        dinput[MASKNAME].dtype,
-        (
-            YNAME,
-            XNAME,
-        ),
-        fill_value=0,
-        zlib=True,
-    )
-    if n_time > 1:
-        nc[VARNAME] = fileID.createVariable(
-            VARNAME,
-            dinput[VARNAME].dtype,
-            (
-                TIMENAME,
-                YNAME,
-                XNAME,
-            ),
-            zlib=True,
-        )
-    else:
-        nc[VARNAME] = fileID.createVariable(
-            VARNAME,
-            dinput[VARNAME].dtype,
-            (
-                YNAME,
-                XNAME,
-            ),
-            zlib=True,
-        )
-
-    # filling NetCDF variables
-    for key, val in dinput.items():
-        nc[key][:] = val.copy()
-
-    # Defining attributes for longitude and latitude
-    nc[LONNAME].long_name = 'longitude'
-    nc[LONNAME].units = 'degrees_east'
-    nc[LATNAME].long_name = 'latitude'
-    nc[LATNAME].units = 'degrees_north'
-    # Defining attributes for x and y coordinates
-    nc[XNAME].long_name = 'easting'
-    nc[XNAME].units = 'meters'
-    nc[XNAME].grid_mapping = 'Polar_Stereographic'
-    nc[YNAME].long_name = 'northing'
-    nc[YNAME].units = 'meters'
-    nc[YNAME].grid_mapping = 'Polar_Stereographic'
-    # Defining attributes for dataset
-    nc[VARNAME].long_name = LONGNAME
-    nc[VARNAME].units = UNITS
-    nc[VARNAME].grid_mapping = 'Polar_Stereographic'
-    nc[MASKNAME].long_name = 'mask'
-    nc[MASKNAME].grid_mapping = 'Polar_Stereographic'
-    # Defining attributes for date
-    nc[TIMENAME].long_name = TIME_LONGNAME
-    nc[TIMENAME].units = TIME_UNITS
-
-    # add software information
-    fileID.software_reference = mdlhmc.version.project_name
-    fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
-    # global variable of NetCDF file
-    fileID.TITLE = TITLE
-    fileID.date_created = date.isoformat(date.today())
-
-    # Output NetCDF structure information
-    logging.info(str(FILENAME))
-    logging.info(list(fileID.variables.keys()))
-
-    # Closing the NetCDF file
-    fileID.close()
+# PURPOSE: get attributes for netCDF4 files and variable
+def ncdf_attributes(nc, attributes_list):
+    # get logger
+    logger = logging.getLogger(__name__)
+    # output dictionary of attributes
+    attributes = {}
+    # for each attribute to try to get
+    for att_name in attributes_list:
+        rx = re.compile(att_name, re.IGNORECASE)
+        try:
+            # use case-insensitive regex to find attribute name
+            (ncattr,) = [s for s in nc.ncattrs() if rx.match(s)]
+            att_val = nc.getncattr(ncattr)
+        except Exception as exc:
+            ncvar = getattr(nc, 'name', 'ROOT')
+            logger.debug(f'Attribute {att_name} not found in {ncvar}')
+            continue
+        # strip whitespace for string attributes
+        if isinstance(att_val, str):
+            att_val = att_val.strip()
+        # add attribute to dictionary
+        attributes[att_name] = att_val
+    # return the dictionary of attributes
+    return attributes
 
 
 # PURPOSE: calculate RACMO cumulative anomalies with respect to a mean field
@@ -775,38 +697,50 @@ def racmo_downscaled_cumulative(
     with netCDF4.Dataset(input_dir.joinpath(mean_file), mode='r') as fileID:
         MEAN = fileID[VARNAME][:, :].copy()
 
+    # dictionary defining output structure
+    struct = dict(
+        dimensions=('TIME', 'y', 'x'),
+        variables={
+            VARNAME: ('TIME', 'y', 'x'),
+            'MASK': ('y', 'x'),
+            'LAT': ('y', 'x'),
+            'LON': ('y', 'x'),
+            'Polar_Stereographic': (),
+        },
+    )
+
     # read data and calculate cumulative
     if file_type == 'yearly':
-        dinput = yearly_file_cumulative(
+        dinput, attributes = yearly_file_cumulative(
             input_dir, REGION, VERSION, PRODUCT, MEAN, GZIP=GZIP
         )
     elif file_type == 'compressed':
-        dinput = compressed_file_cumulative(
+        dinput, attributes = compressed_file_cumulative(
             input_dir, REGION, VERSION, PRODUCT, MEAN, GZIP=GZIP
         )
+    # edit file-level and variable attributes
+    TITLE = 'Downscaled_cumulative_anomalies_relative_to_{0:4d}-{1:4d}_mean'
+    REFERENCE = f'Output from {pathlib.Path(sys.argv[0]).name}'
+    attributes['ROOT']['title'] = TITLE.format(*RANGE)
+    attributes['ROOT']['model'] = ''.join(RACMO_MODEL)
+    attributes['ROOT']['version'] = VERSION
+    attributes['ROOT']['region'] = REGION
+    attributes['ROOT']['reference'] = REFERENCE
+    attributes[VARNAME]['long_name'] = longname[PRODUCT]
+    attributes[VARNAME]['units'] = 'mmWE'
+    # Defining attributes for date
+    attributes['TIME'] = dict(
+        long_name='time',
+        units='Date_in_Decimal_Years',
+        calendar='standard',
+    )
 
     # output cumulative as netCDF4 file
     args = (*RACMO_MODEL, VERSION, PRODUCT)
     FILE = '{0}_RACMO{1}_{2}_v{3}_{4}_cumul.nc'.format(*args)
     output_file = input_dir.joinpath(FILE)
-    TITLE = 'Downscaled_cumulative_anomalies_relative_to_{0:4d}-{1:4d}_Mean'
-    ncdf_racmo(
-        dinput,
-        FILENAME=output_file,
-        REGION=REGION,
-        UNITS='mmWE',
-        LONGNAME=longname[PRODUCT],
-        VARNAME=VARNAME,
-        LONNAME='LON',
-        LATNAME='LAT',
-        XNAME='x',
-        YNAME='y',
-        TIMENAME='TIME',
-        MASKNAME='MASK',
-        TITLE=TITLE.format(*RANGE),
-        CLOBBER=True,
-    )
-    # change the permissions mode
+    mdlhmc.spatial.to_netCDF4(output_file, dinput, attributes, struct)
+    # change the permission mode
     output_file.chmod(mode=MODE)
 
 
@@ -910,7 +844,9 @@ def main():
 
     # create logger for verbosity level
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = gravtk.utilities.build_logger(
+        __name__, level=loglevels[args.verbose]
+    )
 
     # run program for each input product
     for PRODUCT in args.product:

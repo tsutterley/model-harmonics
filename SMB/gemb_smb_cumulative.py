@@ -39,6 +39,36 @@ import pathlib
 import argparse
 import numpy as np
 import model_harmonics as mdlhmc
+from gravity_toolkit.utilities import build_logger
+
+# dictionary defining the spatial reference system for each region
+crs = dict(Greenland={}, Antarctica={})
+# Greenland (EPSG:3413)
+crs['Greenland']['standard_name'] = 'Polar_Stereographic'
+crs['Greenland']['grid_mapping_name'] = 'polar_stereographic'
+crs['Greenland']['straight_vertical_longitude_from_pole'] = -45.0
+crs['Greenland']['latitude_of_projection_origin'] = 90.0
+crs['Greenland']['standard_parallel'] = 70.0
+crs['Greenland']['scale_factor_at_projection_origin'] = 1.0
+crs['Greenland']['false_easting'] = 0.0
+crs['Greenland']['false_northing'] = 0.0
+crs['Greenland']['semi_major_axis'] = 6378.137
+crs['Greenland']['semi_minor_axis'] = 6356.752
+crs['Greenland']['inverse_flattening'] = 298.257223563
+crs['Greenland']['spatial_epsg'] = '3413'
+# Antarctica (EPSG:3031)
+crs['Antarctica']['standard_name'] = 'Polar_Stereographic'
+crs['Antarctica']['grid_mapping_name'] = 'polar_stereographic'
+crs['Antarctica']['straight_vertical_longitude_from_pole'] = 0.0
+crs['Antarctica']['latitude_of_projection_origin'] = -90.0
+crs['Antarctica']['standard_parallel'] = -71.0
+crs['Antarctica']['scale_factor_at_projection_origin'] = 1.0
+crs['Antarctica']['false_easting'] = 0.0
+crs['Antarctica']['false_northing'] = 0.0
+crs['Antarctica']['semi_major_axis'] = 6378.137
+crs['Antarctica']['semi_minor_axis'] = 6356.752
+crs['Antarctica']['inverse_flattening'] = 298.257223563
+crs['Antarctica']['spatial_epsg'] = '3031'
 
 
 # PURPOSE: calculate cumulative anomalies in GEMB
@@ -59,6 +89,8 @@ def gemb_smb_cumulative(model_file, RANGE=None, FILL_VALUE=np.nan, MODE=0o775):
     MODE: oct, default 0o775
         Permission mode of directories and files created
     """
+    # get logger
+    logger = logging.getLogger(__name__)
 
     # regular expression pattern for extracting parameters
     pattern = (
@@ -73,32 +105,74 @@ def gemb_smb_cumulative(model_file, RANGE=None, FILL_VALUE=np.nan, MODE=0o775):
 
     # Open the GEMB NetCDF file for reading
     fileID = netCDF4.Dataset(model_file, mode='r')
+    # get root attributes
+    institution = fileID.getncattr('institution')
+    revision = fileID.getncattr('revision')
 
     # Output NetCDF file information
-    logging.info(str(model_file))
-    logging.info(list(fileID.variables.keys()))
+    logger.info(str(model_file))
+    logger.info(list(fileID.variables.keys()))
 
-    # Get data and attribute from each netCDF variable
+    # dictionary describing the output netCDF4 structure
+    struct = dict(
+        dimensions=('time', 'y', 'x'),
+        variables={
+            'accum_SMB': ('time', 'y', 'x'),
+            'centered_SMB': ('y', 'x'),
+        },
+    )
+    # dictionaries with data and attributes for output NetCDF file
     fd = {}
-    attrs = {}
+    attrs = dict(ROOT={})
+    attributes_list = ['units', 'long_name', 'standard_name', 'comment']
+    # global attributes of NetCDF file
+    attrs['ROOT']['title'] = (
+        f'Cumulative anomalies in GEMB{version} variables '
+        f'relative to {RANGE[0]:4d}-{RANGE[1]:4d}'
+    )
+    attrs['ROOT']['source'] = f'version {version}'
+    attrs['ROOT']['authors'] = 'Nicole-Jeanne Schlegel & Alex Gardner'
+    attrs['ROOT']['reference'] = 'https://doi.org/10.5281/zenodo.7199528'
+    attrs['ROOT']['institution'] = institution
+    attrs['ROOT']['revision'] = revision
+    # list of input files for provenance
+    lineage = []
+    lineage.append(model_file.name)
+
+    # create variable and attributes for projection
+    fd['Polar_Stereographic'] = np.byte()
+    # add projection attributes to dictionary
+    attrs['Polar_Stereographic'] = crs[region]
+
     # input time (year-decimal)
     fd['time'] = fileID.variables['time'][:].copy()
     # extract x and y coordinate arrays from grids if applicable
     # else create meshgrids of coordinate arrays
     fd['x'] = fileID.variables['x'][:].copy()
     fd['y'] = fileID.variables['y'][:].copy()
-    # calculate mean period for GEMB
-    (tt,) = np.nonzero((fd['time'] >= RANGE[0]) & (fd['time'] < (RANGE[1] + 1)))
+    # Defining attributes for x and y coordinates
+    attrs['x'] = dict(
+        long_name='Easting',
+        standard_name='projection_x_coordinate',
+        grid_mapping='Polar_Stereographic',
+        units='meters',
+    )
+    attrs['y'] = dict(
+        long_name='Northing',
+        standard_name='projection_y_coordinate',
+        grid_mapping='Polar_Stereographic',
+        units='meters',
+    )
 
     # copy data and remove singleton dimensions
     centered_SMB = fileID.variables['centered_SMB'][:].copy()
     accum_SMB = fileID.variables['accum_SMB'][:].copy()
     # get each attribute for variable if applicable
     for v in ['accum_SMB', 'centered_SMB']:
-        attrs[v] = {}
-        for att_name in ['units', 'long_name', 'standard_name', 'comment']:
-            if hasattr(fileID.variables[v], att_name):
-                attrs[v][att_name] = fileID.variables[v].getncattr(att_name)
+        # set variable attributes
+        attrs[v] = ncdf_attributes(fileID.variables[v], attributes_list)
+        # set grid mapping attribute
+        attrs[v]['grid_mapping'] = 'Polar_Stereographic'
     # edit cumulative SMB attributes
     attrs['centered_SMB']['standard_name'] = (
         'average surface mass balance height'
@@ -108,9 +182,6 @@ def gemb_smb_cumulative(model_file, RANGE=None, FILL_VALUE=np.nan, MODE=0o775):
     )
     # input shape of GEMB SMB data
     nt, ny, nx = np.shape(accum_SMB)
-    # get root attributes
-    institution = fileID.getncattr('institution')
-    revision = fileID.getncattr('revision')
     # close the NetCDF files
     fileID.close()
 
@@ -131,6 +202,8 @@ def gemb_smb_cumulative(model_file, RANGE=None, FILL_VALUE=np.nan, MODE=0o775):
     # convert invalid values to fill value
     SMB.data[SMB.mask] = SMB.fill_value
 
+    # calculate mean period for GEMB
+    (tt,) = np.nonzero((fd['time'] >= RANGE[0]) & (fd['time'] < (RANGE[1] + 1)))
     # cumulative mass anomalies calculated by removing mean balance flux
     MEAN = np.mean(SMB[tt, :, :], axis=0)
     fd['centered_SMB'] = np.ma.array(MEAN, fill_value=FILL_VALUE)
@@ -148,118 +221,38 @@ def gemb_smb_cumulative(model_file, RANGE=None, FILL_VALUE=np.nan, MODE=0o775):
     fd['accum_SMB'].data[fd['accum_SMB'].mask] = fd['accum_SMB'].fill_value
 
     # Output NetCDF filename
-    logging.info(str(output_file))
-
+    logger.info(str(output_file))
     # output GEMB data file with cumulative data
-    fileID = netCDF4.Dataset(output_file, 'w', format='NETCDF4')
-
-    # Defining the NetCDF dimensions
-    fileID.createDimension('x', nx)
-    fileID.createDimension('y', ny)
-    fileID.createDimension('time', nt)
-
-    # python dictionary with netCDF4 variables
-    nc = {}
-    # defining the NetCDF variables
-    nc['x'] = fileID.createVariable('x', fd['x'].dtype, ('x',))
-    nc['y'] = fileID.createVariable('y', fd['y'].dtype, ('y',))
-    nc['time'] = fileID.createVariable('time', fd['time'].dtype, ('time',))
-    nc['centered_SMB'] = fileID.createVariable(
-        'centered_SMB',
-        fd['centered_SMB'].dtype,
-        (
-            'y',
-            'x',
-        ),
-        fill_value=fd['centered_SMB'].fill_value,
-        zlib=True,
-    )
-    nc['accum_SMB'] = fileID.createVariable(
-        'accum_SMB',
-        fd['accum_SMB'].dtype,
-        (
-            'time',
-            'y',
-            'x',
-        ),
-        fill_value=fd['accum_SMB'].fill_value,
-        zlib=True,
-    )
-
-    # filling NetCDF variables
-    for key, val in fd.items():
-        nc[key][:] = val.copy()
-
-    # create variable and attributes for projection
-    if region in ('Greenland',):
-        crs = fileID.createVariable('Polar_Stereographic', np.byte, ())
-        crs.standard_name = 'Polar_Stereographic'
-        crs.grid_mapping_name = 'polar_stereographic'
-        crs.straight_vertical_longitude_from_pole = -45.0
-        crs.latitude_of_projection_origin = 90.0
-        crs.standard_parallel = 70.0
-        crs.scale_factor_at_projection_origin = 1.0
-        crs.false_easting = 0.0
-        crs.false_northing = 0.0
-        crs.semi_major_axis = 6378.137
-        crs.semi_minor_axis = 6356.752
-        crs.inverse_flattening = 298.257223563
-        crs.spatial_epsg = '3413'
-    elif region in ('Antarctica',):
-        crs = fileID.createVariable('Polar_Stereographic', np.byte, ())
-        crs.standard_name = 'Polar_Stereographic'
-        crs.grid_mapping_name = 'polar_stereographic'
-        crs.straight_vertical_longitude_from_pole = 0.0
-        crs.latitude_of_projection_origin = -90.0
-        crs.standard_parallel = -71.0
-        crs.scale_factor_at_projection_origin = 1.0
-        crs.false_easting = 0.0
-        crs.false_northing = 0.0
-        crs.semi_major_axis = 6378.137
-        crs.semi_minor_axis = 6356.752
-        crs.inverse_flattening = 298.257223563
-        crs.spatial_epsg = '3031'
-
-    # Defining attributes for x and y coordinates
-    nc['x'].long_name = 'Easting'
-    nc['x'].standard_name = 'projection_x_coordinate'
-    nc['x'].grid_mapping = 'Polar_Stereographic'
-    nc['x'].units = 'meters'
-    nc['y'].long_name = 'Northing'
-    nc['y'].standard_name = 'projection_y_coordinate'
-    nc['y'].grid_mapping = 'Polar_Stereographic'
-    nc['y'].units = 'meters'
-    # for each gridded variable
-    for v in ['accum_SMB', 'centered_SMB']:
-        # set variable attributes
-        for att_name, att_val in attrs[v].items():
-            nc[v].setncattr(att_name, att_val)
-        # set grid mapping attribute
-        nc[v].setncattr('grid_mapping', 'Polar_Stereographic')
-    # Defining attributes for date
-    nc['time'].long_name = 'time'
-    nc['time'].units = 'decimal years'
-    # global attributes of NetCDF file
-    fileID.title = (
-        f'Cumulative anomalies in GEMB{version} variables '
-        f'relative to {RANGE[0]:4d}-{RANGE[1]:4d}'
-    )
-    fileID.date_created = time.strftime('%Y-%m-%d', time.localtime())
-    fileID.source = f'version {version}'
-    fileID.authors = 'Nicole-Jeanne Schlegel & Alex Gardner'
-    fileID.reference = 'https://doi.org/10.5281/zenodo.7199528'
-    fileID.institution = institution
-    fileID.revision = revision
-    # add software information
-    fileID.software_reference = mdlhmc.version.project_name
-    fileID.software_version = mdlhmc.version.full_version
-    # Output NetCDF file information
-    logging.info(list(fileID.variables.keys()))
-    # Closing the NetCDF file and getting the buffer object
-    fileID.close()
-
+    attrs['ROOT']['lineage'] = lineage
+    mdlhmc.spatial.to_netCDF4(output_file, fd, attrs, struct=struct)
     # change the permissions mode
     output_file.chmod(mode=MODE)
+
+
+# PURPOSE: get attributes for netCDF4 files and variable
+def ncdf_attributes(nc, attributes_list):
+    # get logger
+    logger = logging.getLogger(__name__)
+    # output dictionary of attributes
+    attributes = {}
+    # for each attribute to try to get
+    for att_name in attributes_list:
+        rx = re.compile(att_name, re.IGNORECASE)
+        try:
+            # use case-insensitive regex to find attribute name
+            (ncattr,) = [s for s in nc.ncattrs() if rx.match(s)]
+            att_val = nc.getncattr(ncattr)
+        except Exception as exc:
+            ncvar = getattr(nc, 'name', 'ROOT')
+            logger.debug(f'Attribute {att_name} not found in {ncvar}')
+            continue
+        # strip whitespace for string attributes
+        if isinstance(att_val, str):
+            att_val = att_val.strip()
+        # add attribute to dictionary
+        attributes[att_name] = att_val
+    # return the dictionary of attributes
+    return attributes
 
 
 # PURPOSE: create argument parser
@@ -316,7 +309,7 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = build_logger(__name__, level=loglevels[args.verbose])
 
     # run program
     gemb_smb_cumulative(

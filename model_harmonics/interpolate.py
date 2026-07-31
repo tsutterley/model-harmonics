@@ -60,9 +60,11 @@ def ocean_depth(
     depth: np.ndarray
         Ocean depth at input lat/lon points
     """
+    # get logger
+    logger = logging.getLogger(__name__)
     # read bathymetry data
     FILENAME = get_data_path(['data', f'DEPTH.{model}.{resolution}.nc'])
-    logging.debug(str(FILENAME))
+    logger.debug(str(FILENAME))
     with netCDF4.Dataset(FILENAME, mode='r') as fileID:
         z = fileID.variables['depth'][:].copy()
         lon = fileID.variables['lon'][:].copy()

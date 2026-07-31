@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 gesdisc_gldas_sync.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (08/2026)
 
 Syncs GLDAS monthly datafiles from the Goddard Earth Sciences Data and
     Information Server Center (GES DISC)
@@ -64,6 +64,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 08/2026: change formatting and output of file logs
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -111,6 +112,7 @@ import pathlib
 import argparse
 import builtins
 import posixpath
+import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
 
 # GLDAS models
@@ -147,12 +149,24 @@ def gesdisc_gldas_sync(
         # format: NASA_GESDISC_GLDAS_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d', time.localtime())
         output_logfile = f'NASA_GESDISC_GLDAS_{MODEL}_sync_{today}.log'
-        LOGFILE = DIRECTORY.joinpath(output_logfile)
-        logging.basicConfig(filename=LOGFILE, level=logging.INFO)
-        logging.info(f'NASA GLDAS Sync Log ({today})')
+        LOGFILE = gravtk.utilities.get_cache_path(output_logfile)
+        # create a unique log and open the log file
+        fid1 = gravtk.utilities.create_unique_file(LOGFILE, mode='x')
+        # build logger for outputting to log file
+        logger = gravtk.utilities.build_logger(
+            __name__,
+            level=logging.INFO,
+            stream=fid1,
+            format='%(message)s (%(levelname)s)',
+        )
+        logger.info(f'NASA GLDAS Sync Log ({today})')
+        logger.info(f'Filename: {pathlib.Path(sys.argv[0]).name}')
     else:
-        # standard output (terminal output)
-        logging.basicConfig(level=logging.INFO)
+        # build logger for standard output (terminal output)
+        fid1 = sys.stdout
+        logger = gravtk.utilities.build_logger(
+            __name__, level=logging.INFO, stream=fid1
+        )
 
     # Version and product flags
     V1, V2 = (f'_V{VERSION}', '') if (VERSION == '1') else ('', f'.{VERSION}')
@@ -162,9 +176,9 @@ def gesdisc_gldas_sync(
     SHORTNAME = f'GLDAS_{MODEL}{SPATIAL}_{TEMPORAL}{EP}'
 
     # print header text to log/standard output
-    logging.info(f'GLDAS MODEL={gldas_products[MODEL]}')
-    logging.info(f'RESOLUTION={TEMPORAL},{SPATIAL}')
-    logging.info(f'VERSION={VERSION}{EP}')
+    logger.info(f'GLDAS MODEL={gldas_products[MODEL]}')
+    logger.info(f'RESOLUTION={TEMPORAL},{SPATIAL}')
+    logger.info(f'VERSION={VERSION}{EP}')
 
     # for each year to sync
     for Y in map(str, YEARS):
@@ -199,7 +213,8 @@ def gesdisc_gldas_sync(
 
     # close log file and set permissions level to MODE
     if LOG:
-        LOGFILE.chmod(mode=MODE)
+        fid1.close()
+        os.chmod(fid1.name, mode=MODE)
 
 
 # PURPOSE: pull file from a remote host checking if file exists locally
@@ -213,6 +228,8 @@ def http_pull_file(
     CLOBBER=False,
     MODE=0o775,
 ):
+    # get logger
+    logger = logging.getLogger(__name__)
     # if file exists in file system: check if remote file is newer
     TEST = False
     OVERWRITE = ' (clobber)'
@@ -232,8 +249,8 @@ def http_pull_file(
     # if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         # Printing files transferred
-        logging.info(f'{remote_file} --> ')
-        logging.info(f'\t{str(local_file)}{OVERWRITE}\n')
+        logger.info(f'{remote_file} --> ')
+        logger.info(f'\t{str(local_file)}{OVERWRITE}\n')
         # if executing copy command (not only printing the files)
         if not LIST:
             # Create and submit request. There are a wide range of exceptions

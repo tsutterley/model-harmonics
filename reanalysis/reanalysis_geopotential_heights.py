@@ -12,6 +12,9 @@ Reanalysis models:
         http://apps.ecmwf.int/data-catalogues/era5/?class=ea
     MERRA-2:
         https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/
+    JRA-3Q:
+        https://gdex.ucar.edu/datasets/d640000/
+        https://www.data.jma.go.jp/jra/html/JRA-3Q/index_en.html
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
@@ -31,6 +34,7 @@ PROGRAM DEPENDENCIES:
 
 UPDATE HISTORY:
     Updated 07/2026: use struct dictionary to define netCDF4 parameters
+        add JRA-3Q reanalysis to list of optional models to run
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: use full path to output file in verbose logging
     Updated 12/2022: single implicit import of spherical harmonic tools
@@ -54,6 +58,7 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
+import os
 import re
 import time
 import logging
@@ -65,27 +70,40 @@ import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
 
 
+# PURPOSE: keep track of threads
+def info(args):
+    logger = logging.getLogger(__name__)
+    logger.info(pathlib.Path(sys.argv[0]).name)
+    logger.info(args)
+    logger.info(f'module name: {__name__}')
+    if hasattr(os, 'getppid'):
+        logger.info(f'parent process: {os.getppid():d}')
+    logger.info(f'process id: {os.getpid():d}')
+
+
 # PURPOSE: reads temperature and specific humidity data to calculate
 # geopotential height fields at half levels from reanalysis
 def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
+    # get logger
+    logger = logging.getLogger(__name__)
     # directory setup
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
     ddir = base_dir.joinpath(MODEL)
 
     # set model specific parameters
+    # use standard weights for equirectangular grids
     WEIGHT = None
-    input_coordinate_file = None
-    if MODEL == 'ERA-Interim':
+    if MODEL in ('ERA-Interim', 'ERA5'):
         # invariant parameters file
-        input_invariant_file = 'ERA-Interim-Invariant-Parameters.nc'
+        input_invariant_file = f'{MODEL}-Invariant-Parameters.nc'
         # coordinate parameters file
-        input_coordinate_file = 'ERA-Interim_coordvars.nc'
+        input_coordinate_file = f'{MODEL}_coordvars.nc'
         # surface pressure file format
-        input_pressure_file = 'ERA-Interim-Monthly-SP-{0}.nc'
+        input_pressure_file = f'{MODEL}-Monthly-SP-{{0}}.nc'
         # regular expression pattern for finding files
-        regex_pattern = r'ERA\-Interim\-Monthly\-Levels\-({0})\.nc$'
+        regex_pattern = rf'{MODEL}\-Monthly\-Levels\-({{0}})\.nc$'
         # output file format
-        output_file_format = 'ERA-Interim-GPH-Levels-{0}.nc'
+        output_file_format = f'{MODEL}-Monthly-GPH-Levels-{{0}}.nc'
         SURFNAME = 'z'
         ZNAME = 'z'
         VARNAME = 'sp'
@@ -94,34 +112,7 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
         DIFFNAME = 'dp'
         LONNAME = 'longitude'
         LATNAME = 'latitude'
-        TIMENAME = 'time'
-        LEVELNAME = 'lvl'
-        ANAME, BNAME = ('a_model_alt', 'b_model_alt')
-        AINTERFACE, BINTERFACE = ('a_interface', 'b_interface')
-        # hours since 1900-01-01 00:00:0.0
-        TIME_LONGNAME = 'Time'
-        UNITS = 'm**2 s**-2'
-        GRAVITY = 1.0
-    elif MODEL == 'ERA5':
-        # invariant parameters file
-        input_invariant_file = 'ERA5-Invariant-Parameters.nc'
-        # coordinate parameters file
-        input_coordinate_file = 'ERA5_coordvars.nc'
-        # surface pressure file format
-        input_pressure_file = 'ERA5-Monthly-SP-{0}.nc'
-        # regular expression pattern for finding files
-        regex_pattern = r'ERA5\-Monthly\-Levels\-({0})\.nc$'
-        # output file format
-        output_file_format = 'ERA5-GPH-Levels-{0}.nc'
-        SURFNAME = 'z'
-        ZNAME = 'z'
-        VARNAME = 'sp'
-        TNAME = 't'
-        QNAME = 'q'
-        DIFFNAME = 'dp'
-        LONNAME = 'longitude'
-        LATNAME = 'latitude'
-        TIMENAME = 'valid_time'
+        TIMENAME = 'time' if (MODEL == 'ERA-Interim') else 'valid_time'
         LEVELNAME = 'lvl'
         ANAME, BNAME = ('a_half', 'b_half')
         AINTERFACE, BINTERFACE = ('a_interface', 'b_interface')
@@ -135,9 +126,9 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
         # coordinate parameters file
         input_coordinate_file = 'MERRA2_101.const_3d_coords_Nx.00000000.nc4'
         # regular expression pattern for finding files
-        regex_pattern = r'MERRA2_(\d+).tavgM_3d_ana_Nv.({0})(\d{{2}}).SUB.nc$'
+        regex_pattern = r'MERRA2_(\d+).tavgM_3d_asm_Nv.({0})(\d{{2}}).SUB.nc$'
         # output file format
-        output_file_format = 'MERRA2_{0}.tavgM_3d_PHIS.{1}{2}.SUB.nc'
+        output_file_format = 'MERRA2_{0}.tavgM_3d_asm_PHIS.{1}{2}.SUB.nc'
         SURFNAME = 'PHIS'
         ZNAME = 'PHIS'
         VARNAME = 'PS'
@@ -159,26 +150,25 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
         input_invariant_file = (
             'jra3q.tl479_surf.0_3_4.gp-sfc-cn-gauss.1947090100_1947090100.nc'
         )
+        # coordinate parameters file
+        input_coordinate_file = 'jra3q.mdl-hyb.coefficients.nc'
         # surface pressure and specific humidity file formats
         input_pressure_file = 'jra3q.anl_surf.pres-sfc-an-gauss.{0}{1}.nc'
-        input_humidity_file = 'jra3q.anl_mdl.spfh-hyb-an-gauss.{0}{1}.nc'
+        input_humidity_file = 'jra3q.anl_mdl.spfh-hyb-an-gauss-mn.{0}{1}.nc'
         # regular expression pattern for finding files
-        regex_pattern = r'jra3q\.anl_mdl\.tmp-hyb-an-gauss\.({0})(\d+).nc$'
+        regex_pattern = r'jra3q\.anl_mdl\.tmp-hyb-an-gauss-mn\.({0})(\d+).nc$'
         # output file format
         output_file_format = 'jra3q.anl_mdl.hgt-hyb-an-gauss.{0}{1}.nc'
         SURFNAME = 'gp-sfc-cn-gauss'
         ZNAME = 'hgt-hyb-an-gauss'
         VARNAME = 'pres-sfc-an-gauss'
-        TNAME = 'tmp-hyb-an-gauss'
-        QNAME = 'spfh-hyb-an-gauss'
+        TNAME = 'tmp-hyb-an-gauss-mn'
+        QNAME = 'spfh-hyb-an-gauss-mn'
         DIFFNAME = 'dpres-hyb-an-gauss'
         LONNAME = 'lon'
         LATNAME = 'lat'
         TIMENAME = 'time'
-        LONNAME = 'lon'
-        LATNAME = 'lat'
-        TIMENAME = 'time'
-        LEVELNAME = 'hybrid_level'
+        LEVELNAME = 'hybrid_half_level'
         WEIGHT = 'weight'
         ANAME, BNAME = ('a_hybrid_half_level', 'b_hybrid_half_level')
         AINTERFACE, BINTERFACE = ('a_hybrid_level', 'b_hybrid_level')
@@ -221,7 +211,7 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
     )
     # Defining attributes for geopotential height
     attributes[ZNAME] = dict(
-        long_name='Geopotential_Heights_on_Model_Levels',
+        long_name='Geopotential_Heights_on_Model_Half_Levels',
         units=UNITS,
     )
     # Defining attributes for pressure differences
@@ -242,15 +232,14 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
     )
     # read parameters for calculating pressures at levels
     # flips the order of the levels so that bottom=0
-    if input_coordinate_file is not None:
-        lev, A, B, AI, BI = ncdf_coordinates(
-            ddir.joinpath(input_coordinate_file),
-            LEVELNAME,
-            ANAME,
-            BNAME,
-            AINTERFACE,
-            BINTERFACE,
-        )
+    lev, A, B, AI, BI = ncdf_coordinates(
+        ddir.joinpath(input_coordinate_file),
+        LEVELNAME,
+        ANAME,
+        BNAME,
+        AINTERFACE,
+        BINTERFACE,
+    )
     # Gas constant for dry air
     R_dry = 287.06
     # minimum allowable pressure at the top of the atmosphere
@@ -263,7 +252,7 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
     # for each reanalysis file
     for i, temperature_file in enumerate(input_files):
         # read input temperature and specific humidity data
-        logging.debug(str(temperature_file))
+        logger.debug(str(temperature_file))
         fid = [None] * 3
         fid[0] = netCDF4.Dataset(temperature_file, mode='r')
         # extract shape from temperature variable
@@ -307,7 +296,7 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
             fid[1] = fid[0]
             # read input surface pressure data
             pressure_file = ddir.joinpath(input_pressure_file.format(YEAR))
-            logging.debug(str(pressure_file))
+            logger.debug(str(pressure_file))
             with netCDF4.Dataset(pressure_file, 'r') as fid[2]:
                 pressure = np.copy(fid[2].variables[VARNAME][:])
         elif MODEL in ('JRA-3Q'):
@@ -317,7 +306,7 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
             FILENAME = output_file_format.format(YEAR, MONTH)
             output_file = ddir.joinpath(FILENAME)
             # extract the A and B coefficients for the hybrid levels
-            dinput[LEVELNAME] = fid[0].variables[LEVELNAME][:]
+            dinput[LEVELNAME] = lev[:-1].copy()
             A = fid[0].variables[ANAME][:]
             B = fid[0].variables[BNAME][:]
             AI = fid[0].variables[AINTERFACE][:]
@@ -328,13 +317,13 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
             humidity_file = ddir.joinpath(
                 input_humidity_file.format(YEAR, MONTH)
             )
-            logging.debug(str(humidity_file))
+            logger.debug(str(humidity_file))
             fid[1] = netCDF4.Dataset(humidity_file, 'r')
             # read input surface pressure data
             pressure_file = ddir.joinpath(
                 input_pressure_file.format(YEAR, MONTH)
             )
-            logging.debug(str(pressure_file))
+            logger.debug(str(pressure_file))
             with netCDF4.Dataset(pressure_file, 'r') as fid[2]:
                 # reorder dimensions to match the required order
                 dims = fid[2].variables[VARNAME].dimensions
@@ -372,6 +361,7 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
                 # calculate numerator and denominator for pressure ratio
                 Pnum = A[k] + B[k] * SP
                 if (k + 1) == len(A):
+                    # use minimum pressure for top-of-atmosphere
                     Pdom = Pmin
                 else:
                     # add a threshold to avoid dividing by zero
@@ -385,6 +375,7 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
                 Plower = AI[k] + BI[k] * SP
                 # check if there is an upper bound
                 if (k + 1) == len(AI):
+                    # use minimum pressure for top-of-atmosphere
                     Pupper = Pmin
                 else:
                     # add a threshold limit to the atmospheric pressure
@@ -407,20 +398,45 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
 # http://cires1.colorado.edu/~voemel/vp.html
 # https://www.eol.ucar.edu/projects/ceop/dm/documents/refdata_report/eqns.html
 # https://github.com/NCAR/ncl/blob/master/ni/src/lib/nfpfort/mixhum_ptrh.f
-def calculate_specific_humidity(P, T, RH):
+def calculate_specific_humidity(
+    P: np.ndarray,
+    T: np.ndarray,
+    RH: np.ndarray,
+):
+    """
+    Compute the specific humidity from pressure, temperature, and
+    relative humidity following :cite:t:`Bolton:1980ec`
+
+    Parameters
+    ----------
+    P : np.ndarray
+        Pressure [Pa]
+    T : np.ndarray
+        Temperature [degrees Celsius]
+    RH : np.ndarray
+        Relative humidity [%]
+
+    Returns
+    -------
+    Q : np.ndarray
+        Specific humidity [g/kg]
+    Td : np.ndarray
+        Dew point temperature [degrees Celsius]
+    """
     # ratio of the molecular weights of water vapor to dry air
     epsilon = 0.622
-    # calibration pressure and temperature
-    pc = 6.112
-    tc = 243.5
-    # calculate the saturation vapor pressure in mb
-    Es = pc * np.exp((17.67 * T) / (T + tc))
-    # calculate the vapor pressure in mb
+    # calibration pressure (converted from hPa to Pa)
+    Pc = 611.2
+    # calibration temperature for saturation vapor pressure
+    Tc = 243.5
+    # calculate the saturation vapor pressure in Pa
+    Es = Pc * np.exp((17.67 * T) / (T + Tc))
+    # calculate the vapor pressure in Pa
     Ev = Es * (RH / 100.0)
     # calculate the dew point temperature
-    Td = np.log(Ev / pc) * tc / (17.67 - np.log(Ev / pc))
+    Td = np.log(Ev / Pc) * Tc / (17.67 - np.log(Ev / Pc))
     # calculate the specific humidity
-    Q = (epsilon * Ev) / (P / 100.0 - (0.378 * Ev))
+    Q = (epsilon * Ev) / (P - (1.0 - epsilon) * Ev)
     return (Q, Td)
 
 
@@ -451,7 +467,9 @@ def ncdf_expver(fileID, slice, VARNAME, index=None):
 
 # PURPOSE: read reanalysis invariant parameters (geopotential,lat,lon)
 def ncdf_invariant(FILENAME, LONNAME, LATNAME, ZNAME):
-    logging.debug(str(FILENAME))
+    # get logger
+    logger = logging.getLogger(__name__)
+    logger.debug(str(FILENAME))
     with netCDF4.Dataset(FILENAME, mode='r') as fileID:
         geopotential = fileID.variables[ZNAME][:].squeeze()
         longitude = fileID.variables[LONNAME][:].copy()
@@ -462,7 +480,9 @@ def ncdf_invariant(FILENAME, LONNAME, LATNAME, ZNAME):
 # PURPOSE: read reanalysis coordinate parameters
 # reverse order to go from surface to top-of-atmosphere
 def ncdf_coordinates(FILENAME, LEVELNAME, ANAME, BNAME, AINTERFACE, BINTERFACE):
-    logging.debug(str(FILENAME))
+    # get logger
+    logger = logging.getLogger(__name__)
+    logger.debug(str(FILENAME))
     with netCDF4.Dataset(FILENAME, mode='r') as fileID:
         # reverse layers so bottom=0
         levels = np.flip(fileID.variables[LEVELNAME][:])
@@ -475,7 +495,7 @@ def ncdf_coordinates(FILENAME, LEVELNAME, ANAME, BNAME, AINTERFACE, BINTERFACE):
 
 # PURPOSE: attempt to close all open netCDF4 files
 def ncdf_close_all(fileID: list[__loader__]):
-    [fid.close() for fid in fileID if fid._isopen]
+    [fid.close() for fid in fileID if fid is not None and fid._isopen]
 
 
 # PURPOSE: create argument parser
@@ -494,6 +514,7 @@ def arguments():
         'model',
         type=str,
         nargs='+',
+        metavar='MODEL',
         default=['ERA5', 'MERRA-2'],
         choices=choices,
         help='Reanalysis Model',
@@ -544,7 +565,9 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = gravtk.utilities.build_logger(
+        __name__, level=loglevels[args.verbose]
+    )
 
     # for each reanalysis model
     for MODEL in args.model:

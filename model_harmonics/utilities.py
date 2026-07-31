@@ -187,8 +187,13 @@ def gesdisc_list(
         # Create and submit request.
         request = urllib2.Request(posixpath.join(*HOST))
         response = urllib2.urlopen(request, timeout=timeout)
-    except (urllib2.HTTPError, urllib2.URLError) as exc:
-        raise Exception(f'List error from {posixpath.join(*HOST)}') from exc
+    except urllib2.HTTPError as exc:
+        logging.debug(exc.code)
+        raise
+    except urllib2.URLError as exc:
+        logging.debug(exc.reason)
+        exc.message = f'Load error from {posixpath.join(*HOST)}'
+        raise
     else:
         # read and parse request for files (column names and modified times)
         tree = lxml.etree.parse(response, parser)
@@ -261,8 +266,13 @@ def ucar_list(
         # Create and submit request.
         request = urllib2.Request(posixpath.join(*HOST))
         response = urllib2.urlopen(request, timeout=timeout, context=context)
-    except (urllib2.HTTPError, urllib2.URLError) as exc:
-        raise Exception(f'List error from {posixpath.join(*HOST)}') from exc
+    except urllib2.HTTPError as exc:
+        logging.debug(exc.code)
+        raise
+    except urllib2.URLError as exc:
+        logging.debug(exc.reason)
+        exc.message = f'Load error from {posixpath.join(*HOST)}'
+        raise
     else:
         # read and parse request for files (column names and modified times)
         tree = lxml.etree.parse(response, parser)
@@ -417,7 +427,7 @@ def cmr(
     """
     # create logger
     loglevel = logging.INFO if verbose else logging.CRITICAL
-    logging.basicConfig(stream=fid, level=loglevel)
+    logger = build_logger(__name__, level=loglevel, stream=fid)
     # build urllib2 opener with SSL context
     # https://docs.python.org/3/howto/urllib2.html#id5
     handler = []

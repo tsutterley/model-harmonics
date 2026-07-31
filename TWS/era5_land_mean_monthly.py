@@ -59,6 +59,8 @@ variables = ['sd', 'snowc', 'src', 'swvl1', 'swvl2', 'swvl3', 'swvl4']
 
 # PURPOSE: read variables from ERA5-Land files
 def read_era5_variables(era5_land_file, **kwargs):
+    # get logger
+    logger = logging.getLogger(__name__)
     # set default variables
     kwargs.setdefault('variables', variables)
     # python dictionary of output variables
@@ -66,7 +68,7 @@ def read_era5_variables(era5_land_file, **kwargs):
     attrs = {}
     # read each variable of interest in ERA5-Land file
     era5_land_file = pathlib.Path(era5_land_file).expanduser().absolute()
-    logging.debug(str(era5_land_file))
+    logger.debug(str(era5_land_file))
     with netCDF4.Dataset(era5_land_file, mode='r') as fileID:
         # extract geolocation variables
         dinput['latitude'] = fileID.variables['latitude'][:].copy()
@@ -120,7 +122,7 @@ def era5_land_mean_monthly(
 ):
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[VERBOSE])
+    logger = gravtk.utilities.build_logger(__name__, level=loglevels[VERBOSE])
 
     # attributes for output files
     attributes = {}

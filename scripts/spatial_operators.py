@@ -70,12 +70,24 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
+import os
 import copy
 import logging
 import pathlib
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
+
+
+# PURPOSE: keep track of threads
+def info(args):
+    logger = logging.getLogger(__name__)
+    logger.info(pathlib.Path(sys.argv[0]).name)
+    logger.info(args)
+    logger.info(f'module name: {__name__}')
+    if hasattr(os, 'getppid'):
+        logger.info(f'parent process: {os.getppid():d}')
+    logger.info(f'process id: {os.getpid():d}')
 
 
 # PURPOSE: attempt to get data attributes
@@ -387,9 +399,12 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = gravtk.utilities.build_logger(
+        __name__, level=loglevels[args.verbose]
+    )
 
     # run program
+    info(args)
     spatial_operators(
         args.infiles,
         args.outfile[0],

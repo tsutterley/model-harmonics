@@ -18,8 +18,10 @@ Reanalysis models:
         https://gdex.ucar.edu/datasets/d093002/
         https://gdex.ucar.edu/datasets/d094002/
     JRA-55:
+        https://gdex.ucar.edu/datasets/d628000/
         http://jra.kishou.go.jp/JRA-55/index_en.html
     JRA-3Q:
+        https://gdex.ucar.edu/datasets/d640000/
         https://www.data.jma.go.jp/jra/html/JRA-3Q/index_en.html
 
 COMMAND LINE OPTIONS:
@@ -119,15 +121,28 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
+import os
 import re
 import logging
 import netCDF4
 import pathlib
 import argparse
 import datetime
+import traceback
 import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
+
+
+# PURPOSE: keep track of threads
+def info(args):
+    logger = logging.getLogger(__name__)
+    logger.info(pathlib.Path(sys.argv[0]).name)
+    logger.info(args)
+    logger.info(f'module name: {__name__}')
+    if hasattr(os, 'getppid'):
+        logger.info(f'parent process: {os.getppid():d}')
+    logger.info(f'process id: {os.getpid():d}')
 
 
 # PURPOSE: read atmospheric surface pressure fields and convert to harmonics
@@ -144,6 +159,8 @@ def reanalysis_monthly_harmonics(
     DATAFORM=None,
     MODE=0o775,
 ):
+    # get logger
+    logger = logging.getLogger(__name__)
     # directory setup
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
     ddir = base_dir.joinpath(MODEL)
@@ -343,7 +360,7 @@ def reanalysis_monthly_harmonics(
     # read each reanalysis pressure field and convert to spherical harmonics
     regex_years = r'\d{4}' if (YEARS is None) else '|'.join(map(str, YEARS))
     rx = re.compile(regex_pattern.format(regex_years), re.VERBOSE)
-    input_files = sorted([f for f in ddir.iterdir() if rx.match(f.name)])
+    input_list = sorted([f for f in ddir.iterdir() if rx.match(f.name)])
     # open output date and index files
     output_date_file = output_dir.joinpath(f'{MODEL.upper()}_DATES.txt')
     fid1 = output_date_file.open(mode='w', encoding='utf8')
@@ -354,10 +371,12 @@ def reanalysis_monthly_harmonics(
     # output file format for spherical harmonic data
     output_file_format = '{0}_CLM_L{1:d}{2}_{3:03d}.{4}'
 
+    # list of output files
+    output_list = []
     # for each reanalysis file
-    for i, input_file in enumerate(input_files):
+    for i, input_file in enumerate(input_list):
         # read input data
-        logging.debug(str(input_file))
+        logger.debug(str(input_file))
         with netCDF4.Dataset(input_file, mode='r') as fileID:
             # check dimensions for expver slice
             if fileID.variables[VARNAME].ndim == 4:
@@ -446,6 +465,8 @@ def reanalysis_monthly_harmonics(
             Ylms.to_file(output_file, format=DATAFORM)
             # set the permissions level of the output file to MODE
             output_file.chmod(mode=MODE)
+            # append to list of output files
+            output_list.append(output_file)
 
     # output file format for spherical harmonic data
     args = (MODEL.upper(), LMAX, order_str, suffix[DATAFORM])
@@ -469,11 +490,15 @@ def reanalysis_monthly_harmonics(
     # set the permissions level of the output date and index files to MODE
     output_date_file.chmod(mode=MODE)
     output_index_file.chmod(mode=MODE)
+    # return the list of output files
+    return output_list
 
 
 # PURPOSE: read reanalysis mean pressure from calculate_mean_pressure.py
 def ncdf_mean_pressure(FILENAME, VARNAME, LONNAME, LATNAME):
-    logging.debug(str(FILENAME))
+    # get logger
+    logger = logging.getLogger(__name__)
+    logger.debug(str(FILENAME))
     with netCDF4.Dataset(FILENAME, mode='r') as fileID:
         mean_pressure = np.array(fileID.variables[VARNAME][:].squeeze())
         longitude = fileID.variables[LONNAME][:].squeeze()
@@ -499,7 +524,9 @@ def ncdf_expver(fileID, VARNAME):
 
 # PURPOSE: read land sea mask to get indices of oceanic values
 def ncdf_landmask(FILENAME, MASKNAME, OCEAN):
-    logging.debug(str(FILENAME))
+    # get logger
+    logger = logging.getLogger(__name__)
+    logger.debug(str(FILENAME))
     with netCDF4.Dataset(FILENAME, mode='r') as fileID:
         landsea = np.squeeze(fileID.variables[MASKNAME][:].copy())
     return np.nonzero(landsea == OCEAN)
@@ -529,6 +556,7 @@ def arguments():
         'model',
         type=str,
         nargs='+',
+        metavar='MODEL',
         default=['ERA5', 'MERRA-2'],
         choices=choices,
         help='Reanalysis Model',
@@ -614,6 +642,15 @@ def arguments():
         choices=['ascii', 'netCDF4', 'HDF5'],
         help='Input and output data format',
     )
+    # Output log file for each job in forms
+    # validrun_2002-04-01T00:00:00_PID-00000.log
+    # failedrun_2002-04-01T00:00:00_PID-00000.log
+    parser.add_argument(
+        '--log',
+        default=False,
+        action='store_true',
+        help='Output log file for each job',
+    )
     # print information about each input and output file
     parser.add_argument(
         '--verbose',
@@ -642,24 +679,53 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = gravtk.utilities.build_logger(
+        __name__, level=loglevels[args.verbose]
+    )
 
+    # log the command line parameters
+    info(args)
     # for each reanalysis model
     for MODEL in args.model:
-        # run program
-        reanalysis_monthly_harmonics(
-            args.directory,
-            MODEL,
-            args.year,
-            RANGE=args.mean,
-            REDISTRIBUTE=args.redistribute,
-            LMAX=args.lmax,
-            MMAX=args.mmax,
-            LOVE_NUMBERS=args.love,
-            REFERENCE=args.reference,
-            DATAFORM=args.format,
-            MODE=args.mode,
-        )
+        # run program with parameters
+        try:
+            output_files = reanalysis_monthly_harmonics(
+                args.directory,
+                MODEL,
+                args.year,
+                RANGE=args.mean,
+                REDISTRIBUTE=args.redistribute,
+                LMAX=args.lmax,
+                MMAX=args.mmax,
+                LOVE_NUMBERS=args.love,
+                REFERENCE=args.reference,
+                DATAFORM=args.format,
+                MODE=args.mode,
+            )
+        except:
+            # if there has been an error exception
+            # print the type, value, and stack trace of the
+            # current exception being handled
+            logger.critical(f'process id {os.getpid():d} failed')
+            logger.error(traceback.format_exc())
+            if args.log:  # write failed job completion log file
+                logfile = gravtk.utilities.create_log_file(
+                    'failedrun',
+                    filename=pathlib.Path(sys.argv[0]).name,
+                    arguments=vars(args),
+                    model=MODEL,
+                )
+                logger.info(logfile)
+        else:
+            if args.log:  # write successful job completion log file
+                logfile = gravtk.utilities.create_log_file(
+                    'validrun',
+                    filename=pathlib.Path(sys.argv[0]).name,
+                    arguments=vars(args),
+                    output=output_files,
+                    model=MODEL,
+                )
+                logger.info(logfile)
 
 
 # run main program

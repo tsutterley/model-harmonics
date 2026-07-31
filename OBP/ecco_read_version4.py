@@ -100,7 +100,7 @@ def ecco_read_version4(
 ):
     # create logger for verbosity level
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[VERBOSE])
+    logger = gravtk.utilities.build_logger(__name__, level=loglevels[VERBOSE])
 
     # input and output subdirectories
     ddir = pathlib.Path(ddir).expanduser().absolute()
@@ -332,6 +332,7 @@ def arguments():
         'model',
         type=str,
         nargs='+',
+        metavar='MODEL',
         default=['V4r3', 'V4r4'],
         choices=['V4r3', 'V4r4'],
         help='ECCO Version 4 Model',

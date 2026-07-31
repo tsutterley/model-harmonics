@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 ecco_read_realtime.py
-Written by Tyler Sutterley (07/2026)
+Written by Tyler Sutterley (08/2026)
 
 Reads 12-hour ECCO ocean bottom pressure data from JPL
 Calculates monthly anomalies on an equirectangular grid
@@ -51,6 +51,7 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 08/2026: fixes for typing error with numpy updates
     Updated 07/2026: use authalic area for the grid cell areas
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: updated inputs to spatial from_ascii function
@@ -96,7 +97,7 @@ def ecco_read_realtime(
 ):
     # create logger for verbosity level
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[VERBOSE])
+    logger = gravtk.utilities.build_logger(__name__, level=loglevels[VERBOSE])
 
     # set up regular expression for finding directories to run from YEAR
     regex_years = r'|'.join([rf'{y:d}' for y in YEARS])
@@ -318,11 +319,11 @@ def ecco_read_realtime(
 
             # Calculating the monthly averages
             # data files cover the first 10 days of the next year
-            (ind_start_year,) = np.nonzero(YY == YY[0])
+            ind_start_year = np.flatnonzero(YY == YY[0])
             uniq_months = np.unique(MM[ind_start_year])
             for t, mm in enumerate(uniq_months):
                 # Calculating the monthly anomaly
-                (indices,) = np.nonzero(MM == mm)
+                indices = np.flatnonzero(MM == mm)
                 obp_monthly_anomaly = obp_anomaly.mean(indices=indices)
                 obp_monthly_anomaly.update_mask()
                 # output to file
@@ -353,6 +354,7 @@ def arguments():
         'model',
         type=str,
         nargs='+',
+        metavar='MODEL',
         default=['kf080i', 'dr080i'],
         choices=['kf080i', 'dr080i'],
         help='ECCO Near Real-Time Model',

@@ -48,10 +48,10 @@ API Reference
     ./OBP/ecco_read_realtime.rst
     ./OBP/ecco_read_llc_tiles.rst
     ./OBP/ecco_read_version4.rst
-    ./OBP/ecco_depth_version4.rst
     ./OBP/ecco_geoid_llc_tiles.rst
     ./OBP/ecco_llc_tile_harmonics.rst
     ./OBP/ecco_monthly_harmonics.rst
+    ./OBP/gebco_ocean_depth.rst
 
 .. toctree::
     :maxdepth: 1

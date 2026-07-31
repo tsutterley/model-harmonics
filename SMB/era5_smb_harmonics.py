@@ -72,14 +72,27 @@ from __future__ import print_function
 
 import sys
 import re
+import os
 import logging
 import netCDF4
 import pathlib
 import argparse
 import datetime
+import traceback
 import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
+
+
+# PURPOSE: keep track of threads
+def info(args):
+    logger = logging.getLogger(__name__)
+    logger.info(pathlib.Path(sys.argv[0]).name)
+    logger.info(args)
+    logger.info(f'module name: {__name__}')
+    if hasattr(os, 'getppid'):
+        logger.info(f'parent process: {os.getppid():d}')
+    logger.info(f'process id: {os.getpid():d}')
 
 
 # PURPOSE: read ERA5 cumulative data and convert to spherical harmonics
@@ -96,6 +109,8 @@ def era5_smb_harmonics(
     DATAFORM=None,
     MODE=0o775,
 ):
+    # get logger
+    logger = logging.getLogger(__name__)
     # setup subdirectories
     ddir = pathlib.Path(ddir).expanduser().absolute()
     d1 = ddir.joinpath('ERA5-Cumul-P-E-{0:4d}-{1:4d}'.format(*RANGE))
@@ -139,7 +154,7 @@ def era5_smb_harmonics(
         input_mask = np.ones((nlat, nlon), dtype=bool)
     # read masks for reducing regions before converting to harmonics
     for mask_file in MASKS:
-        logging.debug(str(mask_file))
+        logger.debug(str(mask_file))
         mask_file = pathlib.Path(mask_file).expanduser().absolute()
         fileID = netCDF4.Dataset(mask_file, mode='r')
         input_mask |= fileID.variables['mask'][:].astype(bool)
@@ -179,12 +194,12 @@ def era5_smb_harmonics(
     # find input files from era5_smb_cumulative.py
     regex_years = r'\d{4}' if (YEARS is None) else '|'.join(map(str, YEARS))
     rx = re.compile(r'ERA5\-Cumul\-P-E\-({0})\.nc$'.format(regex_years))
-    input_files = sorted([f for f in d1.iterdir() if rx.match(f.name)])
+    input_list = sorted([f for f in d1.iterdir() if rx.match(f.name)])
 
     # create list of yearly ERA5 files
     spatial_list = []
     # for each input file
-    for t, input_file in enumerate(input_files):
+    for t, input_file in enumerate(input_list):
         # read data file for data format
         if DATAFORM == 'ascii':
             # ascii (.txt)
@@ -215,6 +230,7 @@ def era5_smb_harmonics(
     nlat, nlon, nt = era5_data.shape
 
     # for each month of data
+    output_list = []
     for i in range(nt - 1):
         # convert data to mm w.e.
         M1 = era5_data.index(i).scale(1000.0)
@@ -251,6 +267,8 @@ def era5_smb_harmonics(
         era5_Ylms.to_file(output_file, format=DATAFORM)
         # change the permissions mode of the output file to MODE
         output_file.chmod(mode=MODE)
+        # append to output file list
+        output_list.append(output_file)
 
     # Output date ascii file
     output_date_file = d2.joinpath('ERA5_SMB_DATES.txt')
@@ -282,6 +300,8 @@ def era5_smb_harmonics(
     # set the permissions level of the output date and index files to MODE
     output_date_file.chmod(mode=MODE)
     output_index_file.chmod(mode=MODE)
+    # return the list of output files
+    return output_list
 
 
 # PURPOSE: create argument parser
@@ -384,6 +404,15 @@ def arguments():
         choices=['ascii', 'netCDF4', 'HDF5'],
         help='Input and output data format',
     )
+    # Output log file for each job in forms
+    # validrun_2002-04-01T00:00:00_PID-00000.log
+    # failedrun_2002-04-01T00:00:00_PID-00000.log
+    parser.add_argument(
+        '--log',
+        default=False,
+        action='store_true',
+        help='Output log file for each job',
+    )
     # print information about each input and output file
     parser.add_argument(
         '--verbose',
@@ -412,22 +441,48 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = gravtk.utilities.build_logger(
+        __name__, level=loglevels[args.verbose]
+    )
 
     # run program with parameters
-    era5_smb_harmonics(
-        args.directory,
-        args.year,
-        RANGE=args.mean,
-        REGION=args.region,
-        MASKS=args.mask,
-        LMAX=args.lmax,
-        MMAX=args.mmax,
-        LOVE_NUMBERS=args.love,
-        REFERENCE=args.reference,
-        DATAFORM=args.format,
-        MODE=args.mode,
-    )
+    try:
+        info(args)
+        output_files = era5_smb_harmonics(
+            args.directory,
+            args.year,
+            RANGE=args.mean,
+            REGION=args.region,
+            MASKS=args.mask,
+            LMAX=args.lmax,
+            MMAX=args.mmax,
+            LOVE_NUMBERS=args.love,
+            REFERENCE=args.reference,
+            DATAFORM=args.format,
+            MODE=args.mode,
+        )
+    except:
+        # if there has been an error exception
+        # print the type, value, and stack trace of the
+        # current exception being handled
+        logger.critical(f'process id {os.getpid():d} failed')
+        logger.error(traceback.format_exc())
+        if args.log:  # write failed job completion log file
+            logfile = gravtk.utilities.create_log_file(
+                'failedrun',
+                filename=pathlib.Path(sys.argv[0]).name,
+                arguments=vars(args),
+            )
+            logger.info(logfile)
+    else:
+        if args.log:  # write successful job completion log file
+            logfile = gravtk.utilities.create_log_file(
+                'validrun',
+                filename=pathlib.Path(sys.argv[0]).name,
+                arguments=vars(args),
+                output=output_files,
+            )
+            logger.info(logfile)
 
 
 # run main program

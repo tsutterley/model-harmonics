@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 jpl_ecco_sync.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (08/2026)
 
 Syncs ECCO Near Real-Time model outputs from the NASA JPL ECCO Drive server:
     https://ecco.jpl.nasa.gov/drive/files/NearRealTime/Readme
@@ -72,6 +72,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 08/2026: change formatting and output of file logs
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -152,17 +153,28 @@ def jpl_ecco_sync(
 
     # create log file with list of synchronized files (or print to terminal)
     if LOG:
+        # output to log file
         # format: JPL_ECCO_kf080i_OBP_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d', time.localtime())
-        LOGFILE = DIRECTORY.joinpath(f'JPL_ECCO_{MODEL}_{PRODUCT}_{today}.log')
-        logging.basicConfig(filename=LOGFILE, level=logging.INFO)
-        logging.info(f'ECCO Near Real-Time {PRODUCT} Sync Log ({today})')
+        output_logfile = f'JPL_ECCO_{MODEL}_{PRODUCT}_{today}.log'
+        LOGFILE = gravtk.utilities.get_cache_path(output_logfile)
+        # create a unique log and open the log file
+        fid1 = gravtk.utilities.create_unique_file(LOGFILE, mode='x')
+        # build logger for outputting to log file
+        logger = gravtk.utilities.build_logger(
+            __name__,
+            level=logging.INFO,
+            stream=fid1,
+            format='%(message)s (%(levelname)s)',
+        )
+        logger.info(f'ECCO Near Real-Time {PRODUCT} Sync Log ({today})')
+        logger.info(f'Filename: {pathlib.Path(sys.argv[0]).name}')
     else:
-        # standard output (terminal output)
-        logging.basicConfig(level=logging.INFO)
+        # build logger for standard output (terminal output)
+        logger = gravtk.utilities.build_logger(__name__, level=logging.INFO)
 
     # print the model synchronized
-    logging.info(f'MODEL: {MODEL}\n')
+    logger.info(f'MODEL: {MODEL}\n')
 
     # path to model files
     model_path = {}
@@ -189,7 +201,7 @@ def jpl_ecco_sync(
     )
     for yr in years:
         # print string for year
-        logging.info(yr)
+        logger.info(yr)
         # add the year directory to the path
         PATH.append(yr)
         # open connection with ECCO drive server at remote directory
@@ -243,7 +255,8 @@ def jpl_ecco_sync(
 
     # close log file and set permissions level to MODE
     if LOG:
-        LOGFILE.chmod(mode=MODE)
+        fid1.close()
+        os.chmod(fid1.name, mode=MODE)
 
 
 # PURPOSE: pull file from a remote host checking if file exists locally
@@ -258,6 +271,8 @@ def http_pull_file(
     CHECKSUM=False,
     MODE=0o775,
 ):
+    # get logger
+    logger = logging.getLogger(__name__)
     # if file exists in file system: check if remote file is newer
     TEST = False
     OVERWRITE = ' (clobber)'
@@ -293,8 +308,8 @@ def http_pull_file(
     # if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         # Printing files transferred
-        logging.info(f'{remote_file} --> ')
-        logging.info(f'\t{str(local_file)}{OVERWRITE}\n')
+        logger.info(f'{remote_file} --> ')
+        logger.info(f'\t{str(local_file)}{OVERWRITE}\n')
         # if executing copy command (not only printing the files)
         if not LIST:
             # chunked transfer encoding size
@@ -334,6 +349,7 @@ def arguments():
         'model',
         type=str,
         nargs='+',
+        metavar='MODEL',
         default=['kf080i', 'dr080i'],
         choices=['kf080i', 'dr080i'],
         help='ECCO Near Real-Time Model',

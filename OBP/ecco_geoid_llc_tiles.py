@@ -59,11 +59,11 @@ import sys
 import logging
 import pathlib
 import netCDF4
-import datetime
 import argparse
 import numpy as np
 import geoid_toolkit as geoidtk
 import model_harmonics as mdlhmc
+from gravity_toolkit.utilities import build_logger
 
 
 # PURPOSE: read ECCO tiled ocean bottom pressure data and calculate mean
@@ -245,7 +245,7 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = build_logger(__name__, level=loglevels[args.verbose])
 
     # run program
     ecco_geoid_llc_tiles(

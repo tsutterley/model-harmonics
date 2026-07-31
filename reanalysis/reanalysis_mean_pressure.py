@@ -17,8 +17,10 @@ Reanalysis models:
         https://gdex.ucar.edu/datasets/d093002/
         https://gdex.ucar.edu/datasets/d094002/
     JRA-55:
+        https://gdex.ucar.edu/datasets/d628000/
         http://jra.kishou.go.jp/JRA-55/index_en.html
     JRA-3Q:
+        https://gdex.ucar.edu/datasets/d640000/
         https://www.data.jma.go.jp/jra/html/JRA-3Q/index_en.html
 
 COMMAND LINE OPTIONS:
@@ -96,7 +98,7 @@ def reanalysis_mean_pressure(
 ):
     # create logger for verbosity level
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[VERBOSE])
+    logger = gravtk.utilities.build_logger(__name__, level=loglevels[VERBOSE])
 
     # directory setup
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
@@ -212,7 +214,7 @@ def reanalysis_mean_pressure(
     # for each reanalysis file
     for i, input_file in enumerate(input_files):
         # read input data
-        logging.debug(str(input_file))
+        logger.debug(str(input_file))
         with netCDF4.Dataset(input_file, mode='r') as fileID:
             # check dimensions for expver slice
             if fileID.variables[VARNAME].ndim == 4:
@@ -295,7 +297,9 @@ def ncdf_expver(fileID, VARNAME):
 
 # PURPOSE: read reanalysis invariant parameters (geopotential,lat,lon)
 def ncdf_invariant(FILENAME, LONNAME, LATNAME, ZNAME):
-    logging.debug(str(FILENAME))
+    # get logger
+    logger = logging.getLogger(__name__)
+    logger.debug(str(FILENAME))
     with netCDF4.Dataset(FILENAME, mode='r') as fileID:
         geopotential = fileID.variables[ZNAME][:].squeeze()
         longitude = fileID.variables[LONNAME][:].copy()
@@ -326,6 +330,7 @@ def arguments():
         'model',
         type=str,
         nargs='+',
+        metavar='MODEL',
         default=['ERA5', 'MERRA-2'],
         choices=choices,
         help='Reanalysis Model',

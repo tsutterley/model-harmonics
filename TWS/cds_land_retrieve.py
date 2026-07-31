@@ -38,26 +38,25 @@ import logging
 import argparse
 
 
-# PURPOSE: retrieve ERA5-land data for a set of years from CDS server
-def cds_land_retrieve(base_dir, server, YEAR, INVARIANT=True, MODE=0o775):
+# PURPOSE: retrieve ERA5-land data for a set of years from CDS client
+def cds_land_retrieve(base_dir, client, YEAR, INVARIANT=True, MODE=0o775):
+    # get logger
+    logger = logging.getLogger(__name__)
     # verify input data directory
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
 
     # parameters for ERA5 dataset
     MODEL = 'ERA5-Land'
-    dataset = 'reanalysis-era5-land-monthly-means'
+    collection_id = 'reanalysis-era5-land-monthly-means'
     # setup output directory and recursively create if non-existent
     ddir = base_dir.joinpath(MODEL)
     ddir.mkdir(mode=MODE, parents=True, exist_ok=True)
-    # standard output (terminal output)
-    logging.basicConfig(level=logging.INFO)
 
     # for each year
     for y in YEAR:
         # months to retrieve
         months = [f'{m + 1:02d}' for m in range(12)]
-        model_file = f'{MODEL}-Monthly-{y:4d}.nc'
-        output_file = ddir.joinpath(model_file)
+        output_file = ddir.joinpath(f'{MODEL}-Monthly-{y:4d}.nc')
         request = {
             'product_type': ['monthly_averaged_reanalysis'],
             'year': [str(y).zfill(4)],
@@ -75,20 +74,14 @@ def cds_land_retrieve(base_dir, server, YEAR, INVARIANT=True, MODE=0o775):
             'data_format': 'netcdf',
             'download_format': 'unarchived',
         }
-        # retrieve the data from the server
-        try:
-            server.retrieve(dataset, request, str(output_file))
-        except Exception as e:
-            logging.info(f'Error retrieving {model_file}: {e}')
-            break
-        else:
-            # change the permissions mode to MODE
-            output_file.chmod(mode=MODE)
+        # retrieve the data from the client
+        client.retrieve(collection_id, request, target=str(output_file))
+        # change the permissions mode to MODE
+        output_file.chmod(mode=MODE)
 
     # if retrieving the model invariant parameters
     if INVARIANT:
-        model_file = f'{MODEL}-Invariant-Parameters.zip'
-        output_file = ddir.joinpath(model_file)
+        output_file = ddir.joinpath(f'{MODEL}-Invariant-Parameters.zip')
         request = {
             'product_type': ['monthly_averaged_reanalysis'],
             'year': ['1979'],
@@ -104,14 +97,10 @@ def cds_land_retrieve(base_dir, server, YEAR, INVARIANT=True, MODE=0o775):
             'data_format': 'netcdf',
             'download_format': 'unarchived',
         }
-        # retrieve the data from the server
-        try:
-            server.retrieve(dataset, request, str(output_file))
-        except Exception as e:
-            logging.info(f'Error retrieving {model_file}: {e}')
-        else:
-            # change the permissions mode to MODE
-            output_file.chmod(mode=MODE)
+        # retrieve the data from the client
+        client.retrieve(collection_id, request, target=str(output_file))
+        # change the permissions mode to MODE
+        output_file.chmod(mode=MODE)
 
 
 # PURPOSE: create argument parser
@@ -189,21 +178,20 @@ def main():
     parser = arguments()
     args, _ = parser.parse_known_args()
 
-    # open connection with CDS api server
-    server = cdsapi.Client(
+    # open connection with CDS api client
+    client = cdsapi.Client(
         url=args.api_url, key=args.api_key, timeout=args.timeout
     )
-    print(server)
     # run program for ERA5-land
     cds_land_retrieve(
         args.directory,
-        server,
+        client,
         args.year,
         INVARIANT=args.invariant,
         MODE=args.mode,
     )
-    # close connection with CDS api server
-    server = None
+    # close connection with CDS api client
+    client = None
 
 
 # run main program

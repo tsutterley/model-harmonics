@@ -101,6 +101,7 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
+import os
 import re
 import copy
 import logging
@@ -108,9 +109,21 @@ import netCDF4
 import pathlib
 import argparse
 import datetime
+import traceback
 import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
+
+
+# PURPOSE: keep track of threads
+def info(args):
+    logger = logging.getLogger(__name__)
+    logger.info(pathlib.Path(sys.argv[0]).name)
+    logger.info(args)
+    logger.info(f'module name: {__name__}')
+    if hasattr(os, 'getppid'):
+        logger.info(f'parent process: {os.getppid():d}')
+    logger.info(f'process id: {os.getpid():d}')
 
 
 # PURPOSE: read Merra-2 cumulative data and convert to spherical harmonics
@@ -128,6 +141,8 @@ def merra_smb_harmonics(
     DATAFORM=None,
     MODE=0o775,
 ):
+    # get logger
+    logger = logging.getLogger(__name__)
     # setup subdirectories
     VERSION = '5.12.4'
     cumul_sub = f'{PRODUCT}.{VERSION}.CUMUL.{RANGE[0]:d}.{RANGE[1]:d}'
@@ -197,7 +212,7 @@ def merra_smb_harmonics(
         input_mask = np.ones((nlat, nlon), dtype=bool)
     # read masks for reducing regions before converting to harmonics
     for mask_file in MASKS:
-        logging.info(mask_file)
+        logger.info(mask_file)
         mask_file = pathlib.Path(mask_file).expanduser().absolute()
         fileID = netCDF4.Dataset(mask_file, mode='r')
         input_mask |= fileID.variables['mask'][:].astype(bool)
@@ -251,9 +266,11 @@ def merra_smb_harmonics(
     INVALID.append('MERRA2_400.tavgM_2d_{0}_cumul_Nx.202107.{2}'.format(*args))
     INVALID.append('MERRA2_400.tavgM_2d_{0}_cumul_Nx.202109.{2}'.format(*args))
     if set(INVALID) & set(FILES):
-        logging.warning('Reprocessed file found in list')
+        logger.warning('Reprocessed file found in list')
         FILES = sorted(set(FILES) - set(INVALID))
 
+    # list of output files
+    output_list = []
     # for each input file
     for t, fi in enumerate(FILES[:-1]):
         # extract parameters from input flux file
@@ -330,6 +347,8 @@ def merra_smb_harmonics(
         merra_Ylms.to_file(output_file, format=DATAFORM)
         # change the permissions mode of the output file to MODE
         output_file.chmod(mode=MODE)
+        # append output file to list of output files
+        output_list.append(output_file)
 
     # Output date ascii file
     output_date_file = output_dir.joinpath(f'MERRA2_{PRODUCT}_DATES.txt')
@@ -361,6 +380,8 @@ def merra_smb_harmonics(
     # set the permissions level of the output date and index files to MODE
     output_date_file.chmod(mode=MODE)
     output_index_file.chmod(mode=MODE)
+    # return the list of output files
+    return output_list
 
 
 # PURPOSE: create argument parser
@@ -471,6 +492,15 @@ def arguments():
         choices=['ascii', 'netCDF4', 'HDF5'],
         help='Input and output data format',
     )
+    # Output log file for each job in forms
+    # validrun_2002-04-01T00:00:00_PID-00000.log
+    # failedrun_2002-04-01T00:00:00_PID-00000.log
+    parser.add_argument(
+        '--log',
+        default=False,
+        action='store_true',
+        help='Output log file for each job',
+    )
     # print information about each input and output file
     parser.add_argument(
         '--verbose',
@@ -499,25 +529,54 @@ def main():
 
     # create logger for verbosity level
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = gravtk.utilities.build_logger(
+        __name__, level=loglevels[args.verbose]
+    )
 
+    # log the command line parameters
+    info(args)
     # run program for each input product
     for PRODUCT in args.product:
-        # run program
-        merra_smb_harmonics(
-            args.directory,
-            PRODUCT,
-            args.year,
-            RANGE=args.mean,
-            REGION=args.region,
-            MASKS=args.mask,
-            LMAX=args.lmax,
-            MMAX=args.mmax,
-            LOVE_NUMBERS=args.love,
-            REFERENCE=args.reference,
-            DATAFORM=args.format,
-            MODE=args.mode,
-        )
+        # run program with parameters
+        try:
+            output_files = merra_smb_harmonics(
+                args.directory,
+                PRODUCT,
+                args.year,
+                RANGE=args.mean,
+                REGION=args.region,
+                MASKS=args.mask,
+                LMAX=args.lmax,
+                MMAX=args.mmax,
+                LOVE_NUMBERS=args.love,
+                REFERENCE=args.reference,
+                DATAFORM=args.format,
+                MODE=args.mode,
+            )
+        except:
+            # if there has been an error exception
+            # print the type, value, and stack trace of the
+            # current exception being handled
+            logger.critical(f'process id {os.getpid():d} failed')
+            logger.error(traceback.format_exc())
+            if args.log:  # write failed job completion log file
+                logfile = gravtk.utilities.create_log_file(
+                    'failedrun',
+                    filename=pathlib.Path(sys.argv[0]).name,
+                    arguments=vars(args),
+                    product=PRODUCT,
+                )
+                logger.info(logfile)
+        else:
+            if args.log:  # write successful job completion log file
+                logfile = gravtk.utilities.create_log_file(
+                    'validrun',
+                    filename=pathlib.Path(sys.argv[0]).name,
+                    arguments=vars(args),
+                    output=output_files,
+                    product=PRODUCT,
+                )
+                logger.info(logfile)
 
 
 # run main program

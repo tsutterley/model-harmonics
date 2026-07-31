@@ -7,14 +7,14 @@ Tests that files can be downloaded from data sources
 import os
 import pytest
 import inspect
-import warnings
-import model_harmonics.utilities
+import model_harmonics as mdlhmc
 
 filename = inspect.getframeinfo(inspect.currentframe()).filename
 filepath = os.path.dirname(os.path.abspath(filename))
 
 
 # PURPOSE: Download an ECCO realtime file from JPL ECCO Drive
+# ECCO-KFS data might also be deprecated and unavailable for download
 @pytest.mark.skip(reason='Need to update to PO.DAAC Cumulus')
 def test_ECCO_realtime_download(username, webdav):
     HOST = [
@@ -28,12 +28,23 @@ def test_ECCO_realtime_download(username, webdav):
         'OBP_08_08.00001_02160_012.cdf',
     ]
     local = os.path.join(filepath, HOST[-1])
-    # build opener for JPL ECCO Drive
-    model_harmonics.utilities.build_opener(username, webdav)
-    # download ECCO file
-    model_harmonics.utilities.from_drive(
-        HOST, build=False, verbose=True, local=local
-    )
+    try:
+        # build opener for JPL ECCO Drive
+        mdlhmc.utilities.build_opener(username, webdav)
+        # download ECCO file
+        mdlhmc.utilities.from_drive(
+            HOST,
+            build=False,
+            verbose=True,
+            local=local,
+        )
+    except mdlhmc.utilities.urllib2.URLError as exc:
+        pytest.xfail(exc.reason)
+    except mdlhmc.utilities.urllib2.HTTPError as exc:
+        pytest.xfail(exc.reason)
+    except ValueError as exc:
+        pytest.xfail(exc)
+    # check that the file was downloaded
     assert os.access(local, os.F_OK)
     # clean up files
     os.remove(local)
@@ -50,14 +61,29 @@ def test_GLDAS_NOAH10M_download(username, password):
         'GLDAS_NOAH10_M.A200001.021.nc4',
     ]
     local = os.path.join(filepath, HOST[-1])
-    # build opener for GESDISC
-    model_harmonics.utilities.build_opener(
-        username, password, password_manager=True, authorization_header=False
-    )
-    # download GLDAS file
-    model_harmonics.utilities.from_http(
-        HOST, context=None, verbose=True, local=local
-    )
+    # try to download GLDAS file from NASA GESDISC
+    try:
+        # build opener for GESDISC
+        mdlhmc.utilities.build_opener(
+            username,
+            password,
+            password_manager=True,
+            authorization_header=False,
+        )
+        # download GLDAS file
+        mdlhmc.utilities.from_http(
+            HOST,
+            context=None,
+            verbose=True,
+            local=local,
+        )
+    except mdlhmc.utilities.urllib2.URLError as exc:
+        pytest.xfail(exc.reason)
+    except mdlhmc.utilities.urllib2.HTTPError as exc:
+        pytest.xfail(exc.reason)
+    except ValueError as exc:
+        pytest.xfail(exc)
+    # check that the file was downloaded
     assert os.access(local, os.F_OK)
     # clean up files
     os.remove(local)
@@ -74,14 +100,29 @@ def test_MERRA2_SMB_download(username, password):
         'MERRA2_100.tavgM_2d_glc_Nx.198001.nc4',
     ]
     local = os.path.join(filepath, HOST[-1])
-    # build opener for GESDISC
-    model_harmonics.utilities.build_opener(
-        username, password, password_manager=True, authorization_header=False
-    )
-    # download MERRA-2 file
-    model_harmonics.utilities.from_http(
-        HOST, context=None, verbose=True, local=local
-    )
+    # try to download MERRA-2 file from NASA GESDISC
+    try:
+        # build opener for GESDISC
+        mdlhmc.utilities.build_opener(
+            username,
+            password,
+            password_manager=True,
+            authorization_header=False,
+        )
+        # download MERRA-2 file
+        mdlhmc.utilities.from_http(
+            HOST,
+            context=None,
+            verbose=True,
+            local=local,
+        )
+    except mdlhmc.utilities.urllib2.URLError as exc:
+        pytest.xfail(exc.reason)
+    except mdlhmc.utilities.urllib2.HTTPError as exc:
+        pytest.xfail(exc.reason)
+    except ValueError as exc:
+        pytest.xfail(exc)
+    # check that the file was downloaded
     assert os.access(local, os.F_OK)
     # clean up files
     os.remove(local)

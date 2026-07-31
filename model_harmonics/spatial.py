@@ -60,29 +60,32 @@ def validate_netCDF4(filename: str | pathlib.Path, struct: dict = {}) -> bool:
     struct: dict
         dictionary containing dimensions and variables
     """
+    # get logger
+    logger = logging.getLogger(__name__)
+    # try to open the netCDF4 file
     try:
         # check if the file opens without corruption errors
         with netCDF4.Dataset(filename, 'r') as fileID:
             # validate netCDF4 dimensions
             for dim in struct['dimensions']:
                 if dim not in fileID.dimensions:
-                    logging.debug(f'Missing dimension: {dim}')
+                    logger.debug(f'Missing dimension: {dim}')
                     return False
 
             # validate netCDF4 variables
             for var, dimensions in struct['variables'].items():
                 if var not in fileID.variables:
-                    logging.debug(f'Missing variable: {var}')
+                    logger.debug(f'Missing variable: {var}')
                     return False
         # netCDF4 file appears to be valid
         return True
     except FileNotFoundError as exc:
         msg = f'File {str(filename)} not in file system: {exc}'
-        logging.debug(msg)
+        logger.debug(msg)
         return False
     except OSError as exc:
         msg = f'File {str(filename)} is corrupt or invalid: {exc}'
-        logging.debug(msg)
+        logger.debug(msg)
         return False
 
 
@@ -92,6 +95,7 @@ def to_netCDF4(
     output: dict,
     attributes: dict,
     struct: dict,
+    mode: str = 'w',
     **kwargs,
 ):
     """
@@ -107,10 +111,16 @@ def to_netCDF4(
         dictionary containing file-level and variable attributes
     struct: dict
         dictionary containing dimensions and variables
+    mode: str, default 'w'
+        file mode for writing netCDF4 file
+    kwargs: dict
+        additional keyword arguments for ``netCDF4.Dataset``
     """
+    # get logger
+    logger = logging.getLogger(__name__)
     # opening netCDF4 file for writing
     filename = pathlib.Path(filename).expanduser().absolute()
-    fileID = netCDF4.Dataset(filename, 'w', format='NETCDF4')
+    fileID = netCDF4.Dataset(filename, mode=mode, format='NETCDF4', **kwargs)
     # dictionary with netCDF4 variable objects
     nc = {}
 
@@ -158,11 +168,11 @@ def to_netCDF4(
     fileID.software_version = full_version
 
     # Output netCDF4 structure information
-    logging.info(str(filename))
-    logging.info(list(fileID.variables.keys()))
+    logger.info(str(filename))
+    logger.info(list(fileID.variables.keys()))
 
     # Closing the netCDF4 file
-    fileID.close()
+    return fileID.close()
 
 
 # PURPOSE: additional routines for the spatial module
@@ -212,7 +222,7 @@ class grib(gravtk.spatial):
         else:
             self.case_insensitive_filename(filename)
         # Open the GRIB file for reading
-        logging.info(self.filename)
+        self.logger.info(self.filename)
         fileID = pygrib.open(self.filename)
         # output attributes dictionary
         self.attributes['ROOT'] = {}
@@ -363,7 +373,7 @@ class raster(gravtk.spatial):
         kwargs.setdefault('compression', None)
         kwargs.setdefault('bounds', None)
         # Open the geotiff file for reading
-        logging.info(self.filename)
+        self.logger.info(self.filename)
         if kwargs['compression'] == 'gzip':
             # read as GDAL gzip virtual geotiff dataset
             mmap_name = f'/vsigzip/{str(self.filename)}'
@@ -498,7 +508,7 @@ class raster(gravtk.spatial):
             # write band to geotiff array
             ds.GetRasterBand(band + 1).WriteArray(self.data[:, :, band])
         # print filename if verbose
-        logging.info(self.filename)
+        self.logger.info(self.filename)
         # close dataset
         ds.FlushCache()
 

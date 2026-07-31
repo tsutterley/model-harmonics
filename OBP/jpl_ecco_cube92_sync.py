@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 jpl_ecco_cube92_sync.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (08/2026)
 
 Converts ECCO2 Cube92 daily model outputs from the NASA JPL ECCO2 server
     into monthly averages
@@ -53,6 +53,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 08/2026: change formatting and output of file logs
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -123,17 +124,28 @@ def jpl_ecco_cube92_sync(
 
     # create log file with list of synchronized files (or print to terminal)
     if LOG:
+        # output to log file
         # format: JPL_ECCO2_Cube92_PHIBOT_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d', time.localtime())
         output_logfile = f'JPL_ECCO2_Cube92_{PRODUCT}_sync_{today}.log'
-        LOGFILE = DIRECTORY.joinpath(output_logfile)
-        fid1 = LOGFILE.open(mode='w', encoding='utf8')
-        logging.basicConfig(stream=fid1, level=logging.INFO)
-        logging.info(f'ECCO2 Cube92 {PRODUCT} Sync Log ({today})')
+        LOGFILE = gravtk.utilities.get_cache_path(output_logfile)
+        # create a unique log and open the log file
+        fid1 = gravtk.utilities.create_unique_file(LOGFILE, mode='x')
+        # build logger for outputting to log file
+        logger = gravtk.utilities.build_logger(
+            __name__,
+            level=logging.INFO,
+            stream=fid1,
+            format='%(message)s (%(levelname)s)',
+        )
+        logger.info(f'ECCO2 Cube92 {PRODUCT} Sync Log ({today})')
+        logger.info(f'Filename: {pathlib.Path(sys.argv[0]).name}')
     else:
-        # standard output (terminal output)
+        # build logger for standard output (terminal output)
         fid1 = sys.stdout
-        logging.basicConfig(stream=fid1, level=logging.INFO)
+        logger = gravtk.utilities.build_logger(
+            __name__, level=logging.INFO, stream=fid1
+        )
 
     # regular expression for grouping months from daily data
     regex_pattern = r'{0}\.(\d+)x(\d+)\.({1:4})({2:02d})(\d{{2}}).nc$'
@@ -223,7 +235,7 @@ def jpl_ecco_cube92_sync(
     # close log file and set permissions level to MODE
     if LOG:
         fid1.close()
-        LOGFILE.chmod(mode=MODE)
+        os.chmod(fid1.name, mode=MODE)
 
 
 # PURPOSE: create argument parser

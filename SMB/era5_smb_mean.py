@@ -55,11 +55,13 @@ import gravity_toolkit as gravtk
 
 # PURPOSE: read variables from ERA5 P-E files
 def read_era5_variables(era5_flux_file):
+    # get logger
+    logger = logging.getLogger(__name__)
     # python dictionary of output variables
     dinput = {}
     # read each variable of interest in ERA5 flux file
     era5_flux_file = pathlib.Path(era5_flux_file).expanduser().absolute()
-    logging.debug(str(era5_flux_file))
+    logger.debug(str(era5_flux_file))
     with netCDF4.Dataset(era5_flux_file, mode='r') as fileID:
         # extract geolocation variables
         dinput['latitude'] = fileID.variables['latitude'][:].copy()
@@ -110,7 +112,7 @@ def era5_smb_mean(
 ):
     # create logger for verbosity level
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[VERBOSE])
+    logger = gravtk.utilities.build_logger(__name__, level=loglevels[VERBOSE])
 
     # directory setup
     DIRECTORY = pathlib.Path(DIRECTORY).expanduser().absolute()
@@ -144,7 +146,7 @@ def era5_smb_mean(
     for Y in range(int(RANGE[0]), int(RANGE[-1]) + 1):
         # full path for flux file
         era5_flux_file = DIRECTORY.joinpath(f'ERA5-Monthly-P-E-{Y:4d}.nc')
-        logging.debug(str(era5_flux_file))
+        logger.debug(str(era5_flux_file))
         if not era5_flux_file.exists():
             msg = f'File {str(era5_flux_file)} not in file system'
             raise FileNotFoundError(msg)

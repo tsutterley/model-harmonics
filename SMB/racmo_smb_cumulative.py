@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 racmo_smb_cumulative.py
-Written by Tyler Sutterley (06/2025)
+Written by Tyler Sutterley (07/2026)
 Reads RACMO datafiles to calculate cumulative anomalies in derived surface
     mass balance products
 
@@ -29,6 +29,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 07/2026: output using structured dictionary with netCDF4 parameters
     Updated 06/2025: generalize the regular expression for model region
         can remap netCDF4 variable names for specified product
     Updated 12/2022: single implicit import of spherical harmonic tools
@@ -82,6 +83,8 @@ import model_harmonics as mdlhmc
 def racmo_smb_cumulative(
     model_file, PRODUCT, RANGE=None, VARIABLE=None, GZIP=False, MODE=0o775
 ):
+    # get logger
+    logger = logging.getLogger(__name__)
     # RACMO SMB model file
     model_file = pathlib.Path(model_file).expanduser().absolute()
     # try to extract region and version from filename
@@ -114,12 +117,35 @@ def racmo_smb_cumulative(
         f_in = netCDF4.Dataset(model_file, mode='r')
 
     # Output NetCDF file information
-    logging.info(str(model_file))
-    logging.info(list(f_in.variables.keys()))
+    logger.info(str(model_file))
+    logger.info(list(f_in.variables.keys()))
 
-    # Get data and attributes for each netCDF variable
-    fd, attrs = ({}, {})
-    attributes_list = [
+    # dictionary with input/output data
+    fd = {}
+
+    # dictionary defining output structure
+    struct = dict(
+        dimensions=('time', 'rlat', 'rlon'),
+        variables={
+            PRODUCT: ('time', 'rlat', 'rlon'),
+            'lat': ('rlat', 'rlon'),
+            'lon': ('rlat', 'rlon'),
+            'rotated_pole': (),
+        },
+    )
+
+    # dictionary defining file-level and variable attributes
+    attrs = dict(ROOT={})
+    # file-level attributes to retrieve
+    root_attributes = [
+        'comment',
+        'Domain',
+        'Experiment',
+        'source',
+        'title',
+    ]
+    # variable attributes to retrieve
+    variable_attributes = [
         'axis',
         'calendar',
         'description',
@@ -127,37 +153,39 @@ def racmo_smb_cumulative(
         'long_name',
         'standard_name',
         'units',
-        '_FillValue',
     ]
+    # global attributes of NetCDF file
+    attrs['ROOT'].update(ncdf_attributes(f_in, root_attributes))
+    # output custom file-level attributes
+    attrs['ROOT']['description'] = (
+        f'Cumulative anomalies in {VERSION} {REGION} variables '
+        f'relative to {RANGE[0]:4d}-{RANGE[1]:4d}'
+    )
+    attrs['ROOT']['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
+    attrs['ROOT']['lineage'] = model_file.name
+
+    # get data and attributes for each netCDF variable
     for key in [VARIABLE, 'lon', 'lat', 'rlon', 'rlat', 'time']:
         # output variable name (check if remapped)
         var = PRODUCT if (key == VARIABLE) else key
         # remove singleton dimensions
         fd[var] = np.squeeze(f_in.variables[key][:].copy())
         # get applicable attributes for variable
-        attrs[var] = {}
-        for att_name in attributes_list:
-            # try getting the attribute
-            try:
-                (ncattr,) = [
-                    s
-                    for s in f_in[key].ncattrs()
-                    if re.match(att_name, s, re.I)
-                ]
-                attrs[var][att_name] = f_in[key].getncattr(ncattr)
-            except (ValueError, AttributeError):
-                pass
-            else:
-                # strip whitespace for string attributes
-                if isinstance(attrs[var][att_name], str):
-                    attrs[var][att_name] = attrs[var][att_name].strip()
+        attrs[var] = ncdf_attributes(f_in.variables[key], variable_attributes)
+
+    # get the fill value for the variable
+    fill_value = f_in.variables[VARIABLE].getncattr('_FillValue')
+    # copy variable and attributes for projection
+    key = 'rotated_pole'
+    fd[key] = np.byte()
+    attrs[key] = ncdf_attributes(f_in.variables[key], f_in[key].ncattrs())
 
     # parse date string within netCDF4 file
     date_string = attrs['time']['units']
     epoch1, to_secs = gravtk.time.parse_date_string(date_string)
     # calculate Julian day by converting to MJD and adding offset
     JD = 2400000.5 + gravtk.time.convert_delta_time(
-        fd['time'] * to_secs,
+        to_secs * fd['time'],
         epoch1=epoch1,
         epoch2=(1858, 11, 17, 0, 0, 0),
         scale=1.0 / 86400.0,
@@ -170,7 +198,7 @@ def racmo_smb_cumulative(
     )
 
     # copy data to masked array
-    DATA = np.ma.masked_equal(fd[PRODUCT].copy(), attrs[PRODUCT]['_FillValue'])
+    DATA = np.ma.masked_equal(fd[PRODUCT].copy(), fill_value)
     # input shape of RACMO data
     nt, ny, nx = np.shape(DATA)
 
@@ -197,102 +225,59 @@ def racmo_smb_cumulative(
     # Output NetCDF filename
     FILE = f'{VERSION}_{REGION}_{PRODUCT.upper()}_cumul.nc'
     output_file = model_file.with_name(FILE)
-    logging.info(str(output_file))
+    logger.info(str(output_file))
 
-    # output MERRA-2 data file with cumulative data
+    # output RACMO data file with cumulative data
     if GZIP:
-        # open virtual file object for output
-        f_out = netCDF4.Dataset(
-            uuid.uuid4().hex, 'w', memory=True, format='NETCDF4'
+        # write data to in-memory netCDF4 file
+        nc_buffer = mdlhmc.spatial.to_netCDF4(
+            uuid.uuid4().hex,
+            fd,
+            attrs,
+            struct,
+            mode='w',
+            memory=True,
         )
-    else:
-        # opening NetCDF file for writing
-        f_out = netCDF4.Dataset(output_file, 'w', format='NETCDF4')
-
-    # python dictionary with netCDF4 variables
-    nc = {}
-    # defining the NetCDF dimensions
-    for key in ['rlon', 'rlat', 'time']:
-        f_out.createDimension(key, len(fd[key]))
-        nc[key] = f_out.createVariable(key, fd[key].dtype, (key,))
-    # for each geolocation variable
-    for key in ['lon', 'lat']:
-        nc[key] = f_out.createVariable(
-            key,
-            fd[key].dtype,
-            (
-                'rlat',
-                'rlon',
-            ),
-            zlib=True,
-        )
-    # output variable
-    nc[PRODUCT] = f_out.createVariable(
-        PRODUCT,
-        fd[PRODUCT].dtype,
-        (
-            'time',
-            'rlat',
-            'rlon',
-        ),
-        fill_value=DATA.fill_value,
-        zlib=True,
-    )
-
-    # copy variable and attributes for projection
-    crs = f_out.createVariable('rotated_pole', np.byte, ())
-    for att_name in f_in['rotated_pole'].ncattrs():
-        att_val = f_in['rotated_pole'].getncattr(att_name)
-        crs.setncattr(att_name, att_val)
-
-    # filling NetCDF variables
-    for key, val in fd.items():
-        nc[key][:] = val.copy()
-        # for each variable attribute
-        for att_name, att_val in attrs[key].items():
-            if att_name not in ('_FillValue',):
-                nc[key].setncattr(att_name, att_val)
-
-    # global attributes of NetCDF file
-    for att_name in ['comment', 'Domain', 'Experiment', 'source', 'title']:
-        try:
-            (ncattr,) = [
-                s
-                for s in f_in.variables[key].ncattrs()
-                if re.match(att_name, s, re.I)
-            ]
-            attribute = f_in.getncattr(ncattr)
-        except (ValueError, AttributeError):
-            pass
-        else:
-            f_out.setncattr(att_name, attribute)
-    # output attribute for mean
-    f_out.description = (
-        f'Cumulative anomalies in {VERSION} {REGION} variables '
-        f'relative to {RANGE[0]:4d}-{RANGE[1]:4d}'
-    )
-    # add software information
-    f_out.software_reference = mdlhmc.version.project_name
-    f_out.software_version = mdlhmc.version.full_version
-    f_out.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
-    # date created
-    f_out.date_created = time.strftime('%Y-%m-%d', time.localtime())
-
-    # Output NetCDF file information
-    logging.info(list(f_out.variables.keys()))
-
-    # Closing the NetCDF file and getting the buffer object
-    f_in.close()
-    nc_buffer = f_out.close()
-
-    # write RACMO data file to gzipped file
-    if GZIP:
-        # copy bytes to file
+        # write RACMO data file to gzipped file
         with gzip.open(str(output_file), 'wb') as f:
             f.write(nc_buffer)
-
+    else:
+        # write data to netCDF4 file
+        mdlhmc.spatial.to_netCDF4(
+            output_file,
+            fd,
+            attrs,
+            struct,
+            mode='w',
+        )
     # change the permissions mode
     output_file.chmod(mode=MODE)
+
+
+# PURPOSE: get attributes for netCDF4 files and variable
+def ncdf_attributes(nc, attributes_list):
+    # get logger
+    logger = logging.getLogger(__name__)
+    # output dictionary of attributes
+    attributes = {}
+    # for each attribute to try to get
+    for att_name in attributes_list:
+        rx = re.compile(att_name, re.IGNORECASE)
+        try:
+            # use case-insensitive regex to find attribute name
+            (ncattr,) = [s for s in nc.ncattrs() if rx.match(s)]
+            att_val = nc.getncattr(ncattr)
+        except Exception as exc:
+            ncvar = getattr(nc, 'name', 'ROOT')
+            logger.debug(f'Attribute {att_name} not found in {ncvar}')
+            continue
+        # strip whitespace for string attributes
+        if isinstance(att_val, str):
+            att_val = att_val.strip()
+        # add attribute to dictionary
+        attributes[att_name] = att_val
+    # return the dictionary of attributes
+    return attributes
 
 
 # PURPOSE: create argument parser
@@ -380,7 +365,9 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = gravtk.utilities.build_logger(
+        __name__, level=loglevels[args.verbose]
+    )
 
     # run program
     racmo_smb_cumulative(
