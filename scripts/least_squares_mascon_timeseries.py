@@ -226,7 +226,10 @@ def least_squares_mascons(
 
     # read load love numbers
     LOVE = gravtk.load_love_numbers(
-        LMAX, LOVE_NUMBERS=LOVE_NUMBERS, REFERENCE=REFERENCE, FORMAT='class'
+        LMAX,
+        LOVE_NUMBERS=LOVE_NUMBERS,
+        REFERENCE=REFERENCE,
+        FORMAT='class',
     )
 
     # Earth Parameters

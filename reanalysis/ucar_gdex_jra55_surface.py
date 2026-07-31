@@ -165,17 +165,17 @@ def ucar_gdex_download(
             )
             # output filename
             filename = f'{PRODUCT}.{VARIABLE}.{datetime}.nc'
-            output = DIRECTORY.joinpath(filename)
-            logging.info(f'\t{output}')
+            local_file = DIRECTORY.joinpath(filename)
+            logging.info(f'\t{local_file}')
             # write mean to netCDF4 file
             mean.to_netCDF4(
-                output,
+                local_file,
                 varname=varname,
                 attributes=mean.attributes,
                 clobber=True,
             )
             # keep remote modification time of file
-            os.utime(output, (output.stat().st_atime, collastmod))
+            os.utime(local_file, (local_file.stat().st_atime, collastmod))
 
     # if retrieving the model invariant parameters
     if INVARIANT:

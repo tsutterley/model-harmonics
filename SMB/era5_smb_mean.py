@@ -191,7 +191,7 @@ def era5_smb_mean(
             count += 1.0
 
     # convert from totals to means
-    era5_mean.scale(1.0 / count)
+    era5_mean = era5_mean.scale(1.0 / count)
     era5_mean.update_mask()
     era5_mean.time /= count
 

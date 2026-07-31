@@ -266,13 +266,65 @@ def calculate_GIA_uplift(
 
     # output data and attributes dictionaries
     output_data = {}
-    attributes = dict(x={}, y={})
-    # x and y
-    output_data['x'] = ATL15['x'].copy()
-    output_data['y'] = ATL15['y'].copy()
+    attributes = dict(ROOT={}, y={}, x={})
+    # dictionary defining output structure
+    struct = dict(
+        dimensions=('y', 'x'),
+        variables={
+            'dhdt_gia': ('y', 'x'),
+        },
+    )
+    # file-level attributes
+    REFERENCE = f'Output from {pathlib.Path(sys.argv[0]).name}'
+    attributes['ROOT']['reference'] = REFERENCE
+    attributes['ROOT']['title'] = 'ATL15_GIA_Correction'
+    attributes['summary'] = (
+        'Glacial_Isostatic_Adjustment_Corrections_'
+        'for_NASA_ICESat-2_ATL15_Gridded_Land_Ice_Height_Change_data.',
+    )
+    attributes['ROOT']['GDAL_AREA_OR_POINT'] = 'Area'
+    attributes['ROOT']['Conventions'] = 'CF-1.6'
+    today = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+    attributes['ROOT']['date_created'] = today
+    # add software information
+    attributes['ROOT']['software_reference'] = gravtk.version.project_name
+    attributes['ROOT']['software_version'] = gravtk.version.full_version
+    # add geospatial and temporal attributes
+    attributes['ROOT']['geospatial_lat_min'] = latitude_geodetic.min()
+    attributes['ROOT']['geospatial_lat_max'] = latitude_geodetic.max()
+    attributes['ROOT']['geospatial_lon_min'] = gridlon.min()
+    attributes['ROOT']['geospatial_lon_max'] = gridlon.max()
+    attributes['ROOT']['geospatial_lat_units'] = 'degrees_north'
+    attributes['ROOT']['geospatial_lon_units'] = 'degrees_east'
+    # x and y coordinate attributes
     for att_name in ['long_name', 'standard_name', 'units']:
         attributes['x'][att_name] = cs_to_cf[0][att_name]
         attributes['y'][att_name] = cs_to_cf[1][att_name]
+    # coordinate reference system attributes
+    attributes['crs'] = {}
+    attributes['crs']['standard_name'] = 'Polar_Stereographic'
+    # attributes['crs']['spatial_epsg'] = crs1.to_epsg()
+    attributes['crs']['spatial_ref'] = crs1.to_wkt()
+    attributes['crs']['proj4_params'] = crs1.to_proj4()
+    attributes['crs']['latitude_of_projection_origin'] = crs_to_dict['lat_0']
+    for att_name, att_val in crs1.to_cf().items():
+        attributes['crs'][att_name] = att_val
+    # GIA correction attributes
+    attributes['dhdt_gia'] = {}
+    attributes['dhdt_gia']['long_name'] = 'Viscoelastic Crustal Uplift'
+    attributes['dhdt_gia']['model'] = str(GIA_Ylms_rate.citation)
+    attributes['dhdt_gia']['description'] = str(GIA_Ylms_rate.title)
+    attributes['dhdt_gia']['reference'] = str(GIA_Ylms_rate.reference)
+    attributes['dhdt_gia']['coordinates'] = 'y x'
+    attributes['dhdt_gia']['units'] = 'm/yr'
+    attributes['dhdt_gia']['grid_mapping'] = 'crs'
+    attributes['dhdt_gia']['_FillValue'] = fill_value
+
+    # create projection variable
+    output_data['crs'] = np.byte()
+    # copy x and y coordinates
+    output_data['x'] = ATL15['x'].copy()
+    output_data['y'] = ATL15['y'].copy()
 
     # find valid points (bare-ice, near-shore ocean or ground)
     if ITERATIONS > 1:
@@ -282,6 +334,7 @@ def calculate_GIA_uplift(
     # indices of valid points
     indy, indx = np.nonzero(np.any(valid_mask, axis=0))
     nind = len(indy)
+
     # allocate for output GIA uplift
     output_data['dhdt_gia'] = np.empty((ny, nx))
     output_data['dhdt_gia'][:, :] = fill_value
@@ -303,106 +356,16 @@ def calculate_GIA_uplift(
             SCALE=1e-32,
         )
 
-    # GIA correction attributes
-    attributes['dhdt_gia'] = {}
-    attributes['dhdt_gia']['long_name'] = 'Viscoelastic Crustal Uplift'
-    attributes['dhdt_gia']['model'] = str(GIA_Ylms_rate.citation)
-    attributes['dhdt_gia']['description'] = str(GIA_Ylms_rate.title)
-    attributes['dhdt_gia']['reference'] = str(GIA_Ylms_rate.reference)
-    attributes['dhdt_gia']['coordinates'] = 'y x'
-    attributes['dhdt_gia']['units'] = 'm/yr'
-    attributes['dhdt_gia']['grid_mapping'] = 'crs'
-    attributes['dhdt_gia']['_FillValue'] = fill_value
-
     # output file
     if OUTPUT_FILE is None:
         FILE = f'{PRD}_{RGN}_{RES}_GIA_{GIA_Ylms_rate.title}_L{LMAX:d}.nc'
         OUTPUT_FILE = DIRECTORY.joinpath(FILE)
     else:
         OUTPUT_FILE = pathlib.Path(OUTPUT_FILE).expanduser().absolute()
-    # open output netCDF4 file
-    fileID = netCDF4.Dataset(OUTPUT_FILE, mode='w')
 
-    # dictionary with netCDF4 variables
-    nc = {}
-    # netCDF4 dimension variables
-    dimensions = []
-    dimensions.append('y')
-    dimensions.append('x')
-    dims = tuple(dimensions)
-
-    # create projection variable
-    nc['crs'] = fileID.createVariable('crs', np.byte, ())
-    # add projection attributes
-    nc['crs'].setncattr('standard_name', 'Polar_Stereographic')
-    # nc['crs'].setncattr('spatial_epsg', crs1.to_epsg())
-    nc['crs'].setncattr('spatial_ref', crs1.to_wkt())
-    nc['crs'].setncattr('proj4_params', crs1.to_proj4())
-    nc['crs'].setncattr('latitude_of_projection_origin', crs_to_dict['lat_0'])
-    for att_name, att_val in crs1.to_cf().items():
-        nc['crs'].setncattr(att_name, att_val)
-
-    # netCDF4 dimensions
-    for i, key in enumerate(dimensions):
-        val = output_data[key]
-        fileID.createDimension(key, len(val))
-        nc[key] = fileID.createVariable(key, val.dtype, (key,))
-        # filling netCDF4 dimension variables
-        nc[key][:] = val
-        # Defining attributes for variable
-        for att_name, att_val in attributes[key].items():
-            nc[key].setncattr(att_name, att_val)
-
-    # netCDF4 spatial variables
-    variables = set(output_data.keys()) - set(dimensions)
-    for key in sorted(variables):
-        val = output_data[key]
-        if '_FillValue' in attributes[key].keys():
-            nc[key] = fileID.createVariable(
-                key,
-                val.dtype,
-                dims,
-                fill_value=attributes[key]['_FillValue'],
-                zlib=True,
-            )
-            attributes[key].pop('_FillValue')
-        elif val.shape:
-            nc[key] = fileID.createVariable(key, val.dtype, dims, zlib=True)
-        else:
-            nc[key] = fileID.createVariable(key, val.dtype, ())
-        # filling netCDF4 variables
-        nc[key][:] = val
-        # Defining attributes for variable
-        for att_name, att_val in attributes[key].items():
-            nc[key].setncattr(att_name, att_val)
-
-    # add root level attributes
-    fileID.setncattr('title', 'ATL15_GIA_Correction')
-    fileID.setncattr(
-        'summary',
-        'Glacial_Isostatic_Adjustment_Corrections_'
-        'for_NASA_ICESat-2_ATL15_Gridded_Land_Ice_Height_Change_data.',
-    )
-    fileID.setncattr('GDAL_AREA_OR_POINT', 'Area')
-    fileID.setncattr('Conventions', 'CF-1.6')
-    today = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-    fileID.setncattr('date_created', today)
-    # add software information
-    fileID.setncattr('software_reference', gravtk.version.project_name)
-    fileID.setncattr('software_version', gravtk.version.full_version)
-    # add geospatial and temporal attributes
-    fileID.setncattr('geospatial_lat_min', latitude_geodetic.min())
-    fileID.setncattr('geospatial_lat_max', latitude_geodetic.max())
-    fileID.setncattr('geospatial_lon_min', gridlon.min())
-    fileID.setncattr('geospatial_lon_max', gridlon.max())
-    fileID.setncattr('geospatial_lat_units', 'degrees_north')
-    fileID.setncattr('geospatial_lon_units', 'degrees_east')
-    # Output NetCDF structure information
-    logging.info(str(OUTPUT_FILE))
-    logging.info(list(fileID.variables.keys()))
-    # Closing the netCDF4 file
-    fileID.close()
-    # change the permissions mode
+    # write structured data to netCDF4 file
+    mdlhmc.spatial.to_netCDF4(OUTPUT_FILE, output_data, attributes, struct)
+    # change the permissions level to MODE
     OUTPUT_FILE.chmod(mode=MODE)
 
 

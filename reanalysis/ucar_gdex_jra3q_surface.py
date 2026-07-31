@@ -16,7 +16,18 @@ COMMAND LINE OPTIONS:
         * anl_surf: surface analysis fields
         * anl_surf125: Interpolated 1.25 degree product
     --variable X, -V X: Variable to download
+        * depr2m-hgt: 2m dewpoint depression (or deficit)
+        * pot-sfc: potential temperature
         * pres-sfc: surface pressure
+        * prmsl-msl: pressure reduced to msl
+        * rh2m-hgt: 2m relative humidity
+        * snleng-sfc: energy stored in light snow
+        * snlh2o-sfc: amount of light snow in water equivalent
+        * tciwv-col: total column integrated water vapour
+        * tmp2m-hgt: 2m temperature
+        * ugrd10m-hgt: 10m u-component of wind
+        * vgrd10m-hgt: 10m v-component of wind
+        * weasd-sfc: water equivalent of accumulated snow depth
     -Y X, --year X: Years to download
     -I, --invariant: Retrieve the model invariant parameters
     -t X, --timeout X: Timeout in seconds for blocking operations
@@ -156,6 +167,8 @@ def ucar_gdex_download(
             # copy attributes for each output field
             for field, key in field_mapping.items():
                 mean.attributes[key] = dinput.attributes.get(field)
+            # add lineage of input files to root attributes
+            mean.attributes['ROOT']['lineage'] = fileparts[-1]
             # convert time to strings
             (datetime,) = gravtk.time.to_string(
                 mean.time,
@@ -164,17 +177,17 @@ def ucar_gdex_download(
             )
             # output filename
             filename = f'jra3q.{PRODUCT}.{varname}.{datetime}.nc'
-            output = DIRECTORY.joinpath(filename)
-            logging.info(f'\t{output}')
+            output_file = DIRECTORY.joinpath(filename)
+            logging.info(f'\t{output_file}')
             # write mean to netCDF4 file
             mean.to_netCDF4(
-                output,
+                output_file,
                 field_mapping=field_mapping,
                 attributes=mean.attributes,
                 clobber=True,
             )
             # keep remote modification time of file
-            os.utime(output, (output.stat().st_atime, collastmod))
+            os.utime(output_file, (output_file.stat().st_atime, collastmod))
 
     # if retrieving the model invariant parameters
     if INVARIANT:
@@ -195,18 +208,18 @@ def ucar_gdex_download(
             logging.debug(colname)
             fileparts = mdlhmc.utilities.url_split(colname)
             # output filename for local storage
-            local = DIRECTORY.joinpath(fileparts[-1])
+            output_file = DIRECTORY.joinpath(fileparts[-1])
             # Create and submit request for file
             mdlhmc.utilities.from_http(
                 colname,
                 timeout=TIMEOUT,
-                local=local,
+                local=output_file,
                 verbose=True,
                 fid=fid,
                 mode=MODE,
             )
             # keep remote modification time of file
-            os.utime(local, (local.stat().st_atime, collastmod))
+            os.utime(output_file, (output_file.stat().st_atime, collastmod))
 
     # close log file and set permissions level to MODE
     if LOG:
@@ -240,11 +253,27 @@ def arguments():
         help='JRA-3Q surface analysis product',
     )
     # JRA-3Q surface analysis variable
+    choices = [
+        'depr2m-hgt',
+        'pot-sfc',
+        'pres-sfc',
+        'prmsl-msl',
+        'rh2m-hgt',
+        'snleng-sfc',
+        'snlh2o-sfc',
+        'tciwv-col',
+        'tmp2m-hgt',
+        'ugrd10m-hgt',
+        'vgrd10m-hgt',
+        'weasd-sfc',
+    ]
     parser.add_argument(
         '--variable',
         '-v',
         type=str,
-        default='pres-sfc',
+        nargs='+',
+        choices=choices,
+        default=['pres-sfc'],
         help='JRA-3Q surface analysis variable',
     )
     # model years to download
@@ -299,16 +328,17 @@ def main():
     args, _ = parser.parse_known_args()
 
     # download JRA-3Q products
-    ucar_gdex_download(
-        args.directory,
-        args.product,
-        args.variable,
-        YEARS=args.year,
-        INVARIANT=args.invariant,
-        TIMEOUT=args.timeout,
-        LOG=args.log,
-        MODE=args.mode,
-    )
+    for VARIABLE in args.variable:
+        ucar_gdex_download(
+            args.directory,
+            args.product,
+            VARIABLE,
+            YEARS=args.year,
+            INVARIANT=args.invariant,
+            TIMEOUT=args.timeout,
+            LOG=args.log,
+            MODE=args.mode,
+        )
 
 
 # run main program

@@ -1,21 +1,19 @@
 #!/usr/bin/env python
 """
-ecco_depth_version4.py
+gebco_ocean_depth.py
 Written by Tyler Sutterley (05/2023)
 
-Interpolates GEBCO bathymetry to ECCO Version 4 interpolated model grids
-https://ecco.jpl.nasa.gov/drive/files/Version4/Release4/interp_monthly/README
-https://ecco-group.org/user-guide-v4r4.htm
+Interpolates GEBCO bathymetry to model grids
 
 GEBCO 2014/2020 Gridded bathymetry data:
 https://www.bodc.ac.uk/data/hosted_data_systems/gebco_gridded_bathymetry_data/
 
 INPUTS:
-    model_file: ECCO Version 4 Model File
+    model_file: GEBCO zipped bathymetry file
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: working data directory
-    -v X, --version X: GEBCO bathymetry version
+    -S X, --spacing X: spatial resolution of output data (dlon,dlat)
     -M X, --mode X: Permission mode of directories and files
 
 PYTHON DEPENDENCIES:
@@ -24,10 +22,9 @@ PYTHON DEPENDENCIES:
         https://numpy.org/doc/stable/user/numpy-for-matlab-users.html
     netCDF4: Python interface to the netCDF C library
         https://unidata.github.io/netcdf4-python/netCDF4/index.html
-    h5py: Pythonic interface to the HDF5 binary data format.
-        https://www.h5py.org/
 
 UPDATE HISTORY:
+    Updated 07/2026: generalized program for any grid spacing
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -47,19 +44,20 @@ import pathlib
 import argparse
 import numpy as np
 import gravity_toolkit as gravtk
+from model_harmonics.utilities import get_data_path
 
 
-# PURPOSE: interpolate GEBCO bathymetry to ECCO V4 ocean model grids
-def ecco_depth_version4(ddir, model_file, VERSION='2014', MODE=0o775):
-    # verify input data directory
+# PURPOSE: interpolate GEBCO bathymetry to model grids
+def gebco_ocean_depth(ddir, FILE, SPACING=[0.5, 0.5], MODE=0o775):
+    # verify output directory
     ddir = pathlib.Path(ddir).expanduser().absolute()
-    if not ddir.exists():
-        raise FileNotFoundError('ECCO directory not found in file system')
+    ddir.mkdir(parents=True, exist_ok=True, mode=MODE)
+    # verify input file path
+    FILE = pathlib.Path(FILE).expanduser().absolute()
+
     # input bathymetry model parameters
-    if VERSION == '2014':
-        FILE = ddir.joinpath('GEBCO_2014_2D.zip')
-    elif VERSION == '2020':
-        FILE = ddir.joinpath('gebco_2020_netcdf.zip')
+    rx = re.compile(r'gebco_(\d+)', re.IGNORECASE | re.VERBOSE)
+    (VERSION,) = rx.findall(FILE.name)
     # read zipped file and extract file into in-memory file object
     bathymetry = gravtk.spatial().from_netCDF4(
         FILE, date=False, varname='elevation', compression='zip'
@@ -67,60 +65,40 @@ def ecco_depth_version4(ddir, model_file, VERSION='2014', MODE=0o775):
     bathymetry.data = extend_matrix(bathymetry.data, 1)
     bathymetry.lon = extend_array(bathymetry.lon, 1)
     bathymetry.update_mask()
+    # convert to meshgrids
+    gridlon, gridlat = np.meshgrid(bathymetry.lon, bathymetry.lat)
+    # find valid bathymetry points
+    valid = np.logical_not(bathymetry.mask).astype('i')
+    valid_indices = np.nonzero((bathymetry.data < 0.0) & valid)
 
-    # verify that the ECCO model file exists
-    model_file = pathlib.Path(model_file).expanduser()
-    if not model_file.exists():
-        raise FileNotFoundError(f'{str(model_file)} not found in file system')
-    # input ECCO model parameters
-    rx = re.compile(r'PHIBOT([\.\_])(\d+)(_\d+)?.nc$', re.VERBOSE)
-    if rx.search(model_file.name).group(3):
-        VARNAME, LONNAME, LATNAME, TIMENAME = ('PHIBOT', 'i', 'j', 'time')
-    else:
-        VARNAME, LONNAME, LATNAME, TIMENAME = ('PHIBOT', 'i3', 'i2', 'tim')
+    # grid spacing
+    dx, dy = np.broadcast_to(np.atleast_1d(SPACING), (2,))
+    # output dimensions and extents
+    xmin = -180 + dx / 2.0
+    xmax = 180 - dx / 2.0
+    ymin = -90 + dy / 2.0
+    ymax = 90 - dy / 2.0
+    nlon = int((xmax - xmin) / dx) + 1
+    nlat = int((ymax - ymin) / dy) + 1
+    extent = [xmin, xmax, ymin, ymax]
     # bad value
     fill_value = 99999.0
-    # read ECCO V4 ocean model for valid points
-    PHIBOT = (
-        gravtk.spatial(fill_value=np.nan)
-        .from_netCDF4(
-            model_file,
-            latname=LATNAME,
-            lonname=LONNAME,
-            timename=TIMENAME,
-            varname=VARNAME,
-        )
-        .transpose(axes=(1, 2, 0))
-        .index(0)
-    )
-    PHIBOT.replace_invalid(fill_value)
-
-    # indices of valid values
-    ii, jj = np.nonzero(~PHIBOT.mask)
-    # output dimensions and extents
-    nlat, nlon = (360, 720)
-    extent = [-179.75, 179.75, -89.75, 89.75]
-    # grid spacing
-    dlon, dlat = (0.5, 0.5)
 
     # create output data
     interp = gravtk.spatial(fill_value=fill_value)
     # calculate dimension variables
-    interp.lon = np.arange(extent[0], extent[1] + dlon, dlon)
-    interp.lat = np.arange(extent[2], extent[3] + dlat, dlat)
+    interp.lon = np.arange(extent[0], extent[1] + dx, dx)
+    interp.lat = np.arange(extent[2], extent[3] + dy, dy)
     interp.data = np.zeros((nlat, nlon))
     interp.mask = np.ones((nlat, nlon), dtype=bool)
-    # iterate over indices to find valid points
-    for i, j in zip(ii, jj):
-        # find bathymetry points
-        (ilat,) = np.nonzero(np.abs(interp.lat[i] - bathymetry.lat) <= 0.25)
-        (ilon,) = np.nonzero(np.abs(interp.lon[j] - bathymetry.lon) <= 0.25)
-        data_point = bathymetry.data[ilat, ilon].squeeze()
-        if np.count_nonzero(data_point < 0.0):
-            (valid_indices,) = np.nonzero(data_point <= 0.0)
-            # convert from bathymetry to depth
-            interp.data[i, j] = -np.mean(data_point[valid_indices])
-            interp.mask[i, j] = False
+    # calculate sum of valid bathymetry points
+    indy = ((gridlat[valid_indices] - ymin) // dy).astype('i')
+    indx = ((gridlon[valid_indices] - xmin) // dx).astype('i')
+    # convert from bathymetry to depth (increasing below ocean surface)
+    interp.data[indy, indx] = -(
+        np.sum(bathymetry.data[valid_indices]) / np.sum(valid[valid_indices])
+    )
+    interp.mask[indy, indx] = False
     # update the mask
     interp.update_mask()
 
@@ -139,7 +117,7 @@ def ecco_depth_version4(ddir, model_file, VERSION='2014', MODE=0o775):
     )
     attributes['reference'] = f'Output from {pathlib.Path(sys.argv[0]).name}'
     # output netCDF4 dataset
-    bathymetry_file = ddir.joinpath(f'DEPTH.{VERSION}.720x360.nc')
+    bathymetry_file = ddir.joinpath(f'DEPTH.{VERSION}.{nlon:d}x{nlat:d}.nc')
     interp.to_netCDF4(bathymetry_file, date=False, **attributes)
     # change the permissions mode to MODE
     bathymetry_file.chmod(mode=MODE)
@@ -169,29 +147,32 @@ def extend_array(input_array, count):
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
-        description="""Interpolates GEBCO bathymetry to ECCO Version 4
-            interpolated model grids
+        description="""Interpolates GEBCO bathymetry to model grids
             """
     )
     # command line parameters
     parser.add_argument(
-        'file', type=pathlib.Path, help='ECCO Version 4 Model File'
+        'file',
+        type=pathlib.Path,
+        help='GEBCO bathymetry file',
     )
     # working data directory
     parser.add_argument(
         '--directory',
         '-D',
         type=pathlib.Path,
-        default=pathlib.Path.cwd(),
+        default=get_data_path('data'),
         help='Working data directory',
     )
-    # GEBCO bathymetry version year
+    # output grid parameters
     parser.add_argument(
-        '--version',
-        '-v',
-        type=str,
-        default='2014',
-        help='GEBCO bathymetry version',
+        '--spacing',
+        '-S',
+        type=float,
+        nargs=2,
+        default=[0.5, 0.5],
+        metavar=('dlon', 'dlat'),
+        help='Spatial resolution of output data',
     )
     # permissions mode of the local directories and files (number in octal)
     parser.add_argument(
@@ -212,9 +193,7 @@ def main():
     args, _ = parser.parse_known_args()
 
     # run program
-    ecco_depth_version4(
-        args.directory, args.file, VERSION=args.version, MODE=args.mode
-    )
+    gebco_ocean_depth(args.file, SPACING=args.spacing, MODE=args.mode)
 
 
 # run main program

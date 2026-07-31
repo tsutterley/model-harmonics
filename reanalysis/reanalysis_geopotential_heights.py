@@ -73,13 +73,15 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
     ddir = base_dir.joinpath(MODEL)
 
     # set model specific parameters
+    WEIGHT = None
+    input_coordinate_file = None
     if MODEL == 'ERA-Interim':
         # invariant parameters file
         input_invariant_file = 'ERA-Interim-Invariant-Parameters.nc'
         # coordinate parameters file
         input_coordinate_file = 'ERA-Interim_coordvars.nc'
         # surface pressure file format
-        input_pressure_file = 'ERA-Interim-Monthly-SP-{0:4d}.nc'
+        input_pressure_file = 'ERA-Interim-Monthly-SP-{0}.nc'
         # regular expression pattern for finding files
         regex_pattern = r'ERA\-Interim\-Monthly\-Levels\-({0})\.nc$'
         # output file format
@@ -106,7 +108,7 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
         # coordinate parameters file
         input_coordinate_file = 'ERA5_coordvars.nc'
         # surface pressure file format
-        input_pressure_file = 'ERA5-Monthly-SP-{0:4d}.nc'
+        input_pressure_file = 'ERA5-Monthly-SP-{0}.nc'
         # regular expression pattern for finding files
         regex_pattern = r'ERA5\-Monthly\-Levels\-({0})\.nc$'
         # output file format
@@ -152,17 +154,54 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
         TIME_LONGNAME = 'Time'
         UNITS = 'm+2 s-2'
         GRAVITY = 1.0
+    elif MODEL == 'JRA-3Q':
+        # invariant parameters file
+        input_invariant_file = (
+            'jra3q.tl479_surf.0_3_4.gp-sfc-cn-gauss.1947090100_1947090100.nc'
+        )
+        # surface pressure and specific humidity file formats
+        input_pressure_file = 'jra3q.anl_surf.pres-sfc-an-gauss.{0}{1}.nc'
+        input_humidity_file = 'jra3q.anl_mdl.spfh-hyb-an-gauss.{0}{1}.nc'
+        # regular expression pattern for finding files
+        regex_pattern = r'jra3q\.anl_mdl\.tmp-hyb-an-gauss\.({0})(\d+).nc$'
+        # output file format
+        output_file_format = 'jra3q.anl_mdl.hgt-hyb-an-gauss.{0}{1}.nc'
+        SURFNAME = 'gp-sfc-cn-gauss'
+        ZNAME = 'hgt-hyb-an-gauss'
+        VARNAME = 'pres-sfc-an-gauss'
+        TNAME = 'tmp-hyb-an-gauss'
+        QNAME = 'spfh-hyb-an-gauss'
+        DIFFNAME = 'dpres-hyb-an-gauss'
+        LONNAME = 'lon'
+        LATNAME = 'lat'
+        TIMENAME = 'time'
+        LONNAME = 'lon'
+        LATNAME = 'lat'
+        TIMENAME = 'time'
+        LEVELNAME = 'hybrid_level'
+        WEIGHT = 'weight'
+        ANAME, BNAME = ('a_hybrid_half_level', 'b_hybrid_half_level')
+        AINTERFACE, BINTERFACE = ('a_hybrid_level', 'b_hybrid_level')
+        # hours since 1900-01-01 00:00:00
+        TIME_LONGNAME = 'time'
+        UNITS = 'm2 s-2'
+        GRAVITY = 1.0
 
     # dictionary defining output structure
     struct = dict(
-        dimensions=(TIMENAME, LATNAME, LONNAME),
+        dimensions=(TIMENAME, LEVELNAME, LATNAME, LONNAME),
         variables={
             ZNAME: (TIMENAME, LEVELNAME, LATNAME, LONNAME),
             DIFFNAME: (TIMENAME, LEVELNAME, LATNAME, LONNAME),
         },
     )
+
     # dictionary defining file-level and variable attributes
     attributes = dict(ROOT={})
+    # reference attribute
+    REFERENCE = f'Output from {pathlib.Path(sys.argv[0]).name}'
+    attributes['ROOT']['reference'] = REFERENCE
+    # variable attributes
     attributes[LONNAME] = dict(
         long_name='Longitude',
         units='degrees_east',
@@ -173,6 +212,8 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
     )
     attributes[TIMENAME] = dict(
         long_name=TIME_LONGNAME,
+        standard_name='time',
+        calendar='standard',
     )
     # Defining attributes for model levels
     attributes[LEVELNAME] = dict(
@@ -188,89 +229,139 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
         long_name='Pressure_Differences_between_Levels',
         units='Pa',
     )
+    # append additional weight variable for gaussian grid models
+    if MODEL in ('JRA-3Q',):
+        struct['variables'][WEIGHT] = (LATNAME,)
+        attributes[WEIGHT] = dict(
+            long_name='gaussian weight', short_name='wgt', units='1'
+        )
 
     # read model orography for dimensions
     geopotential, lon, lat = ncdf_invariant(
         ddir.joinpath(input_invariant_file), LONNAME, LATNAME, SURFNAME
     )
     # read parameters for calculating pressures at levels
-    lev, A, B, AI, BI = ncdf_coordinates(
-        ddir.joinpath(input_coordinate_file),
-        LEVELNAME,
-        ANAME,
-        BNAME,
-        AINTERFACE,
-        BINTERFACE,
-    )
+    # flips the order of the levels so that bottom=0
+    if input_coordinate_file is not None:
+        lev, A, B, AI, BI = ncdf_coordinates(
+            ddir.joinpath(input_coordinate_file),
+            LEVELNAME,
+            ANAME,
+            BNAME,
+            AINTERFACE,
+            BINTERFACE,
+        )
     # Gas constant for dry air
     R_dry = 287.06
+    # minimum allowable pressure at the top of the atmosphere
+    Pmin = 0.1
 
     # read each reanalysis pressure field for each year
     regex_years = r'\d{4}' if (YEAR is None) else '|'.join(map(str, YEAR))
     rx = re.compile(regex_pattern.format(regex_years), re.VERBOSE)
     input_files = sorted([f for f in ddir.iterdir() if rx.match(f.name)])
     # for each reanalysis file
-    for i, input_file in enumerate(input_files):
+    for i, temperature_file in enumerate(input_files):
         # read input temperature and specific humidity data
-        logging.debug(str(input_file))
-        fid1 = netCDF4.Dataset(input_file, mode='r')
+        logging.debug(str(temperature_file))
+        fid = [None] * 3
+        fid[0] = netCDF4.Dataset(temperature_file, mode='r')
         # extract shape from temperature variable
-        ntime, nlevels, nlat, nlon = fid1.variables[TNAME].shape
+        ntime, nlevels, nlat, nlon = fid[0].variables[TNAME].shape
         # invalid value
-        fill_value = fid1.variables[TNAME]._FillValue
+        fill_value = fid[0].variables[TNAME]._FillValue
         # dictionary with output variables and dimensions
         dinput = {}
         # allocate for output variables
-        for var in struct['variables'].keys():
+        for var in (ZNAME, DIFFNAME):
             dinput[var] = np.ma.zeros((ntime, nlevels, nlat, nlon), dtype='f')
             dinput[var].set_fill_value(fill_value)
-        # model levels in reverse order
-        dinput[LEVELNAME] = lev[::-1].copy()
         # extract time and time units
-        dinput[TIMENAME] = np.copy(fid1.variables[TIMENAME][:])
-        attributes[TIMENAME]['units'] = fid1.variables[TIMENAME].units
+        dinput[TIMENAME] = np.copy(fid[0].variables[TIMENAME][:])
+        attributes[TIMENAME]['units'] = fid[0].variables[TIMENAME].units
         # copy latitude and longitude
         dinput[LONNAME] = lon.copy()
         dinput[LATNAME] = lat.copy()
 
         if MODEL in ('MERRA-2'):
-            # extract date from monthly files
-            MOD, YEAR, MONTH = rx.findall(input_file.name).pop()
+            # extract date from temperature files
+            MOD, YEAR, MONTH = rx.findall(temperature_file.name).pop()
             # output monthly filename
             FILENAME = output_file_format.format(MOD, YEAR, MONTH)
             output_file = ddir.joinpath(FILENAME)
+            # model levels
+            dinput[LEVELNAME] = lev[:].copy()
+            # specific humidity from same file as temperature
+            fid[1] = fid[0]
             # read surface pressure
-            surface_pressure = np.copy(fid1.variables[VARNAME][:])
+            pressure = fid[0].variables[VARNAME][:]
         elif MODEL in ('ERA-Interim', 'ERA5'):
-            # extract year from file name
-            (YEAR,) = rx.findall(input_file.name)
+            # extract year from temperature files
+            (YEAR,) = rx.findall(temperature_file.name)
             # output yearly filename
             FILENAME = output_file_format.format(YEAR)
             output_file = ddir.joinpath(FILENAME)
+            # model levels
+            dinput[LEVELNAME] = lev[:].copy()
+            # specific humidity from same file as temperature
+            fid[1] = fid[0]
             # read input surface pressure data
-            pressure_file = input_pressure_file.format(YEAR)
-            with netCDF4.Dataset(ddir.joinpath(pressure_file), 'r') as fid2:
-                surface_pressure = np.copy(fid2.variables[VARNAME][:])
+            pressure_file = ddir.joinpath(input_pressure_file.format(YEAR))
+            logging.debug(str(pressure_file))
+            with netCDF4.Dataset(pressure_file, 'r') as fid[2]:
+                pressure = np.copy(fid[2].variables[VARNAME][:])
+        elif MODEL in ('JRA-3Q'):
+            # extract date from temperature files
+            YEAR, MONTH = rx.findall(temperature_file.name).pop()
+            # output monthly filename
+            FILENAME = output_file_format.format(YEAR, MONTH)
+            output_file = ddir.joinpath(FILENAME)
+            # extract the A and B coefficients for the hybrid levels
+            dinput[LEVELNAME] = fid[0].variables[LEVELNAME][:]
+            A = fid[0].variables[ANAME][:]
+            B = fid[0].variables[BNAME][:]
+            AI = fid[0].variables[AINTERFACE][:]
+            BI = fid[0].variables[BINTERFACE][:]
+            # extract the gaussian grid variables
+            dinput[WEIGHT] = fid[0].variables[WEIGHT][:]
+            # specific humidity data file
+            humidity_file = ddir.joinpath(
+                input_humidity_file.format(YEAR, MONTH)
+            )
+            logging.debug(str(humidity_file))
+            fid[1] = netCDF4.Dataset(humidity_file, 'r')
+            # read input surface pressure data
+            pressure_file = ddir.joinpath(
+                input_pressure_file.format(YEAR, MONTH)
+            )
+            logging.debug(str(pressure_file))
+            with netCDF4.Dataset(pressure_file, 'r') as fid[2]:
+                # reorder dimensions to match the required order
+                dims = fid[2].variables[VARNAME].dimensions
+                order = [dims.index(d) for d in (TIMENAME, LATNAME, LONNAME)]
+                pressure = fid[2].variables[VARNAME][:].transpose(order)
 
         # iterate over dates
         for t in range(ntime):
-            # check dimensions for expver slice
-            if fid1.variables[VARNAME].ndim == 5:
-                t_time, q_time = ncdf_expver(fid1, t, TNAME, QNAME)
+            # extract temperature and specific humidity for time t
+            if fid[0].variables[TNAME].ndim == 5:
+                # check dimensions for expver slice
+                t_time, expver = ncdf_expver(fid[0], t, TNAME)
+                q_time, _ = ncdf_expver(fid[1], t, QNAME, index=expver)
             else:
                 # temperature and specific humidity
                 # reverse layers so bottom=0
-                t_time = fid1.variables[TNAME][t, ::-1, :, :]
-                q_time = fid1.variables[QNAME][t, ::-1, :, :]
+                t_time = np.flipud(fid[0].variables[TNAME][t, :, :, :])
+                q_time = np.flipud(fid[1].variables[QNAME][t, :, :, :])
             # convert to masked arrays
             t_time = np.ma.masked_equal(t_time, fill_value)
             q_time = np.ma.masked_equal(q_time, fill_value)
             # calculate geopotential over model levels
             geopotential_height = np.empty((nlat, nlon), dtype=np.float32)
-            # start with surface geopotential converted to units (m^2/s^2)
+            # start with surface geopotential (m^2/s^2)
             geopotential_height[:, :] = geopotential * GRAVITY
-            # surface pressure for time t
-            SP = surface_pressure[t, :, :]
+            # extract surface pressure for time t
+            SP = pressure[t, :, :]
             # Integrate the model layers in the atmosphere
             for k in range(nlevels):
                 # specific humidity and temperature for level k and time t
@@ -280,34 +371,36 @@ def reanalysis_geopotential_heights(base_dir, MODEL, YEAR=None, MODE=0o775):
                 Tv = (1.0 + 0.609133 * QV) * T
                 # calculate numerator and denominator for pressure ratio
                 Pnum = A[k] + B[k] * SP
-                if (k + 1) == nlevels:
-                    Pdom = 0.1
+                if (k + 1) == len(A):
+                    Pdom = Pmin
                 else:
-                    Pdom = A[k + 1] + B[k + 1] * SP
+                    # add a threshold to avoid dividing by zero
+                    Pdom = np.maximum(A[k + 1] + B[k + 1] * SP, Pmin)
+                # calculate geopotential difference using hypsometric equation
                 # add level to geopotential_levels
                 geopotential_height[:, :] += R_dry * Tv * np.log(Pnum / Pdom)
-                # save level to output variable and convert to output units
-                dinput[ZNAME][t, k, :, :] = geopotential_height / GRAVITY
+                # save level to output variable
+                dinput[ZNAME][t, k, :, :] = geopotential_height
                 # calculate pressure difference between levels (at interfaces)
                 Plower = AI[k] + BI[k] * SP
-                Pupper = AI[k + 1] + BI[k + 1] * SP
+                # check if there is an upper bound
+                if (k + 1) == len(AI):
+                    Pupper = Pmin
+                else:
+                    # add a threshold limit to the atmospheric pressure
+                    Pupper = np.maximum(AI[k + 1] + BI[k + 1] * SP, Pmin)
                 dinput[DIFFNAME][t, k, :, :] = Pupper - Plower
         # replace invalid values with fill_value
-        for var in struct['variables'].keys():
+        for var in (ZNAME, DIFFNAME):
             dinput[var].data[dinput[var].mask] = dinput[var].fill_value
-        # save to file
-        ncdf_geopotential_write(
-            dinput,
-            attributes,
-            struct,
-            FILENAME=output_file,
-        )
+        # write structured data to netCDF4 file
+        mdlhmc.spatial.to_netCDF4(output_file, dinput, attributes, struct)
         # set the permissions level of the output file to MODE
         output_file.chmod(mode=MODE)
         # clear dinput dictionary variable
         dinput = None
-        # close the input netCDF4 file
-        fid1.close()
+        # close the input netCDF4 files
+        ncdf_close_all(fid)
 
 
 # PURPOSE: Compute the Specific Humidity from parameters (Bolton 1980)
@@ -334,21 +427,26 @@ def calculate_specific_humidity(P, T, RH):
 # PURPOSE: extract temperature and specific humidity variables
 # from a 5d netCDF4 dataset
 # ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
-def ncdf_expver(fileID, slice, TNAME, QNAME):
-    ntime, nexp, nlevel, nlat, nlon = fileID.variables[TNAME].shape
-    # reduced temperature and specific humidity for time
-    temperature = np.zeros((nlevel, nlat, nlon))
-    humidity = np.zeros((nlevel, nlat, nlon))
+def ncdf_expver(fileID, slice, VARNAME, index=None):
+    ntime, nexp, nlevel, nlat, nlon = fileID.variables[VARNAME].shape
+    # if expver is specified, check if data is valid for expver
+    if index is not None and np.any(fileID.variables[VARNAME][slice, index, :]):
+        # reverse layers so bottom=0
+        variable = np.flipud(fileID.variables[VARNAME][slice, index, :])
+        # return the reduced variables
+        return variable, index
+    # reduced variable (temperature or specific humidity) for time
+    variable = np.zeros((nlevel, nlat, nlon))
     # iterate over expver slices to find valid outputs
     for j in range(nexp):
         # check if any are valid for expver
-        if np.any(fileID.variables[TNAME][slice, j, :]):
+        if np.any(fileID.variables[VARNAME][slice, j, :]):
             # reverse layers so bottom=0
-            temperature = np.flipud(fileID.variables[TNAME][slice, j, :])
-            humidity = np.flipud(fileID.variables[QNAME][slice, j, :])
+            variable = np.flipud(fileID.variables[VARNAME][slice, j, :])
+            index = j
             break
-    # return the reduced temperature and specific humidity variables
-    return (temperature, humidity)
+    # return the reduced variables and the valid expver slice
+    return variable, index
 
 
 # PURPOSE: read reanalysis invariant parameters (geopotential,lat,lon)
@@ -366,77 +464,18 @@ def ncdf_invariant(FILENAME, LONNAME, LATNAME, ZNAME):
 def ncdf_coordinates(FILENAME, LEVELNAME, ANAME, BNAME, AINTERFACE, BINTERFACE):
     logging.debug(str(FILENAME))
     with netCDF4.Dataset(FILENAME, mode='r') as fileID:
-        levels = fileID.variables[LEVELNAME][:].copy()
-        A = fileID.variables[ANAME][::-1].copy()
-        B = fileID.variables[BNAME][::-1].copy()
-        AI = fileID.variables[AINTERFACE][::-1].copy()
-        BI = fileID.variables[BINTERFACE][::-1].copy()
+        # reverse layers so bottom=0
+        levels = np.flip(fileID.variables[LEVELNAME][:])
+        A = np.flip(fileID.variables[ANAME][:])
+        B = np.flip(fileID.variables[BNAME][:])
+        AI = np.flip(fileID.variables[AINTERFACE][:])
+        BI = np.flip(fileID.variables[BINTERFACE][:])
     return (levels, A, B, AI, BI)
 
 
-# PURPOSE: write output geopotential fields data to file
-def ncdf_geopotential_write(
-    output,
-    attributes,
-    struct,
-    FILENAME=None,
-):
-    # opening NetCDF file for writing
-    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME, 'w', format='NETCDF4')
-
-    # dictionary with NetCDF4 variable objects
-    nc = {}
-    # defining the NetCDF4 dimensions
-    for dim in struct['dimensions']:
-        fileID.createDimension(dim, len(output[dim]))
-        nc[dim] = fileID.createVariable(dim, output[dim].dtype, (dim,))
-        # add data to NetCDF4 dimension variable
-        nc[dim][:] = output[dim].copy()
-        # set netCDF4 attributes for dimensions
-        for att_name, att_val in attributes[dim].items():
-            nc[dim].setncattr(att_name, att_val)
-
-    # defining the NetCDF4 variables
-    for var, dimensions in struct['variables'].items():
-        if hasattr(output[var], 'fill_value'):
-            nc[var] = fileID.createVariable(
-                var,
-                output[var].dtype,
-                dimensions,
-                fill_value=output[var].fill_value,
-                zlib=True,
-            )
-        else:
-            nc[var] = fileID.createVariable(
-                var,
-                output[var].dtype,
-                dimensions,
-            )
-        # add data to NetCDF4 variable
-        nc[var][:] = output[var].copy()
-        # set netCDF4 attributes for variables
-        for att_name, att_val in attributes[var].items():
-            nc[var].setncattr(att_name, att_val)
-
-    # Defining file-level attributes
-    for att_name, att_val in attributes['ROOT'].items():
-        fileID.setncattr(att_name, att_val)
-    # add attribute for date created
-    fileID.date_created = time.strftime('%Y-%m-%d', time.localtime())
-    # add software information
-    fileID.software_reference = mdlhmc.version.project_name
-    fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
-
-    # Output NetCDF structure information
-    logging.info(str(FILENAME))
-    logging.info(list(fileID.variables.keys()))
-
-    # Closing the NetCDF file
-    fileID.close()
-    # clear nc dictionary variable
-    nc = None
+# PURPOSE: attempt to close all open netCDF4 files
+def ncdf_close_all(fileID: list[__loader__]):
+    [fid.close() for fid in fileID if fid._isopen]
 
 
 # PURPOSE: create argument parser
@@ -450,7 +489,7 @@ def arguments():
     )
     parser.convert_arg_line_to_args = gravtk.utilities.convert_arg_line_to_args
     # command line parameters
-    choices = ['ERA-Interim', 'ERA5', 'MERRA-2']
+    choices = ['ERA-Interim', 'ERA5', 'JRA-3Q', 'MERRA-2']
     parser.add_argument(
         'model',
         type=str,

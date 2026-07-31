@@ -170,6 +170,10 @@ def reanalysis_inverse_barometer(
     )
     # dictionary defining file-level and variable attributes
     attributes = dict(ROOT={})
+    # reference attribute
+    REFERENCE = f'Output from {pathlib.Path(sys.argv[0]).name}'
+    attributes['ROOT']['reference'] = REFERENCE
+    # variable attributes
     attributes[LONNAME] = dict(
         long_name='Longitude',
         units='degrees_east',
@@ -301,80 +305,10 @@ def reanalysis_inverse_barometer(
             dinput[IBNAME] = -SLP * (DENSITY * gs) ** -1
             # replace masks
             dinput[IBNAME].data[dinput[IBNAME].mask] = fill_value
-            # output to file
-            ncdf_IB_write(
-                dinput,
-                attributes,
-                struct,
-                FILENAME=output_file,
-            )
+            # write structured data to netCDF4 file
+            mdlhmc.spatial.to_netCDF4(output_file, dinput, attributes, struct)
             # change permissions mode
             output_file.chmod(mode=MODE)
-
-
-# PURPOSE: write output inverse barometer fields data to file
-def ncdf_IB_write(
-    output,
-    attributes,
-    struct,
-    FILENAME=None,
-):
-    # opening NetCDF file for writing
-    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME, 'w', format='NETCDF4')
-
-    # dictionary with NetCDF4 variable objects
-    nc = {}
-    # defining the NetCDF4 dimensions
-    for dim in struct['dimensions']:
-        fileID.createDimension(dim, len(output[dim]))
-        nc[dim] = fileID.createVariable(dim, output[dim].dtype, (dim,))
-        # add data to NetCDF4 dimension variable
-        nc[dim][:] = output[dim].copy()
-        # set netCDF4 attributes for dimensions
-        for att_name, att_val in attributes[dim].items():
-            nc[dim].setncattr(att_name, att_val)
-
-    # defining the NetCDF4 variables
-    for var, dimensions in struct['variables'].items():
-        if hasattr(output[var], 'fill_value'):
-            nc[var] = fileID.createVariable(
-                var,
-                output[var].dtype,
-                dimensions,
-                fill_value=output[var].fill_value,
-                zlib=True,
-            )
-        else:
-            nc[var] = fileID.createVariable(
-                var,
-                output[var].dtype,
-                dimensions,
-            )
-        # add data to NetCDF4 variable
-        nc[var][:] = output[var].copy()
-        # set netCDF4 attributes for variables
-        for att_name, att_val in attributes[var].items():
-            nc[var].setncattr(att_name, att_val)
-
-    # Defining file-level attributes
-    for att_name, att_val in attributes['ROOT'].items():
-        fileID.setncattr(att_name, att_val)
-    # add software information
-    fileID.software_reference = mdlhmc.version.project_name
-    fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
-    # date created
-    fileID.date_created = datetime.datetime.now().isoformat()
-
-    # Output NetCDF structure information
-    logging.info(str(FILENAME))
-    logging.info(list(fileID.variables.keys()))
-
-    # Closing the NetCDF file
-    fileID.close()
-    # clear nc dictionary variable
-    nc = None
 
 
 # PURPOSE: create argument parser

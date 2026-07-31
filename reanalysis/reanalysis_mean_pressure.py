@@ -254,7 +254,7 @@ def reanalysis_mean_pressure(
     # use output fill value
     p_mean.replace_invalid(fill_value)
     # calculate mean pressure by dividing by count
-    p_mean.scale(1.0 / count)
+    p_mean = p_mean.scale(1.0 / count)
     p_mean.update_mask()
     p_mean.time /= np.float64(count)
 

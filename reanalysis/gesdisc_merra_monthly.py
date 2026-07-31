@@ -188,6 +188,8 @@ def gesdisc_merra_monthly(
         'units',
         'valid_range',
     ]
+    # reference attribute
+    REFERENCE = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # for each unique date
     for YEAR in YEARS:
@@ -214,10 +216,21 @@ def gesdisc_merra_monthly(
             # skip years and months without any data
             if not ids:
                 continue
+            # get dataset parameters
+            MOD, DATASET, Y, M, D, AUX = rx1.findall(ids[-1]).pop()
+            # (replace hour variable with monthly)
+            DATASET = update_attribute(DATASET)
+            FILE = f'MERRA2_{MOD}.{DATASET}.{YY}{MM}.SUB.nc'
+            local_file = DIRECTORY.joinpath(FILE)
+            # check if local file exists and is valid
+            if mdlhmc.spatial.validate_netCDF4(local_file, struct):
+                continue
             # dictionary with output data
             dinput = {}
             # dictionary with count for converting totals to means
             count = {}
+            # list of granules used to create the output file
+            lineage = []
             # allocate arrays for each variable and count of valid values
             dinput[TIMENAME] = np.zeros((ntime))
             count[TIMENAME] = np.zeros((ntime), dtype='i')
@@ -247,7 +260,6 @@ def gesdisc_merra_monthly(
                 response.seek(0)
                 # open remote file with netCDF4
                 fileID = netCDF4.Dataset(id, 'r', memory=response.read())
-                MOD, DATASET, Y, M, D, AUX = rx1.findall(id).pop()
                 # extract dimension variables
                 for dim in (LEVELNAME, LATNAME, LONNAME):
                     dinput[dim] = fileID.variables[dim][:].copy()
@@ -295,6 +307,8 @@ def gesdisc_merra_monthly(
                 fill_value = fileID.variables[VARNAME]._FillValue
                 # try to get root attributes
                 attributes['ROOT'] = ncdf_attributes(fileID, root_attributes)
+                # add lineage of input files to root attributes
+                lineage.append(id)
                 # close the input file from remote url
                 fileID.close()
 
@@ -308,16 +322,15 @@ def gesdisc_merra_monthly(
                 dinput[var] = dinput[var] / count[var]
                 dinput[var].set_fill_value(fill_value)
                 dinput[var].data[dinput[var].mask] = fill_value
-
-            # output to netCDF4 file (replace hour variable with monthly)
-            DATASET = update_attribute(DATASET)
-            FILE = f'MERRA2_{MOD}.{DATASET}.{YY}{MM}.SUB.nc'
-            local_file = DIRECTORY.joinpath(FILE)
-            ncdf_model_write(
+            # add lineage of input files to root attributes
+            attributes['ROOT']['lineage'] = lineage
+            attributes['ROOT']['reference'] = REFERENCE
+            # write structured data to netCDF4 file
+            mdlhmc.spatial.to_netCDF4(
+                local_file,
                 dinput,
                 attributes,
                 struct,
-                FILENAME=local_file,
             )
             # keep remote modification time of file and local access time
             os.utime(local_file, (local_file.stat().st_atime, mtime))
@@ -351,69 +364,6 @@ def ncdf_attributes(nc, attributes_list):
 def update_attribute(name):
     output = re.sub(r'inst\d+_3d', r'tavgM_3d', name, re.I)
     return output
-
-
-# PURPOSE: write output model layer fields data to file
-def ncdf_model_write(
-    output,
-    attributes,
-    struct,
-    FILENAME=None,
-):
-    # opening NetCDF4 file for writing
-    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME, 'w', format='NETCDF4')
-
-    # dictionary with NetCDF4 variable objects
-    nc = {}
-    # defining the NetCDF4 dimensions
-    for dim in struct['dimensions']:
-        fileID.createDimension(dim, len(output[dim]))
-        nc[dim] = fileID.createVariable(dim, output[dim].dtype, (dim,))
-        # add data to NetCDF4 dimension variable
-        nc[dim][:] = output[dim].copy()
-        # set netCDF4 attributes for dimensions
-        for att_name, att_val in attributes[dim].items():
-            nc[dim].setncattr(att_name, att_val)
-
-    # defining the NetCDF4 variables
-    for var, dimensions in struct['variables'].items():
-        if hasattr(output[var], 'fill_value'):
-            nc[var] = fileID.createVariable(
-                var,
-                output[var].dtype,
-                dimensions,
-                fill_value=output[var].fill_value,
-                zlib=True,
-            )
-        else:
-            nc[var] = fileID.createVariable(
-                var,
-                output[var].dtype,
-                dimensions,
-            )
-        # add data to NetCDF4 variable
-        nc[var][:] = output[var].copy()
-        # set netCDF4 attributes for variables
-        for att_name, att_val in attributes[var].items():
-            nc[var].setncattr(att_name, att_val)
-
-    # Defining file-level attributes
-    for att_name, att_val in attributes['ROOT'].items():
-        fileID.setncattr(att_name, att_val)
-    # add attribute for date created
-    fileID.date_created = time.strftime('%Y-%m-%d', time.localtime())
-    # add software information
-    fileID.software_reference = mdlhmc.version.project_name
-    fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
-
-    # Output NetCDF structure information
-    logging.info(str(FILENAME))
-    logging.info(list(fileID.variables.keys()))
-
-    # Closing the NetCDF file
-    fileID.close()
 
 
 # PURPOSE: create argument parser

@@ -11,6 +11,7 @@ Follow-On (GRACE-FO) missions
 Documentation is available at https://model-harmonics.readthedocs.io
 """
 
+import model_harmonics.interpolate
 import model_harmonics.spatial
 import model_harmonics.utilities
 import model_harmonics.version

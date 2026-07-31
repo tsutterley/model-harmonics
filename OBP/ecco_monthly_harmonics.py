@@ -67,6 +67,7 @@ PROGRAM DEPENDENCIES:
 UPDATE HISTORY:
     Updated 07/2026: interpolate EGM2008 from full resolution to ECCO grid
         use to_cartesian function to get the XYZ coordinates
+        interpolate ocean depth from GEBCO to the ECCO grid
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
         updated inputs to spatial from_ascii function
@@ -154,9 +155,6 @@ def ecco_monthly_harmonics(
         # grid extent
         LAT_MAX = 78.5
         extent = [0.5, 359.5, -LAT_MAX, LAT_MAX]
-        input_depth_file = ddir.joinpath('depth.nc')
-        # indices to read
-        indices = np.arange(1, 2 * LAT_MAX + 2).astype(np.int64)
     elif MODEL in ('Cube92',):
         # variable name
         VARNAME = 'PHIBOT'
@@ -164,9 +162,6 @@ def ecco_monthly_harmonics(
         dlon, dlat = (0.25, 0.25)
         # grid extent
         extent = [0.125, 359.875, -89.875, 89.875]
-        input_depth_file = ddir.joinpath('DEPTH.2020.1440x720.nc')
-        # indices to read (all)
-        indices = Ellipsis
     elif MODEL in ('V4r3', 'V4r4'):
         # variable name
         VARNAME = 'PHIBOT'
@@ -174,9 +169,6 @@ def ecco_monthly_harmonics(
         dlon, dlat = (0.5, 0.5)
         # grid extent
         extent = [-179.75, 179.75, -89.75, 89.75]
-        input_depth_file = ddir.joinpath('DEPTH.2020.720x360.nc')
-        # indices to read (all)
-        indices = Ellipsis
 
     # attributes for output files
     attributes = {}
@@ -194,12 +186,15 @@ def ecco_monthly_harmonics(
     # create mesh grids of datasets
     gridlon, gridlat = np.meshgrid(glon, glat)
 
-    # read depth to calculate bathymetry
-    depth = ncdf_depth(input_depth_file, indices=indices)
+    # interpolate ocean depth from GEBCO to the ECCO grid
+    depth = mdlhmc.interpolate.ocean_depth(
+        glon, glat, model='2020', resolution='1440x720'
+    )
     # interpolate geoid undulation from EGM2008 to the ECCO grid
     geoid_undulation = geoidtk.interpolate.geoid_height(
         glon, glat, model='EGM2008', tide_system='mean_tide'
     )
+    # approximate bathymetry from geoid height and ocean depth
     bathymetry = geoid_undulation - depth
 
     # Earth Parameters
@@ -225,7 +220,10 @@ def ecco_monthly_harmonics(
 
     # read load love numbers
     LOVE = gravtk.load_love_numbers(
-        LMAX, LOVE_NUMBERS=LOVE_NUMBERS, REFERENCE=REFERENCE, FORMAT='class'
+        LMAX,
+        LOVE_NUMBERS=LOVE_NUMBERS,
+        REFERENCE=REFERENCE,
+        FORMAT='class',
     )
     # add attributes for earth parameters
     attributes['earth_model'] = LOVE.model
@@ -281,7 +279,6 @@ def ecco_monthly_harmonics(
         obp_Ylms.month = gravtk.time.calendar_to_grace(year, month)
         # attributes for input files
         attributes['lineage'] = []
-        attributes['lineage'].append(input_depth_file.name)
         attributes['lineage'].append(input_file.name)
         # add attributes to output harmonics
         obp_Ylms.attributes['ROOT'] = attributes

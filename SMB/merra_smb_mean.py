@@ -292,7 +292,7 @@ def merra_smb_mean(
             count += 1.0
 
     # convert from totals to means
-    merra_mean.scale(1.0 / count)
+    merra_mean = merra_mean.scale(1.0 / count)
     merra_mean.update_mask()
     merra_mean.time /= count
 

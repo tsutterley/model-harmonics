@@ -101,7 +101,7 @@ def cds_reanalysis_retrieve(
     # for each year
     for y in YEAR:
         # months to retrieve
-        months = [f'{m + 1:02d}' for m in range(12)]
+        months = [f'{m + 1:02d}' for m in range(6)]
         # monthly dates to retrieve
         d = '/'.join([f'{y:4d}{m}{1:02d}' for m in months])
 

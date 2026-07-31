@@ -11,6 +11,7 @@ API Reference
     ./gen_point_pressure.rst
     ./gen_pressure_stokes.rst
     ./greens_kernel.rst
+    ./interpolate.rst
     ./spatial.rst
     ./utilities.rst
 

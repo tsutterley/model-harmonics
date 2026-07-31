@@ -159,6 +159,8 @@ def ucar_gdex_download(
             )
             varname = dinput.attributes['data']['cfVarName']
             dinput.attributes[varname] = dinput.attributes['data']
+            # add lineage of input files to root attributes
+            dinput.attributes['ROOT']['lineage'] = member.name
             # convert time to strings
             (datetime,) = gravtk.time.to_string(
                 dinput.time,
@@ -167,17 +169,19 @@ def ucar_gdex_download(
             )
             # output filename
             filename = f'{VARIABLE}.gdas.{datetime}.nc'
-            output = DIRECTORY.joinpath(filename)
-            logging.info(f'\t{output}')
+            output_file = DIRECTORY.joinpath(filename)
+            logging.info(f'\t{output_file}')
             # write mean to netCDF4 file
             dinput.to_netCDF4(
-                output,
+                output_file,
                 varname=varname,
                 attributes=dinput.attributes,
                 clobber=True,
             )
             # keep tar modification time of file
-            os.utime(output, (output.stat().st_atime, fileinfo['mtime']))
+            os.utime(
+                output_file, (output_file.stat().st_atime, fileinfo['mtime'])
+            )
 
     # NCEP-CFSv2 (v2)
     dataset_id = 'd094002'
@@ -236,6 +240,8 @@ def ucar_gdex_download(
         )
         varname = dinput.attributes['data']['cfVarName']
         dinput.attributes[varname] = dinput.attributes['data']
+        # add lineage of input files to root attributes
+        dinput.attributes['ROOT']['lineage'] = member.name
         # convert time to strings
         (datetime,) = gravtk.time.to_string(
             dinput.time,
@@ -244,17 +250,17 @@ def ucar_gdex_download(
         )
         # output filename
         filename = f'{PRODUCT}.gdas.{datetime}.nc'
-        output = DIRECTORY.joinpath(filename)
-        logging.info(f'\t{output}')
+        output_file = DIRECTORY.joinpath(filename)
+        logging.info(f'\t{output_file}')
         # write mean to netCDF4 file
         dinput.to_netCDF4(
-            output,
+            output_file,
             varname=varname,
             attributes=dinput.attributes,
             clobber=True,
         )
         # keep tar modification time of file
-        os.utime(output, (output.stat().st_atime, fileinfo['mtime']))
+        os.utime(output_file, (output_file.stat().st_atime, fileinfo['mtime']))
 
     # if retrieving the model invariant parameters
     if INVARIANT:
@@ -276,6 +282,7 @@ def ucar_gdex_download(
         for colname, collastmod in zip(cols, mods):
             # download file from UCAR GDEX server
             logging.debug(colname)
+            fileparts = mdlhmc.utilities.url_split(colname)
             # create and submit request for file
             buffer = mdlhmc.utilities.from_http(
                 colname,
@@ -293,20 +300,22 @@ def ucar_gdex_download(
             # copy attributes from input file
             mean.attributes.update(dinput.attributes)
             mean.attributes[varname] = dinput.attributes['data']
+            # add lineage of input files to root attributes
+            mean.attributes['ROOT']['lineage'] = fileparts[-1]
             # output filename
             (PRODUCT,) = re.findall(pattern, colname, re.I)
             filename = f'{PRODUCT.lower()}.gdas.nc'
-            output = DIRECTORY.joinpath(filename)
-            logging.info(f'\t{output}')
+            output_file = DIRECTORY.joinpath(filename)
+            logging.info(f'\t{output_file}')
             # write mean to netCDF4 file
             mean.to_netCDF4(
-                output,
+                output_file,
                 varname=varname,
                 attributes=mean.attributes,
                 clobber=True,
             )
             # keep remote modification time of file
-            os.utime(output, (output.stat().st_atime, collastmod))
+            os.utime(output_file, (output_file.stat().st_atime, collastmod))
 
     # close log file and set permissions level to MODE
     if LOG:

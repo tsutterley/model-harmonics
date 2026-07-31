@@ -13,6 +13,7 @@ UPDATE HISTORY:
         add geocentric_radius function to calculate the radius at coordinates
         add grib class for reading GRIB formatted data from reanalysis products
         updated scale factors for case where reference latitude is at the pole
+        add writer and validation functions for structured netCDF4 files
     Updated 09/2025: use importlib to attempt to import dependencies
     Updated 06/2024: added function for calculating latitude and longitude
     Updated 04/2024: changed polar stereographic area function to scale_factors
@@ -28,20 +29,140 @@ UPDATE HISTORY:
 
 import io
 import copy
+import time
 import uuid
 import logging
 import pathlib
 import numpy as np
 import gravity_toolkit as gravtk
 from model_harmonics.datum import datum
+from model_harmonics.version import project_name, full_version
 
 # attempt imports
 osgeo = gravtk.utilities.import_dependency('osgeo')
 osgeo.gdal = gravtk.utilities.import_dependency('osgeo.gdal')
 osgeo.osr = gravtk.utilities.import_dependency('osgeo.osr')
 osgeo.gdalconst = gravtk.utilities.import_dependency('osgeo.gdalconst')
+netCDF4 = gravtk.utilities.import_dependency('netCDF4')
 pygrib = gravtk.utilities.import_dependency('pygrib')
 pyproj = gravtk.utilities.import_dependency('pyproj')
+
+
+# PURPOSE: validate an existing netCDF4 file
+def validate_netCDF4(filename: str | pathlib.Path, struct: dict = {}) -> bool:
+    """
+    Validate existing structured netCDF4 files
+
+    Parameters
+    ----------
+    filename: str or pathlib.Path
+        full path of input netCDF4 file
+    struct: dict
+        dictionary containing dimensions and variables
+    """
+    try:
+        # check if the file opens without corruption errors
+        with netCDF4.Dataset(filename, 'r') as fileID:
+            # validate netCDF4 dimensions
+            for dim in struct['dimensions']:
+                if dim not in fileID.dimensions:
+                    logging.debug(f'Missing dimension: {dim}')
+                    return False
+
+            # validate netCDF4 variables
+            for var, dimensions in struct['variables'].items():
+                if var not in fileID.variables:
+                    logging.debug(f'Missing variable: {var}')
+                    return False
+        # netCDF4 file appears to be valid
+        return True
+    except FileNotFoundError as exc:
+        msg = f'File {str(filename)} not in file system: {exc}'
+        logging.debug(msg)
+        return False
+    except OSError as exc:
+        msg = f'File {str(filename)} is corrupt or invalid: {exc}'
+        logging.debug(msg)
+        return False
+
+
+# PURPOSE: write structured data fields to a netCDF4 file
+def to_netCDF4(
+    filename: str | pathlib.Path,
+    output: dict,
+    attributes: dict,
+    struct: dict,
+    **kwargs,
+):
+    """
+    Write structured data fields to a netCDF4 file
+
+    Parameters
+    ----------
+    filename: str or pathlib.Path
+        full path of output netCDF4 file
+    output: dict
+        dictionary containing output data arrays
+    attributes: dict
+        dictionary containing file-level and variable attributes
+    struct: dict
+        dictionary containing dimensions and variables
+    """
+    # opening netCDF4 file for writing
+    filename = pathlib.Path(filename).expanduser().absolute()
+    fileID = netCDF4.Dataset(filename, 'w', format='NETCDF4')
+    # dictionary with netCDF4 variable objects
+    nc = {}
+
+    # defining the netCDF4 dimensions
+    for dim in struct['dimensions']:
+        fileID.createDimension(dim, len(output[dim]))
+        nc[dim] = fileID.createVariable(dim, output[dim].dtype, (dim,))
+        # add data to netCDF4 dimension variable
+        nc[dim][:] = output[dim].copy()
+        # set netCDF4 attributes for dimensions
+        for att_name, att_val in attributes[dim].items():
+            nc[dim].setncattr(att_name, att_val)
+
+    # defining the netCDF4 variables
+    for var, dimensions in struct['variables'].items():
+        if hasattr(output[var], 'fill_value'):
+            nc[var] = fileID.createVariable(
+                var,
+                output[var].dtype,
+                dimensions,
+                fill_value=output[var].fill_value,
+                zlib=True,
+            )
+        elif output[var].shape:
+            nc[var] = fileID.createVariable(
+                var,
+                output[var].dtype,
+                dimensions,
+            )
+        else:
+            nc[var] = fileID.createVariable(var, output[var].dtype, ())
+        # add data to netCDF4 variable
+        nc[var][:] = output[var].copy()
+        # set netCDF4 attributes for variables
+        for att_name, att_val in attributes[var].items():
+            nc[var].setncattr(att_name, att_val)
+
+    # Defining file-level attributes
+    for att_name, att_val in attributes['ROOT'].items():
+        fileID.setncattr(att_name, att_val)
+    # add attribute for date created
+    fileID.date_created = time.strftime('%Y-%m-%d', time.localtime())
+    # add software information
+    fileID.software_reference = project_name
+    fileID.software_version = full_version
+
+    # Output netCDF4 structure information
+    logging.info(str(filename))
+    logging.info(list(fileID.variables.keys()))
+
+    # Closing the netCDF4 file
+    fileID.close()
 
 
 # PURPOSE: additional routines for the spatial module

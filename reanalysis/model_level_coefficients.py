@@ -54,8 +54,7 @@ UPDATE HISTORY:
 
 from __future__ import print_function
 
-import time
-import netCDF4
+import sys
 import pathlib
 import argparse
 import numpy as np
@@ -128,6 +127,9 @@ def model_level_coefficients(base_dir, MODEL, MODE=0o775):
 
     # dictionary defining file-level and variable attributes
     attributes = dict(ROOT={})
+    # reference attribute
+    REFERENCE = f'Output from {pathlib.Path(sys.argv[0]).name}'
+    attributes['ROOT']['reference'] = REFERENCE
     # Defining attributes for model levels
     attributes[LEVELNAME] = dict(
         long_name='Model Level Number',
@@ -154,56 +156,11 @@ def model_level_coefficients(base_dir, MODEL, MODE=0o775):
         units='1',
     )
 
-    # output coefficients to netCDF4 file
+    # write structured data to netCDF4 file
     output_file = ddir.joinpath(filename)
-    ncdf_model_levels(output, attributes, struct, FILENAME=output_file)
+    mdlhmc.spatial.to_netCDF4(output_file, output, attributes, struct)
     # change the permissions level to MODE
     output_file.chmod(mode=MODE)
-
-
-# PURPOSE: write output model levels to file
-def ncdf_model_levels(output, attributes, struct, FILENAME=None):
-    # opening NetCDF file for writing
-    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME, 'w', format='NETCDF4')
-    # dictionary with NetCDF4 variable objects
-    nc = {}
-    # defining the NetCDF4 dimensions
-    for dim in struct['dimensions']:
-        fileID.createDimension(dim, len(output[dim]))
-        nc[dim] = fileID.createVariable(dim, output[dim].dtype, (dim,))
-        # add data to NetCDF4 dimension variable
-        nc[dim][:] = output[dim].copy()
-        # set netCDF4 attributes for dimensions
-        for att_name, att_val in attributes[dim].items():
-            nc[dim].setncattr(att_name, att_val)
-
-    # defining the NetCDF4 variables
-    for var, dimensions in struct['variables'].items():
-        nc[var] = fileID.createVariable(
-            var,
-            output[var].dtype,
-            dimensions,
-        )
-        # add data to NetCDF4 variable
-        nc[var][:] = output[var].copy()
-        # set netCDF4 attributes for variables
-        for att_name, att_val in attributes[var].items():
-            nc[var].setncattr(att_name, att_val)
-
-    # Defining file-level attributes
-    for att_name, att_val in attributes['ROOT'].items():
-        fileID.setncattr(att_name, att_val)
-
-    # add software information
-    fileID.software_reference = mdlhmc.version.project_name
-    fileID.software_version = mdlhmc.version.full_version
-    # date created
-    fileID.date_created = time.strftime('%Y-%m-%d', time.localtime())
-    # close the netCDF4 file
-    fileID.close()
-    # clear nc dictionary variable
-    nc = None
 
 
 # PURPOSE: create argument parser

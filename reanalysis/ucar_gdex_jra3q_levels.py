@@ -14,6 +14,11 @@ COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
     --variable X, -V X: Variable to download
         * hgt-hyb: geopotential height
+        * spfh-hyb: specific humidity
+        * tmp-hyb: temperature
+        * ugrd-hyb: U-component of wind
+        * vgrd-hyb: V-component of wind
+        * vvel-hyb: vertical velocity (pressure)
     -Y X, --year X: Years to download
     -I, --invariant: Retrieve the model invariant parameters
     -t X, --timeout X: Timeout in seconds for blocking operations
@@ -36,6 +41,7 @@ import io
 import re
 import copy
 import time
+import uuid
 import logging
 import netCDF4
 import pathlib
@@ -163,6 +169,8 @@ def ucar_gdex_download(
         'latent_heat_of_vaporization'
         'solar_constant',
     ]
+    # reference attribute
+    REFERENCE = f'Output from {pathlib.Path(sys.argv[0]).name}'
 
     # find data directories for year
     dirs, _ = mdlhmc.utilities.ucar_list(
@@ -181,13 +189,20 @@ def ucar_gdex_download(
     for d in dirs:
         (year,) = re.findall(rf'(\d+){product_id.zfill(2)}', d)
         # for each month
-        for m in range(12):
+        for mm1 in range(12):
+            # output filename
+            datetime = f'{year}{str(mm1 + 1).zfill(2)}'
+            filename = f'jra3q.{PRODUCT}.{VARNAME}.{datetime}.nc'
+            output_file = DIRECTORY.joinpath(filename)
+            # check if output netCDF4 file exists and is valid
+            if mdlhmc.spatial.validate_netCDF4(output_file):
+                continue
             # find data files for year and month
             dirparts = mdlhmc.utilities.url_split(d)
             cols, mods = mdlhmc.utilities.ucar_list(
                 [HOST, *dirparts, kwargs],
                 timeout=TIMEOUT,
-                pattern=f'{year}{str(m + 1).zfill(2)}',
+                pattern=datetime,
                 sort=True,
             )
             # skip to next month if no files found
@@ -197,6 +212,8 @@ def ucar_gdex_download(
             dinput = {}
             # dictionary with count for converting totals to means
             count = {}
+            # list of granules used to create the output file
+            lineage = []
             # allocate arrays for each variable and count of valid values
             dinput[TIMENAME] = np.zeros((ntime))
             count[TIMENAME] = np.zeros((ntime), dtype='i')
@@ -219,7 +236,9 @@ def ucar_gdex_download(
                 )
                 response.seek(0)
                 # open remote file with netCDF4
-                fileID = netCDF4.Dataset(id, 'r', memory=response.read())
+                fileID = netCDF4.Dataset(
+                    uuid.uuid4().hex, mode='r', memory=response.read()
+                )
                 # extract dimension variables
                 for dim in (LEVELNAME, HALFNAME, LATNAME, LONNAME):
                     dinput[dim] = fileID.variables[dim][:].copy()
@@ -236,7 +255,8 @@ def ucar_gdex_download(
                     )
                 # extract level variables
                 for var in (ANAME, BNAME, AINTERFACE, BINTERFACE):
-                    dinput[var] = fileID.variables[var][:].copy()
+                    # flip levels so that top-of-atmosphere == layer 1
+                    dinput[var] = np.flip(fileID.variables[var][:])
                     # extract variable attributes
                     attributes[var] = ncdf_attributes(
                         fileID[var], variable_attributes
@@ -252,8 +272,8 @@ def ucar_gdex_download(
                 )
                 # variables of interest for the requested product
                 for var in (VARNAME,):
-                    # geopotential height
-                    tmp = fileID.variables[var][:]
+                    # flip levels so that top-of-atmosphere == layer 1
+                    tmp = np.flip(fileID.variables[var][:], axis=1)
                     # replace invalid values with 0.0
                     valid = tmp != fileID[var]._FillValue
                     tmp[~valid] = 0.0
@@ -268,6 +288,7 @@ def ucar_gdex_download(
                 fill_value = fileID[VARNAME]._FillValue
                 # try to get root attributes
                 attributes['ROOT'] = ncdf_attributes(fileID, root_attributes)
+                lineage.append(fileparts[-1])
                 # close the input file from remote url
                 fileID.close()
 
@@ -282,26 +303,15 @@ def ucar_gdex_download(
                 dinput[var].set_fill_value(fill_value)
                 dinput[var].data[dinput[var].mask] = fill_value
 
-            # convert time to strings
-            (datetime,) = gravtk.time.to_string(
-                dinput[TIMENAME],
-                attributes[TIMENAME]['units'],
-                strftime='%Y%m',
-            )
-
-            # output filename
-            filename = f'jra3q.{PRODUCT}.{VARNAME}.{datetime}.nc'
-            output = DIRECTORY.joinpath(filename)
-            ncdf_model_write(
-                dinput,
-                attributes,
-                struct,
-                FILENAME=output,
-            )
+            # add lineage of input files to root attributes
+            attributes['ROOT']['lineage'] = lineage
+            attributes['ROOT']['reference'] = REFERENCE
+            # write structured data to netCDF4 file
+            mdlhmc.spatial.to_netCDF4(output_file, dinput, attributes, struct)
             # keep remote modification time of file and local access time
-            os.utime(output, (output.stat().st_atime, collastmod))
+            os.utime(output_file, (output_file.stat().st_atime, collastmod))
             # set permissions mode to MODE
-            output.chmod(mode=MODE)
+            output_file.chmod(mode=MODE)
 
     # close log file and set permissions level to MODE
     if LOG:
@@ -326,69 +336,6 @@ def ncdf_attributes(nc, attributes_list):
     return attributes
 
 
-# PURPOSE: write output model layer fields data to file
-def ncdf_model_write(
-    output,
-    attributes,
-    struct,
-    FILENAME=None,
-):
-    # opening NetCDF4 file for writing
-    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME, 'w', format='NETCDF4')
-
-    # dictionary with NetCDF4 variable objects
-    nc = {}
-    # defining the NetCDF4 dimensions
-    for dim in struct['dimensions']:
-        fileID.createDimension(dim, len(output[dim]))
-        nc[dim] = fileID.createVariable(dim, output[dim].dtype, (dim,))
-        # add data to NetCDF4 dimension variable
-        nc[dim][:] = output[dim].copy()
-        # set netCDF4 attributes for dimensions
-        for att_name, att_val in attributes[dim].items():
-            nc[dim].setncattr(att_name, att_val)
-
-    # defining the NetCDF4 variables
-    for var, dimensions in struct['variables'].items():
-        if hasattr(output[var], 'fill_value'):
-            nc[var] = fileID.createVariable(
-                var,
-                output[var].dtype,
-                dimensions,
-                fill_value=output[var].fill_value,
-                zlib=True,
-            )
-        else:
-            nc[var] = fileID.createVariable(
-                var,
-                output[var].dtype,
-                dimensions,
-            )
-        # add data to NetCDF4 variable
-        nc[var][:] = output[var].copy()
-        # set netCDF4 attributes for variables
-        for att_name, att_val in attributes[var].items():
-            nc[var].setncattr(att_name, att_val)
-
-    # Defining file-level attributes
-    for att_name, att_val in attributes['ROOT'].items():
-        fileID.setncattr(att_name, att_val)
-    # add attribute for date created
-    fileID.date_created = time.strftime('%Y-%m-%d', time.localtime())
-    # add software information
-    fileID.software_reference = mdlhmc.version.project_name
-    fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
-
-    # Output NetCDF structure information
-    logging.info(str(FILENAME))
-    logging.info(list(fileID.variables.keys()))
-
-    # Closing the NetCDF file
-    fileID.close()
-
-
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
@@ -406,11 +353,21 @@ def arguments():
         help='Working data directory',
     )
     # JRA-3Q model-level analysis variable
+    choices = [
+        'hgt-hyb',
+        'spfh-hyb',
+        'tmp-hyb',
+        'ugrd-hyb',
+        'vgrd-hyb',
+        'vvel-hyb',
+    ]
     parser.add_argument(
         '--variable',
         '-v',
         type=str,
-        default='hgt-hyb',
+        nargs='+',
+        choices=choices,
+        default=['spfh-hyb', 'tmp-hyb'],
         help='JRA-3Q model-level analysis variable',
     )
     # model years to download
@@ -457,14 +414,15 @@ def main():
     args, _ = parser.parse_known_args()
 
     # download JRA-3Q products
-    ucar_gdex_download(
-        args.directory,
-        args.variable,
-        YEARS=args.year,
-        TIMEOUT=args.timeout,
-        LOG=args.log,
-        MODE=args.mode,
-    )
+    for VARIABLE in args.variable:
+        ucar_gdex_download(
+            args.directory,
+            VARIABLE,
+            YEARS=args.year,
+            TIMEOUT=args.timeout,
+            LOG=args.log,
+            MODE=args.mode,
+        )
 
 
 # run main program

@@ -283,7 +283,7 @@ def ecco_mean_realtime(
                 count += 1.0
 
     # convert from totals to means
-    obp_mean.scale(1.0 / count)
+    obp_mean = obp_mean.scale(1.0 / count)
     obp_mean.update_mask()
     obp_mean.time /= count
 

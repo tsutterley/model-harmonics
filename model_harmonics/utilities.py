@@ -187,8 +187,8 @@ def gesdisc_list(
         # Create and submit request.
         request = urllib2.Request(posixpath.join(*HOST))
         response = urllib2.urlopen(request, timeout=timeout)
-    except (urllib2.HTTPError, urllib2.URLError):
-        raise Exception('List error from {0}'.format(posixpath.join(*HOST)))
+    except (urllib2.HTTPError, urllib2.URLError) as exc:
+        raise Exception(f'List error from {posixpath.join(*HOST)}') from exc
     else:
         # read and parse request for files (column names and modified times)
         tree = lxml.etree.parse(response, parser)
@@ -261,8 +261,8 @@ def ucar_list(
         # Create and submit request.
         request = urllib2.Request(posixpath.join(*HOST))
         response = urllib2.urlopen(request, timeout=timeout, context=context)
-    except (urllib2.HTTPError, urllib2.URLError):
-        raise Exception('List error from {0}'.format(posixpath.join(*HOST)))
+    except (urllib2.HTTPError, urllib2.URLError) as exc:
+        raise Exception(f'List error from {posixpath.join(*HOST)}') from exc
     else:
         # read and parse request for files (column names and modified times)
         tree = lxml.etree.parse(response, parser)

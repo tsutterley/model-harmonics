@@ -153,6 +153,8 @@ def reanalysis_pressure_harmonics(
     ddir = base_dir.joinpath(MODEL)
 
     # set model specific parameters
+    # use standard weights for equirectangular grids
+    WEIGHT = None
     if MODEL == 'ERA-Interim':
         # mean file from calculate_mean_pressure.py
         input_mean_file = 'ERA-Interim-Mean-SP-{0:4d}-{1:4d}.nc'
@@ -168,8 +170,6 @@ def reanalysis_pressure_harmonics(
         LATNAME = 'latitude'
         TIMENAME = 'time'
         ELLIPSOID = 'WGS84'
-        # use standard weights for equirectangular grids
-        WEIGHT = None
         # land-sea mask variable name and value of oceanic points
         MASKNAME = 'lsm'
         OCEAN = 0
@@ -189,8 +189,6 @@ def reanalysis_pressure_harmonics(
         LATNAME = 'latitude'
         TIMENAME = 'valid_time'
         ELLIPSOID = 'WGS84'
-        # use standard weights for equirectangular grids
-        WEIGHT = None
         # land-sea mask variable name and value of oceanic points
         MASKNAME = 'lsm'
         OCEAN = 0
@@ -212,8 +210,6 @@ def reanalysis_pressure_harmonics(
         LATNAME = 'lat'
         TIMENAME = 'time'
         ELLIPSOID = 'WGS84'
-        # use standard weights for equirectangular grids
-        WEIGHT = None
         # land-sea mask variable name and value of oceanic points
         MASKNAME = 'FROCEAN'
         OCEAN = 1
@@ -233,8 +229,6 @@ def reanalysis_pressure_harmonics(
         LATNAME = 'lat'
         TIMENAME = 'time'
         ELLIPSOID = 'WGS84'
-        # use standard weights for equirectangular grids
-        WEIGHT = None
         # land-sea mask variable name and value of oceanic points
         MASKNAME = 'land'
         OCEAN = 0
@@ -255,8 +249,6 @@ def reanalysis_pressure_harmonics(
         LATNAME = 'lat'
         TIMENAME = 'time'
         ELLIPSOID = 'WGS84'
-        # use standard weights for equirectangular grids
-        WEIGHT = None
         # land-sea mask variable name and value of oceanic points
         MASKNAME = 'lsm'
         OCEAN = 0
@@ -277,8 +269,6 @@ def reanalysis_pressure_harmonics(
         LATNAME = 'lat'
         TIMENAME = 'time'
         ELLIPSOID = 'WGS84'
-        # use standard weights for equirectangular grids
-        WEIGHT = None
         # land-sea mask variable name and value of oceanic points
         MASKNAME = 'lsm'
         OCEAN = 0
@@ -302,6 +292,7 @@ def reanalysis_pressure_harmonics(
         LATNAME = 'lat'
         TIMENAME = 'time'
         ELLIPSOID = 'WGS84'
+        # weight variable name
         WEIGHT = 'weight'
         # land-sea mask variable name and value of oceanic points
         MASKNAME = 'land-sfc-cn-gauss'
@@ -353,7 +344,10 @@ def reanalysis_pressure_harmonics(
     )
     # read load love numbers
     LOVE = gravtk.load_love_numbers(
-        LMAX, LOVE_NUMBERS=LOVE_NUMBERS, REFERENCE=REFERENCE, FORMAT='class'
+        LMAX,
+        LOVE_NUMBERS=LOVE_NUMBERS,
+        REFERENCE=REFERENCE,
+        FORMAT='class',
     )
     # add attributes for earth parameters
     attributes['earth_model'] = LOVE.model

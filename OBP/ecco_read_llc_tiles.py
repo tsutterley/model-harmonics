@@ -151,6 +151,8 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
     attributes = dict(ROOT={})
     TITLE = f'Ocean_Bottom_Pressure_Anomalies_from_ECCO_{MODEL}_Model'
     attributes['ROOT']['title'] = TITLE
+    REFERENCE = f'Output from {pathlib.Path(sys.argv[0]).name}'
+    attributes['ROOT']['reference'] = REFERENCE
     # dimension attributes
     attributes['i'] = {}
     attributes['i']['long_name'] = 'x-dimension of the t grid'
@@ -244,17 +246,10 @@ def ecco_read_llc_tiles(ddir, MODEL, YEARS, RANGE=None, MODE=0o775):
             args = (obp['time'], ratio, total_area)
             fid.write('{0:10.4f} {1:21.14e} {2:21.14e}\n'.format(*args))
 
-            # output to file
+            # write structured data to netCDF4 file
             f2 = f'ECCO_{MODEL}_AveRmvd_OBP_{YY:4.0f}_{MM:02.0f}.nc'
             output_file = d2.joinpath(f2)
-            # netcdf (.nc)
-            ncdf_tile_write(
-                obp,
-                attributes,
-                fill_value,
-                struct,
-                FILENAME=output_file,
-            )
+            mdlhmc.spatial.to_netCDF4(output_file, obp, attributes, struct)
             # change the permissions mode of the output file to MODE
             output_file.chmod(mode=MODE)
 
@@ -284,69 +279,6 @@ def ncdf_mean(mean_file, VARNAME=None):
     with netCDF4.Dataset(mean_file, mode='r') as fileID:
         obp_mean = np.copy(fileID.variables[VARNAME][:].copy())
     return obp_mean
-
-
-# PURPOSE: write tiled data to a netCDF4 file
-def ncdf_tile_write(
-    output,
-    attributes,
-    struct,
-    FILENAME=None,
-):
-    # opening NetCDF4 file for writing
-    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME, 'w', format='NETCDF4')
-
-    # dictionary with NetCDF4 variable objects
-    nc = {}
-    # defining the NetCDF4 dimensions
-    for dim in struct['dimensions']:
-        fileID.createDimension(dim, len(output[dim]))
-        nc[dim] = fileID.createVariable(dim, output[dim].dtype, (dim,))
-        # add data to NetCDF4 dimension variable
-        nc[dim][:] = output[dim].copy()
-        # set netCDF4 attributes for dimensions
-        for att_name, att_val in attributes[dim].items():
-            nc[dim].setncattr(att_name, att_val)
-
-    # defining the NetCDF4 variables
-    for var, dimensions in struct['variables'].items():
-        if hasattr(output[var], 'fill_value'):
-            nc[var] = fileID.createVariable(
-                var,
-                output[var].dtype,
-                dimensions,
-                fill_value=output[var].fill_value,
-                zlib=True,
-            )
-        else:
-            nc[var] = fileID.createVariable(
-                var,
-                output[var].dtype,
-                dimensions,
-            )
-        # add data to NetCDF4 variable
-        nc[var][:] = output[var].copy()
-        # set netCDF4 attributes for variables
-        for att_name, att_val in attributes[var].items():
-            nc[var].setncattr(att_name, att_val)
-
-    # Defining file-level attributes
-    for att_name, att_val in attributes['ROOT'].items():
-        fileID.setncattr(att_name, att_val)
-    # add attribute for date created
-    fileID.date_created = datetime.datetime.now().isoformat()
-    # add software information
-    fileID.software_reference = mdlhmc.version.project_name
-    fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
-
-    # Output NetCDF structure information
-    logging.info(str(FILENAME))
-    logging.info(list(fileID.variables.keys()))
-
-    # Closing the NetCDF file
-    fileID.close()
 
 
 # PURPOSE: create argument parser
