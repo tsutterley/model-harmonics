@@ -11,6 +11,7 @@ API Reference
     ./gen_point_pressure.rst
     ./gen_pressure_stokes.rst
     ./greens_kernel.rst
+    ./interpolate.rst
     ./spatial.rst
     ./utilities.rst
 
@@ -47,10 +48,10 @@ API Reference
     ./OBP/ecco_read_realtime.rst
     ./OBP/ecco_read_llc_tiles.rst
     ./OBP/ecco_read_version4.rst
-    ./OBP/ecco_depth_version4.rst
     ./OBP/ecco_geoid_llc_tiles.rst
     ./OBP/ecco_llc_tile_harmonics.rst
     ./OBP/ecco_monthly_harmonics.rst
+    ./OBP/gebco_ocean_depth.rst
 
 .. toctree::
     :maxdepth: 1
@@ -58,12 +59,13 @@ API Reference
 
     ./reanalysis/cds_reanalysis_retrieve.rst
     ./reanalysis/ecmwf_reanalysis_retrieve.rst
-    ./reanalysis/gesdisc_merra_download.rst
     ./reanalysis/gesdisc_merra_monthly.rst
     ./reanalysis/gesdisc_merra_subset.rst
     ./reanalysis/noaa_cdc_ncep_ftp.rst
-    ./reanalysis/ucar_rda_cfsr_surface.rst
-    ./reanalysis/ucar_rda_jra55_surface.rst
+    ./reanalysis/ucar_gdex_jra3q_levels.rst
+    ./reanalysis/ucar_gdex_jra3q_surface.rst
+    ./reanalysis/ucar_gdex_jra55_surface.rst
+    ./reanalysis/ucar_gdex_cfsr_surface.rst
     ./reanalysis/model_level_coefficients.rst
     ./reanalysis/reanalysis_atmospheric_harmonics.rst
     ./reanalysis/reanalysis_geopotential_heights.rst

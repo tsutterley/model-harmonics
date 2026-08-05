@@ -13,14 +13,71 @@ ECMWF
 `ERA-Interim <https://www.ecmwf.int/en/forecasts/datasets/reanalysis-datasets/era-interim>`_ is computed by ECMWF and is available starting from 1979.
 `ERA5 <https://www.ecmwf.int/en/forecasts/datasets/reanalysis-datasets/era5>`_  is the latest reanalysis computed by ECMWF offering much higher spatial and temporal resolution and is available starting from 1950.
 Differences between ERA-Interim and ERA5 are outlined `here <https://confluence.ecmwf.int/pages/viewpage.action?pageId=74764925>`_.
-ERA-Interim outputs are downloaded using the :py:mod:`ecmwf_reanalysis_retrieve.py` program following the `ecmwf-api-client <https://confluence.ecmwf.int/display/WEBAPI/Access+ECMWF+Public+Datasets>`_ documentation.
 ERA5 outputs are downloaded using the :py:mod:`cds_reanalysis_retrieve.py` program following the `cdsapi <https://cds.climate.copernicus.eu/api-how-to>`_ documentation.
+:py:mod:`ecmwf_reanalysis_retrieve.py` uses the newer `ecmwf-datastores-client <https://ecmwf.github.io/ecmwf-datastores-client>`_ that may replace the CDS api in the future.
+
+Dimensions
+^^^^^^^^^^
+
+- ``latitude``: latitude
+- ``longitude``: longitude
+- ``lvl``: model level
+- ``valid_time``: time
+
+Variables
+^^^^^^^^^
+
+- ``z``: geopotential height
+- ``msl``: sea level pressure
+- ``q``: specific humidity
+- ``sp``: surface pressure
+- ``t``: temperature
+
+
+JRA
+----
+
+`JRA-55 <http://jra.kishou.go.jp/JRA-55/index_en.html>`_ is computed by the Japan Meteorological Agency (JMA) and is available starting from 1958.
+`JRA-3Q <https://www.data.jma.go.jp/jra/html/JRA-3Q/index_en.html>`_ is the successor to JRA-55 and covers three quarters of a century :cite:p:`Kosaka:2024ib`.
+JRA-55 and JRA-3Q outputs are downloaded using the :py:mod:`ucar_gdex_jra55_surface.py` and :py:mod:`ucar_gdex_jra3q_surface.py` programs.
+
+Dimensions
+^^^^^^^^^^
+
+- ``lat``: latitude
+- ``lon``: longitude
+- ``time``: time
+
+Variables
+^^^^^^^^^
+
+- ``z`` (JRA-55) / ``gp-sfc-cn-gauss`` (JRA-3Q): geopotential height
+- ``sp`` (JRA-55) / ``pres-sfc-an-gauss`` (JRA-3Q): surface pressure
+
 
 MERRA-2
 --------
 
 NASA's Modern-Era Retrospective analysis for Research and Applications (`MERRA-2 <https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/>`_) is computed by the Global Modeling and Assimilation Office (GMAO) and is available starting from 1980.
-MERRA-2 outputs are downloaded using the :py:mod:`gesdisc_merra_download.py` or :py:mod:`gesdisc_merra_monthly.py` programs.
+MERRA-2 outputs are downloaded using the :py:mod:`gesdisc_merra_subset.py` (for 2-dimensional) or :py:mod:`gesdisc_merra_monthly.py` (for 3-dimensional) programs.
+
+Dimensions
+^^^^^^^^^^
+
+- ``lat``: latitude
+- ``lon``: longitude
+- ``lev``: model level
+- ``time``: time
+
+Variables
+^^^^^^^^^
+
+- ``PHIS``: geopotential height
+- ``PS``: surface pressure
+- ``QV``: specific humidity
+- ``SLP``: sea level pressure
+- ``T``: temperature
+
 
 NCEP
 ----
@@ -28,13 +85,21 @@ NCEP
 `NCEP-DOE-2 <https://www.esrl.noaa.gov/psd/data/gridded/data.ncep.reanalysis2.html>`_ is computed by the National Centers for Environmental Prediction (NCEP) and is available starting from 1979.
 NCEP-DOE-2 outputs are downloaded using the :py:mod:`noaa_cdc_ncep_ftp.py` program.
 `NCEP-CFSR <https://cfs.ncep.noaa.gov/>`_ is computed by the National Centers for Environmental Prediction (NCEP) and is available starting from 1979 with Version 2 available from 2011 onward.
-NCEP-CFSR outputs are downloaded using the :py:mod:`ucar_rda_cfsr_surface.py` program.
+Both versions of NCEP-CFSR outputs are downloaded using the :py:mod:`ucar_gdex_cfsr_surface.py` program.
 
-JRA
-----
+Dimensions
+^^^^^^^^^^
 
-`JRA-55 <http://jra.kishou.go.jp/JRA-55/index_en.html>`_ is computed by the Japan Meteorological Agency (JMA) and is available starting from 1958.
-JRA-55 outputs are downloaded using the :py:mod:`ucar_rda_jra55_surface.py` program.
+- ``lat``: latitude
+- ``lon``: longitude
+- ``time``: time
+
+Variables
+^^^^^^^^^
+
+- ``hgt`` (NCEP-DOE-2) / ``orog`` (NCEP-CFSR): geopotential height
+- ``pres`` (NCEP-DOE-2) / ``ave_sp`` (NCEP-CFSR): surface pressure
+
 
 Background
 ==========

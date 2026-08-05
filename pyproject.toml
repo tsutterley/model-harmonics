@@ -27,7 +27,7 @@ readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = "~=3.6"
 dependencies = [
     "cdsapi",
-    "ecmwf-api-client",
+    "ecmwf-datastores-client",
     "fiona",
     "geoid-toolkit",
     "gravity-toolkit",
@@ -62,6 +62,7 @@ Issues = "https://github.com/tsutterley/model-harmonics/issues"
 [project.optional-dependencies]
 doc = ["docutils", "graphviz", "myst-nb", "numpydoc", "sphinx", "sphinx-argparse>=0.4", "sphinxcontrib-bibtex", "sphinx-design", "sphinx_rtd_theme"]
 dev = ["flake8", "pytest>=4.6", "pytest-cov", "pytest-xdist"]
+grib = ["cython", "eccodes", "pygrib"]
 
 [tool.setuptools.packages.find]
 exclude = ["test*", "run*"]
@@ -124,6 +125,7 @@ model-harmonics = { path = ".", editable = true }
 default = { solve-group = "default" }
 dev = { features = ["dev", "doc"], solve-group = "default" }
 doc = { features = ["doc"], solve-group = "default" }
+grib = { features = ["grib"], solve-group = "default" }
 
 [tool.pixi.tasks.export-env]
 args = [ { "arg" = "flags", "default" = "" } ]
@@ -155,8 +157,10 @@ description = "Run flake8 to check for compilation errors"
 
 [tool.pixi.dependencies]
 cdsapi = "*"
-ecmwf-api-client = "*"
+ecmwf-datastores-client = "*"
 fiona = "*"
+geoid-toolkit = "*"
+gravity-toolkit = "*"
 h5py = "*"
 netcdf4 = "*"
 pyproj = "*"
@@ -180,3 +184,8 @@ sphinx-argparse = "*"
 sphinxcontrib-bibtex = "*"
 sphinx-design = "*"
 sphinx_rtd_theme = "*"
+
+[tool.pixi.feature.grib.dependencies]
+cython = "*"
+eccodes = "*"
+pygrib = "*"

@@ -108,7 +108,7 @@ This will automatically create the environment, install all dependencies, and op
 ## Dependencies
 
 - [cdsapi: Python client libraries for the CDS Web API](https://pypi.org/project/cdsapi/)
-- [ecmwf-api-client: Python client libraries for the ECMWF Web API](https://software.ecmwf.int/wiki/display/WEBAPI/Web-API+Downloads)
+- [ecmwf-datastores-client: programmatic access to the CDS, ADS and EWDS data catalogues](https://ecmwf.github.io/ecmwf-datastores-client)
 - [fiona: Python wrapper for vector data access functions from the OGR library](https://fiona.readthedocs.io/en/latest/manual.html)
 - [geoid-toolkit: Python utilities for calculating geoid heights from static gravity field coefficients](https://github.com/tsutterley/geoid-toolkit/)
 - [gravity-toolkit: Python tools for working with GRACE/GRACE-FO data](https://github.com/tsutterley/gravity-toolkit/)

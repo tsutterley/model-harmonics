@@ -83,10 +83,12 @@ import gravity_toolkit as gravtk
 
 # PURPOSE: read variables from MERRA-2 tavgM_2d_int and tavgM_2d_glc files
 def read_merra_variables(merra_flux_file, merra_ice_surface_file):
+    # get logger
+    logger = logging.getLogger(__name__)
     # python dictionary of output variables
     dinput = {}
     # read each variable of interest in MERRA-2 flux file
-    logging.debug(str(merra_flux_file))
+    logger.debug(str(merra_flux_file))
     with netCDF4.Dataset(merra_flux_file, mode='r') as fid1:
         # extract geolocation variables
         dinput['lon'] = fid1.variables['lon'][:].copy()
@@ -94,14 +96,11 @@ def read_merra_variables(merra_flux_file, merra_ice_surface_file):
         # convert time from netCDF4 units to Julian Days
         date_string = fid1.variables['time'].units
         epoch, to_secs = gravtk.time.parse_date_string(date_string)
-        dinput['time'] = (
-            gravtk.time.convert_delta_time(
-                to_secs * fid1.variables['time'][:],
-                epoch1=epoch,
-                epoch2=(1858, 11, 17, 0, 0, 0),
-                scale=1.0 / 86400.0,
-            )
-            + 2400000.5
+        dinput['time'] = 2400000.5 + gravtk.time.convert_delta_time(
+            to_secs * fid1.variables['time'][:],
+            epoch1=epoch,
+            epoch2=(1858, 11, 17, 0, 0, 0),
+            scale=1.0 / 86400.0,
         )
         # read each variable of interest in MERRA-2 flux file
         for key in ['PRECCU', 'PRECLS', 'PRECSN', 'EVAP']:
@@ -112,7 +111,7 @@ def read_merra_variables(merra_flux_file, merra_ice_surface_file):
             )
             dinput[key].mask = dinput[key].data == dinput[key].fill_value
     # read each variable of interest in MERRA-2 ice surface file
-    logging.debug(str(merra_ice_surface_file))
+    logger.debug(str(merra_ice_surface_file))
     with netCDF4.Dataset(merra_ice_surface_file, mode='r') as fid2:
         for key in ['RUNOFF', 'WESNSC']:
             # Getting the data from each NetCDF variable of interest
@@ -130,7 +129,7 @@ def merra_smb_cumulative(
 ):
     # create logger for verbosity level
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[VERBOSE])
+    logger = gravtk.utilities.build_logger(__name__, level=loglevels[VERBOSE])
 
     # MERRA-2 product subdirectories
     P1 = DIRECTORY.joinpath('M2TMNXINT.5.12.4')

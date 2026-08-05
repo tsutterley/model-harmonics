@@ -59,6 +59,8 @@ variables = ['sd', 'snowc', 'src', 'swvl1', 'swvl2', 'swvl3', 'swvl4']
 
 # PURPOSE: read variables from ERA5-Land files
 def read_era5_variables(era5_land_file, **kwargs):
+    # get logger
+    logger = logging.getLogger(__name__)
     # set default variables
     kwargs.setdefault('variables', variables)
     # python dictionary of output variables
@@ -66,7 +68,7 @@ def read_era5_variables(era5_land_file, **kwargs):
     attrs = {}
     # read each variable of interest in ERA5-Land file
     era5_land_file = pathlib.Path(era5_land_file).expanduser().absolute()
-    logging.debug(str(era5_land_file))
+    logger.debug(str(era5_land_file))
     with netCDF4.Dataset(era5_land_file, mode='r') as fileID:
         # extract geolocation variables
         dinput['latitude'] = fileID.variables['latitude'][:].copy()
@@ -74,14 +76,11 @@ def read_era5_variables(era5_land_file, **kwargs):
         # convert time from netCDF4 units to Julian Days
         date_string = fileID.variables['valid_time'].units
         epoch, to_secs = gravtk.time.parse_date_string(date_string)
-        dinput['time'] = (
-            gravtk.time.convert_delta_time(
-                to_secs * fileID.variables['valid_time'][:],
-                epoch1=epoch,
-                epoch2=(1858, 11, 17, 0, 0, 0),
-                scale=1.0 / 86400.0,
-            )
-            + 2400000.5
+        dinput['time'] = 2400000.5 + gravtk.time.convert_delta_time(
+            to_secs * fileID.variables['valid_time'][:],
+            epoch1=epoch,
+            epoch2=(1858, 11, 17, 0, 0, 0),
+            scale=1.0 / 86400.0,
         )
         # read each variable of interest in ERA5-Land file
         for key in kwargs['variables']:
@@ -90,11 +89,10 @@ def read_era5_variables(era5_land_file, **kwargs):
             if fileID.variables[key].ndim == 4:
                 dinput[key] = ncdf_expver(fileID, key)
             else:
-                dinput[key] = np.ma.array(
-                    fileID.variables[key][:].squeeze(),
-                    fill_value=fileID.variables[key]._FillValue,
-                )
-            dinput[key].mask = dinput[key].data == dinput[key].fill_value
+                dinput[key] = (fileID.variables[key][:].squeeze(),)
+            # update mask variable
+            fill_value = fileID.variables[key]._FillValue
+            dinput[key] = np.ma.masked_equal(dinput[key], fill_value)
             # get attributes for variable
             attrs[key] = {}
             for att_name in fileID.variables[key].ncattrs():
@@ -107,18 +105,14 @@ def read_era5_variables(era5_land_file, **kwargs):
 # ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
 def ncdf_expver(fileID, VARNAME):
     ntime, nexp, nlat, nlon = fileID.variables[VARNAME].shape
-    fill_value = fileID.variables[VARNAME]._FillValue
     # reduced output
-    output = np.ma.zeros((ntime, nlat, nlon))
-    output.fill_value = fill_value
+    output = np.zeros((ntime, nlat, nlon))
     for t in range(ntime):
         # iterate over expver slices to find valid outputs
         for j in range(nexp):
             # check if any are valid for expver
             if np.any(fileID.variables[VARNAME][t, j, :, :]):
                 output[t, :, :] = fileID.variables[VARNAME][t, j, :, :]
-    # update mask variable
-    output.mask = output.data == output.fill_value
     # return the reduced output variable
     return output
 
@@ -128,7 +122,7 @@ def era5_land_mean_monthly(
 ):
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[VERBOSE])
+    logger = gravtk.utilities.build_logger(__name__, level=loglevels[VERBOSE])
 
     # attributes for output files
     attributes = {}

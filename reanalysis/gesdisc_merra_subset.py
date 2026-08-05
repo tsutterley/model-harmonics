@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 gesdisc_merra_subset.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (08/2026)
 
 Subsets monthly MERRA-2 products for specific variables from the
     Goddard Earth Sciences Data and Information Server Center (GES DISC)
@@ -29,6 +29,7 @@ COMMAND LINE OPTIONS:
     -v X, --version X: MERRA-2 version
     -Y X, --year X: years to sync
     -V X, --variables X: variables to subset
+    -I, --invariant: Retrieve model invariant parameters
     -t X, --timeout X: Timeout in seconds for blocking operations
     -F, --flatten: Do not create subdirectories
     -l, --log: output log of files downloaded
@@ -52,6 +53,8 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 08/2026: change formatting and output of file logs
+    Updated 07/2026: added invariant option to get model parameters
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: added option for defining the GESDISC API hostname
     Updated 12/2022: single implicit import of spherical harmonic tools
@@ -84,6 +87,7 @@ def gesdisc_merra_subset(
     VERSION=None,
     YEARS=None,
     VARIABLES=None,
+    INVARIANT=False,
     TIMEOUT=None,
     FLATTEN=False,
     LOG=False,
@@ -101,18 +105,31 @@ def gesdisc_merra_subset(
 
     # create log file with list of synchronized files (or print to terminal)
     if LOG:
+        # output to log file
         # format: NASA_GESDISC_MERRA2_subset_2002-04-01.log
         today = time.strftime('%Y-%m-%d', time.localtime())
         output_logfile = f'NASA_GESDISC_MERRA2_subset_{today}.log'
-        LOGFILE = DIRECTORY.joinpath(output_logfile)
-        fid = LOGFILE.open(mode='w', encoding='utf8')
-        logging.basicConfig(stream=fid, level=logging.INFO)
-        logging.info(f'NASA MERRA-2 Sync Log ({today})')
-        logging.info(f'PRODUCT: {SHORTNAME}.{VERSION}')
+        LOGFILE = gravtk.utilities.get_cache_path(output_logfile)
+        # create a unique log and open the log file
+        fid1 = gravtk.utilities.create_unique_file(LOGFILE, mode='x')
+        # build logger for outputting to log file
+        logger = gravtk.utilities.build_logger(
+            __name__,
+            level=logging.INFO,
+            stream=fid1,
+            format='%(message)s (%(levelname)s)',
+        )
+        logger.info(f'NASA MERRA-2 Sync Log ({today})')
+        logger.info(f'Filename: {pathlib.Path(sys.argv[0]).name}')
     else:
-        # standard output (terminal output)
-        fid = sys.stdout
-        logging.basicConfig(stream=fid, level=logging.INFO)
+        # build logger for standard output (terminal output)
+        fid1 = sys.stdout
+        logger = gravtk.utilities.build_logger(
+            __name__, level=logging.INFO, stream=fid1
+        )
+
+    # log the product and version
+    logger.info(f'Product: {SHORTNAME}.{VERSION}')
 
     # for each unique date
     for YEAR in YEARS:
@@ -162,10 +179,33 @@ def gesdisc_merra_subset(
                     MODE=0o775,
                 )
 
+    # download invariant data
+    if INVARIANT:
+        # query for data
+        ids, urls, mtimes = mdlhmc.utilities.cmr(
+            'M2C0NXASM',
+            version=VERSION,
+            provider='GES_DISC',
+            verbose=True,
+        )
+        # for each granule
+        for id, url, mtime in zip(ids, urls, mtimes):
+            # build filename for output
+            local_file = DIRECTORY.joinpath(id)
+            # copy subsetted file and update modified dates
+            http_pull_file(
+                url,
+                mtime,
+                local_file,
+                TIMEOUT=TIMEOUT,
+                CLOBBER=CLOBBER,
+                MODE=0o775,
+            )
+
     # close log file and set permissions level to MODE
     if LOG:
-        fid.close()
-        LOGFILE.chmod(mode=MODE)
+        fid1.close()
+        os.chmod(fid1.name, mode=MODE)
 
 
 # PURPOSE: pull file from a remote host checking if file exists locally
@@ -178,6 +218,8 @@ def http_pull_file(
     CLOBBER=False,
     MODE=0o775,
 ):
+    # get logger
+    logger = logging.getLogger(__name__)
     # if file exists in file system: check if remote file is newer
     TEST = False
     OVERWRITE = ' (clobber)'
@@ -197,8 +239,8 @@ def http_pull_file(
     # if file does not exist locally, is to be overwritten, or CLOBBER is set
     if TEST or CLOBBER:
         # Printing files transferred
-        logging.info(f'{remote_file} -->')
-        logging.info(f'\t{str(local_file)}{OVERWRITE}\n')
+        logger.info(f'{remote_file} -->')
+        logger.info(f'\t{str(local_file)}{OVERWRITE}\n')
         # Create and submit request. There are a wide range of exceptions
         # that can be thrown here, including HTTPError and URLError.
         request = mdlhmc.utilities.urllib2.Request(remote_file)
@@ -272,7 +314,11 @@ def arguments():
     )
     # MERRA-2 version
     parser.add_argument(
-        '--version', '-v', type=str, default='5.12.4', help='MERRA-2 version'
+        '--version',
+        '-v',
+        type=str,
+        default='5.12.4',
+        help='MERRA-2 version',
     )
     # years to download
     now = time.gmtime()
@@ -289,8 +335,17 @@ def arguments():
         '--variables',
         '-V',
         type=str,
+        default=['PS'],
         nargs='+',
         help='Variables to subset from product',
+    )
+    # retrieve the model invariant parameters
+    parser.add_argument(
+        '--invariant',
+        '-I',
+        default=False,
+        action='store_true',
+        help='Retrieve model invariant parameters',
     )
     # connection timeout
     parser.add_argument(
@@ -378,6 +433,7 @@ def main():
             VERSION=args.version,
             YEARS=args.year,
             VARIABLES=args.variables,
+            INVARIANT=args.invariant,
             TIMEOUT=args.timeout,
             FLATTEN=args.flatten,
             LOG=args.log,

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 era5_land_mask_permafrost.py
-Written by Tyler Sutterley (09/2025)
+Written by Tyler Sutterley (07/2026)
 
 Creates a mask for ERA5-Land based on the permafrost/surface classification
 from the NSIDC Circum-Arctic Map of Permafrost and Ground-Ice Conditions
@@ -40,6 +40,7 @@ REFERENCES:
         ground ice conditions. Boulder, CO: National Snow and Ice Data Center.
 
 UPDATE HISTORY:
+    Updated 07/2026: output using structured dictionary with netCDF4 parameters
     Updated 09/2025: use importlib to attempt to import dependencies
     Written 04/2025
 """
@@ -47,7 +48,6 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import time
 import pyproj
 import logging
 import netCDF4
@@ -55,6 +55,7 @@ import pathlib
 import argparse
 import numpy as np
 import model_harmonics as mdlhmc
+from gravity_toolkit.utilities import build_logger
 
 # attempt imports
 fiona = mdlhmc.utilities.import_dependency('fiona')
@@ -68,6 +69,8 @@ shapely.geometry = mdlhmc.utilities.import_dependency('shapely.geometry')
 def era5_land_mask_permafrost(
     base_dir, SHAPEFILE=None, BUFFER=None, MODE=0o775
 ):
+    # get logger
+    logger = logging.getLogger(__name__)
     # directory models
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
     # ERA5-land products
@@ -89,6 +92,39 @@ def era5_land_mask_permafrost(
         dinput['longitude'] = fileID.variables['longitude'][:]
         dinput['time'] = fileID.variables['time'][:]
 
+    # dictionary describing the output netCDF4 structure
+    struct = dict(
+        dimensions=('time', 'latitude', 'longitude'),
+        variables={
+            'pf': ('time', 'latitude', 'longitude'),
+        },
+    )
+    # list of input files for provenance
+    lineage = []
+    lineage.append(input_file.name)
+    # netCDF4 attributes for output files
+    attributes = dict(ROOT={})
+    reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
+    attributes['ROOT']['reference'] = reference
+    attributes['ROOT']['title'] = 'ERA5-Land permafrost mask'
+    attributes['longitude'] = dict(long_name='longitude', units='degrees_east')
+    attributes['latitude'] = dict(long_name='latitude', units='degrees_north')
+    attributes['time'] = dict(
+        long_name='time', units='hours since 1900-01-01 00:00:00.0'
+    )
+    description = []
+    description.append('1: Continuous Permafrost')
+    description.append('2: Discontinuous Permafrost')
+    description.append('3: Isolated Permafrost')
+    description.append('4: Sporadic Permafrost')
+    description.append('5: Glaciated Area')
+    attributes['pf'] = dict(
+        long_name='permafrost_mask',
+        reference='https://nsidc.org/data/ggd318',
+        source='doi: 10.7265/skbg-kf16',
+        description=', '.join(description),
+    )
+
     # create meshgrid of lat and long
     gridlon, gridlat = np.meshgrid(dinput['longitude'], dinput['latitude'])
     # latitude range for valid points
@@ -98,8 +134,9 @@ def era5_land_mask_permafrost(
 
     # reading shapefile
     SHAPEFILE = pathlib.Path(SHAPEFILE).expanduser().absolute()
-    logging.debug(str(SHAPEFILE))
+    logger.debug(str(SHAPEFILE))
     shape = fiona.open(str(SHAPEFILE))
+    lineage.append(SHAPEFILE.name)
     # pyproj transformer for converting from latitude/longitude
     # into NSIDC EASE-Grid North
     crs1 = pyproj.CRS.from_epsg(4326)
@@ -160,70 +197,10 @@ def era5_land_mask_permafrost(
     ii, jj = np.nonzero(mask_input & (gridlat <= -60))
     dinput['pf'][0, ii, jj] = 5
     # write to output netCDF4 (.nc)
-    ncdf_mask_write(dinput, FILENAME=output_file)
+    attributes['ROOT']['lineage'] = lineage
+    mdlhmc.spatial.to_netCDF4(output_file, dinput, attributes, struct)
     # change the permission level to MODE
     output_file.chmod(mode=MODE)
-
-
-# PURPOSE: write permafrost mask to netCDF4 file
-def ncdf_mask_write(output_data, FILENAME=None):
-    # opening NetCDF file for writing
-    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME, 'w', format='NETCDF4')
-
-    # python dictionary with the NetCDF4 data variables
-    nc = {}
-    # Defining the NetCDF4 dimensions
-    TIMENAME, LATNAME, LONNAME = ('time', 'latitude', 'longitude')
-    for key in [TIMENAME, LONNAME, LATNAME]:
-        fileID.createDimension(key, len(output_data[key]))
-        nc[key] = fileID.createVariable(key, output_data[key].dtype, (key,))
-    # create the NetCDF4 data variables
-    nc['pf'] = fileID.createVariable(
-        'pf',
-        output_data['pf'].dtype,
-        (
-            TIMENAME,
-            LATNAME,
-            LONNAME,
-        ),
-        fill_value=0,
-        zlib=True,
-    )
-    # filling NetCDF variables
-    for key, val in output_data.items():
-        nc[key][:] = np.copy(val)
-
-    # Defining attributes
-    nc[TIMENAME].long_name = 'time'
-    nc[TIMENAME].units = 'hours since 1900-01-01 00:00:00.0'
-    nc[LONNAME].long_name = 'longitude'
-    nc[LONNAME].units = 'degrees_east'
-    nc[LATNAME].long_name = 'latitude'
-    nc[LATNAME].units = 'degrees_north'
-    nc['pf'].long_name = 'permafrost_mask'
-    nc['pf'].reference = 'https://nsidc.org/data/ggd318'
-    description = []
-    description.append('1: Continuous Permafrost')
-    description.append('2: Discontinuous Permafrost')
-    description.append('3: Isolated Permafrost')
-    description.append('4: Sporadic Permafrost')
-    description.append('5: Glaciated Area')
-    nc['pf'].description = ', '.join(description)
-
-    # add software information
-    fileID.software_reference = mdlhmc.version.project_name
-    fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
-    # date created
-    fileID.date_created = time.strftime('%Y-%m-%d', time.localtime())
-
-    # Output NetCDF structure information
-    logging.info(str(FILENAME))
-    logging.info(list(fileID.variables.keys()))
-
-    # Closing the NetCDF file
-    fileID.close()
 
 
 # PURPOSE: create argument parser
@@ -284,7 +261,7 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = build_logger(__name__, level=loglevels[args.verbose])
 
     # run program
     era5_land_mask_permafrost(

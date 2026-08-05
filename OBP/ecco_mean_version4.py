@@ -96,7 +96,7 @@ def ecco_mean_version4(
 ):
     # create logger for verbosity level
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[VERBOSE])
+    logger = gravtk.utilities.build_logger(__name__, level=loglevels[VERBOSE])
 
     # input and output subdirectories
     ddir = pathlib.Path(ddir).expanduser().absolute()
@@ -132,6 +132,8 @@ def ecco_mean_version4(
     # semimajor and semiminor axes of the ellipsoid [m]
     a_axis = ellipsoid_params.a_axis
     b_axis = ellipsoid_params.b_axis
+    # square of first numerical eccentricity
+    e12 = ellipsoid_params.ecc1**2.0
 
     # read depth data from ecco_depth_version4.py
     input_depth_file = ddir.joinpath('DEPTH.2020.720x360.nc')
@@ -153,9 +155,15 @@ def ecco_mean_version4(
     # calculate dimension variables
     obp_mean.lon = np.arange(extent[0], extent[1] + dlon, dlon)
     obp_mean.lat = np.arange(extent[2], extent[3] + dlat, dlat)
-    # convert grid latitude and longitude to radians
+    # colatitude in radians
     theta = np.radians(90.0 - obp_mean.lat)
-    phi = np.radians(obp_mean.lon)
+    # radius of curvature in prime vertical direction (east-west)
+    N = a_axis / np.sqrt(1.0 - e12 * np.cos(theta) ** 2.0)
+    # radius of curvature in meridional direction (north-south)
+    M = (a_axis * (1.0 - e12)) / np.power(1.0 - e12 * np.cos(theta) ** 2, 1.5)
+    # calculate area of grid cells
+    area = (M * dth) * (N * np.sin(theta) * dphi)
+
     # counter variable for dates
     count = 0.0
     # read each input file
@@ -164,13 +172,10 @@ def ecco_mean_version4(
         field_mapping = gravtk.spatial().default_field_mapping(
             [LONNAME, LATNAME, VARNAME, TIMENAME]
         )
-        PHIBOT = (
-            gravtk.spatial(fill_value=np.nan)
-            .from_netCDF4(
-                input_file, verbose=VERBOSE, field_mapping=field_mapping
-            )
-            .transpose(axes=(1, 2, 0))
+        PHIBOT = gravtk.spatial(fill_value=np.nan).from_netCDF4(
+            input_file, verbose=VERBOSE, field_mapping=field_mapping
         )
+        PHIBOT = PHIBOT.transpose(axes=(1, 2, 0))
         PHIBOT.replace_invalid(fill_value)
         # time within netCDF files is days since epoch
         time_string = PHIBOT.attributes['time']['units']
@@ -191,14 +196,11 @@ def ecco_mean_version4(
             obp.update_mask()
 
             # calculate Julian day by converting to MJD and adding offset
-            JD = (
-                gravtk.time.convert_delta_time(
-                    delta_time,
-                    epoch1=epoch1,
-                    epoch2=(1858, 11, 17, 0, 0, 0),
-                    scale=1.0 / 86400.0,
-                )
-                + 2400000.5
+            JD = 2400000.5 + gravtk.time.convert_delta_time(
+                delta_time,
+                epoch1=epoch1,
+                epoch2=(1858, 11, 17, 0, 0, 0),
+                scale=1.0 / 86400.0,
             )
             # convert from Julian days to calendar dates
             YY, MM, DD, hh, mm, ss = gravtk.time.convert_julian(
@@ -214,30 +216,16 @@ def ecco_mean_version4(
             total_area = 0.0
             total_newton = 0.0
             for k in range(0, nlat):
-                # Grid point areas (ellipsoidal)
-                area = (
-                    np.sin(theta[k])
-                    * np.sqrt(
-                        (a_axis**2)
-                        * (b_axis**2)
-                        * (
-                            (np.sin(theta[k]) ** 2) * (np.cos(phi) ** 2)
-                            + (np.sin(theta[k]) ** 2) * (np.sin(phi) ** 2)
-                        )
-                        + (a_axis**4) * (np.cos(theta[k]) ** 2)
-                    )
-                    * dphi
-                    * dth
-                )
                 # calculate the grid point weight in newtons
-                newtons = obp.data[k, :] * area
+                newtons = obp.data[k, :] * area[k]
                 # finding ocean points at each lat
-                if np.count_nonzero(~obp.mask[k, :]):
-                    (ocean_points,) = np.nonzero(~obp.mask[k, :])
-                    # total area
-                    total_area += np.sum(area[ocean_points])
-                    # total weight in newtons
-                    total_newton += np.sum(newtons[ocean_points])
+                (ocean_points,) = np.nonzero(~obp.mask[k, :])
+                if not np.any(ocean_points):
+                    continue
+                # total area of ocean points for latitude band
+                total_area += area[k] * len(ocean_points)
+                # total weight in newtons
+                total_newton += np.sum(newtons[ocean_points])
             # remove global area average of each OBP map
             ratio = total_newton / total_area
             obp_mean.data += obp.data - ratio
@@ -245,8 +233,7 @@ def ecco_mean_version4(
             count += 1.0
 
     # convert from totals to means
-    indy, indx = np.nonzero(~obp_mean.mask)
-    obp_mean.data[indy, indx] /= count
+    obp_mean = obp_mean.scale(1.0 / count)
     obp_mean.update_mask()
     obp_mean.time /= count
 
@@ -287,6 +274,7 @@ def arguments():
         'model',
         type=str,
         nargs='+',
+        metavar='MODEL',
         default=['V4r3', 'V4r4'],
         choices=['V4r3', 'V4r4'],
         help='ECCO Version 4 Model',

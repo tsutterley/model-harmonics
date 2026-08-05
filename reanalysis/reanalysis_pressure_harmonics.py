@@ -1,18 +1,28 @@
 #!/usr/bin/env python
 """
 reanalysis_pressure_harmonics.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (07/2026)
 Reads atmospheric surface pressure fields from reanalysis and calculates sets of
     spherical harmonics using a thin-layer 2D geometry with realistic earth
 
-INPUTS:
-    Reanalysis model to run
-    ERA-Interim: http://apps.ecmwf.int/datasets/data/interim-full-moda
-    ERA5: http://apps.ecmwf.int/data-catalogues/era5/?class=ea
-    MERRA-2: https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/
-    NCEP-DOE-2: https://www.esrl.noaa.gov/psd/data/gridded/data.ncep.reanalysis2.html
-    NCEP-CFSR: https://rda.ucar.edu/datasets/ds093.1/
-    JRA-55: http://jra.kishou.go.jp/JRA-55/index_en.html
+Reanalysis models:
+    ERA-Interim:
+        http://apps.ecmwf.int/datasets/data/interim-full-moda
+    ERA5:
+        http://apps.ecmwf.int/data-catalogues/era5/?class=ea
+    MERRA-2:
+        https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/
+    NCEP-DOE-2:
+        https://psl.noaa.gov/data/gridded/data.ncep.Reanalysis2.html
+    NCEP-CFSR:
+        https://gdex.ucar.edu/datasets/d093002/
+        https://gdex.ucar.edu/datasets/d094002/
+    JRA-55:
+        https://gdex.ucar.edu/datasets/d628000/
+        http://jra.kishou.go.jp/JRA-55/index_en.html
+    JRA-3Q:
+        https://gdex.ucar.edu/datasets/d640000/
+        https://www.data.jma.go.jp/jra/html/JRA-3Q/index_en.html
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
@@ -73,6 +83,10 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 07/2026: added JRA-3Q reanalysis to list of models
+        use authalic area for the grid cell areas
+        interpolate EGM2008 from full resolution to reanalysis grid
+        changed variable names for JRA-55 and NCEP-CFSR reanalysis
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: add root attributes to output netCDF4 and HDF5 files
     Updated 02/2023: use love numbers class with additional attributes
@@ -110,16 +124,29 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
+import os
 import re
 import logging
 import netCDF4
 import pathlib
 import argparse
 import datetime
+import traceback
 import numpy as np
 import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
 import geoid_toolkit as geoidtk
+
+
+# PURPOSE: keep track of threads
+def info(args):
+    logger = logging.getLogger(__name__)
+    logger.info(pathlib.Path(sys.argv[0]).name)
+    logger.info(args)
+    logger.info(f'module name: {__name__}')
+    if hasattr(os, 'getppid'):
+        logger.info(f'parent process: {os.getppid():d}')
+    logger.info(f'process id: {os.getpid():d}')
 
 
 # PURPOSE: read atmospheric surface pressure fields and convert to harmonics
@@ -136,18 +163,20 @@ def reanalysis_pressure_harmonics(
     DATAFORM=None,
     MODE=0o775,
 ):
+    # get logger
+    logger = logging.getLogger(__name__)
     # directory setup
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
     ddir = base_dir.joinpath(MODEL)
 
     # set model specific parameters
+    # use standard weights for equirectangular grids
+    WEIGHT = None
     if MODEL == 'ERA-Interim':
         # mean file from calculate_mean_pressure.py
         input_mean_file = 'ERA-Interim-Mean-SP-{0:4d}-{1:4d}.nc'
         # invariant parameters file
         input_invariant_file = 'ERA-Interim-Invariant-Parameters.nc'
-        # geoid file from read_gfz_geoid_grids.py
-        input_geoid_file = 'ERA-Interim-EGM2008-geoid.nc'
         # input land-sea mask for ocean redistribution
         input_mask_file = 'ERA-Interim-Invariant-Parameters.nc'
         # regular expression pattern for finding files
@@ -167,8 +196,6 @@ def reanalysis_pressure_harmonics(
         input_mean_file = 'ERA5-Mean-SP-{0:4d}-{1:4d}.nc'
         # invariant parameters file
         input_invariant_file = 'ERA5-Invariant-Parameters.nc'
-        # geoid file from read_gfz_geoid_grids.py
-        input_geoid_file = 'ERA5-EGM2008-geoid.nc'
         # input land-sea mask for ocean redistribution
         input_mask_file = 'ERA5-Invariant-Parameters.nc'
         # regular expression pattern for finding files
@@ -177,7 +204,7 @@ def reanalysis_pressure_harmonics(
         ZNAME = 'z'
         LONNAME = 'longitude'
         LATNAME = 'latitude'
-        TIMENAME = 'time'
+        TIMENAME = 'valid_time'
         ELLIPSOID = 'WGS84'
         # land-sea mask variable name and value of oceanic points
         MASKNAME = 'lsm'
@@ -188,8 +215,6 @@ def reanalysis_pressure_harmonics(
         input_mean_file = 'MERRA2.Mean_PS.{0:4d}-{1:4d}.nc'
         # invariant parameters file
         input_invariant_file = 'MERRA2_101.const_2d_asm_Nx.00000000.nc4'
-        # geoid file form read_gfz_geoid_grids.py
-        input_geoid_file = 'MERRA2_101.EGM2008_Nx.00000000.nc4'
         # input land-sea mask for ocean redistribution
         input_mask_file = 'MERRA2_101.const_2d_asm_Nx.00000000.nc4'
         # regular expression pattern for finding files
@@ -211,8 +236,6 @@ def reanalysis_pressure_harmonics(
         input_mean_file = 'pres.sfc.mean.{0:4d}-{1:4d}.nc'
         # invariant parameters file
         input_invariant_file = 'hgt.sfc.nc'
-        # geoid file form read_gfz_geoid_grids.py
-        input_geoid_file = 'geoid.egm2008.nc'
         # input land-sea mask for ocean redistribution
         input_mask_file = 'land.nc'
         # regular expression pattern for finding files
@@ -230,23 +253,21 @@ def reanalysis_pressure_harmonics(
         GRAVITY = 1.0
     elif MODEL == 'NCEP-CFSR':
         # mean file from calculate_mean_pressure.py
-        input_mean_file = 'pgbh.mean.gdas.{0:4d}-{1:4d}.nc'
+        input_mean_file = 'splanl.mean.gdas.{0:4d}-{1:4d}.nc'
         # invariant parameters file
         input_invariant_file = 'hgt.gdas.nc'
-        # geoid file form read_gfz_geoid_grids.py
-        input_geoid_file = 'geoid.egm2008.nc'
         # input land-sea mask for ocean redistribution
         input_mask_file = 'land.gdas.nc'
         # regular expression pattern for finding files
-        regex_pattern = r'pgbh.gdas.({0}).nc$'
-        VARNAME = 'PRES_L1_Avg'
-        ZNAME = 'HGT_L1_Avg'
+        regex_pattern = r'splanl.gdas.({0})(\d+).nc$'
+        VARNAME = 'ave_sp'
+        ZNAME = 'orog'
         LONNAME = 'lon'
         LATNAME = 'lat'
         TIMENAME = 'time'
         ELLIPSOID = 'WGS84'
         # land-sea mask variable name and value of oceanic points
-        MASKNAME = 'LAND_L1'
+        MASKNAME = 'lsm'
         OCEAN = 0
         # NCEP-CFSR reanalysis geopotential heights are already in meters
         GRAVITY = 1.0
@@ -255,20 +276,43 @@ def reanalysis_pressure_harmonics(
         input_mean_file = 'anl_surf.001_pres.mean.{0:4d}-{1:4d}.nc'
         # invariant parameters file
         input_invariant_file = 'll125.006_gp.2000.nc'
-        # geoid file form read_gfz_geoid_grids.py
-        input_geoid_file = 'll125.egm.2008.nc'
         # input land-sea mask for ocean redistribution
         input_mask_file = 'll125.081_land.2000.nc'
         # regular expression pattern for finding files
-        regex_pattern = r'anl_surf125\.001_pres\.({0}).nc$'
-        VARNAME = 'Pressure_surface'
-        ZNAME = 'GP_GDS0_SFC'
-        LONNAME = 'g0_lon_1'
-        LATNAME = 'g0_lat_0'
+        regex_pattern = r'anl_surf125\.001_pres\.({0})(\d+).nc$'
+        VARNAME = 'sp'
+        ZNAME = 'z'
+        LONNAME = 'lon'
+        LATNAME = 'lat'
         TIMENAME = 'time'
         ELLIPSOID = 'WGS84'
         # land-sea mask variable name and value of oceanic points
-        MASKNAME = 'LAND_GDS0_SFC'
+        MASKNAME = 'lsm'
+        OCEAN = 0
+        GRAVITY = 9.80665
+    elif MODEL == 'JRA-3Q':
+        # mean file from calculate_mean_pressure.py
+        input_mean_file = 'jra3q.mean.pres-sfc-an-gauss.{0:4d}-{1:4d}.nc'
+        # invariant parameters file
+        input_invariant_file = (
+            'jra3q.tl479_surf.0_3_4.gp-sfc-cn-gauss.1947090100_1947090100.nc'
+        )
+        # input land-sea mask for ocean redistribution
+        input_mask_file = (
+            'jra3q.tl479_land.2_0_0.land-sfc-cn-gauss.1947090100_1947090100.nc'
+        )
+        # regular expression pattern for finding files
+        regex_pattern = r'jra3q\.anl_surf\.pres-sfc-an-gauss\.({0})(\d+).nc$'
+        VARNAME = 'pres-sfc-an-gauss'
+        ZNAME = 'gp-sfc-cn-gauss'
+        LONNAME = 'lon'
+        LATNAME = 'lat'
+        TIMENAME = 'time'
+        ELLIPSOID = 'WGS84'
+        # weight variable name
+        WEIGHT = 'weight'
+        # land-sea mask variable name and value of oceanic points
+        MASKNAME = 'land-sfc-cn-gauss'
         OCEAN = 0
         GRAVITY = 9.80665
 
@@ -295,6 +339,9 @@ def reanalysis_pressure_harmonics(
     mean_pressure, lon, lat = ncdf_mean_pressure(
         mean_file, VARNAME, LONNAME, LATNAME
     )
+    nlat, nlon = np.shape(mean_pressure)
+    # required order of dimensions
+    dimensions = [TIMENAME, LATNAME, LONNAME]
     # calculate colatitude
     theta = np.radians(90.0 - lat)
     # calculate meshgrid from latitude and longitude
@@ -308,15 +355,16 @@ def reanalysis_pressure_harmonics(
     # https://software.ecmwf.int/wiki/x/WAfEB
     geopotential_height = geopotential / GRAVITY
     # orthometric height from List (1958) as described in Boy and Chao (2005)
-    orthometric = (
-        1.0 - 0.002644 * np.cos(2.0 * gridtheta)
-    ) * geopotential_height + (1.0 - 0.0089 * np.cos(2.0 * gridtheta)) * (
-        geopotential_height**2
-    ) / 6.245e6
-
+    cos2th = np.cos(2.0 * gridtheta)
+    orthometric = ((1.0 - 0.002644 * cos2th) * geopotential_height) + (
+        (1.0 - 0.0089 * cos2th) * (geopotential_height**2) / 6.245e6
+    )
     # read load love numbers
     LOVE = gravtk.load_love_numbers(
-        LMAX, LOVE_NUMBERS=LOVE_NUMBERS, REFERENCE=REFERENCE, FORMAT='class'
+        LMAX,
+        LOVE_NUMBERS=LOVE_NUMBERS,
+        REFERENCE=REFERENCE,
+        FORMAT='class',
     )
     # add attributes for earth parameters
     attributes['earth_model'] = LOVE.model
@@ -328,62 +376,48 @@ def reanalysis_pressure_harmonics(
 
     # calculate Legendre polynomials
     PLM, dPLM = gravtk.plm_holmes(LMAX, np.cos(theta))
-    # read geoid heights and grid step size
-    geoid, gridstep = ncdf_geoid(ddir.joinpath(input_geoid_file))
+    # interpolate geoid heights
+    geoid = geoidtk.interpolate.geoid_height(
+        lon, lat, model='EGM2008', tide_system='mean_tide'
+    )
 
     # get reference parameters for ellipsoid
     ellipsoid_params = mdlhmc.datum(ellipsoid=ELLIPSOID)
     # semimajor and semiminor axes of the ellipsoid [m]
     a_axis = ellipsoid_params.a_axis
     b_axis = ellipsoid_params.b_axis
+    # ellipsoidal flattening
+    flat = ellipsoid_params.flat
     # first numerical eccentricity
     ecc1 = ellipsoid_params.ecc1
+    e12 = ecc1**2.0
     # convert from geodetic latitude to geocentric latitude
-    # prime vertical radius of curvature
-    N = a_axis / np.sqrt(1.0 - ecc1**2.0 * np.cos(gridtheta) ** 2.0)
+    # radius of curvature in prime vertical direction (east-west)
+    N = a_axis / np.sqrt(1.0 - e12 * np.cos(gridtheta) ** 2.0)
+    # radius of curvature in meridional direction (north-south)
+    M = a_axis * (1.0 - e12) / (1.0 - e12 * np.cos(gridtheta) ** 2) ** 1.5
     # calculate heights
     height = geoid + orthometric
     # calculate X, Y and Z from geodetic latitude and longitude
-    X = (N + geoid + orthometric) * np.sin(gridtheta) * np.cos(gridphi)
-    Y = (N + geoid + orthometric) * np.sin(gridtheta) * np.sin(gridphi)
-    Z = (N * (1.0 - ecc1**2.0) + geoid + orthometric) * np.cos(gridtheta)
+    X = (N + height) * np.sin(gridtheta) * np.cos(gridphi)
+    Y = (N + height) * np.sin(gridtheta) * np.sin(gridphi)
+    Z = (N * (1.0 - ecc1**2.0) + height) * np.cos(gridtheta)
     R = np.sqrt(X**2.0 + Y**2.0 + Z**2.0)
     # calculate normal gravity at latitudes and heights above ellipsoid
     gamma_h, dgamma_dh = geoidtk.norm_gravity(gridlat, height, ELLIPSOID)
 
     # step size in radians
-    if np.ndim(gridstep) == 0:
-        dphi = np.radians(gridstep)
-        dth = np.radians(gridstep)
-    else:  # dlon ne dlat
-        dphi = np.radians(gridstep[0])
-        dth = np.radians(gridstep[1])
-    # calculate grid areas globally
-    AREA = (
-        dphi
-        * dth
-        * np.sin(gridtheta)
-        * np.sqrt(
-            (a_axis**2)
-            * (b_axis**2)
-            * (
-                (np.sin(gridtheta) ** 2) * (np.cos(gridphi) ** 2)
-                + (np.sin(gridtheta) ** 2) * (np.sin(gridphi) ** 2)
-            )
-            + (a_axis**4) * (np.cos(gridtheta) ** 2)
-        )
-    )
+    dphi = np.radians(np.abs(lon[1] - lon[0]))
+    dth = np.radians(np.abs(lat[1] - lat[0]))
 
     # get indices of land-sea mask if redistributing oceanic points
     if REDISTRIBUTE:
         ii, jj = ncdf_landmask(ddir.joinpath(input_mask_file), MASKNAME, OCEAN)
-        # calculate total area of oceanic points
-        TOTAL_AREA = np.sum(AREA[ii, jj])
 
     # read each reanalysis pressure field and convert to spherical harmonics
     regex_years = r'\d{4}' if (YEARS is None) else '|'.join(map(str, YEARS))
     rx = re.compile(regex_pattern.format(regex_years), re.VERBOSE)
-    input_files = sorted([f for f in ddir.iterdir() if rx.match(f.name)])
+    input_list = sorted([f for f in ddir.iterdir() if rx.match(f.name)])
     # open output date and index files
     output_date_file = output_dir.joinpath(f'{MODEL.upper()}_DATES.txt')
     fid1 = output_date_file.open(mode='w', encoding='utf8')
@@ -394,16 +428,31 @@ def reanalysis_pressure_harmonics(
     # output file format for spherical harmonic data
     output_file_format = '{0}_CLM_L{1:d}{2}_{3:03d}.{4}'
 
+    # list of output files
+    output_list = []
     # for each reanalysis file
-    for i, input_file in enumerate(input_files):
+    for i, input_file in enumerate(input_list):
         # read input data
-        logging.debug(str(input_file))
+        logger.debug(str(input_file))
         with netCDF4.Dataset(input_file, mode='r') as fileID:
             # check dimensions for expver slice
             if fileID.variables[VARNAME].ndim == 4:
                 pressure = ncdf_expver(fileID, VARNAME)
             else:
                 pressure = fileID.variables[VARNAME][:].copy()
+            # update mask variable
+            fill_value = fileID.variables[VARNAME]._FillValue
+            pressure = np.ma.masked_equal(pressure, fill_value)
+            # reorder dimensions to match the required order
+            dims = fileID.variables[VARNAME].dimensions
+            order = [dims.index(d) for d in dimensions]
+            pressure = pressure.transpose(order)
+            # read weights for non-uniform (e.g. gaussian) grids
+            # or use standard weights for uniform grids
+            if WEIGHT is not None:
+                weight = dphi * fileID.variables[WEIGHT][:].copy()
+            else:
+                weight = np.sin(theta) * dphi * dth
             # convert time to Modified Julian Days
             delta_time = np.copy(fileID.variables[TIMENAME][:])
             date_string = fileID.variables[TIMENAME].units
@@ -417,7 +466,6 @@ def reanalysis_pressure_harmonics(
         # attributes for input files
         attributes['lineage'] = []
         attributes['lineage'].append(input_invariant_file)
-        attributes['lineage'].append(input_geoid_file)
         attributes['lineage'].append(input_file.name)
 
         # iterate over Julian days
@@ -425,7 +473,20 @@ def reanalysis_pressure_harmonics(
             # calculate pressure anomaly for month
             P = pressure[t, :, :] - mean_pressure[:, :]
             # if redistributing oceanic pressure values
-            if REDISTRIBUTE:
+            if REDISTRIBUTE and WEIGHT:
+                # calculate area of each grid cell
+                W = np.kron(np.ones((1, nlon)), weight[:, np.newaxis])
+                AREA = M * N * W
+                # calculate total area of oceanic points
+                TOTAL_AREA = np.sum(AREA[ii, jj])
+                # evenly redistribute pressure over oceanic points
+                P[ii, jj] = np.sum(P[ii, jj] * AREA[ii, jj]) / TOTAL_AREA
+            elif REDISTRIBUTE:
+                # calculate area of each grid cell
+                AREA = (M * dth) * (N * np.sin(gridtheta) * dphi)
+                # calculate total area of oceanic points
+                TOTAL_AREA = np.sum(AREA[ii, jj])
+                # evenly redistribute pressure over oceanic points
                 P[ii, jj] = np.sum(P[ii, jj] * AREA[ii, jj]) / TOTAL_AREA
             # calculate spherical harmonics from pressure/gravity ratio
             Ylms = mdlhmc.gen_pressure_stokes(
@@ -436,6 +497,7 @@ def reanalysis_pressure_harmonics(
                 lat,
                 LMAX=LMAX,
                 MMAX=MMAX,
+                WEIGHT=weight,
                 PLM=PLM,
                 LOVE=LOVE,
             )
@@ -462,17 +524,18 @@ def reanalysis_pressure_harmonics(
             Ylms.to_file(output_file, format=DATAFORM)
             # set the permissions level of the output file to MODE
             output_file.chmod(mode=MODE)
+            # append to list of output files
+            output_list.append(output_file)
 
     # output file format for spherical harmonic data
     args = (MODEL.upper(), LMAX, order_str, suffix[DATAFORM])
-    output_regex = re.compile(r'{0}_CLM_L{1:d}{2}_(\d+).{3}'.format(*args))
+    pattern = r'{0}_CLM_L{1:d}{2}_(\d+).{3}'.format(*args)
+    regex = re.compile(pattern, re.VERBOSE)
     # find all output harmonic files (not just ones created in run)
-    output_files = [
-        f for f in output_dir.iterdir() if re.match(output_regex, f.name)
-    ]
+    output_files = [f for f in output_dir.iterdir() if regex.match(f.name)]
     for fi in sorted(output_files):
         # extract GRACE month
-        (grace_month,) = np.array(re.findall(output_regex, fi.name), dtype=int)
+        (grace_month,) = np.array(regex.findall(fi.name), dtype=int)
         YY, MM = gravtk.time.grace_to_calendar(grace_month)
         (tdec,) = gravtk.time.convert_calendar_decimal(YY, MM)
         # print date, GRACE month and calendar month to date file
@@ -486,11 +549,15 @@ def reanalysis_pressure_harmonics(
     # set the permissions level of the output date and index files to MODE
     output_date_file.chmod(mode=MODE)
     output_index_file.chmod(mode=MODE)
+    # return the list of output files
+    return output_list
 
 
 # PURPOSE: read reanalysis mean pressure from calculate_mean_pressure.py
 def ncdf_mean_pressure(FILENAME, VARNAME, LONNAME, LATNAME):
-    logging.debug(str(FILENAME))
+    # get logger
+    logger = logging.getLogger(__name__)
+    logger.debug(str(FILENAME))
     with netCDF4.Dataset(FILENAME, mode='r') as fileID:
         mean_pressure = np.array(fileID.variables[VARNAME][:].squeeze())
         longitude = fileID.variables[LONNAME][:].squeeze()
@@ -502,42 +569,33 @@ def ncdf_mean_pressure(FILENAME, VARNAME, LONNAME, LATNAME):
 # ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
 def ncdf_expver(fileID, VARNAME):
     ntime, nexp, nlat, nlon = fileID.variables[VARNAME].shape
-    fill_value = fileID.variables[VARNAME]._FillValue
     # reduced surface pressure output
-    pressure = np.ma.zeros((ntime, nlat, nlon))
-    pressure.fill_value = fill_value
+    pressure = np.zeros((ntime, nlat, nlon))
     for t in range(ntime):
         # iterate over expver slices to find valid outputs
         for j in range(nexp):
             # check if any are valid for expver
             if np.any(fileID.variables[VARNAME][t, j, :, :]):
                 pressure[t, :, :] = fileID.variables[VARNAME][t, j, :, :]
-    # update mask variable
-    pressure.mask = pressure.data == pressure.fill_value
     # return the reduced pressure variable
     return pressure
 
 
 # PURPOSE: read reanalysis invariant parameters (geopotential,lat,lon)
 def ncdf_invariant(FILENAME, ZNAME):
-    logging.debug(str(FILENAME))
+    # get logger
+    logger = logging.getLogger(__name__)
+    logger.debug(str(FILENAME))
     with netCDF4.Dataset(FILENAME, mode='r') as fileID:
         geopotential = fileID.variables[ZNAME][:].squeeze()
     return geopotential
 
 
-# PURPOSE: read geoid height netCDF4 files from read_gfz_geoid_grids.py
-def ncdf_geoid(FILENAME):
-    logging.debug(str(FILENAME))
-    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
-        geoid_undulation = fileID.variables['geoid'][:].copy()
-        gridstep = np.array(fileID.gridstep.split(','), dtype=np.float64)
-    return (geoid_undulation, np.squeeze(gridstep))
-
-
 # PURPOSE: read land sea mask to get indices of oceanic values
 def ncdf_landmask(FILENAME, MASKNAME, OCEAN):
-    logging.debug(str(FILENAME))
+    # get logger
+    logger = logging.getLogger(__name__)
+    logger.debug(str(FILENAME))
     with netCDF4.Dataset(FILENAME, 'r') as fileID:
         landsea = np.squeeze(fileID.variables[MASKNAME][:].copy())
     return np.nonzero(landsea == OCEAN)
@@ -561,11 +619,13 @@ def arguments():
         'NCEP-DOE-2',
         'NCEP-CFSR',
         'JRA-55',
+        'JRA-3Q',
     ]
     parser.add_argument(
         'model',
         type=str,
         nargs='+',
+        metavar='MODEL',
         default=['ERA5', 'MERRA-2'],
         choices=choices,
         help='Reanalysis Model',
@@ -651,6 +711,15 @@ def arguments():
         choices=['ascii', 'netCDF4', 'HDF5'],
         help='Input and output data format',
     )
+    # Output log file for each job in forms
+    # validrun_2002-04-01T00:00:00_PID-00000.log
+    # failedrun_2002-04-01T00:00:00_PID-00000.log
+    parser.add_argument(
+        '--log',
+        default=False,
+        action='store_true',
+        help='Output log file for each job',
+    )
     # print information about each input and output file
     parser.add_argument(
         '--verbose',
@@ -679,24 +748,53 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = gravtk.utilities.build_logger(
+        __name__, level=loglevels[args.verbose]
+    )
 
+    # log the command line parameters
+    info(args)
     # for each reanalysis model
     for MODEL in args.model:
-        # run program
-        reanalysis_pressure_harmonics(
-            args.directory,
-            MODEL,
-            args.year,
-            RANGE=args.mean,
-            REDISTRIBUTE=args.redistribute,
-            LMAX=args.lmax,
-            MMAX=args.mmax,
-            LOVE_NUMBERS=args.love,
-            REFERENCE=args.reference,
-            DATAFORM=args.format,
-            MODE=args.mode,
-        )
+        # run program with parameters
+        try:
+            output_files = reanalysis_pressure_harmonics(
+                args.directory,
+                MODEL,
+                args.year,
+                RANGE=args.mean,
+                REDISTRIBUTE=args.redistribute,
+                LMAX=args.lmax,
+                MMAX=args.mmax,
+                LOVE_NUMBERS=args.love,
+                REFERENCE=args.reference,
+                DATAFORM=args.format,
+                MODE=args.mode,
+            )
+        except:
+            # if there has been an error exception
+            # print the type, value, and stack trace of the
+            # current exception being handled
+            logger.critical(f'process id {os.getpid():d} failed')
+            logger.error(traceback.format_exc())
+            if args.log:  # write failed job completion log file
+                logfile = gravtk.utilities.create_log_file(
+                    'failedrun',
+                    filename=pathlib.Path(sys.argv[0]).name,
+                    arguments=vars(args),
+                    model=MODEL,
+                )
+                logger.info(logfile)
+        else:
+            if args.log:  # write successful job completion log file
+                logfile = gravtk.utilities.create_log_file(
+                    'validrun',
+                    filename=pathlib.Path(sys.argv[0]).name,
+                    arguments=vars(args),
+                    output=output_files,
+                    model=MODEL,
+                )
+                logger.info(logfile)
 
 
 # run main program

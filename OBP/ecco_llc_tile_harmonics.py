@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 ecco_llc_tile_harmonics.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (07/2026)
 Reads monthly ECCO ocean bottom pressure anomalies from LLC tiles
     and converts to spherical harmonic coefficients
 
@@ -63,6 +63,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for files
 
 UPDATE HISTORY:
+    Updated 07/2026: use to_cartesian function to get the XYZ coordinates
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: add attributes to output netCDF4 and HDF5 files
     Updated 02/2023: use love numbers class with additional attributes
@@ -172,23 +173,19 @@ def ecco_llc_tile_harmonics(
     ellipsoid_params = mdlhmc.datum(ellipsoid='WGS84')
     # semimajor axis of ellipsoid [m]
     a_axis = ellipsoid_params.a_axis
-    # first numerical eccentricity
-    ecc1 = ellipsoid_params.ecc1
-    # convert from geodetic latitude to geocentric latitude
-    # geodetic latitude and longitude in radians
-    latitude_geodetic_rad = np.radians(invariant['lat'])
-    longitude_rad = np.radians(invariant['lon'])
-    # prime vertical radius of curvature
-    N = a_axis / np.sqrt(1.0 - ecc1**2.0 * np.sin(latitude_geodetic_rad) ** 2.0)
+    # ellipsoidal flattening
+    flat = ellipsoid_params.flat
     # calculate X, Y and Z from geodetic latitude and longitude
-    X = (N + bathymetry) * np.cos(latitude_geodetic_rad) * np.cos(longitude_rad)
-    Y = (N + bathymetry) * np.cos(latitude_geodetic_rad) * np.sin(longitude_rad)
-    Z = (N * (1.0 - ecc1**2.0) + bathymetry) * np.sin(latitude_geodetic_rad)
+    X, Y, Z = geoidtk.spatial.to_cartesian(
+        invariant['lon'],
+        invariant['lat'],
+        h=bathymetry,
+        a_axis=a_axis,
+        flat=flat,
+    )
     R = np.sqrt(X**2.0 + Y**2.0 + Z**2.0)
     # calculate geocentric latitude and convert to degrees
-    latitude_geocentric = np.degrees(np.arctan(Z / np.sqrt(X**2.0 + Y**2.0)))
-    # colatitude in radians
-    theta = np.radians(90.0 - latitude_geocentric)
+    latitude_geocentric = np.degrees(np.arctan(Z / np.hypot(X, Y)))
 
     # calculate normal gravity at latitudes and bathymetry
     gamma_h, dgamma_dh = geoidtk.norm_gravity(
@@ -197,7 +194,10 @@ def ecco_llc_tile_harmonics(
 
     # read load love numbers
     LOVE = gravtk.load_love_numbers(
-        LMAX, LOVE_NUMBERS=LOVE_NUMBERS, REFERENCE=REFERENCE, FORMAT='class'
+        LMAX,
+        LOVE_NUMBERS=LOVE_NUMBERS,
+        REFERENCE=REFERENCE,
+        FORMAT='class',
     )
     # add attributes for earth parameters
     attributes['earth_model'] = LOVE.model
@@ -282,18 +282,13 @@ def ecco_llc_tile_harmonics(
     fid2 = output_index_file.open(mode='w', encoding='utf8')
     # find all available output files
     args = (MODEL, LMAX, suffix[DATAFORM])
-    output_regex = r'ECCO_{0}_AveRmvd_OBP_CLM_L{1:d}_([-]?\d+).{2}'.format(
-        *args
-    )
+    pattern = r'ECCO_{0}_AveRmvd_OBP_CLM_L{1:d}_([-]?\d+).{2}'.format(*args)
+    regex = re.compile(pattern, re.VERBOSE)
     # find all output harmonic files (not just ones created in run)
-    output_files = [
-        fi for fi in d2.iterdir() if re.match(output_regex, fi.name)
-    ]
+    output_files = [fi for fi in d2.iterdir() if regex.match(fi.name)]
     for fi in sorted(output_files):
         # extract GRACE month
-        (grace_month,) = np.array(
-            re.findall(output_regex, fi.name), dtype=np.int64
-        )
+        (grace_month,) = np.array(regex.findall(fi.name), dtype=int)
         YY, MM = gravtk.time.grace_to_calendar(grace_month)
         (tdec,) = gravtk.time.convert_calendar_decimal(YY, MM)
         # print date, GRACE month and calendar month to date file
@@ -344,6 +339,7 @@ def arguments():
         'model',
         type=str,
         nargs='+',
+        metavar='MODEL',
         default=['V5alpha'],
         choices=['V4r4', 'V5alpha'],
         help='ECCO Version 4 or 5 Model',
@@ -441,7 +437,9 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = gravtk.utilities.build_logger(
+        __name__, level=loglevels[args.verbose]
+    )
 
     # for each ECCO model
     for MODEL in args.model:

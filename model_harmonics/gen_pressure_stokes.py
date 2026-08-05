@@ -25,6 +25,7 @@ OUTPUTS:
 OPTIONS:
     LMAX: Upper bound of Spherical Harmonic Degrees (default = 60)
     MMAX: Upper bound of Spherical Harmonic Orders (default = LMAX)
+    WEIGHT: custom latitudinal weighting function for gridded data
     PLM: input Legendre polynomials
     LOVE: input load Love numbers up to degree LMAX (hl,kl,ll)
 
@@ -56,6 +57,7 @@ REFERENCE:
 UPDATE HISTORY:
     Updated 07/2026: use np.einsum for spherical harmonic summations
         use np.radians to convert from degrees to radians
+        added custom weighting function for gridded data
     Updated 03/2023: improve typing for variables in docstrings
     Updated 01/2023: refactored associated legendre polynomials
     Updated 04/2022: updated docstrings to numpy documentation format
@@ -77,7 +79,16 @@ import gravity_toolkit as gravtk
 
 # PURPOSE: calculates spherical harmonic fields from pressure fields
 def gen_pressure_stokes(
-    P, G, R, lon, lat, LMAX=60, MMAX=None, PLM=None, LOVE=None
+    P,
+    G,
+    R,
+    lon,
+    lat,
+    LMAX=60,
+    MMAX=None,
+    WEIGHT=None,
+    PLM=None,
+    LOVE=None,
 ):
     r"""
     Converts pressure fields from the spatial domain to spherical
@@ -99,6 +110,8 @@ def gen_pressure_stokes(
         Upper bound of Spherical Harmonic Degrees
     MMAX: int or NoneType, default None
         Upper bound of Spherical Harmonic Orders
+    WEIGHT: np.ndarray or NoneType, default None
+        Custom latitudinal weighting function for gridded data
     PLM: np.ndarray or NoneType, default None
         Legendre polynomials
     LOVE: tuple or NoneType, default None
@@ -126,14 +139,13 @@ def gen_pressure_stokes(
     th = np.radians(90.0 - np.squeeze(lat))
     # reformatting longitudes to range 0:360 (if previously -180:180)
     phi = np.where(phi < 0, phi + 2.0 * np.pi, phi)
-    # grid step in radians
-    dphi = np.abs(phi[1] - phi[0])
-    dth = np.abs(th[1] - th[0])
+    # grid dimensions
+    nlat = len(th)
 
     # For gridded data: dmat = original data matrix
     sz = np.shape(P)
     # reforming data to lonXlat if input latXlon
-    if sz[0] == len(lat):
+    if sz[0] == nlat:
         P = np.transpose(P)
         G = np.transpose(G)
         R = np.transpose(R)
@@ -146,9 +158,18 @@ def gen_pressure_stokes(
     rad_e = factors.rad_e / 100.0
     # SH Degree dependent factors with indirect loading components
     dfactor = factors.mmwe
-    # Multiplying sin(th) with differentials of theta and phi
-    # to calculate the integration factor at each latitude
-    int_fact = np.sin(th) * dphi * dth
+    # use an integration factor for gridded data or
+    # calculate from sin(theta)*dtheta*dphi
+    int_fact = np.zeros((nlat))
+    if WEIGHT is not None:
+        # Weighting function for integrating gridded data
+        int_fact[:] = np.broadcast_to(np.atleast_1d(WEIGHT), nlat)
+    else:
+        # Multiplying sin(th) with differentials of theta and phi
+        # to calculate the integration factor at each latitude
+        dphi = np.abs(phi[1] - phi[0])
+        dth = np.abs(th[1] - th[0])
+        int_fact[:] = np.sin(th) * dphi * dth
 
     # Calculating cos/sin of phi arrays
     # output [m,phi]

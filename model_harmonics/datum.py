@@ -138,9 +138,8 @@ class datum(object):
             self.a_axis = 6378160.0  # [m] semimajor axis of the ellipsoid
             self.flat = 1.0 / 298.247167427  # flattening of the ellipsoid
             self.GM = 3.98603e14  # [m^3/s^2] Geocentric Gravitational Constant
-            self.omega = (
-                7292115.1467e-11  # angular velocity of the Earth [rad/s]
-            )
+            # angular velocity of the Earth [rad/s]
+            self.omega = 7292115.1467e-11
 
         elif self.name == 'WGS72':
             # World Geodetic System 1972

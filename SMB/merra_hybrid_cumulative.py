@@ -54,7 +54,6 @@ from __future__ import print_function
 
 import re
 import gzip
-import time
 import uuid
 import logging
 import netCDF4
@@ -62,6 +61,36 @@ import pathlib
 import argparse
 import numpy as np
 import model_harmonics as mdlhmc
+from gravity_toolkit.utilities import build_logger
+
+# dictionary defining the spatial reference system for each region
+crs = dict(gris={}, ais={})
+# Greenland (EPSG:3413)
+crs['gris']['standard_name'] = 'Polar_Stereographic'
+crs['gris']['grid_mapping_name'] = 'polar_stereographic'
+crs['gris']['straight_vertical_longitude_from_pole'] = -45.0
+crs['gris']['latitude_of_projection_origin'] = 90.0
+crs['gris']['standard_parallel'] = 70.0
+crs['gris']['scale_factor_at_projection_origin'] = 1.0
+crs['gris']['false_easting'] = 0.0
+crs['gris']['false_northing'] = 0.0
+crs['gris']['semi_major_axis'] = 6378.137
+crs['gris']['semi_minor_axis'] = 6356.752
+crs['gris']['inverse_flattening'] = 298.257223563
+crs['gris']['spatial_epsg'] = '3413'
+# Antarctica (EPSG:3031)
+crs['ais']['standard_name'] = 'Polar_Stereographic'
+crs['ais']['grid_mapping_name'] = 'polar_stereographic'
+crs['ais']['straight_vertical_longitude_from_pole'] = 0.0
+crs['ais']['latitude_of_projection_origin'] = -90.0
+crs['ais']['standard_parallel'] = -71.0
+crs['ais']['scale_factor_at_projection_origin'] = 1.0
+crs['ais']['false_easting'] = 0.0
+crs['ais']['false_northing'] = 0.0
+crs['ais']['semi_major_axis'] = 6378.137
+crs['ais']['semi_minor_axis'] = 6356.752
+crs['ais']['inverse_flattening'] = 298.257223563
+crs['ais']['spatial_epsg'] = '3031'
 
 
 # PURPOSE: calculate cumulative anomalies in MERRA-2 hybrid
@@ -93,6 +122,8 @@ def merra_hybrid_cumulative(
     MODE: oct, default 0o775
         Permission mode of directories and files created
     """
+    # get logger
+    logger = logging.getLogger(__name__)
 
     # MERRA-2 hybrid directory
     DIRECTORY = base_dir.joinpath(VERSION)
@@ -142,28 +173,77 @@ def merra_hybrid_cumulative(
         fileID = netCDF4.Dataset(input_file, mode='r')
 
     # Output NetCDF file information
-    logging.info(input_file)
-    logging.info(list(fileID.variables.keys()))
-
-    # Get data and attribute from each netCDF variable
+    logger.info(input_file)
+    logger.info(list(fileID.variables.keys()))
+    # dictionary describing the output netCDF4 structure
+    struct = dict(
+        dimensions=('time', 'x', 'y'),
+        variables={},
+    )
+    # for each variable
+    for v in VARIABLES:
+        struct['variables'][f'{v}{anomaly_flag}'] = ('time', 'x', 'y')
+    # output area variable if applicable
+    if AREA:
+        struct['variables'][AREA] = ('x', 'y')
+    # dictionaries with data and attributes for output NetCDF file
     fd = {}
-    attrs = {}
-    # input time (year-decimal)
-    fd['time'] = fileID.variables['time'][:].copy()
+    attrs = dict(ROOT={})
+    attributes_list = ['units', 'long_name', 'standard_name', 'comment']
+    # global attributes of NetCDF file
+    attrs['ROOT']['title'] = (
+        f'Cumulative anomalies in GSFC-FDM{VERSION} variables '
+        f'relative to {RANGE[0]:4d}-{RANGE[1]:4d}'
+    )
+    attrs['ROOT']['source'] = f'version {VERSION}'
+    attrs['ROOT']['authors'] = 'Brooke Medley (NASA GSFC)'
+    attrs['ROOT']['references'] = (
+        'Medley, B., Neumann, T. A., Zwally, H. J., '
+        'Smith, B. E., and Stevens, C. M.: Simulations of Firn Processes '
+        'over the Greenland and Antarctic Ice Sheets: 1980--2021, '
+        'The Cryosphere, https://doi.org/10.5194/tc-16-3971-2022, 2022.'
+    )
+    attrs['ROOT']['institution'] = 'NASA Goddard Space Flight Center (GSFC)'
+
+    # list of input files for provenance
+    lineage = []
+    lineage.append(input_file.name)
+
+    # create variable and attributes for projection
+    fd['Polar_Stereographic'] = np.byte()
+    # add projection attributes to dictionary
+    attrs['Polar_Stereographic'] = crs[REGION]
+
+    # Defining attributes for x and y coordinates
+    attrs['x'] = dict(
+        long_name='Easting',
+        standard_name='projection_x_coordinate',
+        grid_mapping='Polar_Stereographic',
+        units='meters',
+    )
+    attrs['y'] = dict(
+        long_name='Northing',
+        standard_name='projection_y_coordinate',
+        grid_mapping='Polar_Stereographic',
+        units='meters',
+    )
+    # Defining attributes for date
+    attrs['time'] = dict(
+        long_name='time, 5-daily resolution',
+        units='decimal years, 5-daily resolution',
+    )
+
     # extract areas from SMB or firn height file
     if AREA and (AREA in fileID.variables):
         fd[AREA] = fileID.variables[AREA][:].copy()
         # get each attribute for area variable if applicable
-        attrs[AREA] = {}
-        for att_name in ['units', 'long_name', 'standard_name']:
-            if hasattr(fileID.variables[AREA], att_name):
-                attrs[AREA][att_name] = fileID.variables[AREA].getncattr(
-                    att_name
-                )
+        attrs[AREA] = ncdf_attributes(fileID.variables[AREA], attributes_list)
+        attrs[AREA]['grid_mapping'] = 'Polar_Stereographic'
     elif AREA:
         # Open the MERRA-2 Hybrid firn height file for reading
         input_firn_file = DIRECTORY.joinpath(firn_height_file)
-        logging.debug(input_firn_file)
+        logger.debug(input_firn_file)
+        lineage.append(input_firn_file.name)
         if GZIP:
             # read as in-memory (diskless) netCDF4 dataset
             with gzip.open(str(input_firn_file), mode='r') as f:
@@ -174,10 +254,8 @@ def merra_hybrid_cumulative(
         # copy area from firn height file
         fd[AREA] = fid1.variables[AREA][:].copy()
         # get each attribute for area variable if applicable
-        attrs[AREA] = {}
-        for att_name in ['units', 'long_name', 'standard_name']:
-            if hasattr(fid1.variables[AREA], att_name):
-                attrs[AREA][att_name] = fid1.variables[AREA].getncattr(att_name)
+        attrs[AREA] = ncdf_attributes(fid1.variables[AREA], attributes_list)
+        attrs[AREA]['grid_mapping'] = 'Polar_Stereographic'
         # close the firn height file
         fid1.close()
 
@@ -198,17 +276,19 @@ def merra_hybrid_cumulative(
 
     # for each variable
     for v in VARIABLES:
+        # append anomaly flag
+        var = f'{v}{anomaly_flag}'
         # copy data and remove singleton dimensions
-        DATA = np.ma.array(fileID.variables[v][:]).squeeze()
-        # invalid data value
-        DATA.fill_value = np.float64(fileID.variables[v]._FillValue)
         # set masks
-        DATA.mask = DATA.data == DATA.fill_value
+        DATA = np.ma.masked_equal(
+            fileID.variables[v][:].squeeze(),
+            fileID.variables[v]._FillValue,
+        )
         # get each attribute for variable if applicable
-        attrs[v] = {}
-        for att_name in ['units', 'long_name', 'standard_name', 'comment']:
-            if hasattr(fileID.variables[v], att_name):
-                attrs[v][att_name] = fileID.variables[v].getncattr(att_name)
+        attrs[var] = ncdf_attributes(
+            fileID.variables[v], attributes_list, replace=[(' per year', '')]
+        )
+        attrs[var]['grid_mapping'] = 'Polar_Stereographic'
         # input shape of MERRA-2 Hybrid firn data
         nt, nx, ny = np.shape(DATA)
 
@@ -219,163 +299,80 @@ def merra_hybrid_cumulative(
         i, j = np.nonzero(~DATA.mask[0, :, :])
         valid_count = np.count_nonzero(~DATA.mask[0, :, :])
         # allocate for output variable
-        fd[v] = np.ma.zeros((nt, nx, ny), fill_value=DATA.fill_value)
-        fd[v].mask = DATA.mask | np.isnan(DATA.data)
+        fd[var] = np.ma.zeros((nt, nx, ny), fill_value=DATA.fill_value)
+        fd[var].mask = DATA.mask | np.isnan(DATA.data)
         CUMULATIVE = np.zeros((valid_count))
         # calculate output cumulative anomalies for variable
         for t in range(nt):
             # convert mass flux from yearly rate and
             # calculate cumulative anomalies at time t
             CUMULATIVE += DATA.data[t, i, j] * time_step - MEAN[i, j]
-            fd[v].data[t, i, j] = CUMULATIVE.copy()
+            fd[var].data[t, i, j] = CUMULATIVE.copy()
         # replace masked values with fill value
-        fd[v].data[fd[v].mask] = fd[v].fill_value
+        fd[var].data[fd[var].mask] = fd[var].fill_value
     # close the NetCDF files
     fileID.close()
 
     # Output NetCDF filename
     output_cumulative_file = DIRECTORY.joinpath(output_file)
-    logging.info(output_cumulative_file)
+    logger.info(output_cumulative_file)
 
     # output MERRA-2 data file with cumulative data
     if GZIP:
-        # open virtual file object for output
-        fileID = netCDF4.Dataset(
-            uuid.uuid4().hex, 'w', memory=True, format='NETCDF4'
+        # write data to in-memory netCDF4 file
+        nc_buffer = mdlhmc.spatial.to_netCDF4(
+            uuid.uuid4().hex,
+            fd,
+            attrs,
+            struct,
+            mode='w',
+            memory=True,
         )
-    else:
-        # opening NetCDF file for writing
-        fileID = netCDF4.Dataset(output_cumulative_file, 'w', format='NETCDF4')
-
-    # Defining the NetCDF dimensions
-    fileID.createDimension('x', nx)
-    fileID.createDimension('y', ny)
-    fileID.createDimension('time', nt)
-
-    # python dictionary with netCDF4 variables
-    nc = {}
-    # defining the NetCDF variables
-    nc['x'] = fileID.createVariable('x', fd['x'].dtype, ('x',))
-    nc['y'] = fileID.createVariable('y', fd['y'].dtype, ('y',))
-    nc['time'] = fileID.createVariable('time', fd['time'].dtype, ('time',))
-    # output area variable
-    if AREA:
-        nc[AREA] = fileID.createVariable(
-            AREA,
-            fd[AREA].dtype,
-            (
-                'x',
-                'y',
-            ),
-            fill_value=fd[AREA].fill_value,
-            zlib=True,
-        )
-    # for each output variable
-    for v in VARIABLES:
-        # append anomaly flag
-        var = f'{v}{anomaly_flag}'
-        nc[v] = fileID.createVariable(
-            var,
-            fd[v].dtype,
-            (
-                'time',
-                'x',
-                'y',
-            ),
-            fill_value=fd[v].fill_value,
-            zlib=True,
-        )
-
-    # filling NetCDF variables
-    for key, val in fd.items():
-        nc[key][:] = val.copy()
-
-    # create variable and attributes for projection
-    if REGION in ('gris',):
-        crs = fileID.createVariable('Polar_Stereographic', np.byte, ())
-        crs.standard_name = 'Polar_Stereographic'
-        crs.grid_mapping_name = 'polar_stereographic'
-        crs.straight_vertical_longitude_from_pole = -45.0
-        crs.latitude_of_projection_origin = 90.0
-        crs.standard_parallel = 70.0
-        crs.scale_factor_at_projection_origin = 1.0
-        crs.false_easting = 0.0
-        crs.false_northing = 0.0
-        crs.semi_major_axis = 6378.137
-        crs.semi_minor_axis = 6356.752
-        crs.inverse_flattening = 298.257223563
-        crs.spatial_epsg = '3413'
-    elif REGION in ('ais',):
-        crs = fileID.createVariable('Polar_Stereographic', np.byte, ())
-        crs.standard_name = 'Polar_Stereographic'
-        crs.grid_mapping_name = 'polar_stereographic'
-        crs.straight_vertical_longitude_from_pole = 0.0
-        crs.latitude_of_projection_origin = -90.0
-        crs.standard_parallel = -71.0
-        crs.scale_factor_at_projection_origin = 1.0
-        crs.false_easting = 0.0
-        crs.false_northing = 0.0
-        crs.semi_major_axis = 6378.137
-        crs.semi_minor_axis = 6356.752
-        crs.inverse_flattening = 298.257223563
-        crs.spatial_epsg = '3031'
-
-    # Defining attributes for x and y coordinates
-    nc['x'].long_name = 'Easting'
-    nc['x'].standard_name = 'projection_x_coordinate'
-    nc['x'].grid_mapping = 'Polar_Stereographic'
-    nc['x'].units = 'meters'
-    nc['y'].long_name = 'Northing'
-    nc['y'].standard_name = 'projection_y_coordinate'
-    nc['y'].grid_mapping = 'Polar_Stereographic'
-    nc['y'].units = 'meters'
-    # defining attributes for area variable
-    if AREA:
-        # set area variable attributes
-        for att_name, att_val in attrs[AREA].items():
-            nc[AREA].setncattr(att_name, att_val)
-        # set grid mapping attribute
-        nc[AREA].setncattr('grid_mapping', 'Polar_Stereographic')
-    # Defining attributes for variables
-    for v in VARIABLES:
-        # set variable attributes
-        for att_name, att_val in attrs[v].items():
-            nc[v].setncattr(att_name, att_val.replace(' per year', ''))
-        # set grid mapping attribute
-        nc[v].setncattr('grid_mapping', 'Polar_Stereographic')
-    # Defining attributes for date
-    nc['time'].long_name = 'time, 5-daily resolution'
-    nc['time'].units = 'decimal years, 5-daily resolution'
-    # global attributes of NetCDF file
-    fileID.title = (
-        f'Cumulative anomalies in GSFC-FDM{VERSION} variables '
-        f'relative to {RANGE[0]:4d}-{RANGE[1]:4d}'
-    )
-    fileID.date_created = time.strftime('%Y-%m-%d', time.localtime())
-    fileID.source = f'version {VERSION}'
-    fileID.references = (
-        'Medley, B., Neumann, T. A., Zwally, H. J., '
-        'Smith, B. E., and Stevens, C. M.: Simulations of Firn Processes '
-        'over the Greenland and Antarctic Ice Sheets: 1980--2021, '
-        'The Cryosphere, https://doi.org/10.5194/tc-16-3971-2022, 2022.'
-    )
-    fileID.institution = 'NASA Goddard Space Flight Center (GSFC)'
-    # add software information
-    fileID.software_reference = mdlhmc.version.project_name
-    fileID.software_version = mdlhmc.version.full_version
-    # Output NetCDF file information
-    logging.info(list(fileID.variables.keys()))
-    # Closing the NetCDF file and getting the buffer object
-    nc_buffer = fileID.close()
-
-    # write MERRA-2 data file to gzipped file
-    if GZIP:
-        # copy bytes to file
-        with gzip.open(str(output_cumulative_file), 'wb') as f:
+        # write MERRA-2 data file to gzipped file
+        with gzip.open(str(output_file), 'wb') as f:
             f.write(nc_buffer)
-
+    else:
+        # write data to netCDF4 file
+        mdlhmc.spatial.to_netCDF4(
+            output_file,
+            fd,
+            attrs,
+            struct,
+            mode='w',
+        )
+    # change the permissions mode
+    output_file.chmod(mode=MODE)
     # change the permissions mode
     output_cumulative_file.chmod(mode=MODE)
+
+
+# PURPOSE: get attributes for netCDF4 files and variable
+def ncdf_attributes(nc, attributes_list, replace=[]):
+    # get logger
+    logger = logging.getLogger(__name__)
+    # output dictionary of attributes
+    attributes = {}
+    # for each attribute to try to get
+    for att_name in attributes_list:
+        rx = re.compile(att_name, re.IGNORECASE)
+        try:
+            # use case-insensitive regex to find attribute name
+            (ncattr,) = [s for s in nc.ncattrs() if rx.match(s)]
+            att_val = nc.getncattr(ncattr)
+        except Exception as exc:
+            ncvar = getattr(nc, 'name', 'ROOT')
+            logger.debug(f'Attribute {att_name} not found in {ncvar}')
+            continue
+        # strip whitespace for string attributes
+        if isinstance(att_val, str):
+            att_val = att_val.strip()
+        # replace attribute values if applicable
+        for key, val in replace:
+            att_val = att_val.replace(key, val)
+        # add attribute to dictionary
+        attributes[att_name] = att_val
+    # return the dictionary of attributes
+    return attributes
 
 
 # PURPOSE: create argument parser
@@ -460,7 +457,7 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = build_logger(__name__, level=loglevels[args.verbose])
 
     # run program
     merra_hybrid_cumulative(

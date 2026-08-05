@@ -1,17 +1,27 @@
 #!/usr/bin/env python
 """
 reanalysis_mean_pressure.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (07/2026)
 Calculates the mean surface pressure fields from reanalysis
 
-INPUTS:
-    Reanalysis model to run
-    ERA-Interim: http://apps.ecmwf.int/datasets/data/interim-full-moda
-    ERA5: http://apps.ecmwf.int/data-catalogues/era5/?class=ea
-    MERRA-2: https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/
-    NCEP-DOE-2: https://www.esrl.noaa.gov/psd/data/gridded/data.ncep.reanalysis2.html
-    NCEP-CFSR: https://rda.ucar.edu/datasets/ds093.1/
-    JRA-55: http://jra.kishou.go.jp/JRA-55/index_en.html
+Reanalysis models:
+    ERA-Interim:
+        http://apps.ecmwf.int/datasets/data/interim-full-moda
+    ERA5:
+        http://apps.ecmwf.int/data-catalogues/era5/?class=ea
+    MERRA-2:
+        https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/
+    NCEP-DOE-2:
+        https://psl.noaa.gov/data/gridded/data.ncep.Reanalysis2.html
+    NCEP-CFSR:
+        https://gdex.ucar.edu/datasets/d093002/
+        https://gdex.ucar.edu/datasets/d094002/
+    JRA-55:
+        https://gdex.ucar.edu/datasets/d628000/
+        http://jra.kishou.go.jp/JRA-55/index_en.html
+    JRA-3Q:
+        https://gdex.ucar.edu/datasets/d640000/
+        https://www.data.jma.go.jp/jra/html/JRA-3Q/index_en.html
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
@@ -47,6 +57,8 @@ REFERENCES:
         https://doi.org/10.1029/2000JB000024
 
 UPDATE HISTORY:
+    Updated 07/2026: added JRA-3Q reanalysis to list of models
+        changed variable names for JRA-55 and NCEP-CFSR reanalysis
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -86,7 +98,7 @@ def reanalysis_mean_pressure(
 ):
     # create logger for verbosity level
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[VERBOSE])
+    logger = gravtk.utilities.build_logger(__name__, level=loglevels[VERBOSE])
 
     # directory setup
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
@@ -116,7 +128,7 @@ def reanalysis_mean_pressure(
         ZNAME = 'z'
         LONNAME = 'longitude'
         LATNAME = 'latitude'
-        TIMENAME = 'time'
+        TIMENAME = 'valid_time'
     elif MODEL == 'MERRA-2':
         # invariant parameters file
         input_invariant_file = 'MERRA2_101.const_2d_asm_Nx.00000000.nc4'
@@ -145,11 +157,11 @@ def reanalysis_mean_pressure(
         # invariant parameters file
         input_invariant_file = 'hgt.gdas.nc'
         # regular expression pattern for finding files
-        regex_pattern = r'pgbh.gdas.({0}).nc$'
+        regex_pattern = r'splanl.gdas.({0})(\d+).nc$'
         # output file format
-        output_file_format = 'pgbh.mean.gdas.{0:4d}-{1:4d}.nc'
-        VARNAME = 'PRES_L1_Avg'
-        ZNAME = 'HGT_L1_Avg'
+        output_file_format = 'splanl.mean.gdas.{0:4d}-{1:4d}.nc'
+        VARNAME = 'ave_sp'
+        ZNAME = 'orog'
         LONNAME = 'lon'
         LATNAME = 'lat'
         TIMENAME = 'time'
@@ -157,13 +169,27 @@ def reanalysis_mean_pressure(
         # invariant parameters file
         input_invariant_file = 'll125.006_gp.2000.nc'
         # regular expression pattern for finding files
-        regex_pattern = r'anl_surf125\.001_pres\.({0}).nc$'
+        regex_pattern = r'anl_surf125\.001_pres\.({0})(\d+).nc$'
         # output file format
         output_file_format = 'anl_surf.001_pres.mean.{0:4d}-{1:4d}.nc'
-        VARNAME = 'Pressure_surface'
-        ZNAME = 'GP_GDS0_SFC'
-        LONNAME = 'g0_lon_1'
-        LATNAME = 'g0_lat_0'
+        VARNAME = 'sp'
+        ZNAME = 'z'
+        LONNAME = 'lon'
+        LATNAME = 'lat'
+        TIMENAME = 'time'
+    elif MODEL == 'JRA-3Q':
+        # invariant parameters file
+        input_invariant_file = (
+            'jra3q.tl479_surf.0_3_4.gp-sfc-cn-gauss.1947090100_1947090100.nc'
+        )
+        # regular expression pattern for finding files
+        regex_pattern = r'jra3q\.anl_surf\.pres-sfc-an-gauss\.({0})(\d+).nc$'
+        # output file format
+        output_file_format = 'jra3q.mean.pres-sfc-an-gauss.{0:4d}-{1:4d}.nc'
+        VARNAME = 'pres-sfc-an-gauss'
+        ZNAME = 'gp-sfc-cn-gauss'
+        LONNAME = 'lon'
+        LATNAME = 'lat'
         TIMENAME = 'time'
 
     # read model orography for dimensions
@@ -171,6 +197,8 @@ def reanalysis_mean_pressure(
         ddir.joinpath(input_invariant_file), LONNAME, LATNAME, ZNAME
     )
     nlat, nlon = np.shape(geopotential)
+    # required order of dimensions
+    dimensions = [TIMENAME, LATNAME, LONNAME]
     # read each reanalysis pressure field and calculate mean
     regex_years = r'|'.join([rf'{Y:4d}' for Y in range(RANGE[0], RANGE[1] + 1)])
     rx = re.compile(regex_pattern.format(regex_years))
@@ -186,15 +214,20 @@ def reanalysis_mean_pressure(
     # for each reanalysis file
     for i, input_file in enumerate(input_files):
         # read input data
-        logging.debug(str(input_file))
+        logger.debug(str(input_file))
         with netCDF4.Dataset(input_file, mode='r') as fileID:
             # check dimensions for expver slice
             if fileID.variables[VARNAME].ndim == 4:
                 pressure = ncdf_expver(fileID, VARNAME)
             else:
                 pressure = fileID.variables[VARNAME][:].copy()
-            # use output fill value
-            p_mean.fill_value = fileID.variables[VARNAME]._FillValue
+            # replace invalid values with fill value
+            fill_value = fileID.variables[VARNAME]._FillValue
+            pressure = np.ma.masked_equal(pressure, fill_value)
+            # reorder dimensions to match the required order
+            dims = fileID.variables[VARNAME].dimensions
+            order = [dims.index(d) for d in dimensions]
+            pressure = pressure.transpose(order)
             # convert time to Modified Julian Days
             delta_time = np.copy(fileID.variables[TIMENAME][:])
             date_string = fileID.variables[TIMENAME].units
@@ -220,9 +253,10 @@ def reanalysis_mean_pressure(
             )
             count += 1
 
+    # use output fill value
+    p_mean.replace_invalid(fill_value)
     # calculate mean pressure by dividing by count
-    indy, indx = np.nonzero(np.logical_not(p_mean.mask))
-    p_mean.data[indy, indx] /= count
+    p_mean = p_mean.scale(1.0 / count)
     p_mean.update_mask()
     p_mean.time /= np.float64(count)
 
@@ -249,25 +283,23 @@ def reanalysis_mean_pressure(
 # ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
 def ncdf_expver(fileID, VARNAME):
     ntime, nexp, nlat, nlon = fileID.variables[VARNAME].shape
-    fill_value = fileID.variables[VARNAME]._FillValue
     # reduced surface pressure output
-    pressure = np.ma.zeros((ntime, nlat, nlon))
-    pressure.fill_value = fill_value
+    pressure = np.zeros((ntime, nlat, nlon))
     for t in range(ntime):
         # iterate over expver slices to find valid outputs
         for j in range(nexp):
             # check if any are valid for expver
             if np.any(fileID.variables[VARNAME][t, j, :, :]):
                 pressure[t, :, :] = fileID.variables[VARNAME][t, j, :, :]
-    # update mask variable
-    pressure.mask = pressure.data == pressure.fill_value
     # return the reduced pressure variable
     return pressure
 
 
 # PURPOSE: read reanalysis invariant parameters (geopotential,lat,lon)
 def ncdf_invariant(FILENAME, LONNAME, LATNAME, ZNAME):
-    logging.debug(str(FILENAME))
+    # get logger
+    logger = logging.getLogger(__name__)
+    logger.debug(str(FILENAME))
     with netCDF4.Dataset(FILENAME, mode='r') as fileID:
         geopotential = fileID.variables[ZNAME][:].squeeze()
         longitude = fileID.variables[LONNAME][:].copy()
@@ -292,11 +324,13 @@ def arguments():
         'NCEP-DOE-2',
         'NCEP-CFSR',
         'JRA-55',
+        'JRA-3Q',
     ]
     parser.add_argument(
         'model',
         type=str,
         nargs='+',
+        metavar='MODEL',
         default=['ERA5', 'MERRA-2'],
         choices=choices,
         help='Reanalysis Model',

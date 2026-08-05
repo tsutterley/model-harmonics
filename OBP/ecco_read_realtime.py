@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 ecco_read_realtime.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (08/2026)
 
 Reads 12-hour ECCO ocean bottom pressure data from JPL
 Calculates monthly anomalies on an equirectangular grid
@@ -51,6 +51,8 @@ REFERENCES:
         https://doi.org/10.1029/94JC00847
 
 UPDATE HISTORY:
+    Updated 08/2026: fixes for typing error with numpy updates
+    Updated 07/2026: use authalic area for the grid cell areas
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: updated inputs to spatial from_ascii function
     Updated 12/2022: single implicit import of spherical harmonic tools
@@ -95,7 +97,7 @@ def ecco_read_realtime(
 ):
     # create logger for verbosity level
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[VERBOSE])
+    logger = gravtk.utilities.build_logger(__name__, level=loglevels[VERBOSE])
 
     # set up regular expression for finding directories to run from YEAR
     regex_years = r'|'.join([rf'{y:d}' for y in YEARS])
@@ -126,6 +128,12 @@ def ecco_read_realtime(
     flat = 1.0 / 298.26  # flattening of the ellipsoid
     # semiminor axis of the ellipsoid
     b_axis = (1.0 - flat) * a_axis  # [m]
+    # Linear eccentricity
+    ecc = np.sqrt((2.0 * flat - flat**2) * a_axis**2)
+    # First numerical eccentricity
+    ecc1 = ecc / a_axis
+    e12 = ecc1**2.0
+
     # output grid spacing
     LAT_MAX = 78.5
     dlon, dlat = (1.0, 1.0)
@@ -196,14 +204,11 @@ def ecco_read_realtime(
             # calculate Julian day by converting to MJD and adding offset
             time_string = obp.attributes['time']['units']
             epoch1, to_secs = gravtk.time.parse_date_string(time_string)
-            JD = (
-                gravtk.time.convert_delta_time(
-                    obp.time * to_secs,
-                    epoch1=epoch1,
-                    epoch2=(1858, 11, 17, 0, 0, 0),
-                    scale=1.0 / 86400.0,
-                )
-                + 2400000.5
+            JD = 2400000.5 + gravtk.time.convert_delta_time(
+                obp.time * to_secs,
+                epoch1=epoch1,
+                epoch2=(1858, 11, 17, 0, 0, 0),
+                scale=1.0 / 86400.0,
             )
             # convert from Julian days to calendar dates
             YY, MM, DD, hh, mm, ss = gravtk.time.convert_julian(
@@ -234,35 +239,29 @@ def ecco_read_realtime(
             obp_anomaly.time = gravtk.time.convert_calendar_decimal(
                 YY, MM, day=DD, hour=hh, minute=mm, second=ss
             )
+
+            # colatitude in radians
+            theta = np.radians(90.0 - obp.lat)
+            # radius of curvature in prime vertical direction (east-west)
+            N = a_axis / np.sqrt(1.0 - e12 * np.cos(theta) ** 2.0)
+            # radius of curvature in meridional direction (north-south)
+            M = (a_axis * (1.0 - e12)) / np.power(
+                1.0 - e12 * np.cos(theta) ** 2, 1.5
+            )
+            # calculate area of grid cells
+            area = (M * dth) * (N * np.sin(theta) * dphi)
             for t in range(0, nt):
                 # the global area average of each OBP map is removed
                 total_area = 0.0
                 total_newton = 0.0
                 for k in range(0, nlat):
-                    # Grid point areas (ellipsoidal)
-                    theta = np.radians(90.0 - obp.lat[k])
-                    phi = np.radians(obp.lon)
-                    area = (
-                        np.sin(theta)
-                        * np.sqrt(
-                            (a_axis**2)
-                            * (b_axis**2)
-                            * (
-                                (np.sin(theta) ** 2) * (np.cos(phi) ** 2)
-                                + (np.sin(theta) ** 2) * (np.sin(phi) ** 2)
-                            )
-                            + (a_axis**4) * (np.cos(theta) ** 2)
-                        )
-                        * dphi
-                        * dth[k]
-                    )
                     # calculate the grid point weight in newtons
-                    newtons = obp.data[k, :, t] * area
+                    newtons = obp.data[k, :, t] * area[k]
                     # finding ocean points at each lat
                     (ocean_points,) = np.nonzero(~obp.mask[k, :, t])
-                    # total area
-                    total_area += np.sum(area[ocean_points])
-                    # total weight
+                    # total area of ocean points for latitude band
+                    total_area += area[k] * len(ocean_points)
+                    # total weight in newtons
                     total_newton += np.sum(newtons[ocean_points])
                 # remove global area average of each OBP map
                 ratio = total_newton / total_area
@@ -320,11 +319,11 @@ def ecco_read_realtime(
 
             # Calculating the monthly averages
             # data files cover the first 10 days of the next year
-            (ind_start_year,) = np.nonzero(YY == YY[0])
+            ind_start_year = np.flatnonzero(YY == YY[0])
             uniq_months = np.unique(MM[ind_start_year])
             for t, mm in enumerate(uniq_months):
                 # Calculating the monthly anomaly
-                (indices,) = np.nonzero(MM == mm)
+                indices = np.flatnonzero(MM == mm)
                 obp_monthly_anomaly = obp_anomaly.mean(indices=indices)
                 obp_monthly_anomaly.update_mask()
                 # output to file
@@ -355,6 +354,7 @@ def arguments():
         'model',
         type=str,
         nargs='+',
+        metavar='MODEL',
         default=['kf080i', 'dr080i'],
         choices=['kf080i', 'dr080i'],
         help='ECCO Near Real-Time Model',

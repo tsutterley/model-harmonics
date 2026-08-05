@@ -141,7 +141,7 @@ def gldas_mean_monthly(
 ):
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[VERBOSE])
+    logger = gravtk.utilities.build_logger(__name__, level=loglevels[VERBOSE])
 
     # Version flags
     V1, V2 = (f'_V{VERSION}', '') if (VERSION == '1') else ('', f'.{VERSION}')

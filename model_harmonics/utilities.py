@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 utilities.py
-Written by Tyler Sutterley (10/2024)
+Written by Tyler Sutterley (07/2026)
 Download and management utilities for syncing time and auxiliary files
 Adds additional modules to the gravity_toolkit utilities
 
@@ -10,6 +10,9 @@ PYTHON DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 07/2026: add functions to list from UCAR GDEX filelist servers
+        verbose output of GES DISC on-the-fly subsetting request URLs
+        add function to get package data path
     Updated 10/2024: update CMR search utility to replace deprecated scrolling
         https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html
     Updated 11/2023: updated ssl context to fix deprecation error
@@ -28,6 +31,26 @@ UPDATE HISTORY:
 # extend gravity_toolkit utilities
 from __future__ import annotations
 from gravity_toolkit.utilities import *
+
+
+# PURPOSE: get absolute path within a package from a relative path
+def get_data_path(relpath: list | str | pathlib.Path):
+    """
+    Get the absolute path within a package from a relative path
+
+    Parameters
+    ----------
+    relpath: list, str or pathlib.Path
+        relative path
+    """
+    # current file path
+    filename = inspect.getframeinfo(inspect.currentframe()).filename
+    filepath = pathlib.Path(filename).absolute().parent
+    if isinstance(relpath, list):
+        # use *splat operator to extract from list
+        return filepath.joinpath(*relpath)
+    elif isinstance(relpath, str):
+        return filepath.joinpath(relpath)
 
 
 # PURPOSE: get the git hash value
@@ -164,8 +187,13 @@ def gesdisc_list(
         # Create and submit request.
         request = urllib2.Request(posixpath.join(*HOST))
         response = urllib2.urlopen(request, timeout=timeout)
-    except (urllib2.HTTPError, urllib2.URLError):
-        raise Exception('List error from {0}'.format(posixpath.join(*HOST)))
+    except urllib2.HTTPError as exc:
+        logging.debug(exc.code)
+        raise
+    except urllib2.URLError as exc:
+        logging.debug(exc.reason)
+        exc.message = f'Load error from {posixpath.join(*HOST)}'
+        raise
     else:
         # read and parse request for files (column names and modified times)
         tree = lxml.etree.parse(response, parser)
@@ -189,6 +217,89 @@ def gesdisc_list(
             lastmod = [lastmod[indice] for indice in i]
         # return the list of column names and last modified times
         return (colnames, lastmod)
+
+
+def ucar_list(
+    HOST: str | list,
+    tdclass: str = 'File Name',
+    timeout: int | None = None,
+    context: ssl.SSLContext = _default_ssl_context,
+    parser=lxml.etree.HTMLParser(),
+    format: str = '%Y-%m-%d',
+    pattern: str = '',
+    sort: bool = False,
+):
+    """
+    List a directory on UCAR GDEX filelist servers
+
+    Parameters
+    ----------
+    HOST: str or list
+        remote http host path
+    tdclass: str, default "File Name"
+        class for HTML cell elements
+    timeout: int or NoneType, default None
+        timeout in seconds for blocking operations
+    context: obj, default model_harmonics.utilities._default_ssl_context
+        SSL context for ``urllib`` opener object
+    parser: obj, default lxml.etree.HTMLParser()
+        HTML parser for ``lxml``
+    format: str, default '%Y-%m-%d'
+        format for input time string
+    pattern: str, default ''
+        regular expression pattern for reducing list
+    sort: bool, default False
+        sort output list
+
+    Returns
+    -------
+    colnames: list
+        column names in a directory
+    collastmod: list
+        last modification times for items in the directory
+    """
+    # verify inputs for remote http host
+    if isinstance(HOST, str):
+        HOST = url_split(HOST)
+    # try listing from http
+    try:
+        # Create and submit request.
+        request = urllib2.Request(posixpath.join(*HOST))
+        response = urllib2.urlopen(request, timeout=timeout, context=context)
+    except urllib2.HTTPError as exc:
+        logging.debug(exc.code)
+        raise
+    except urllib2.URLError as exc:
+        logging.debug(exc.reason)
+        exc.message = f'Load error from {posixpath.join(*HOST)}'
+        raise
+    else:
+        # read and parse request for files (column names and modified times)
+        tree = lxml.etree.parse(response, parser)
+        # columns are in 'File Name' cells
+        # column links do not have target attributes (used for metadata)
+        colnames = tree.xpath(
+            f'//td[@class="{tdclass}"]//a[not(@target)]/@href'
+        )
+        # get the Unix timestamp value for a modification time
+        collastmod = [
+            get_unix_time(i, format=format)
+            for i in tree.xpath('//td[@class="Date Archived"]/text()')
+        ]
+        # reduce using regular expression pattern
+        if pattern:
+            i = [i for i, f in enumerate(colnames) if re.search(pattern, f)]
+            # reduce list of column names and last modified times
+            colnames = [colnames[indice] for indice in i]
+            collastmod = [collastmod[indice] for indice in i]
+        # sort the list
+        if sort:
+            i = [i for i, j in sorted(enumerate(colnames), key=lambda i: i[1])]
+            # sort list of column names and last modified times
+            colnames = [colnames[indice] for indice in i]
+            collastmod = [collastmod[indice] for indice in i]
+        # return the list of column names and last modified times
+        return (colnames, collastmod)
 
 
 # PURPOSE: filter the CMR json response for desired data files
@@ -316,7 +427,7 @@ def cmr(
     """
     # create logger
     loglevel = logging.INFO if verbose else logging.CRITICAL
-    logging.basicConfig(stream=fid, level=loglevel)
+    logger = build_logger(__name__, level=loglevel, stream=fid)
     # build urllib2 opener with SSL context
     # https://docs.python.org/3/howto/urllib2.html#id5
     handler = []
@@ -444,4 +555,5 @@ def build_request(
     kwargs['VARIABLES'] = ','.join(variables)
     # return the formatted request url
     request_url = api_host + urlencode(kwargs)
+    logging.info(f'GES DISC OTF request={request_url}')
     return request_url

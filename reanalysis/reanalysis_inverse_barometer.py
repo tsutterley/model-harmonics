@@ -1,15 +1,17 @@
 #!/usr/bin/env python
 """
 reanalysis_inverse_barometer.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (07/2026)
 Reads hourly mean sea level pressure fields from reanalysis and
     calculates the inverse-barometer response
 
-INPUTS:
-    Reanalysis model to run
-    ERA-Interim: http://apps.ecmwf.int/datasets/data/interim-full-moda
-    ERA5: http://apps.ecmwf.int/data-catalogues/era5/?class=ea
-    MERRA-2: https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/
+Reanalysis models:
+    ERA-Interim:
+        http://apps.ecmwf.int/datasets/data/interim-full-moda
+    ERA5:
+        http://apps.ecmwf.int/data-catalogues/era5/?class=ea
+    MERRA-2:
+        https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/
 
 COMMAND LINE OPTIONS:
     -D X, --directory X: Working data directory
@@ -38,6 +40,8 @@ REFERENCES:
         https://doi.org/10.1007/978-3-211-33545-1
 
 UPDATE HISTORY:
+    Updated 07/2026: use struct dictionary to define netCDF4 parameters
+        use authalic area for the grid cell areas
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: use full path to output file in verbose logging
     Updated 12/2022: single implicit import of spherical harmonic tools
@@ -51,6 +55,7 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
+import os
 import re
 import logging
 import netCDF4
@@ -62,29 +67,23 @@ import gravity_toolkit as gravtk
 import model_harmonics as mdlhmc
 
 
-# PURPOSE: read land sea mask to get indices of oceanic values
-def ncdf_landmask(FILENAME, MASKNAME, OCEAN):
-    logging.debug(str(FILENAME))
-    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
-        landsea = np.squeeze(fileID.variables[MASKNAME][:].copy())
-    return landsea == OCEAN
-
-
-# PURPOSE: read reanalysis mean sea level pressure
-def ncdf_mean_pressure(FILENAME, VARNAME, LONNAME, LATNAME):
-    logging.debug(str(FILENAME))
-    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
-        # extract pressure and remove singleton dimensions
-        mean_pressure = np.array(fileID.variables[VARNAME][:].squeeze())
-        longitude = fileID.variables[LONNAME][:].squeeze()
-        latitude = fileID.variables[LATNAME][:].squeeze()
-    return (mean_pressure, longitude, latitude)
+# PURPOSE: keep track of threads
+def info(args):
+    logger = logging.getLogger(__name__)
+    logger.info(pathlib.Path(sys.argv[0]).name)
+    logger.info(args)
+    logger.info(f'module name: {__name__}')
+    if hasattr(os, 'getppid'):
+        logger.info(f'parent process: {os.getppid():d}')
+    logger.info(f'process id: {os.getpid():d}')
 
 
 # PURPOSE:  calculate the instantaneous inverse barometer response
 def reanalysis_inverse_barometer(
     base_dir, MODEL, YEAR=None, RANGE=None, DENSITY=None, MODE=0o775
 ):
+    # get logger
+    logger = logging.getLogger(__name__)
     # directory setup
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
     ddir = base_dir.joinpath(MODEL)
@@ -105,7 +104,7 @@ def reanalysis_inverse_barometer(
         VARNAME = 'msl'
         LONNAME = 'longitude'
         LATNAME = 'latitude'
-        TIMENAME = 'time'
+        TIMENAME = 'valid_time'
         IBNAME = 'ib'
         UNITS = 'm'
         # hours since 1900-01-01 00:00:0.0
@@ -157,6 +156,36 @@ def reanalysis_inverse_barometer(
         MASKNAME = 'FROCEAN'
         OCEAN = 1
 
+    # dictionary defining output structure
+    struct = dict(
+        dimensions=(TIMENAME, LATNAME, LONNAME),
+        variables={
+            IBNAME: (TIMENAME, LATNAME, LONNAME),
+        },
+    )
+    # dictionary defining file-level and variable attributes
+    attributes = dict(ROOT={})
+    # reference attribute
+    REFERENCE = f'Output from {pathlib.Path(sys.argv[0]).name}'
+    attributes['ROOT']['reference'] = REFERENCE
+    # variable attributes
+    attributes[LONNAME] = dict(
+        long_name='Longitude',
+        units='degrees_east',
+    )
+    attributes[LATNAME] = dict(
+        long_name='Latitude',
+        units='degrees_north',
+    )
+    attributes[TIMENAME] = dict(
+        long_name=TIME_LONGNAME,
+    )
+    attributes[IBNAME] = dict(
+        long_name='Instantaneous_inverse_barometer_(IB)_response',
+        units=UNITS,
+        density=DENSITY,
+    )
+
     # read mean pressure field
     mean_file = ddir.joinpath(input_mean_file.format(*RANGE))
     mean_pressure, lon, lat = ncdf_mean_pressure(
@@ -174,28 +203,21 @@ def reanalysis_inverse_barometer(
     # calculate colatitude
     gridtheta = np.radians(90.0 - gridlat)
 
-    # ellipsoidal parameters of WGS84 ellipsoid
-    # semimajor axis of the ellipsoid [m]
-    a_axis = 6378137.0
-    # flattening of the ellipsoid
-    flat = 1.0 / 298.257223563
-    # semiminor axis of the ellipsoid [m]
-    b_axis = (1.0 - flat) * a_axis
-    # calculate grid areas globally
-    AREA = (
-        dphi
-        * dth
-        * np.sin(gridtheta)
-        * np.sqrt(
-            (a_axis**2)
-            * (b_axis**2)
-            * (
-                (np.sin(gridtheta) ** 2) * (np.cos(gridphi) ** 2)
-                + (np.sin(gridtheta) ** 2) * (np.sin(gridphi) ** 2)
-            )
-            + (a_axis**4) * (np.cos(gridtheta) ** 2)
-        )
-    )
+    # get reference parameters for ellipsoid
+    ellipsoid_params = mdlhmc.datum(ellipsoid='WGS84')
+    # semimajor and semiminor axes of the ellipsoid [m]
+    a_axis = ellipsoid_params.a_axis
+    # first numerical eccentricity
+    ecc1 = ellipsoid_params.ecc1
+    e12 = ecc1**2.0
+    # convert from geodetic latitude to geocentric latitude
+    # radius of curvature in prime vertical direction (east-west)
+    N = a_axis / np.sqrt(1.0 - e12 * np.cos(gridtheta) ** 2.0)
+    # radius of curvature in meridional direction (north-south)
+    M = a_axis * (1.0 - e12) / (1.0 - e12 * np.cos(gridtheta) ** 2) ** 1.5
+    # calculate area of each grid cell
+    AREA = (M * dth) * (N * np.sin(gridtheta) * dphi)
+
     # read land-sea mask to find ocean values
     # ocean pressure points will be based on reanalysis mask
     MASK = ncdf_landmask(ddir.joinpath(input_mask_file), MASKNAME, OCEAN)
@@ -241,6 +263,7 @@ def reanalysis_inverse_barometer(
             dinput = {}
             dinput[TIMENAME] = np.copy(fileID.variables[TIMENAME][:])
             TIME_UNITS = fileID.variables[TIMENAME].units
+            attributes[TIMENAME]['units'] = TIME_UNITS
             # copy latitude and longitude
             dinput[LONNAME] = lon.copy()
             dinput[LATNAME] = lat.copy()
@@ -275,100 +298,35 @@ def reanalysis_inverse_barometer(
                 pressure, AveRmvd = (None, None)
             # calculate inverse barometer response
             dinput[IBNAME] = -SLP * (DENSITY * gs) ** -1
-            # output to file
-            ncdf_IB_write(
-                dinput,
-                fill_value,
-                FILENAME=output_file,
-                IBNAME=IBNAME,
-                LONNAME=LONNAME,
-                LATNAME=LATNAME,
-                TIMENAME=TIMENAME,
-                TIME_UNITS=TIME_UNITS,
-                TIME_LONGNAME=TIME_LONGNAME,
-                UNITS=UNITS,
-                DENSITY=DENSITY,
-            )
+            # replace masks
+            dinput[IBNAME].data[dinput[IBNAME].mask] = fill_value
+            # write structured data to netCDF4 file
+            mdlhmc.spatial.to_netCDF4(output_file, dinput, attributes, struct)
             # change permissions mode
             output_file.chmod(mode=MODE)
 
 
-# PURPOSE: write output inverse barometer fields data to file
-def ncdf_IB_write(
-    dinput,
-    fill_value,
-    FILENAME=None,
-    IBNAME=None,
-    LONNAME=None,
-    LATNAME=None,
-    TIMENAME=None,
-    TIME_UNITS=None,
-    TIME_LONGNAME=None,
-    UNITS=None,
-    DENSITY=None,
-):
-    # opening NetCDF file for writing
-    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME, 'w', format='NETCDF4')
+# PURPOSE: read land sea mask to get indices of oceanic values
+def ncdf_landmask(FILENAME, MASKNAME, OCEAN):
+    # get logger
+    logger = logging.getLogger(__name__)
+    logger.debug(str(FILENAME))
+    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
+        landsea = np.squeeze(fileID.variables[MASKNAME][:].copy())
+    return landsea == OCEAN
 
-    # Defining the NetCDF dimensions
-    for key in [LONNAME, LATNAME, TIMENAME]:
-        fileID.createDimension(key, len(dinput[key]))
 
-    # defining the NetCDF variables
-    nc = {}
-    nc[LATNAME] = fileID.createVariable(
-        LATNAME, dinput[LATNAME].dtype, (LATNAME,)
-    )
-    nc[LONNAME] = fileID.createVariable(
-        LONNAME, dinput[LONNAME].dtype, (LONNAME,)
-    )
-    nc[TIMENAME] = fileID.createVariable(
-        TIMENAME, dinput[TIMENAME].dtype, (TIMENAME,)
-    )
-    nc[IBNAME] = fileID.createVariable(
-        IBNAME,
-        dinput[IBNAME].dtype,
-        (
-            TIMENAME,
-            LATNAME,
-            LONNAME,
-        ),
-        fill_value=fill_value,
-        zlib=True,
-    )
-    # filling NetCDF variables
-    for key, val in dinput.items():
-        nc[key][:] = val.copy()
-
-    # Defining attributes for longitude and latitude
-    nc[LONNAME].long_name = 'Longitude'
-    nc[LONNAME].units = 'degrees_east'
-    nc[LATNAME].long_name = 'Latitude'
-    nc[LATNAME].units = 'degrees_north'
-    # Defining attributes for time
-    nc[TIMENAME].units = TIME_UNITS
-    nc[TIMENAME].long_name = TIME_LONGNAME
-    # Defining attributes for inverse barometer effect
-    nc[IBNAME].long_name = 'Instantaneous_inverse_barometer_(IB)_response'
-    nc[IBNAME].units = UNITS
-    nc[IBNAME].density = DENSITY
-
-    # add software information
-    fileID.software_reference = mdlhmc.version.project_name
-    fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
-    # date created
-    fileID.date_created = datetime.datetime.now().isoformat()
-
-    # Output NetCDF structure information
-    logging.info(str(FILENAME))
-    logging.info(list(fileID.variables.keys()))
-
-    # Closing the NetCDF file
-    fileID.close()
-    # clear nc dictionary variable
-    nc = None
+# PURPOSE: read reanalysis mean sea level pressure
+def ncdf_mean_pressure(FILENAME, VARNAME, LONNAME, LATNAME):
+    # get logger
+    logger = logging.getLogger(__name__)
+    logger.debug(str(FILENAME))
+    with netCDF4.Dataset(FILENAME, mode='r') as fileID:
+        # extract pressure and remove singleton dimensions
+        mean_pressure = np.array(fileID.variables[VARNAME][:].squeeze())
+        longitude = fileID.variables[LONNAME][:].squeeze()
+        latitude = fileID.variables[LATNAME][:].squeeze()
+    return (mean_pressure, longitude, latitude)
 
 
 # PURPOSE: create argument parser
@@ -387,6 +345,7 @@ def arguments():
         'model',
         type=str,
         nargs='+',
+        metavar='MODEL',
         default=['ERA5', 'MERRA-2'],
         choices=choices,
         help='Reanalysis Model',
@@ -457,7 +416,9 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = gravtk.utilities.build_logger(
+        __name__, level=loglevels[args.verbose]
+    )
 
     # for each reanalysis model
     for MODEL in args.model:

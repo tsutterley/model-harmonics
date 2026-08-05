@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 noaa_cdc_ncep_ftp.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (08/2026)
 
 Syncs NOAA-DOE-2 surface reanalysis outputs with the NOAA CDC ftp server
     ftp://ftp.cdc.noaa.gov/Datasets/ncep.reanalysis2.dailyavgs/surface/
@@ -35,6 +35,7 @@ PROGRAM DEPENDENCIES:
     utilities.py: download and management utilities for syncing files
 
 UPDATE HISTORY:
+    Updated 08/2026: change formatting and output of file logs
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 12/2022: single implicit import of spherical harmonic tools
     Updated 11/2022: use f-strings for formatting verbose or ascii output
@@ -75,21 +76,35 @@ def noaa_cdc_ncep_ftp(
     # check if log directory exists and recursively create if not
     DIRECTORY.mkdir(mode=MODE, parents=True, exist_ok=True)
 
+    # set the model name
+    MODEL = 'NCEP-DOE-2'
     # create log file with list of synchronized files (or print to terminal)
     if LOG:
         # output to log file
         # format: NOAA_CDC_NCEP-DOE-2_sync_2002-04-01.log
         today = time.strftime('%Y-%m-%d', time.localtime())
-        output_logfile = f'NOAA_CDC_NCEP-DOE-2_sync_{today}.log'
-        LOGFILE = DIRECTORY.joinpath(output_logfile)
-        fid1 = LOGFILE.open(mode='w', encoding='utf8')
-        logging.basicConfig(stream=fid1, level=logging.INFO)
-        logging.info(f'NOAA CDC Sync Log ({today})')
-        logging.info('PRODUCT: NCEP-DOE-2')
+        output_logfile = f'NOAA_CDC_{MODEL}_sync_{today}.log'
+        LOGFILE = gravtk.utilities.get_cache_path(output_logfile)
+        # create a unique log and open the log file
+        fid1 = gravtk.utilities.create_unique_file(LOGFILE, mode='x')
+        # build logger for outputting to log file
+        logger = gravtk.utilities.build_logger(
+            __name__,
+            level=logging.INFO,
+            stream=fid1,
+            format='%(message)s (%(levelname)s)',
+        )
+        logger.info(f'NOAA CDC Sync Log ({today})')
+        logger.info(f'Filename: {pathlib.Path(sys.argv[0]).name}')
     else:
-        # standard output (terminal output)
+        # build logger for standard output (terminal output)
         fid1 = sys.stdout
-        logging.basicConfig(stream=fid1, level=logging.INFO)
+        logger = gravtk.utilities.build_logger(
+            __name__, level=logging.INFO, stream=fid1
+        )
+
+    # log the product and version
+    logger.info(f'Product: {MODEL}')
 
     # remote directory for data
     HOST = [
@@ -153,13 +168,13 @@ def noaa_cdc_ncep_ftp(
     # close log file and set permissions level to MODE
     if LOG:
         fid1.close()
-        LOGFILE.chmod(mode=MODE)
+        os.chmod(fid1.name, mode=MODE)
 
 
 # PURPOSE: create argument parser
 def arguments():
     parser = argparse.ArgumentParser(
-        description="""Syncs NOAA-DOE-2 surface reanalysis
+        description="""Syncs NOAA surface reanalysis
             outputs from NOAA CDC ftp server
             """
     )

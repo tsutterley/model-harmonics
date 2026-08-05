@@ -55,11 +55,13 @@ import gravity_toolkit as gravtk
 
 # PURPOSE: read variables from ERA5 P-E files
 def read_era5_variables(era5_flux_file):
+    # get logger
+    logger = logging.getLogger(__name__)
     # python dictionary of output variables
     dinput = {}
     # read each variable of interest in ERA5 flux file
     era5_flux_file = pathlib.Path(era5_flux_file).expanduser().absolute()
-    logging.debug(str(era5_flux_file))
+    logger.debug(str(era5_flux_file))
     with netCDF4.Dataset(era5_flux_file, mode='r') as fileID:
         # extract geolocation variables
         dinput['latitude'] = fileID.variables['latitude'][:].copy()
@@ -67,14 +69,11 @@ def read_era5_variables(era5_flux_file):
         # convert time from netCDF4 units to Julian Days
         date_string = fileID.variables['time'].units
         epoch, to_secs = gravtk.time.parse_date_string(date_string)
-        dinput['time'] = (
-            gravtk.time.convert_delta_time(
-                to_secs * fileID.variables['time'][:],
-                epoch1=epoch,
-                epoch2=(1858, 11, 17, 0, 0, 0),
-                scale=1.0 / 86400.0,
-            )
-            + 2400000.5
+        dinput['time'] = 2400000.5 + gravtk.time.convert_delta_time(
+            to_secs * fileID.variables['time'][:],
+            epoch1=epoch,
+            epoch2=(1858, 11, 17, 0, 0, 0),
+            scale=1.0 / 86400.0,
         )
         # read each variable of interest in ERA5 flux file
         for key in ['tp', 'e']:
@@ -83,11 +82,10 @@ def read_era5_variables(era5_flux_file):
             if fileID.variables[key].ndim == 4:
                 dinput[key] = ncdf_expver(fileID, key)
             else:
-                dinput[key] = np.ma.array(
-                    fileID.variables[key][:].squeeze(),
-                    fill_value=fileID.variables[key]._FillValue,
-                )
-            dinput[key].mask = dinput[key].data == dinput[key].fill_value
+                dinput[key] = (fileID.variables[key][:].squeeze(),)
+            # update mask variable
+            fill_value = fileID.variables[key]._FillValue
+            dinput[key] = np.ma.masked_equal(dinput[key], fill_value)
     # return the output variables
     return dinput
 
@@ -96,18 +94,14 @@ def read_era5_variables(era5_flux_file):
 # ERA5 expver dimension (denotes mix of ERA5 and ERA5T)
 def ncdf_expver(fileID, VARNAME):
     ntime, nexp, nlat, nlon = fileID.variables[VARNAME].shape
-    fill_value = fileID.variables[VARNAME]._FillValue
     # reduced output
-    output = np.ma.zeros((ntime, nlat, nlon))
-    output.fill_value = fill_value
+    output = np.zeros((ntime, nlat, nlon))
     for t in range(ntime):
         # iterate over expver slices to find valid outputs
         for j in range(nexp):
             # check if any are valid for expver
             if np.any(fileID.variables[VARNAME][t, j, :, :]):
                 output[t, :, :] = fileID.variables[VARNAME][t, j, :, :]
-    # update mask variable
-    output.mask = output.data == output.fill_value
     # return the reduced output variable
     return output
 
@@ -118,7 +112,7 @@ def era5_smb_mean(
 ):
     # create logger for verbosity level
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[VERBOSE])
+    logger = gravtk.utilities.build_logger(__name__, level=loglevels[VERBOSE])
 
     # directory setup
     DIRECTORY = pathlib.Path(DIRECTORY).expanduser().absolute()
@@ -152,7 +146,7 @@ def era5_smb_mean(
     for Y in range(int(RANGE[0]), int(RANGE[-1]) + 1):
         # full path for flux file
         era5_flux_file = DIRECTORY.joinpath(f'ERA5-Monthly-P-E-{Y:4d}.nc')
-        logging.debug(str(era5_flux_file))
+        logger.debug(str(era5_flux_file))
         if not era5_flux_file.exists():
             msg = f'File {str(era5_flux_file)} not in file system'
             raise FileNotFoundError(msg)
@@ -199,8 +193,7 @@ def era5_smb_mean(
             count += 1.0
 
     # convert from totals to means
-    indy, indx = np.nonzero(np.logical_not(era5_mean.mask))
-    era5_mean.data[indy, indx] /= count
+    era5_mean = era5_mean.scale(1.0 / count)
     era5_mean.update_mask()
     era5_mean.time /= count
 

@@ -106,7 +106,7 @@ def greens_kernel(LMAX, SPACING=[], WIDTH=[], LOVE=None, **kwargs):
     # create a grid of coordinates
     gridx, gridy = np.meshgrid(X, Y)
     # calculate distance from central point
-    D = np.sqrt(gridx**2 + gridy**2)
+    D = np.hypot(gridx, gridy)
     # allocate for output Green's function
     nx = np.int64(W[0] // dx) + 1
     ny = np.int64(W[1] // dy) + 1

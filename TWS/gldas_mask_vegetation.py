@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 gldas_mask_vegetation.py
-Written by Tyler Sutterley (05/2023)
+Written by Tyler Sutterley (07/2026)
 
 Creates a mask for GLDAS data using the GLDAS vegetation type binary files
     https://ldas.gsfc.nasa.gov/gldas/GLDASvegetation.php
@@ -23,6 +23,7 @@ PYTHON DEPENDENCIES:
         https://unidata.github.io/netcdf4-python/netCDF4/index.html
 
 UPDATE HISTORY:
+    Updated 07/2026: output using structured dictionary with netCDF4 parameters
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 03/2023: use full path to output file in verbose logging
     Updated 12/2022: single implicit import of spherical harmonic tools
@@ -38,17 +39,18 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import time
 import logging
-import netCDF4
 import pathlib
 import argparse
 import numpy as np
 import model_harmonics as mdlhmc
+from gravity_toolkit.utilities import build_logger
 
 
 # Read the GLDAS vegetation index and create a mask defining each type
 def gldas_mask_vegetation(ddir, SPACING=None, MODE=0o775):
+    # get logger
+    logger = logging.getLogger(__name__)
     # verify input data directory
     ddir = pathlib.Path(ddir).expanduser().absolute()
     # parameters for each grid spacing
@@ -74,56 +76,23 @@ def gldas_mask_vegetation(ddir, SPACING=None, MODE=0o775):
     # latitude and longitude
     dinput['longitude'] = longlimit_west + np.arange(nx) * dx
     dinput['latitude'] = latlimit_south + np.arange(ny) * dy
-    # read MODIS vegetation index binary file
-    logging.info(str(input_file))
-    binary_input = np.fromfile(input_file, '>f4')
-    dinput['index'] = np.zeros((ny, nx), dtype=np.uint16)
-    dinput['index'][:, :] = binary_input.reshape(ny, nx)
-    # write to output netCDF4 (.nc)
-    ncdf_index_write(dinput, FILENAME=output_file)
-    # change the permission level to MODE
-    output_file.chmod(mode=MODE)
 
-
-# PURPOSE: write vegetation index data to netCDF4 file
-def ncdf_index_write(dinput, FILENAME=None):
-    # opening NetCDF file for writing
-    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME, 'w', format='NETCDF4')
-
-    # Defining the NetCDF dimensions
-    LATNAME, LONNAME = ('latitude', 'longitude')
-    for key in [LONNAME, LATNAME]:
-        fileID.createDimension(key, len(dinput[key]))
-
-    # defining the NetCDF variables
-    nc = {}
-    nc[LATNAME] = fileID.createVariable(
-        LATNAME, dinput[LATNAME].dtype, (LATNAME,)
+    # dictionary describing the output netCDF4 structure
+    struct = dict(
+        dimensions=('latitude', 'longitude'),
+        variables={
+            'index': ('latitude', 'longitude'),
+        },
     )
-    nc[LONNAME] = fileID.createVariable(
-        LONNAME, dinput[LONNAME].dtype, (LONNAME,)
-    )
-    nc['index'] = fileID.createVariable(
-        'index',
-        dinput['index'].dtype,
-        (
-            LATNAME,
-            LONNAME,
-        ),
-        fill_value=0,
-        zlib=True,
-    )
-    # filling NetCDF variables
-    for key, val in dinput.items():
-        nc[key][:] = np.copy(val)
-
-    # Defining attributes for longitude and latitude
-    nc[LONNAME].long_name = 'longitude'
-    nc[LONNAME].units = 'degrees_east'
-    nc[LATNAME].long_name = 'latitude'
-    nc[LATNAME].units = 'degrees_north'
-    nc['index'].long_name = 'vegetation_index'
+    # list of input files for provenance
+    lineage = []
+    lineage.append(input_file.name)
+    # netCDF4 attributes for output files
+    attributes = dict(ROOT={})
+    reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
+    attributes['ROOT']['reference'] = reference
+    attributes['longitude'] = dict(long_name='longitude', units='degrees_east')
+    attributes['latitude'] = dict(long_name='latitude', units='degrees_north')
     description = []
     description.append('1: Evergreen Needleleaf Forest')
     description.append('2: Evergreen Broadleaf Forest')
@@ -145,21 +114,21 @@ def ncdf_index_write(dinput, FILENAME=None):
     description.append('18: Wooded Tundra')
     description.append('19: Mixed Tundra')
     description.append('20: Bare Ground Tundra')
-    nc['index'].description = ', '.join(description)
+    attributes['index'] = dict(
+        long_name='vegetation_index', description=', '.join(description)
+    )
 
-    # add software information
-    fileID.software_reference = mdlhmc.version.project_name
-    fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
-    # date created
-    fileID.date_created = time.strftime('%Y-%m-%d', time.localtime())
-
-    # Output NetCDF structure information
-    logging.info(str(FILENAME))
-    logging.info(list(fileID.variables.keys()))
-
-    # Closing the NetCDF file
-    fileID.close()
+    # read MODIS vegetation index binary file
+    logger.info(str(input_file))
+    lineage.append(input_file.name)
+    binary_input = np.fromfile(input_file, '>f4')
+    dinput['index'] = np.zeros((ny, nx), dtype=np.uint16)
+    dinput['index'][:, :] = binary_input.reshape(ny, nx)
+    # write to output netCDF4 (.nc)
+    attributes['ROOT']['lineage'] = lineage
+    mdlhmc.spatial.to_netCDF4(output_file, dinput, attributes, struct)
+    # change the permission level to MODE
+    output_file.chmod(mode=MODE)
 
 
 # PURPOSE: create argument parser
@@ -218,7 +187,7 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = build_logger(__name__, level=loglevels[args.verbose])
 
     # run program
     gldas_mask_vegetation(args.directory, SPACING=args.spacing, MODE=args.mode)

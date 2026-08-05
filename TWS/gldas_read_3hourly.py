@@ -152,7 +152,7 @@ def gldas_read_3hourly(
 ):
     # create logger for verbosity level
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[VERBOSE])
+    logger = gravtk.utilities.build_logger(__name__, level=loglevels[VERBOSE])
 
     # Version flags
     V1, V2 = (f'_V{VERSION}', '') if (VERSION == '1') else ('', f'.{VERSION}')
@@ -239,7 +239,7 @@ def gldas_read_3hourly(
             # 1) Specified to overwrite
             # 2) Output file currently doesn't exist
             if not (CLOBBER or TEST):
-                logging.info(f'{output_file} --> File exists')
+                logger.info(f'{output_file} --> File exists')
                 continue
             # output twc spatial field
             s = gravtk.spatial()

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-cds_reanalysis_retrieve.py (05/2023)
+cds_reanalysis_retrieve.py (07/2026)
 Retrieves ERA5 reanalysis netCDF4 datasets from the CDS Web API
 https://cds.climate.copernicus.eu/user/register
 https://cds.climate.copernicus.eu/cdsapp/#!/terms/licence-to-use-copernicus-products
@@ -35,6 +35,7 @@ PYTHON DEPENDENCIES:
         https://pypi.org/project/cdsapi/
 
 UPDATE HISTORY:
+    Updated 07/2026: add geopotential to invariant parameters to retrieve
     Updated 05/2023: use pathlib to define and operate on paths
     Updated 11/2022: use f-strings for formatting verbose or ascii output
     Updated 05/2022: use argparse descriptions within sphinx documentation
@@ -47,7 +48,7 @@ UPDATE HISTORY:
     Updated 01/2021: added command line options for CDS api credentials
     Updated 12/2020: using argparse to set parameters
     Forked 01/2020 from ecmwf_reanalysis_retrieve.py
-    Updated 07/2018: close the server connection after completion of program
+    Updated 07/2018: close the client connection after completion of program
         added 2-metre temperature (T2m) field as output
     Updated 03/2018: added option --mode to set the permissions level
     Written 03/2018
@@ -62,9 +63,9 @@ import pathlib
 import argparse
 
 
-# PURPOSE: retrieve ERA5 level data for a set of years from CDS server
+# PURPOSE: retrieve ECMWF data using the CDS Web API
 def cds_reanalysis_retrieve(
-    base_dir, server, YEAR, SURFACE=[], LEVEL=False, INVARIANT=True, MODE=0o775
+    base_dir, client, YEAR, SURFACE=[], LEVEL=False, INVARIANT=True, MODE=0o775
 ):
     # verify input data directory
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
@@ -107,19 +108,17 @@ def cds_reanalysis_retrieve(
         # for each surface variable to retrieve
         for surf in SURFACE:
             output_file = ddir.joinpath(f'{MODEL}-Monthly-{surf}-{y:4d}.nc')
-            server.retrieve(
-                'reanalysis-era5-single-levels-monthly-means',
-                {
-                    'year': str(y),
-                    'month': months,
-                    'time': '00:00',
-                    'grid': model_grid,
-                    'variable': surface_variable_dict[surf],
-                    'format': 'netcdf',
-                    'product_type': 'monthly_averaged_reanalysis',
-                },
-                str(output_file),
-            )
+            collection_id = 'reanalysis-era5-single-levels-monthly-means'
+            request = {
+                'year': str(y),
+                'month': months,
+                'time': '00:00',
+                'grid': model_grid,
+                'variable': surface_variable_dict[surf],
+                'format': 'netcdf',
+                'product_type': 'monthly_averaged_reanalysis',
+            }
+            client.retrieve(collection_id, request, target=str(output_file))
             # change the permissions mode to MODE
             output_file.chmod(mode=MODE)
 
@@ -127,54 +126,51 @@ def cds_reanalysis_retrieve(
         if LEVEL:
             # retrieve model temperature and specific humidity
             output_file = ddir.joinpath(f'{MODEL}-Monthly-Levels-{y:4d}.nc')
-            server.retrieve(
-                'reanalysis-era5-complete',
-                {
-                    'class': model_class,
-                    'dataset': model_dataset,
-                    'date': d,
-                    'expver': '1',
-                    'grid': model_grid,
-                    'levelist': model_levelist,
-                    'levtype': 'ml',
-                    'param': '130.128/133.128',
-                    'stream': 'moda',
-                    'type': 'an',
-                    'format': 'netcdf',
-                },
-                str(output_file),
-            )
+            collection_id = 'reanalysis-era5-complete'
+            request = {
+                'class': model_class,
+                'dataset': model_dataset,
+                'date': d,
+                'expver': '1',
+                'grid': model_grid,
+                'levelist': model_levelist,
+                'levtype': 'ml',
+                'param': '130.128/133.128',
+                'stream': 'moda',
+                'type': 'an',
+                'format': 'netcdf',
+            }
+            client.retrieve(collection_id, request, target=str(output_file))
             # change the permissions mode to MODE
             output_file.chmod(mode=MODE)
 
     # if retrieving the model invariant parameters
     if INVARIANT:
         output_file = ddir.joinpath(f'{MODEL}-Invariant-Parameters.nc')
-        server.retrieve(
-            'reanalysis-era5-single-levels-monthly-means',
-            {
-                'class': model_class,
-                'dataset': model_dataset,
-                'year': '1979',
-                'month': '01',
-                'time': '00:00',
-                'expver': '1',
-                'grid': model_grid,
-                'levtype': 'sfc',
-                'variable': [
-                    'angle_of_sub_gridscale_orography',
-                    'anisotropy_of_sub_gridscale_orography',
-                    'land_sea_mask',
-                    'orography',
-                    'slope_of_sub_gridscale_orography',
-                    'standard_deviation_of_filtered_subgrid_orography',
-                    'standard_deviation_of_orography',
-                ],
-                'product_type': 'monthly_averaged_reanalysis',
-                'format': 'netcdf',
-            },
-            str(output_file),
-        )
+        collection_id = 'reanalysis-era5-single-levels-monthly-means'
+        request = {
+            'class': model_class,
+            'dataset': model_dataset,
+            'year': '1979',
+            'month': '01',
+            'time': '00:00',
+            'expver': '1',
+            'grid': model_grid,
+            'levtype': 'sfc',
+            'variable': [
+                'angle_of_sub_gridscale_orography',
+                'anisotropy_of_sub_gridscale_orography',
+                'geopotential',
+                'land_sea_mask',
+                'orography',
+                'slope_of_sub_gridscale_orography',
+                'standard_deviation_of_filtered_subgrid_orography',
+                'standard_deviation_of_orography',
+            ],
+            'product_type': 'monthly_averaged_reanalysis',
+            'format': 'netcdf',
+        }
+        client.retrieve(collection_id, request, target=str(output_file))
         # change the permissions mode to MODE
         output_file.chmod(mode=MODE)
 
@@ -230,8 +226,10 @@ def arguments():
         '--surface',
         '-S',
         type=str,
-        nargs='+',
+        nargs='?',
+        metavar='VARIABLE',
         choices=choices,
+        const=[],
         default=['SP'],
         help='Retrieve model surface variables',
     )
@@ -277,22 +275,22 @@ def main():
     parser = arguments()
     args, _ = parser.parse_known_args()
 
-    # open connection with CDS api server
-    server = cdsapi.Client(
+    # open connection with CDS api client
+    client = cdsapi.Client(
         url=args.api_url, key=args.api_key, timeout=args.timeout
     )
     # run program for ERA5
     cds_reanalysis_retrieve(
         args.directory,
-        server,
+        client,
         args.year,
         SURFACE=args.surface,
         LEVEL=args.level,
         INVARIANT=args.invariant,
         MODE=args.mode,
     )
-    # close connection with CDS api server
-    server = None
+    # close connection with CDS api client
+    client = None
 
 
 # run main program

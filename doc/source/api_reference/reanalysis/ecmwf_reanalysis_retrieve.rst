@@ -2,7 +2,7 @@
 ``ecmwf_reanalysis_retrieve.py``
 ================================
 
-- Retrieves ERA-Interim reanalysis netCDF4 datasets from the ECMWF Web API
+- Retrieves ERA5 reanalysis netCDF4 datasets from the ECMWF datastore API
 
     * 2-metre Temperature (t2m)
     * Surface Pressure (ps)

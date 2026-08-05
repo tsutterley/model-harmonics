@@ -69,13 +69,26 @@ from __future__ import print_function
 
 import sys
 import io
+import os
 import re
 import pathlib
 import logging
 import argparse
 import datetime
+import traceback
 import numpy as np
 import gravity_toolkit as gravtk
+
+
+# PURPOSE: keep track of threads
+def info(args):
+    logger = logging.getLogger(__name__)
+    logger.info(pathlib.Path(sys.argv[0]).name)
+    logger.info(args)
+    logger.info(f'module name: {__name__}')
+    if hasattr(os, 'getppid'):
+        logger.info(f'parent process: {os.getppid():d}')
+    logger.info(f'process id: {os.getpid():d}')
 
 
 # PURPOSE: convert seismic data to spherical harmonics
@@ -89,6 +102,8 @@ def seismic_monthly_harmonics(
     DATAFORM=None,
     MODE=0o775,
 ):
+    # get logger
+    logger = logging.getLogger(__name__)
     # directory setup
     base_dir = pathlib.Path(base_dir).expanduser().absolute()
     ddir = base_dir.joinpath(MODEL)
@@ -97,7 +112,7 @@ def seismic_monthly_harmonics(
     # regular expression pattern for finding files
     rx = re.compile(r'^T\d{2}_(\w{3}\d{4})\.txt$', re.IGNORECASE)
     # find files within directory
-    input_files = [f for f in ddir.iterdir() if rx.match(f.name)]
+    input_list = [f for f in ddir.iterdir() if rx.match(f.name)]
 
     # output file attributes
     attributes = {}
@@ -110,7 +125,10 @@ def seismic_monthly_harmonics(
 
     # read load love numbers and calculate Legendre polynomials
     LOVE = gravtk.load_love_numbers(
-        LMAX, LOVE_NUMBERS=LOVE_NUMBERS, REFERENCE=REFERENCE, FORMAT='class'
+        LMAX,
+        LOVE_NUMBERS=LOVE_NUMBERS,
+        REFERENCE=REFERENCE,
+        FORMAT='class',
     )
     # add attributes for earth parameters
     attributes['earth_model'] = LOVE.model
@@ -131,9 +149,11 @@ def seismic_monthly_harmonics(
     # output suffix for data formats
     suffix = dict(ascii='txt', netCDF4='nc', HDF5='H5')[DATAFORM]
 
+    # list of output files
+    output_list = []
     # for each input file
-    for seismic_file in sorted(input_files):
-        logging.info(str(seismic_file))
+    for seismic_file in sorted(input_list):
+        logger.info(str(seismic_file))
         # add attributes for input file
         attributes['lineage'] = seismic_file.name
         # extract date from file name
@@ -176,6 +196,8 @@ def seismic_monthly_harmonics(
         Ylms.to_file(output_file, format=DATAFORM)
         # set the permissions level of the output file to MODE
         output_file.chmod(mode=MODE)
+        # append to list of output files
+        output_list.append(output_file)
 
     # open output date and index files
     output_date_file = ddir.joinpath(f'SEISMIC_mv{mv}_DATES.txt')
@@ -187,13 +209,13 @@ def seismic_monthly_harmonics(
 
     # output file format for spherical harmonic data
     args = (mv, LMAX, order_str, suffix)
-    regex_pattern = r'seismic_mv{0}_CLM_L{1:d}{2}_(\d+).{3}'
-    output_regex = re.compile(regex_pattern.format(*args))
+    pattern = r'seismic_mv{0}_CLM_L{1:d}{2}_(\d+).{3}'.format(*args)
+    regex = re.compile(pattern, re.VERBOSE)
     # find all output harmonic files (not just ones created in run)
-    output_files = [f for f in ddir.iterdir() if re.match(output_regex, f.name)]
+    output_files = [f for f in ddir.iterdir() if regex.match(f.name)]
     for fi in sorted(output_files):
         # extract GRACE month
-        (grace_month,) = np.array(re.findall(output_regex, fi.name), dtype=int)
+        (grace_month,) = np.array(regex.findall(fi.name), dtype=int)
         YY, MM = gravtk.time.grace_to_calendar(grace_month)
         (tdec,) = gravtk.time.convert_calendar_decimal(YY, MM)
         # print date, GRACE month and calendar month to date file
@@ -207,6 +229,8 @@ def seismic_monthly_harmonics(
     # set the permissions level of the output date and index files to MODE
     output_date_file.chmod(mode=MODE)
     output_index_file.chmod(mode=MODE)
+    # return the list of output files
+    return output_list
 
 
 # PURPOSE: create argument parser
@@ -288,6 +312,15 @@ def arguments():
         choices=['ascii', 'netCDF4', 'HDF5'],
         help='Input and output data format',
     )
+    # Output log file for each job in forms
+    # validrun_2002-04-01T00:00:00_PID-00000.log
+    # failedrun_2002-04-01T00:00:00_PID-00000.log
+    parser.add_argument(
+        '--log',
+        default=False,
+        action='store_true',
+        help='Output log file for each job',
+    )
     # print information about each input and output file
     parser.add_argument(
         '--verbose',
@@ -316,21 +349,50 @@ def main():
 
     # create logger
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[args.verbose])
+    logger = gravtk.utilities.build_logger(
+        __name__, level=loglevels[args.verbose]
+    )
 
-    # for each reanalysis model
+    # log the command line parameters
+    info(args)
+    # for each seismic model
     for MODEL in args.model:
-        # run program
-        seismic_monthly_harmonics(
-            args.directory,
-            MODEL,
-            LMAX=args.lmax,
-            MMAX=args.mmax,
-            LOVE_NUMBERS=args.love,
-            REFERENCE=args.reference,
-            DATAFORM=args.format,
-            MODE=args.mode,
-        )
+        # run program with parameters
+        try:
+            output_files = seismic_monthly_harmonics(
+                args.directory,
+                MODEL,
+                LMAX=args.lmax,
+                MMAX=args.mmax,
+                LOVE_NUMBERS=args.love,
+                REFERENCE=args.reference,
+                DATAFORM=args.format,
+                MODE=args.mode,
+            )
+        except:
+            # if there has been an error exception
+            # print the type, value, and stack trace of the
+            # current exception being handled
+            logger.critical(f'process id {os.getpid():d} failed')
+            logger.error(traceback.format_exc())
+            if args.log:  # write failed job completion log file
+                logfile = gravtk.utilities.create_log_file(
+                    'failedrun',
+                    filename=pathlib.Path(sys.argv[0]).name,
+                    arguments=vars(args),
+                    model=MODEL,
+                )
+                logger.info(logfile)
+        else:
+            if args.log:  # write successful job completion log file
+                logfile = gravtk.utilities.create_log_file(
+                    'validrun',
+                    filename=pathlib.Path(sys.argv[0]).name,
+                    arguments=vars(args),
+                    output=output_files,
+                    model=MODEL,
+                )
+                logger.info(logfile)
 
 
 # run main program

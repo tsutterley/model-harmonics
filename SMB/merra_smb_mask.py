@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 merra_smb_mask.py
-Written by Tyler Sutterley (09/2025)
+Written by Tyler Sutterley (07/2026)
 
 Creates a mask for MERRA-2 land ice data using a set of shapefiles
 https://goldsmr4.gesdisc.eosdis.nasa.gov/data/MERRA2_MONTHLY/
@@ -38,6 +38,7 @@ PROGRAM DEPENDENCIES:
     spatial.py: spatial data class for reading, writing and processing data
 
 UPDATE HISTORY:
+    Updated 07/2026: output using structured dictionary with netCDF4 parameters
     Updated 09/2025: use importlib to attempt to import dependencies
     Updated 03/2023: use full path to output file in verbose logging
     Updated 12/2022: single implicit import of spherical harmonic tools
@@ -58,10 +59,8 @@ UPDATE HISTORY:
 from __future__ import print_function
 
 import sys
-import time
 import pyproj
 import logging
-import netCDF4
 import pathlib
 import argparse
 import numpy as np
@@ -77,9 +76,10 @@ shapely.geometry = mdlhmc.utilities.import_dependency('shapely.geometry')
 
 # PURPOSE: read shapefile to find points within a specified region
 def read_shapefile(input_shapefile, AREA=None, BUFFER=None):
+    # get logger
+    logger = logging.getLogger(__name__)
     # reading shapefile
-    input_shapefile = pathlib.Path(input_shapefile).expanduser().absolute()
-    logging.debug(str(input_shapefile))
+    logger.debug(str(input_shapefile))
     shape = fiona.open(str(input_shapefile))
     # create projection object from shapefile
     crs = pyproj.CRS.from_string(shape.crs['init'])
@@ -117,7 +117,7 @@ def merra_smb_mask(
 ):
     # create logger for verbosity level
     loglevels = [logging.CRITICAL, logging.INFO, logging.DEBUG]
-    logging.basicConfig(level=loglevels[VERBOSE])
+    logger = gravtk.utilities.build_logger(__name__, level=loglevels[VERBOSE])
 
     # create output directory if non-existent
     output_file.parent.mkdir(mode=MODE, parents=True, exist_ok=True)
@@ -149,6 +149,25 @@ def merra_smb_mask(
     # projection object for converting from latitude/longitude
     crs1 = pyproj.CRS.from_epsg(4326)
 
+    # dictionary describing the output netCDF4 structure
+    struct = dict(
+        dimensions=('lat', 'lon'),
+        variables={
+            'mask': ('lat', 'lon'),
+        },
+    )
+    # list of input files for provenance
+    lineage = []
+    lineage.append(input_file.name)
+    # netCDF4 attributes for output files
+    attributes = dict(ROOT={})
+    reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
+    attributes['ROOT']['reference'] = reference
+    attributes['ROOT']['title'] = 'MERRA-2 land ice mask'
+    attributes['lon'] = dict(long_name='longitude', units='degrees_east')
+    attributes['lat'] = dict(long_name='latitude', units='degrees_north')
+    attributes['mask'] = dict(long_name='land_sea_mask')
+
     # dictionary with output variables
     output = {}
     # copy geolocation variables from input file
@@ -159,8 +178,10 @@ def merra_smb_mask(
     # iterate over shapefiles
     for i, SHAPEFILE in enumerate(SHAPEFILES):
         # read shapefile to find points within region
+        SHAPEFILE = pathlib.Path(SHAPEFILE).expanduser().absolute()
         poly_obj, crs2 = read_shapefile(SHAPEFILE, AREA=AREA, BUFFER=BUFFER)
-        logging.info(f'Polygon Count: {len(poly_obj):d}')
+        lineage.append(SHAPEFILE.name)
+        logger.info(f'Polygon Count: {len(poly_obj):d}')
         # pyproj transformer for converting from latitude/longitude
         # to projection of input shapefile
         transformer = pyproj.Transformer.from_crs(crs1, crs2, always_xy=True)
@@ -182,64 +203,10 @@ def merra_smb_mask(
                 int_area = poly_obj.intersection(patch).area
                 output['mask'][indy, indx] = (int_area / patch.area) > 0.15
     # write to output netCDF4 (.nc)
-    ncdf_mask_write(output, FILENAME=output_file)
+    attributes['ROOT']['lineage'] = lineage
+    mdlhmc.spatial.to_netCDF4(output_file, output, attributes, struct)
     # change the permission level to MODE
     output_file.chmod(mode=MODE)
-
-
-# PURPOSE: write land sea mask to netCDF4 file
-def ncdf_mask_write(dinput, FILENAME=None):
-    # opening NetCDF file for writing
-    FILENAME = pathlib.Path(FILENAME).expanduser().absolute()
-    fileID = netCDF4.Dataset(FILENAME, 'w', format='NETCDF4')
-
-    # Defining the NetCDF dimensions
-    LATNAME, LONNAME = ('lat', 'lon')
-    for key in [LONNAME, LATNAME]:
-        fileID.createDimension(key, len(dinput[key]))
-
-    # defining the NetCDF variables
-    nc = {}
-    nc[LATNAME] = fileID.createVariable(
-        LATNAME, dinput[LATNAME].dtype, (LATNAME,)
-    )
-    nc[LONNAME] = fileID.createVariable(
-        LONNAME, dinput[LONNAME].dtype, (LONNAME,)
-    )
-    nc['mask'] = fileID.createVariable(
-        'mask',
-        dinput['mask'].dtype,
-        (
-            LATNAME,
-            LONNAME,
-        ),
-        fill_value=0,
-        zlib=True,
-    )
-    # filling NetCDF variables
-    for key, val in dinput.items():
-        nc[key][:] = np.copy(val)
-
-    # Defining attributes for longitude and latitude
-    nc[LONNAME].long_name = 'longitude'
-    nc[LONNAME].units = 'degrees_east'
-    nc[LATNAME].long_name = 'latitude'
-    nc[LATNAME].units = 'degrees_north'
-    nc['mask'].long_name = 'land_sea_mask'
-
-    # add software information
-    fileID.software_reference = mdlhmc.version.project_name
-    fileID.software_version = mdlhmc.version.full_version
-    fileID.reference = f'Output from {pathlib.Path(sys.argv[0]).name}'
-    # date created
-    fileID.date_created = time.strftime('%Y-%m-%d', time.localtime())
-
-    # Output NetCDF structure information
-    logging.info(str(FILENAME))
-    logging.info(list(fileID.variables.keys()))
-
-    # Closing the NetCDF file
-    fileID.close()
 
 
 # PURPOSE: create argument parser
