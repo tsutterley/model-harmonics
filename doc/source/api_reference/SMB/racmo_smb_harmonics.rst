@@ -7,7 +7,7 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/SMB/racmo_smb_harmonics.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/SMB/racmo_smb_harmonics.py
 
 Calling Sequence
 ################
@@ -18,7 +18,7 @@ Command Line Options
 ####################
 
 .. argparse::
-    :filename: racmo_smb_harmonics.py
+    :module: model_harmonics.SMB.racmo_smb_harmonics
     :func: arguments
     :prog: racmo_smb_harmonics.py
     :nodescription:

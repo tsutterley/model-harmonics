@@ -1,6 +1,6 @@
-=================
-``greens_kernel``
-=================
+=================================
+``model_harmonics.greens_kernel``
+=================================
 
 - Calculate a Green's function kernel for a given set of Love Numbers
 

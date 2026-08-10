@@ -8,13 +8,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/OBP/ecco_mean_realtime.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/OBP/ecco_mean_realtime.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: ecco_mean_realtime.py
+    :module: model_harmonics.OBP.ecco_mean_realtime
     :func: arguments
     :prog: ecco_mean_realtime.py
     :nodescription:

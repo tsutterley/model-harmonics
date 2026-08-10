@@ -6,13 +6,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/TWS/era5_land_mask_arctic.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/TWS/era5_land_mask_arctic.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: era5_land_mask_arctic.py
+    :module: model_harmonics.TWS.era5_land_mask_arctic
     :func: arguments
     :prog: era5_land_mask_arctic.py
     :nodescription:

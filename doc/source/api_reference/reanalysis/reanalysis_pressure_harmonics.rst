@@ -6,13 +6,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/reanalysis/reanalysis_pressure_harmonics.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/reanalysis/reanalysis_pressure_harmonics.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: reanalysis_pressure_harmonics.py
+    :module: model_harmonics.reanalysis.reanalysis_pressure_harmonics
     :func: arguments
     :prog: reanalysis_pressure_harmonics.py
     :nodescription:

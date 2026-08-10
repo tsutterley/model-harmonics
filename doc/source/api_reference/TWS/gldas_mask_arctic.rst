@@ -6,13 +6,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/TWS/gldas_mask_arctic.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/TWS/gldas_mask_arctic.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: gldas_mask_arctic.py
+    :module: model_harmonics.TWS.gldas_mask_arctic
     :func: arguments
     :prog: gldas_mask_arctic.py
     :nodescription:

@@ -6,13 +6,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/SMB/merra_smb_mask.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/SMB/merra_smb_mask.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: merra_smb_mask.py
+    :module: model_harmonics.SMB.merra_smb_mask
     :func: arguments
     :prog: merra_smb_mask.py
     :nodescription:

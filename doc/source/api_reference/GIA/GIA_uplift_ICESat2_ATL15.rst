@@ -6,13 +6,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/GIA/GIA_uplift_ICESat2_ATL15.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/GIA/GIA_uplift_ICESat2_ATL15.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: GIA_uplift_ICESat2_ATL15.py
+    :module: model_harmonics.GIA.GIA_uplift_ICESat2_ATL15
     :func: arguments
     :prog: GIA_uplift_ICESat2_ATL15.py
     :nodescription:

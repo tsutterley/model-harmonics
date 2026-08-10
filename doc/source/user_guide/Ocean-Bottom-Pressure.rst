@@ -13,7 +13,7 @@ ECCO
 Uses outputs from the NASA-JPL `Estimating the Circulation and Climate of the Ocean (ECCO) <https://ecco-group.org/>`_ model.
 For ECCO near real-time Kalman-filtered (kf080i) and Rauch-Tung-Striebel (RTS) smoother (dr080i) models, reads 12-hour ocean bottom pressure data (OBP) and calculates monthly averages.
 For ECCO version 4 models, reads monthly ocean bottom pressure potential anomalies and converts to estimates of absolute ocean bottom pressure (OBP).
-Near real-time models are downloaded using the :py:mod:`jpl_ecco_sync.py` program, monthly Cube92 models are calculated using the :py:mod:`jpl_ecco_cube92_sync.py` program, interpolated Version 4 models are downloaded using the :py:mod:`jpl_ecco_v4_sync.py` program, and monthly Version 4 and 5 models in LLC tile format are downloaded using the :py:mod:`jpl_ecco_llc_sync.py` program.
+Near real-time models are downloaded using the :py:mod:`jpl_ecco_realtime_sync.py` program, monthly Cube92 models are calculated using the :py:mod:`jpl_ecco_cube92_sync.py` program, interpolated Version 4 models are downloaded using the :py:mod:`jpl_ecco_v4_sync.py` program, and monthly Version 4 and 5 models in LLC tile format are downloaded using the :py:mod:`jpl_ecco_llc_sync.py` program.
 
 Background
 ==========
@@ -62,21 +62,21 @@ Framework
             shape=box
             style="filled"
             color="#7570b3"]
-        M [URL="https://github.com/tsutterley/model-harmonics/blob/main/OBP/ecco_mean_realtime.py"
+        M [URL="https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/OBP/ecco_mean_realtime.py"
             label="Calculate Temporal Mean"
             fontname="Lato"
             fontsize=11
             shape=box
             style="filled"
             color="gray"]
-        R [URL="https://github.com/tsutterley/model-harmonics/blob/main/OBP/ecco_read_realtime.py"
+        R [URL="https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/OBP/ecco_read_realtime.py"
             label="Calculate Monthly Anomalies"
             fontname="Lato"
             fontsize=11
             shape=box
             style="filled"
             color="gray"]
-        H [URL="https://github.com/tsutterley/model-harmonics/blob/main/OBP/ecco_monthly_harmonics.py"
+        H [URL="https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/OBP/ecco_monthly_harmonics.py"
             label="Calculate Spherical Harmonics"
             fontname="Lato"
             fontsize=11
@@ -90,7 +90,7 @@ Framework
             shape=box
             style="filled"
             color="#1b9e77"]
-        T [URL="https://github.com/tsutterley/model-harmonics/blob/main/scripts/least_squares_mascon_timeseries.py"
+        T [URL="https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/scripts/least_squares_mascon_timeseries.py"
             label="Time Series"
             fontname="Lato"
             fontsize=11

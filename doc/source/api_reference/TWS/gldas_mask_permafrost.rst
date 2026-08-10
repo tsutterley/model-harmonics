@@ -12,13 +12,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/TWS/gldas_mask_permafrost.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/TWS/gldas_mask_permafrost.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: gldas_mask_permafrost.py
+    :module: model_harmonics.TWS.gldas_mask_permafrost
     :func: arguments
     :prog: gldas_mask_permafrost.py
     :nodescription:

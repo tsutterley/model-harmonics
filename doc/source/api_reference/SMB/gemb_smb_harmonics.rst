@@ -7,13 +7,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/SMB/gemb_smb_harmonics.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/SMB/gemb_smb_harmonics.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: gemb_smb_harmonics.py
+    :module: model_harmonics.SMB.gemb_smb_harmonics
     :func: arguments
     :prog: gemb_smb_harmonics.py
     :nodescription:

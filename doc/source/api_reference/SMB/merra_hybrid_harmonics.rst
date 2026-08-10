@@ -8,13 +8,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/SMB/merra_hybrid_harmonics.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/SMB/merra_hybrid_harmonics.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: merra_hybrid_harmonics.py
+    :module: model_harmonics.SMB.merra_hybrid_harmonics
     :func: arguments
     :prog: merra_hybrid_harmonics.py
     :nodescription:

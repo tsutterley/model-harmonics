@@ -7,13 +7,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/SMB/era5_smb_mean.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/SMB/era5_smb_mean.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: era5_smb_mean.py
+    :module: model_harmonics.SMB.era5_smb_mean
     :func: arguments
     :prog: era5_smb_mean.py
     :nodescription:

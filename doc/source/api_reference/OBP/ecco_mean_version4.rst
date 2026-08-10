@@ -7,13 +7,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/OBP/ecco_mean_version4.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/OBP/ecco_mean_version4.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: ecco_mean_version4.py
+    :module: model_harmonics.OBP.ecco_mean_version4
     :func: arguments
     :prog: ecco_mean_version4.py
     :nodescription:

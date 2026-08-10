@@ -6,13 +6,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/reanalysis/reanalysis_inverse_barometer.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/reanalysis/reanalysis_inverse_barometer.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: reanalysis_inverse_barometer.py
+    :module: model_harmonics.reanalysis.reanalysis_inverse_barometer
     :func: arguments
     :prog: reanalysis_inverse_barometer.py
     :nodescription:

@@ -7,13 +7,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/reanalysis/model_level_coefficients.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/reanalysis/model_level_coefficients.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: model_level_coefficients.py
+    :module: model_harmonics.reanalysis.model_level_coefficients
     :func: arguments
     :prog: model_level_coefficients.py
     :nodescription:

@@ -6,13 +6,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/SMB/era5_smb_harmonics.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/SMB/era5_smb_harmonics.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: era5_smb_harmonics.py
+    :module: model_harmonics.SMB.era5_smb_harmonics
     :func: arguments
     :prog: era5_smb_harmonics.py
     :nodescription:

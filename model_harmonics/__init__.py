@@ -21,5 +21,14 @@ from model_harmonics.gen_point_pressure import gen_point_pressure
 from model_harmonics.gen_pressure_stokes import gen_pressure_stokes
 from model_harmonics.greens_kernel import greens_kernel
 
+# executable scripts
+from model_harmonics import GIA
+from model_harmonics import OBP
+from model_harmonics import reanalysis
+from model_harmonics import scripts
+from model_harmonics import seismic
+from model_harmonics import SMB
+from model_harmonics import TWS
+
 # get version number
 __version__ = model_harmonics.version.version
