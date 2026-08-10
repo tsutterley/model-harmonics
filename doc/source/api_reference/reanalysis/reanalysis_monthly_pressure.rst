@@ -12,9 +12,9 @@ Calling Sequence
 ################
 
 .. argparse::
-    :module: model_harmonics.reanalysis.reanalysis_mean_pressure
+    :module: model_harmonics.reanalysis.reanalysis_monthly_pressure
     :func: arguments
-    :prog: reanalysis_mean_pressure.py
+    :prog: reanalysis_monthly_pressure.py
     :nodescription:
     :nodefault:
 

@@ -144,7 +144,7 @@ grib = ["cython", "eccodes", "pygrib"]
 "gldas_mask_vegetation.py" = "model_harmonics.TWS.gldas_mask_vegetation:main"
 "gldas_mean_monthly.py" = "model_harmonics.TWS.gldas_mean_monthly:main"
 "gldas_monthly_harmonics.py" = "model_harmonics.TWS.gldas_monthly_harmonics:main"
-"gldas_read_3hourly.py" = "model_harmonics.TWS.gldas_read_monthly:main"
+"gldas_read_3hourly.py" = "model_harmonics.TWS.gldas_read_3hourly:main"
 "gldas_read_monthly.py" = "model_harmonics.TWS.gldas_read_monthly:main"
 "gldas_scaling_factors.py" = "model_harmonics.TWS.gldas_scaling_factors:main"
 
