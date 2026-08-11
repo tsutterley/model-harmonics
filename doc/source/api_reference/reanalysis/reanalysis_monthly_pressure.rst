@@ -6,15 +6,15 @@ Reads daily atmospheric pressure fields from reanalysis and outputs monthly aver
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/reanalysis/reanalysis_monthly_pressure.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/reanalysis/reanalysis_monthly_pressure.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: reanalysis_mean_pressure.py
+    :module: model_harmonics.reanalysis.reanalysis_monthly_pressure
     :func: arguments
-    :prog: reanalysis_mean_pressure.py
+    :prog: reanalysis_monthly_pressure.py
     :nodescription:
     :nodefault:
 

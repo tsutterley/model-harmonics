@@ -6,13 +6,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/TWS/gldas_monthly_harmonics.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/TWS/gldas_monthly_harmonics.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: gldas_monthly_harmonics.py
+    :module: model_harmonics.TWS.gldas_monthly_harmonics
     :func: arguments
     :prog: gldas_monthly_harmonics.py
     :nodescription:

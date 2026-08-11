@@ -1,6 +1,6 @@
-===========
-``spatial``
-===========
+===========================
+``model_harmonics.spatial``
+===========================
 
 Functions for reading, writing and processing spatial data
 

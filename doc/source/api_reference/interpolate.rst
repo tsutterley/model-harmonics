@@ -1,6 +1,6 @@
-================
-``interpolate``
-================
+===============================
+``model_harmonics.interpolate``
+===============================
 
 - Routines to interpolate data from pre-computed spatial grids
 

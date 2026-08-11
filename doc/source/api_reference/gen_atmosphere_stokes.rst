@@ -1,6 +1,6 @@
-=========================
-``gen_atmosphere_stokes``
-=========================
+=========================================
+``model_harmonics.gen_atmosphere_stokes``
+=========================================
 
 - Converts 3D atmospheric geopotential height and pressure difference fields from the spatial domain to spherical harmonic coefficients :cite:p:`Boy:2005el,Swenson:2002kf`
 

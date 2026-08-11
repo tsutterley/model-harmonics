@@ -6,13 +6,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/OBP/ecco_geoid_llc_tiles.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/OBP/ecco_geoid_llc_tiles.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: ecco_geoid_llc_tiles.py
+    :module: model_harmonics.OBP.ecco_geoid_llc_tiles
     :func: arguments
     :prog: ecco_geoid_llc_tiles.py
     :nodescription:

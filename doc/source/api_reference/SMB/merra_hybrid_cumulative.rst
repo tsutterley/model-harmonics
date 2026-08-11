@@ -6,13 +6,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/SMB/merra_hybrid_cumulative.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/SMB/merra_hybrid_cumulative.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: merra_hybrid_cumulative.py
+    :module: model_harmonics.SMB.merra_hybrid_cumulative
     :func: arguments
     :prog: merra_hybrid_cumulative.py
     :nodescription:

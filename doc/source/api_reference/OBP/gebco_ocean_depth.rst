@@ -6,10 +6,10 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/OBP/gebco_ocean_depth.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/OBP/gebco_ocean_depth.py
 
 .. argparse::
-    :filename: gebco_ocean_depth.py
+    :module: model_harmonics.OBP.gebco_ocean_depth
     :func: arguments
     :prog: gebco_ocean_depth.py
     :nodescription:

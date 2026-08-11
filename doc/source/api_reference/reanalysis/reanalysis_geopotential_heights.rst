@@ -7,13 +7,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/reanalysis/reanalysis_geopotential_heights.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/reanalysis/reanalysis_geopotential_heights.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: reanalysis_geopotential_heights.py
+    :module: model_harmonics.reanalysis.reanalysis_geopotential_heights
     :func: arguments
     :prog: reanalysis_geopotential_heights.py
     :nodescription:

@@ -6,13 +6,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/SMB/racmo_downscaled_mean.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/SMB/racmo_downscaled_mean.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: racmo_downscaled_mean.py
+    :module: model_harmonics.SMB.racmo_downscaled_mean
     :func: arguments
     :prog: racmo_downscaled_mean.py
     :nodescription:

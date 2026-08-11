@@ -6,13 +6,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/SMB/racmo_smb_cumulative.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/SMB/racmo_smb_cumulative.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: racmo_smb_cumulative.py
+    :module: model_harmonics.SMB.racmo_smb_cumulative
     :func: arguments
     :prog: racmo_smb_cumulative.py
     :nodescription:

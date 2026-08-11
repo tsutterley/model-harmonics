@@ -7,13 +7,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/SMB/era5_smb_cumulative.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/SMB/era5_smb_cumulative.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: era5_smb_cumulative.py
+    :module: model_harmonics.SMB.era5_smb_cumulative
     :func: arguments
     :prog: era5_smb_cumulative.py
     :nodescription:

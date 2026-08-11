@@ -6,13 +6,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/OBP/ecco_llc_tile_harmonics.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/OBP/ecco_llc_tile_harmonics.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: ecco_llc_tile_harmonics.py
+    :module: model_harmonics.OBP.ecco_llc_tile_harmonics
     :func: arguments
     :prog: ecco_llc_tile_harmonics.py
     :nodescription:

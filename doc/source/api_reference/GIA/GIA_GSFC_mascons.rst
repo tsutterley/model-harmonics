@@ -6,13 +6,13 @@
 
 `Source code`__
 
-.. __: https://github.com/tsutterley/model-harmonics/blob/main/GIA/GIA_GSFC_mascons.py
+.. __: https://github.com/tsutterley/model-harmonics/blob/main/model_harmonics/GIA/GIA_GSFC_mascons.py
 
 Calling Sequence
 ################
 
 .. argparse::
-    :filename: GIA_GSFC_mascons.py
+    :module: model_harmonics.GIA.GIA_GSFC_mascons
     :func: arguments
     :prog: GIA_GSFC_mascons.py
     :nodescription:
