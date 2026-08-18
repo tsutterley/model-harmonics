@@ -186,9 +186,13 @@ def merra_hybrid_cumulative(
     # output area variable if applicable
     if AREA:
         struct['variables'][AREA] = ('x', 'y')
-    # dictionaries with data and attributes for output NetCDF file
+    # polar stereographic projection variable
+    struct['variables']['Polar_Stereographic'] = ()
+
+    # dictionaries with data and attributes
     fd = {}
     attrs = dict(ROOT={})
+    # list of attributes to extract from netCDF4 variables
     attributes_list = ['units', 'long_name', 'standard_name', 'comment']
     # global attributes of NetCDF file
     attrs['ROOT']['title'] = (
@@ -243,6 +247,7 @@ def merra_hybrid_cumulative(
         # Open the MERRA-2 Hybrid firn height file for reading
         input_firn_file = DIRECTORY.joinpath(firn_height_file)
         logger.debug(input_firn_file)
+        # add to the list of input files
         lineage.append(input_firn_file.name)
         if GZIP:
             # read as in-memory (diskless) netCDF4 dataset
