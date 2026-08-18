@@ -119,6 +119,7 @@ def gemb_smb_cumulative(model_file, RANGE=None, FILL_VALUE=np.nan, MODE=0o775):
         variables={
             'accum_SMB': ('time', 'y', 'x'),
             'centered_SMB': ('y', 'x'),
+            'Polar_Stereographic': (),
         },
     )
     # dictionaries with data and attributes for output NetCDF file
